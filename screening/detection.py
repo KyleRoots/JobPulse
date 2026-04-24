@@ -36,25 +36,43 @@ from vetting.resume_utils import (
 class CandidateDetectionMixin:
     """Candidate discovery from Bullhorn and ParsedEmail."""
 
-    def _should_skip_candidate(self, candidate_id: int, applied_job_id: int = None) -> bool:
+    def _should_skip_candidate(
+        self,
+        candidate_id: int,
+        applied_job_id: int = None,
+        bullhorn=None,
+    ) -> bool:
         """
-        Job-aware dedup: decide whether to skip a candidate based on their vetting history.
-        
-        Rules:
+        Job-aware dedup + recruiter-activity gate: decide whether to skip
+        a candidate based on their vetting history and recent recruiter touch.
+
+        Dedup rules (DB-only, fast path):
         - Different job → always rescreen (return False)
         - Same job within 24h → skip (return True)
         - Same job 3+ times within 7 days → skip (return True)
         - No applied_job_id context → fall back to 24h global dedup
-        
+
+        Recruiter-activity gate (Bullhorn API, slow path):
+        - If `bullhorn` is provided AND the candidate would otherwise be vetted
+          (i.e. all dedup checks passed), check Bullhorn for recent Note activity
+          by a real human (not the API user). If found → skip with INFO log.
+        - Configurable via VettingConfig:
+            recruiter_activity_check_enabled  (default 'true')
+            recruiter_activity_lookback_minutes  (default '60')
+        - Fails open: if the Bullhorn lookup errors out, candidate proceeds
+          (we'd rather over-vet than silently drop a candidate).
+
         Args:
             candidate_id: Bullhorn candidate ID
             applied_job_id: The job ID the candidate applied to (None if unknown)
-            
+            bullhorn: Optional authenticated BullhornService for the recruiter-
+                activity check. If None, the gate is skipped (DB-only dedup).
+
         Returns:
             True if candidate should be skipped, False if they should be rescreened
         """
         from datetime import timedelta
-        
+
         if not applied_job_id:
             # No job context — fall back to 24h global dedup (cross-path safety)
             recent_cutoff = datetime.utcnow() - timedelta(hours=24)
@@ -67,8 +85,12 @@ class CandidateDetectionMixin:
                 logging.debug(
                     f"Candidate {candidate_id} vetted within 24h (no job context), skipping"
                 )
-            return recent is not None
-        
+                return True
+            # Dedup passed → check recruiter-activity gate before allowing vet
+            if self._is_paused_by_recruiter_activity(bullhorn, candidate_id):
+                return True
+            return False
+
         # Rule 1: Same job within 24h → skip
         recent_cutoff = datetime.utcnow() - timedelta(hours=24)
         same_job_recent = CandidateVettingLog.query.filter(
@@ -82,7 +104,7 @@ class CandidateDetectionMixin:
                 f"Candidate {candidate_id} vetted for job {applied_job_id} within 24h, skipping"
             )
             return True
-        
+
         # Rule 2: Same job 3+ times in 7 days → skip
         week_cutoff = datetime.utcnow() - timedelta(days=7)
         same_job_week_count = CandidateVettingLog.query.filter(
@@ -97,9 +119,182 @@ class CandidateDetectionMixin:
                 f"{same_job_week_count} times in 7 days, skipping (soft cap)"
             )
             return True
-        
-        # Different job or under caps → allow rescreening
+
+        # Different job or under caps → would normally rescreen.
+        # Final gate: defer if a recruiter has been actively working this candidate.
+        if self._is_paused_by_recruiter_activity(bullhorn, candidate_id):
+            return True
+
         return False
+
+    def _is_paused_by_recruiter_activity(self, bullhorn, candidate_id: int) -> bool:
+        """
+        Wrapper for the recruiter-activity gate that respects the
+        `recruiter_activity_check_enabled` killswitch and a no-bullhorn safe path.
+
+        Returns True if the candidate should be paused (recent recruiter touch),
+        False otherwise (no activity detected, killswitch off, no bullhorn,
+        or persistent lookup failure — see _has_recent_recruiter_activity).
+        """
+        if bullhorn is None:
+            return False
+
+        # VettingConfig lookups are wrapped to fail-open: if the DB is
+        # momentarily unreachable we'd rather skip the gate (one possible
+        # spurious vet) than crash the screening worker for this candidate.
+        try:
+            enabled_raw = (VettingConfig.get_value('recruiter_activity_check_enabled')
+                           or 'true')
+            lookback_raw = VettingConfig.get_value('recruiter_activity_lookback_minutes')
+        except Exception as cfg_err:
+            logging.warning(
+                f"⚠️ Recruiter-activity gate: VettingConfig read failed "
+                f"({type(cfg_err).__name__}: {cfg_err}); failing open"
+            )
+            return False
+
+        if str(enabled_raw).strip().lower() not in ('true', '1', 'yes', 'on'):
+            return False
+
+        try:
+            lookback_min = int((lookback_raw or '60').strip())
+        except (ValueError, AttributeError):
+            lookback_min = 60
+        if lookback_min <= 0:
+            return False
+
+        active, minutes_ago = self._has_recent_recruiter_activity(
+            bullhorn, candidate_id, lookback_min
+        )
+        if active:
+            logging.info(
+                f"👤 Candidate {candidate_id}: recruiter activity within "
+                f"{minutes_ago}min (window={lookback_min}min), deferring auto-vet"
+            )
+            return True
+        return False
+
+    def _has_recent_recruiter_activity(
+        self,
+        bullhorn,
+        candidate_id: int,
+        lookback_minutes: int,
+    ) -> Tuple[bool, Optional[int]]:
+        """
+        Query Bullhorn for any Note on this candidate authored by a real human
+        (commentingPerson.id != bullhorn.user_id) within the lookback window.
+
+        Single retry on transient failures (5xx, network, JSON parse).
+        Fail-open on persistent failure: returns (False, None) and logs a
+        WARNING so operators can see when this safety net is degraded.
+
+        Args:
+            bullhorn: Authenticated BullhornService instance.
+            candidate_id: Bullhorn candidate ID.
+            lookback_minutes: How far back to look for recruiter notes.
+
+        Returns:
+            Tuple of (active, minutes_since_most_recent):
+              - (True, N)  → human note found N minutes ago, candidate paused
+              - (False, None) → no human notes in window, OR lookup failed
+                (caller should not block the vet on lookup failure)
+        """
+        api_user_id = getattr(bullhorn, 'user_id', None)
+        # If we don't know who the AI is, we can't distinguish AI notes from
+        # recruiter notes — fail open rather than blocking every vet.
+        if not api_user_id:
+            logging.debug(
+                f"Recruiter-activity check skipped for candidate {candidate_id}: "
+                f"bullhorn.user_id not set"
+            )
+            return (False, None)
+
+        since_dt = datetime.utcnow() - timedelta(minutes=lookback_minutes)
+        since_ms = int(since_dt.timestamp() * 1000)
+        url = f"{bullhorn.base_url}search/Note"
+        params = {
+            'query': (
+                f'personReference.id:{candidate_id} '
+                f'AND dateAdded:[{since_ms} TO *] '
+                f'AND isDeleted:false'
+            ),
+            'fields': 'id,dateAdded,commentingPerson(id)',
+            'count': 25,
+            'sort': '-dateAdded',
+            'BhRestToken': bullhorn.rest_token,
+        }
+
+        last_error: Optional[str] = None
+        last_status: Optional[int] = None
+
+        for attempt in (1, 2):
+            try:
+                resp = bullhorn.session.get(url, params=params, timeout=15)
+                last_status = resp.status_code
+
+                if resp.status_code == 200:
+                    try:
+                        notes = resp.json().get('data', []) or []
+                    except ValueError as parse_err:
+                        last_error = f"JSON parse error: {parse_err}"
+                        if attempt == 1:
+                            time.sleep(1)
+                            continue
+                        break
+
+                    now_ms = int(datetime.utcnow().timestamp() * 1000)
+                    for note in notes:
+                        cp = note.get('commentingPerson') or {}
+                        cp_id = cp.get('id')
+                        if cp_id is None:
+                            # Unknown author — treat conservatively as recruiter
+                            # to avoid silently bypassing the gate.
+                            note_added = note.get('dateAdded') or now_ms
+                            minutes_ago = max(0, int((now_ms - note_added) / 60000))
+                            return (True, minutes_ago)
+                        try:
+                            if int(cp_id) != int(api_user_id):
+                                note_added = note.get('dateAdded') or now_ms
+                                minutes_ago = max(0, int((now_ms - note_added) / 60000))
+                                return (True, minutes_ago)
+                        except (TypeError, ValueError):
+                            # Non-numeric author id — treat as recruiter (safer)
+                            note_added = note.get('dateAdded') or now_ms
+                            minutes_ago = max(0, int((now_ms - note_added) / 60000))
+                            return (True, minutes_ago)
+                    # All notes in window are by the API user (or no notes) → no recruiter touch
+                    return (False, None)
+
+                if 500 <= resp.status_code < 600:
+                    last_error = f"HTTP {resp.status_code}"
+                    if attempt == 1:
+                        time.sleep(1)
+                        continue
+                    break
+
+                # 4xx — non-transient, do not retry
+                last_error = f"HTTP {resp.status_code}"
+                break
+
+            except (requests.Timeout, requests.ConnectionError) as net_err:
+                last_error = f"{type(net_err).__name__}: {net_err}"
+                if attempt == 1:
+                    time.sleep(1)
+                    continue
+                break
+            except requests.RequestException as req_err:
+                last_error = f"{type(req_err).__name__}: {req_err}"
+                if attempt == 1:
+                    time.sleep(1)
+                    continue
+                break
+
+        logging.warning(
+            f"⚠️ Recruiter-activity lookup failed for candidate {candidate_id} "
+            f"after retry ({last_error}, status={last_status}); "
+            f"failing open — candidate will proceed to vet (gate degraded)"
+        )
+        return (False, None)
     
     def _fetch_latest_job_submission(
         self,
@@ -259,7 +454,8 @@ class CandidateDetectionMixin:
                 # For Online Applicants detected via Bullhorn search, we don't have the
                 # applied job ID at this stage. Use global 24h dedup as a safety net.
                 # The ParsedEmail path (primary) already handles job-aware dedup properly.
-                if self._should_skip_candidate(candidate_id):
+                # Pass bullhorn so the recruiter-activity gate can fire for this path.
+                if self._should_skip_candidate(candidate_id, bullhorn=bullhorn):
                     logging.debug(f"Candidate {candidate_id} vetted recently, skipping")
                 else:
                     new_candidates.append(candidate)
@@ -346,8 +542,8 @@ class CandidateDetectionMixin:
                     candidate['_applied_job_id'] = applied_job_id
                     candidate['_applied_job_title'] = applied_job_title or ''
 
-                # Job-aware dedup: different job = always allow; same job = apply caps
-                if self._should_skip_candidate(candidate_id, applied_job_id):
+                # Job-aware dedup + recruiter-activity gate
+                if self._should_skip_candidate(candidate_id, applied_job_id, bullhorn=bullhorn):
                     logging.debug(
                         f"Pandologic candidate {candidate_id} skipped by job-aware dedup "
                         f"(applied_job={applied_job_id})"
@@ -450,8 +646,8 @@ class CandidateDetectionMixin:
                     candidate['_applied_job_id'] = applied_job_id
                     candidate['_applied_job_title'] = applied_job_title or ''
 
-                # Job-aware dedup: different job = always allow; same job = apply caps
-                if self._should_skip_candidate(candidate_id, applied_job_id):
+                # Job-aware dedup + recruiter-activity gate
+                if self._should_skip_candidate(candidate_id, applied_job_id, bullhorn=bullhorn):
                     logging.debug(
                         f"Matador candidate {candidate_id} skipped by job-aware dedup "
                         f"(applied_job={applied_job_id})"

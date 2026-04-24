@@ -505,3 +505,308 @@ class TestJobSubmissionLookupRetry:
         assert job_id is None
         assert title == ''
         assert ok is True
+
+
+# ===========================================================================
+# 7. Recruiter-activity gate (Task D)
+# ===========================================================================
+class TestRecruiterActivityGate:
+    """
+    Tests for the recruiter-activity gate that pauses auto-vetting when a
+    real human (not the API user) has added a Bullhorn Note to the candidate
+    within the configured lookback window.
+
+    Helper under test: CandidateDetectionMixin._has_recent_recruiter_activity
+    Wrapper under test: CandidateDetectionMixin._is_paused_by_recruiter_activity
+    Integration:        CandidateDetectionMixin._should_skip_candidate(... bullhorn=)
+    """
+
+    API_USER_ID = 1147490
+
+    def _make_bullhorn(self):
+        from unittest.mock import MagicMock
+        bh = MagicMock()
+        bh.base_url = 'https://example.test/'
+        bh.rest_token = 'TEST_TOKEN'
+        bh.user_id = self.API_USER_ID
+        return bh
+
+    def _make_response(self, status_code, json_data=None, raise_value_error=False):
+        from unittest.mock import MagicMock
+        resp = MagicMock()
+        resp.status_code = status_code
+        if raise_value_error:
+            resp.json.side_effect = ValueError("not json")
+        else:
+            resp.json.return_value = json_data or {}
+        return resp
+
+    def _set_config(self, app, key, value):
+        from app import db
+        from models import VettingConfig
+        with app.app_context():
+            cfg = VettingConfig.query.filter_by(setting_key=key).first()
+            if cfg:
+                cfg.setting_value = str(value)
+            else:
+                db.session.add(VettingConfig(setting_key=key,
+                                             setting_value=str(value)))
+            db.session.commit()
+
+    # ---- _has_recent_recruiter_activity ------------------------------------
+
+    def test_recent_recruiter_note_returns_active(self, app):
+        """A human-authored note in window → (True, minutes_ago)."""
+        from datetime import datetime
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        # Note authored 5 min ago by a different user
+        five_min_ago_ms = int((datetime.utcnow().timestamp() - 300) * 1000)
+        bh.session.get.return_value = self._make_response(200, {
+            'data': [
+                {'id': 99, 'dateAdded': five_min_ago_ms,
+                 'commentingPerson': {'id': 222333}}  # not the API user
+            ]
+        })
+
+        with app.app_context():
+            active, minutes_ago = cvs._has_recent_recruiter_activity(bh, 4654705, 60)
+
+        assert active is True
+        assert minutes_ago is not None
+        assert 4 <= minutes_ago <= 6  # allow tiny clock skew
+
+    def test_only_ai_notes_returns_inactive(self, app):
+        """All notes in window are by the API user → (False, None)."""
+        from datetime import datetime
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        recent_ms = int((datetime.utcnow().timestamp() - 60) * 1000)
+        bh.session.get.return_value = self._make_response(200, {
+            'data': [
+                {'id': 1, 'dateAdded': recent_ms,
+                 'commentingPerson': {'id': self.API_USER_ID}},
+                {'id': 2, 'dateAdded': recent_ms,
+                 'commentingPerson': {'id': self.API_USER_ID}},
+            ]
+        })
+
+        with app.app_context():
+            active, minutes_ago = cvs._has_recent_recruiter_activity(bh, 999, 60)
+
+        assert active is False
+        assert minutes_ago is None
+
+    def test_no_notes_returns_inactive(self, app):
+        """No notes in window → (False, None)."""
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        bh.session.get.return_value = self._make_response(200, {'data': []})
+
+        with app.app_context():
+            active, minutes_ago = cvs._has_recent_recruiter_activity(bh, 1000, 60)
+
+        assert active is False
+        assert minutes_ago is None
+
+    def test_unknown_author_treated_as_recruiter(self, app):
+        """Note with no commentingPerson.id → treat as recruiter (conservative)."""
+        from datetime import datetime
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        recent_ms = int((datetime.utcnow().timestamp() - 120) * 1000)
+        bh.session.get.return_value = self._make_response(200, {
+            'data': [{'id': 1, 'dateAdded': recent_ms, 'commentingPerson': None}]
+        })
+
+        with app.app_context():
+            active, _ = cvs._has_recent_recruiter_activity(bh, 1, 60)
+
+        assert active is True
+
+    def test_5xx_then_success_retries(self, app):
+        """500 → retry → 200 with recruiter note → active."""
+        from datetime import datetime
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        recent_ms = int((datetime.utcnow().timestamp() - 60) * 1000)
+        bh.session.get.side_effect = [
+            self._make_response(503),
+            self._make_response(200, {'data': [
+                {'id': 1, 'dateAdded': recent_ms,
+                 'commentingPerson': {'id': 99999}}
+            ]}),
+        ]
+
+        with patch('screening.detection.time.sleep'):
+            with app.app_context():
+                active, _ = cvs._has_recent_recruiter_activity(bh, 1, 60)
+
+        assert active is True
+        assert bh.session.get.call_count == 2
+
+    def test_persistent_failure_fails_open_with_warning(self, app, caplog):
+        """5xx → retry → 5xx → fail open + WARNING."""
+        import logging
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        bh.session.get.return_value = self._make_response(502)
+
+        with patch('screening.detection.time.sleep'):
+            with app.app_context():
+                with caplog.at_level(logging.WARNING, logger='root'):
+                    active, _ = cvs._has_recent_recruiter_activity(bh, 7777, 60)
+
+        assert active is False  # fail-open: don't block the vet
+        warned = [r for r in caplog.records
+                  if r.levelno == logging.WARNING
+                  and 'Recruiter-activity lookup failed' in r.getMessage()
+                  and '7777' in r.getMessage()]
+        assert warned, "Expected WARNING with candidate id 7777"
+
+    def test_4xx_does_not_retry(self, app):
+        """4xx (e.g. 401) is non-transient — no retry, fail open."""
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        bh.session.get.return_value = self._make_response(401)
+
+        with patch('screening.detection.time.sleep') as mock_sleep:
+            with app.app_context():
+                active, _ = cvs._has_recent_recruiter_activity(bh, 1, 60)
+
+        assert active is False
+        assert bh.session.get.call_count == 1
+        mock_sleep.assert_not_called()
+
+    def test_no_user_id_skips_check(self, app):
+        """If bullhorn.user_id is unset we can't distinguish AI from human → fail open."""
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        bh.user_id = None
+
+        with app.app_context():
+            active, _ = cvs._has_recent_recruiter_activity(bh, 1, 60)
+
+        assert active is False
+        assert bh.session.get.call_count == 0  # short-circuit, no API call
+
+    # ---- _is_paused_by_recruiter_activity (wrapper + config) --------------
+
+    def test_killswitch_disabled_bypasses_check(self, app):
+        """recruiter_activity_check_enabled=false → bypass entirely."""
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        self._set_config(app, 'recruiter_activity_check_enabled', 'false')
+
+        with app.app_context():
+            paused = cvs._is_paused_by_recruiter_activity(bh, 12345)
+
+        assert paused is False
+        assert bh.session.get.call_count == 0  # never queried Bullhorn
+        self._set_config(app, 'recruiter_activity_check_enabled', 'true')
+
+    def test_lookback_zero_disables_check(self, app):
+        """recruiter_activity_lookback_minutes=0 → bypass."""
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        self._set_config(app, 'recruiter_activity_lookback_minutes', '0')
+
+        with app.app_context():
+            paused = cvs._is_paused_by_recruiter_activity(bh, 12345)
+
+        assert paused is False
+        assert bh.session.get.call_count == 0
+        self._set_config(app, 'recruiter_activity_lookback_minutes', '60')
+
+    def test_no_bullhorn_returns_false(self, app):
+        """bullhorn=None → wrapper short-circuits to False."""
+        cvs = _make_cvs()
+        with app.app_context():
+            assert cvs._is_paused_by_recruiter_activity(None, 1) is False
+
+    def test_active_recruiter_pauses(self, app, caplog):
+        """End-to-end wrapper: recruiter active → returns True + INFO log."""
+        import logging
+        from datetime import datetime
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        recent_ms = int((datetime.utcnow().timestamp() - 600) * 1000)  # 10 min ago
+        bh.session.get.return_value = self._make_response(200, {
+            'data': [{'id': 1, 'dateAdded': recent_ms,
+                      'commentingPerson': {'id': 88888}}]
+        })
+
+        with app.app_context():
+            with caplog.at_level(logging.INFO, logger='root'):
+                paused = cvs._is_paused_by_recruiter_activity(bh, 4654705)
+
+        assert paused is True
+        infos = [r for r in caplog.records
+                 if r.levelno == logging.INFO
+                 and 'recruiter activity within' in r.getMessage()
+                 and '4654705' in r.getMessage()]
+        assert infos, "Expected INFO log for paused candidate"
+
+    # ---- _should_skip_candidate integration -------------------------------
+
+    def test_skip_candidate_no_bullhorn_keeps_db_only_dedup(self, app):
+        """Without bullhorn, _should_skip_candidate uses DB-only dedup (back-compat)."""
+        cvs = _make_cvs()
+        # No vetting log → not in 24h dedup → would normally proceed
+        with app.app_context():
+            # bullhorn omitted → wrapper short-circuits → returns False
+            assert cvs._should_skip_candidate(99001, applied_job_id=42) is False
+
+    def test_skip_candidate_with_bullhorn_blocks_when_recruiter_active(self, app):
+        """With bullhorn AND recruiter recently active, candidate is skipped
+        even though DB-only dedup would let them through."""
+        from datetime import datetime
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        recent_ms = int((datetime.utcnow().timestamp() - 300) * 1000)
+        bh.session.get.return_value = self._make_response(200, {
+            'data': [{'id': 1, 'dateAdded': recent_ms,
+                      'commentingPerson': {'id': 77777}}]
+        })
+
+        with app.app_context():
+            skip = cvs._should_skip_candidate(99002, applied_job_id=42, bullhorn=bh)
+
+        assert skip is True
+
+    def test_skip_candidate_with_bullhorn_allows_when_no_activity(self, app):
+        """With bullhorn but NO recruiter notes, candidate proceeds."""
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        bh.session.get.return_value = self._make_response(200, {'data': []})
+
+        with app.app_context():
+            skip = cvs._should_skip_candidate(99003, applied_job_id=42, bullhorn=bh)
+
+        assert skip is False
+
+    def test_dedup_short_circuits_before_recruiter_check(self, app):
+        """If existing dedup says skip, we should NOT spend a Bullhorn call
+        on the recruiter check — performance-critical path."""
+        from app import db
+        from models import CandidateVettingLog
+        from datetime import datetime
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+
+        with app.app_context():
+            # Seed a recent same-job vetting log → triggers Rule 1 (24h skip)
+            log = CandidateVettingLog(
+                bullhorn_candidate_id=99004,
+                applied_job_id=42,
+                status='completed',
+                created_at=datetime.utcnow(),
+            )
+            db.session.add(log)
+            db.session.commit()
+
+            skip = cvs._should_skip_candidate(99004, applied_job_id=42, bullhorn=bh)
+
+        assert skip is True
+        # The recruiter-activity Bullhorn call should NEVER fire
+        assert bh.session.get.call_count == 0

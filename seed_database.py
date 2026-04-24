@@ -525,6 +525,11 @@ def seed_vetting_config(db, VettingConfig):
             'vetting_cutoff_date': '',             # Empty by default; user sets via UI
             # Screening quality audit
             'screening_audit_enabled': 'false',    # Off by default; user enables via UI
+            # Recruiter-activity gate (Task D) — pause auto-vet when a human
+            # recruiter has touched the candidate within the lookback window.
+            # Killswitch and tunable window so admins can adjust without a deploy.
+            'recruiter_activity_check_enabled': 'true',
+            'recruiter_activity_lookback_minutes': '60',
             # Global screening instructions — loaded from version-controlled config file
             # so a DB reset restores the full prompt instead of wiping it.
             'global_custom_requirements': _load_global_screening_prompt(),
