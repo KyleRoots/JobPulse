@@ -29,7 +29,7 @@ def vetting_settings():
     
     db = get_db()
     
-    # Get settings (batch query: 1 query instead of 6)
+    # Get settings (batch query: 1 query instead of N)
     settings = {
         'vetting_enabled': False,
         'send_recruiter_emails': False,
@@ -40,24 +40,33 @@ def vetting_settings():
         'health_alert_email': '',
         'embedding_similarity_threshold': 0.25,
         'vetting_cutoff_date': '',
-        'global_custom_requirements': ''
+        'global_custom_requirements': '',
+        # Recruiter-activity gate (Task D)
+        'recruiter_activity_check_enabled': True,
+        'recruiter_activity_lookback_minutes': 60,
     }
-    
+
     all_configs = VettingConfig.query.filter(
         VettingConfig.setting_key.in_(settings.keys())
     ).all()
     config_map = {c.setting_key: c.setting_value for c in all_configs}
-    
+
     for key in settings.keys():
         value = config_map.get(key)
         if value is not None:
-            if key in ('vetting_enabled', 'send_recruiter_emails', 'screening_audit_enabled'):
+            if key in ('vetting_enabled', 'send_recruiter_emails',
+                       'screening_audit_enabled', 'recruiter_activity_check_enabled'):
                 settings[key] = value.lower() == 'true'
-            elif key in ('match_threshold', 'batch_size'):
+            elif key in ('match_threshold', 'batch_size',
+                         'recruiter_activity_lookback_minutes'):
                 try:
                     settings[key] = int(value)
                 except (ValueError, TypeError):
-                    settings[key] = 80 if key == 'match_threshold' else 25
+                    settings[key] = (
+                        80 if key == 'match_threshold'
+                        else 25 if key == 'batch_size'
+                        else 60
+                    )
             elif key == 'embedding_similarity_threshold':
                 try:
                     settings[key] = float(value)
@@ -158,6 +167,9 @@ def save_vetting_settings():
         embedding_threshold = request.form.get('embedding_similarity_threshold', '0.25')
         vetting_cutoff = request.form.get('vetting_cutoff_date', '').strip()
         global_custom_requirements = request.form.get('global_custom_requirements', '').strip()
+        # Recruiter-activity gate (Task D)
+        recruiter_gate_enabled = 'recruiter_activity_check_enabled' in request.form
+        recruiter_lookback_raw = request.form.get('recruiter_activity_lookback_minutes', '60')
         
         # Validate threshold
         try:
@@ -192,6 +204,15 @@ def save_vetting_settings():
                 flash('Invalid cutoff date format. Use YYYY-MM-DD HH:MM:SS', 'error')
                 return redirect(url_for('vetting.vetting_settings'))
         
+        # Validate recruiter-activity lookback minutes (0 disables the gate;
+        # cap at 1440 = 24h to avoid pathological values)
+        try:
+            recruiter_lookback = int(str(recruiter_lookback_raw).strip())
+            if recruiter_lookback < 0 or recruiter_lookback > 1440:
+                recruiter_lookback = 60
+        except (ValueError, TypeError):
+            recruiter_lookback = 60
+
         # Update settings
         settings_to_save = [
             ('vetting_enabled', 'true' if vetting_enabled else 'false'),
@@ -203,7 +224,10 @@ def save_vetting_settings():
             ('health_alert_email', health_alert_email),
             ('embedding_similarity_threshold', str(emb_thresh)),
             ('vetting_cutoff_date', vetting_cutoff),
-            ('global_custom_requirements', global_custom_requirements)
+            ('global_custom_requirements', global_custom_requirements),
+            ('recruiter_activity_check_enabled',
+             'true' if recruiter_gate_enabled else 'false'),
+            ('recruiter_activity_lookback_minutes', str(recruiter_lookback)),
         ]
         
         for key, value in settings_to_save:
