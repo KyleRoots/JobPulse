@@ -45,6 +45,12 @@ logger = logging.getLogger(__name__)
 
 
 def main(hours: int, apply_changes: bool) -> int:
+    if hours <= 0:
+        logger.error("--hours must be a positive integer (got %r). Refusing to "
+                     "operate on rows from 'the future' or rows newer than 'now'.",
+                     hours)
+        return 2
+
     from app import app, db
     from models import CandidateVettingLog
 
@@ -88,7 +94,10 @@ def main(hours: int, apply_changes: bool) -> int:
         marker = (
             "Stale processing row auto-recovered: worker did not complete "
             f"within {hours}h (likely crash, restart, or pre-sanitization "
-            "NUL-byte flush failure). Eligible for re-screen."
+            "NUL-byte flush failure). Marked 'failed' so dashboards reflect "
+            "true in-flight count. NOTE: this script intentionally does NOT "
+            "reset ParsedEmail.vetted_at — re-screening these candidates "
+            "still requires the standard retry path or a manual re-trigger."
         )
 
         for row in stale:
