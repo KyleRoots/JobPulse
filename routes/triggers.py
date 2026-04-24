@@ -326,3 +326,73 @@ def fix_system_timing():
             'error': str(e),
             'timestamp': datetime.utcnow().isoformat()
         })
+
+
+@triggers_bp.route('/api/trigger/cleanup-stale-vetting', methods=['POST'])
+@login_required
+def trigger_cleanup_stale_vetting():
+    """Super-admin trigger: mark CandidateVettingLog rows stuck on
+    status='processing' for >N hours as 'failed'.
+
+    Body (JSON, all optional):
+        hours (int, default 24)  — staleness threshold
+        apply (bool, default False) — when False, returns a dry-run preview;
+                                      when True, actually writes the updates.
+
+    Reuses the same logic as ``scripts/cleanup_stale_processing_rows.py``
+    so CLI runs and UI runs stay in sync. Admin-guarded by the blueprint's
+    register_admin_guard().
+    """
+    try:
+        from scripts.cleanup_stale_processing_rows import cleanup_stale_processing
+
+        payload = request.get_json(silent=True) or {}
+        hours = int(payload.get('hours', 24))
+
+        # Strict boolean parsing: only accept real booleans. Reject string
+        # 'false'/'true' (which Python's bool() coerces incorrectly — bool('false')
+        # is True), and reject anything else, so a stray non-UI caller cannot
+        # accidentally trigger production writes.
+        apply_raw = payload.get('apply', False)
+        if not isinstance(apply_raw, bool):
+            return jsonify({
+                'success': False,
+                'error': (
+                    "Field 'apply' must be a JSON boolean (true or false), "
+                    f"not {type(apply_raw).__name__}: {apply_raw!r}."
+                ),
+                'timestamp': datetime.utcnow().isoformat(),
+            }), 400
+        apply_changes = apply_raw
+
+        result = cleanup_stale_processing(hours=hours, apply_changes=apply_changes)
+        result['timestamp'] = datetime.utcnow().isoformat()
+
+        if apply_changes and result.get('applied'):
+            current_app.logger.info(
+                "Stale vetting cleanup applied via UI: %d row(s) marked 'failed' "
+                "(hours=%d, ids=%s).",
+                result['count'], hours,
+                [r['id'] for r in result['rows']],
+            )
+
+        status_code = 200 if result.get('success') else 400
+        return jsonify(result), status_code
+
+    except (ValueError, TypeError) as e:
+        return jsonify({
+            'success': False,
+            'error': f"Invalid request payload: {e}",
+            'timestamp': datetime.utcnow().isoformat(),
+        }), 400
+    except Exception as e:
+        current_app.logger.exception("Stale vetting cleanup failed")
+        try:
+            get_db().session.rollback()
+        except Exception:
+            pass
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'timestamp': datetime.utcnow().isoformat(),
+        }), 500
