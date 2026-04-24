@@ -16,8 +16,11 @@ Contains:
 """
 
 import logging
+import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
+
+import requests
 
 from app import db
 from sqlalchemy import func, case
@@ -98,6 +101,100 @@ class CandidateDetectionMixin:
         # Different job or under caps → allow rescreening
         return False
     
+    def _fetch_latest_job_submission(
+        self,
+        bullhorn,
+        candidate_id: int,
+    ) -> Tuple[Optional[int], Optional[str], bool]:
+        """
+        Fetch the most recent JobSubmission for a candidate from Bullhorn,
+        with a single retry on transient failures (network errors, 5xx).
+
+        Used by Pandologic and Matador detectors so the JobSubmission lookup
+        path stays consistent and any improvement applies to both.
+
+        Args:
+            bullhorn: Authenticated BullhornService instance.
+            candidate_id: Bullhorn candidate ID.
+
+        Returns:
+            Tuple of (applied_job_id, applied_job_title, lookup_succeeded):
+              - On 200 with a submission → (id, title, True)
+              - On 200 with no submissions → (None, None, True)
+                (legitimate empty result, e.g. resume-only candidate)
+              - On persistent failure (5xx, network error, JSON parse error,
+                non-200 after retry) → (None, None, False) and a WARNING is
+                logged. Caller should treat this as "applied job unknown"
+                and may fall back to global dedup.
+        """
+        sub_url = f"{bullhorn.base_url}search/JobSubmission"
+        sub_params = {
+            'query': f'candidate.id:{candidate_id}',
+            'fields': 'id,jobOrder(id,title),dateAdded',
+            'count': 1,
+            'sort': '-dateAdded',
+            'BhRestToken': bullhorn.rest_token,
+        }
+
+        last_error: Optional[str] = None
+        last_status: Optional[int] = None
+
+        for attempt in (1, 2):
+            try:
+                sub_response = bullhorn.session.get(sub_url, params=sub_params, timeout=15)
+                last_status = sub_response.status_code
+
+                if sub_response.status_code == 200:
+                    try:
+                        submissions = sub_response.json().get('data', [])
+                    except ValueError as parse_err:
+                        last_error = f"JSON parse error: {parse_err}"
+                        if attempt == 1:
+                            time.sleep(1)
+                            continue
+                        break
+
+                    if not submissions:
+                        return (None, None, True)
+
+                    job_order = submissions[0].get('jobOrder') or {}
+                    return (
+                        job_order.get('id'),
+                        job_order.get('title', ''),
+                        True,
+                    )
+
+                if 500 <= sub_response.status_code < 600:
+                    last_error = f"HTTP {sub_response.status_code}"
+                    if attempt == 1:
+                        time.sleep(1)
+                        continue
+                    break
+
+                last_error = f"HTTP {sub_response.status_code}"
+                break
+
+            except (requests.Timeout, requests.ConnectionError) as net_err:
+                last_error = f"{type(net_err).__name__}: {net_err}"
+                if attempt == 1:
+                    time.sleep(1)
+                    continue
+                break
+            except requests.RequestException as req_err:
+                last_error = f"{type(req_err).__name__}: {req_err}"
+                if attempt == 1:
+                    time.sleep(1)
+                    continue
+                break
+
+        logging.warning(
+            f"⚠️ JobSubmission lookup failed for candidate {candidate_id} "
+            f"after retry ({last_error}, status={last_status}); "
+            f"falling back to global 24h dedup — possible missed re-application "
+            f"to a different job within the dedup window"
+        )
+        return (None, None, False)
+
     def detect_new_applicants(self, since_minutes: int = 5) -> List[Dict]:
         """
         Find new candidates with "Online Applicant" status that haven't been processed yet.
@@ -239,28 +336,16 @@ class CandidateDetectionMixin:
                 if not candidate_id:
                     continue
                 
-                # Get latest job submission to determine which job they applied to
-                applied_job_id = None
-                try:
-                    sub_url = f"{bullhorn.base_url}search/JobSubmission"
-                    sub_params = {
-                        'query': f'candidate.id:{candidate_id}',
-                        'fields': 'id,jobOrder(id,title),dateAdded',
-                        'count': 1,
-                        'sort': '-dateAdded',
-                        'BhRestToken': bullhorn.rest_token
-                    }
-                    sub_response = bullhorn.session.get(sub_url, params=sub_params, timeout=15)
-                    if sub_response.status_code == 200:
-                        submissions = sub_response.json().get('data', [])
-                        if submissions:
-                            job_order = submissions[0].get('jobOrder', {})
-                            applied_job_id = job_order.get('id')
-                            candidate['_applied_job_id'] = applied_job_id
-                            candidate['_applied_job_title'] = job_order.get('title', '')
-                except Exception as e:
-                    logging.debug(f"Could not fetch JobSubmission for candidate {candidate_id}: {str(e)}")
-                
+                # Get latest job submission to determine which job they applied to.
+                # Helper retries once on transient failures and logs a WARNING if
+                # the lookup ultimately fails (so missed re-applications stay visible).
+                applied_job_id, applied_job_title, _lookup_ok = self._fetch_latest_job_submission(
+                    bullhorn, candidate_id
+                )
+                if applied_job_id is not None:
+                    candidate['_applied_job_id'] = applied_job_id
+                    candidate['_applied_job_title'] = applied_job_title or ''
+
                 # Job-aware dedup: different job = always allow; same job = apply caps
                 if self._should_skip_candidate(candidate_id, applied_job_id):
                     logging.debug(
@@ -355,28 +440,16 @@ class CandidateDetectionMixin:
                 if not candidate_id:
                     continue
                 
-                # Get latest job submission to determine which job they applied to
-                applied_job_id = None
-                try:
-                    sub_url = f"{bullhorn.base_url}search/JobSubmission"
-                    sub_params = {
-                        'query': f'candidate.id:{candidate_id}',
-                        'fields': 'id,jobOrder(id,title),dateAdded',
-                        'count': 1,
-                        'sort': '-dateAdded',
-                        'BhRestToken': bullhorn.rest_token
-                    }
-                    sub_response = bullhorn.session.get(sub_url, params=sub_params, timeout=15)
-                    if sub_response.status_code == 200:
-                        submissions = sub_response.json().get('data', [])
-                        if submissions:
-                            job_order = submissions[0].get('jobOrder', {})
-                            applied_job_id = job_order.get('id')
-                            candidate['_applied_job_id'] = applied_job_id
-                            candidate['_applied_job_title'] = job_order.get('title', '')
-                except Exception as e:
-                    logging.debug(f"Could not fetch JobSubmission for candidate {candidate_id}: {str(e)}")
-                
+                # Get latest job submission to determine which job they applied to.
+                # Helper retries once on transient failures and logs a WARNING if
+                # the lookup ultimately fails (so missed re-applications stay visible).
+                applied_job_id, applied_job_title, _lookup_ok = self._fetch_latest_job_submission(
+                    bullhorn, candidate_id
+                )
+                if applied_job_id is not None:
+                    candidate['_applied_job_id'] = applied_job_id
+                    candidate['_applied_job_title'] = applied_job_title or ''
+
                 # Job-aware dedup: different job = always allow; same job = apply caps
                 if self._should_skip_candidate(candidate_id, applied_job_id):
                     logging.debug(
