@@ -24,6 +24,7 @@ from models import (
 from bullhorn_service import BullhornService
 from email_service import EmailService
 from vetting.geo_utils import map_work_type
+from utils.text_sanitization import sanitize_text
 
 
 from screening import (
@@ -290,8 +291,8 @@ class CandidateVettingService(
             CandidateVettingLog record or None if processing failed
         """
         candidate_id = candidate.get('id')
-        candidate_name = f"{candidate.get('firstName', '')} {candidate.get('lastName', '')}".strip()
-        candidate_email = candidate.get('email', '')
+        candidate_name = sanitize_text(f"{candidate.get('firstName', '')} {candidate.get('lastName', '')}".strip())
+        candidate_email = sanitize_text(candidate.get('email', ''))
         
         logging.info(f"🔍 Processing candidate: {candidate_name} (ID: {candidate_id})")
         
@@ -379,7 +380,7 @@ class CandidateVettingService(
                 logging.info(f"📄 After cleaning: {len(description)} chars, first 200: {description[:200]}")
                 
                 if len(description) >= 100:  # Minimum viable resume length
-                    resume_text = description
+                    resume_text = sanitize_text(description)
                     logging.info(f"📄 Using candidate description field: {len(resume_text)} chars")
                 else:
                     logging.info(f"Description too short ({len(description)} chars), will try file download")
@@ -833,22 +834,22 @@ class CandidateVettingService(
                 match_record = CandidateJobMatch(
                     vetting_log_id=vetting_log.id,
                     bullhorn_job_id=job_id,
-                    job_title=job.get('title', ''),
-                    job_location=job.get('address', {}).get('city', '') if isinstance(job.get('address'), dict) else '',
+                    job_title=sanitize_text(job.get('title', '')),
+                    job_location=sanitize_text(job.get('address', {}).get('city', '') if isinstance(job.get('address'), dict) else ''),
                     tearsheet_id=job.get('tearsheet_id'),
-                    tearsheet_name=job.get('tearsheet_name', ''),
-                    recruiter_name=recruiter_name,
-                    recruiter_email=recruiter_email,
+                    tearsheet_name=sanitize_text(job.get('tearsheet_name', '')),
+                    recruiter_name=sanitize_text(recruiter_name),
+                    recruiter_email=sanitize_text(recruiter_email),
                     recruiter_bullhorn_id=recruiter_id,
                     match_score=_final_score,
                     technical_score=analysis.get('technical_score'),
                     is_qualified=(_final_score >= job_threshold) and not analysis.get('is_location_barrier', False),
                     is_applied_job=is_applied_job,
-                    match_summary=analysis.get('match_summary', ''),
-                    skills_match=analysis.get('skills_match', ''),
-                    experience_match=self._build_experience_match(analysis),
-                    gaps_identified=analysis.get('gaps_identified', ''),
-                    years_analysis_json=analysis.get('_years_analysis_json'),
+                    match_summary=sanitize_text(analysis.get('match_summary', '')),
+                    skills_match=sanitize_text(analysis.get('skills_match', '')),
+                    experience_match=sanitize_text(self._build_experience_match(analysis)),
+                    gaps_identified=sanitize_text(analysis.get('gaps_identified', '')),
+                    years_analysis_json=sanitize_text(analysis.get('_years_analysis_json')),
                     prestige_employer=_prestige_employer,
                     prestige_boost_applied=_prestige_boost_applied,
                 )
@@ -986,7 +987,7 @@ class CandidateVettingService(
             try:
                 vetting_log = db.session.merge(vetting_log)
                 vetting_log.status = 'failed'
-                vetting_log.error_message = str(e)[:500]
+                vetting_log.error_message = sanitize_text(str(e)[:500])
                 vetting_log.retry_count += 1
                 db.session.commit()
             except Exception as merge_err:

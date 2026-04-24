@@ -29,14 +29,7 @@ def _detect_file_format(file_content: bytes) -> str:
     return 'unknown'
 
 
-def _sanitize_text(text: Optional[str]) -> Optional[str]:
-    """Strip NUL bytes and other control characters that PostgreSQL TEXT columns reject.
-    PostgreSQL does not allow 0x00 in text values; some scanned/corrupted resumes
-    embed NUL bytes from OCR or binary artifacts."""
-    if not text:
-        return text
-    cleaned = text.replace('\x00', '')
-    return cleaned
+from utils.text_sanitization import sanitize_text as _sanitize_text  # re-export for back-compat
 
 
 def extract_resume_text(file_content: bytes, filename: str) -> Optional[str]:

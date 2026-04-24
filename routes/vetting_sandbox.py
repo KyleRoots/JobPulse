@@ -5,6 +5,8 @@ from datetime import datetime
 from flask import Blueprint, render_template, request, jsonify, abort
 from flask_login import login_required, current_user
 
+from utils.text_sanitization import sanitize_text
+
 vetting_sandbox_bp = Blueprint('vetting_sandbox', __name__)
 logger = logging.getLogger(__name__)
 
@@ -106,11 +108,11 @@ def run_screening():
 
         vetting_log = CandidateVettingLog(
             bullhorn_candidate_id=0,
-            candidate_name=candidate_name,
-            candidate_email=candidate_email,
+            candidate_name=sanitize_text(candidate_name),
+            candidate_email=sanitize_text(candidate_email),
             applied_job_id=job.get('id', 0),
-            applied_job_title=job.get('title', ''),
-            resume_text=resume_text,
+            applied_job_title=sanitize_text(job.get('title', '')),
+            resume_text=sanitize_text(resume_text),
             status='completed',
             is_qualified=is_qualified,
             highest_match_score=score,
@@ -125,15 +127,15 @@ def run_screening():
         match = CandidateJobMatch(
             vetting_log_id=vetting_log.id,
             bullhorn_job_id=job.get('id', 0),
-            job_title=job.get('title', ''),
-            job_location=data.get('job_location', ''),
+            job_title=sanitize_text(job.get('title', '')),
+            job_location=sanitize_text(data.get('job_location', '')),
             match_score=score,
             is_qualified=is_qualified,
             is_applied_job=True,
-            match_summary=result.get('match_summary', ''),
-            skills_match=result.get('skills_match', ''),
-            experience_match=result.get('experience_match', ''),
-            gaps_identified=result.get('gaps_identified', ''),
+            match_summary=sanitize_text(result.get('match_summary', '')),
+            skills_match=sanitize_text(result.get('skills_match', '')),
+            experience_match=sanitize_text(result.get('experience_match', '')),
+            gaps_identified=sanitize_text(result.get('gaps_identified', '')),
         )
         db.session.add(match)
         db.session.commit()
