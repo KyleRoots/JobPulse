@@ -298,10 +298,6 @@
                 title="Generate fresh XML from all Bullhorn tearsheets">
                 <i class="fas fa-sync-alt me-1"></i>Fresh XML
             </button>
-            <button onclick="cleanupStaleVetting()" class="btn btn-outline-info btn-sm" id="cleanupStaleBtn"
-                title="Clear candidates stuck in 'processing' state for more than 24 hours">
-                <i class="fas fa-broom me-1"></i>Clear Stuck Vetting
-            </button>
             <a href="{{ url_for('ats_integration.create_ats_monitor') }}" class="btn btn-primary btn-sm">
                 <i class="fas fa-plus me-1"></i>Create Monitor
             </a>
@@ -1152,106 +1148,6 @@
                     btn.classList.add('btn-outline-warning');
                 }, 3000);
             });
-    }
-
-
-    function cleanupStaleVetting() {
-        const btn = document.getElementById('cleanupStaleBtn');
-        const originalHtml = btn.innerHTML;
-        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
-
-        const callApi = (apply) => fetch('/api/trigger/cleanup-stale-vetting', {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken
-            },
-            body: JSON.stringify({hours: 24, apply: apply})
-        }).then(r => r.json());
-
-        const restoreBtn = (delay = 3000) => setTimeout(() => {
-            btn.innerHTML = originalHtml;
-            btn.disabled = false;
-            btn.classList.remove('btn-success', 'btn-danger', 'btn-info');
-            btn.classList.add('btn-outline-info');
-        }, delay);
-
-        const showError = (msg) => {
-            btn.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Error';
-            btn.classList.remove('btn-outline-info');
-            btn.classList.add('btn-danger');
-            showNotification(msg, 'error');
-            restoreBtn();
-        };
-
-        if (btn.disabled) return; // idempotency: ignore double-clicks while in-flight
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-broom fa-spin me-1"></i>Checking...';
-
-        callApi(false)
-            .then(preview => {
-                if (!preview.success) {
-                    showError(preview.error || 'Failed to check stuck rows');
-                    return;
-                }
-                if (preview.count === 0) {
-                    btn.innerHTML = '<i class="fas fa-check me-1"></i>None Stuck';
-                    btn.classList.remove('btn-outline-info');
-                    btn.classList.add('btn-success');
-                    showNotification('No candidates stuck in processing — nothing to clean up.', 'info');
-                    restoreBtn();
-                    return;
-                }
-
-                const sample = preview.rows.slice(0, 5).map(r =>
-                    `  • ${r.candidate_name || '(no name)'} — Bullhorn ID ${r.bullhorn_candidate_id || '?'}, stuck ${r.age_hours}h`
-                ).join('\n');
-                const more = preview.count > 5 ? `\n  …and ${preview.count - 5} more` : '';
-                const confirmMsg =
-                    `Found ${preview.count} candidate(s) stuck in 'processing' for more than 24 hours:\n\n` +
-                    `${sample}${more}\n\n` +
-                    `Mark them as 'failed'? This is safe — it just frees the dashboard's in-flight count and lets these candidates be re-screened.`;
-
-                if (!confirm(confirmMsg)) {
-                    btn.innerHTML = originalHtml;
-                    btn.disabled = false;
-                    showNotification('Cleanup cancelled.', 'info');
-                    return;
-                }
-
-                btn.innerHTML = '<i class="fas fa-broom fa-spin me-1"></i>Cleaning...';
-
-                return callApi(true).then(applied => {
-                    // A successful response with success=true is always good news.
-                    // applied=false here means another worker (or a previous click)
-                    // already cleaned the rows between preview and apply — that is
-                    // a safe no-op, NOT a failure.
-                    if (!applied || !applied.success) {
-                        showError((applied && applied.error) || 'Cleanup did not apply');
-                        return;
-                    }
-                    if (applied.applied && applied.count > 0) {
-                        btn.innerHTML = `<i class="fas fa-check me-1"></i>Cleaned ${applied.count}`;
-                        btn.classList.remove('btn-outline-info');
-                        btn.classList.add('btn-success');
-                        showNotification(
-                            `Marked ${applied.count} stuck candidate(s) as failed. The dashboard's in-flight count will refresh on next reload.`,
-                            'success'
-                        );
-                    } else {
-                        btn.innerHTML = '<i class="fas fa-check me-1"></i>Already Clean';
-                        btn.classList.remove('btn-outline-info');
-                        btn.classList.add('btn-success');
-                        showNotification(
-                            'Nothing left to clean up — another process already cleared the stuck rows.',
-                            'info'
-                        );
-                    }
-                    restoreBtn(5000);
-                });
-            })
-            .catch(err => showError('Error: ' + (err && err.message ? err.message : err)));
     }
 
 
