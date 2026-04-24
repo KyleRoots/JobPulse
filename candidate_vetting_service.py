@@ -357,7 +357,7 @@ class CandidateVettingService(
             if submission:
                 job_order = submission.get('jobOrder', {})
                 vetting_log.applied_job_id = job_order.get('id')
-                vetting_log.applied_job_title = job_order.get('title')
+                vetting_log.applied_job_title = sanitize_text(job_order.get('title'))
             
             # Get resume text - PRIORITY: Use candidate's description field (parsed resume)
             # This is faster and more reliable than downloading/parsing files
@@ -850,7 +850,7 @@ class CandidateVettingService(
                     experience_match=sanitize_text(self._build_experience_match(analysis)),
                     gaps_identified=sanitize_text(analysis.get('gaps_identified', '')),
                     years_analysis_json=sanitize_text(analysis.get('_years_analysis_json')),
-                    prestige_employer=_prestige_employer,
+                    prestige_employer=sanitize_text(_prestige_employer),
                     prestige_boost_applied=_prestige_boost_applied,
                 )
                 
@@ -939,11 +939,13 @@ class CandidateVettingService(
                                     old_score = match_record.match_score
                                     new_score = reverify_result['revised_score']
                                     match_record.match_score = new_score
-                                    match_record.match_summary = (
+                                    match_record.match_summary = sanitize_text(
                                         f"[Verified] {reverify_result.get('revised_summary', match_record.match_summary)}"
                                     )
-                                    match_record.gaps_identified = reverify_result.get(
-                                        'revised_gaps', match_record.gaps_identified
+                                    match_record.gaps_identified = sanitize_text(
+                                        reverify_result.get(
+                                            'revised_gaps', match_record.gaps_identified
+                                        )
                                     )
                                     job_threshold = job_threshold_cache.get(
                                         match_record.bullhorn_job_id, global_threshold

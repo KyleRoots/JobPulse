@@ -23,6 +23,7 @@ from typing import Dict, List, Optional
 from vetting.geo_utils import map_work_type
 from app import db
 from models import BullhornMonitor, CandidateJobMatch, CandidateVettingLog, GlobalSettings, JobVettingRequirements
+from utils.text_sanitization import sanitize_text
 
 
 class JobManagementMixin:
@@ -480,8 +481,8 @@ class JobManagementMixin:
                 if new_recruiters:
                     # Update the match record with current recruiter info
                     old_emails = match.recruiter_email
-                    match.recruiter_email = current_data['emails']
-                    match.recruiter_name = current_data['names']
+                    match.recruiter_email = sanitize_text(current_data['emails'])
+                    match.recruiter_name = sanitize_text(current_data['names'])
                     # Keep primary ID for backward compatibility
                     if current_data['primary_id']:
                         match.recruiter_bullhorn_id = current_data['primary_id']

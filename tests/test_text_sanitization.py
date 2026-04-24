@@ -167,9 +167,34 @@ class TestPersistenceBoundaryWiring:
             'experience_match=sanitize_text(',
             'gaps_identified=sanitize_text(',
             'years_analysis_json=sanitize_text(',
+            'prestige_employer=sanitize_text(',
         ]
         for needle in required:
             assert needle in src, f"Missing sanitize_text wrap: {needle}"
+
+    def test_cvs_sanitizes_applied_job_title(self):
+        """Bullhorn jobOrder.title persisted to CandidateVettingLog."""
+        src = self._read('candidate_vetting_service.py')
+        assert "vetting_log.applied_job_title = sanitize_text(" in src
+
+    def test_cvs_sanitizes_reverify_overwrite(self):
+        """Zero-score reverify writes OpenAI text directly onto the
+        existing match_record. Both overwrites must be sanitized."""
+        src = self._read('candidate_vetting_service.py')
+        assert "match_record.match_summary = sanitize_text(" in src
+        assert "match_record.gaps_identified = sanitize_text(" in src
+
+    def test_job_management_imports_sanitize_text(self):
+        """sync_job_recruiter_assignments updates existing CandidateJobMatch
+        rows post-insert. Bullhorn-sourced recruiter fields must still be
+        sanitized on the update path, not just at initial create."""
+        src = self._read('screening/job_management.py')
+        assert 'from utils.text_sanitization import sanitize_text' in src
+
+    def test_job_management_sanitizes_recruiter_sync_overwrite(self):
+        src = self._read('screening/job_management.py')
+        assert "match.recruiter_email = sanitize_text(" in src
+        assert "match.recruiter_name = sanitize_text(" in src
 
     def test_sandbox_imports_sanitize_text(self):
         src = self._read('routes/vetting_sandbox.py')

@@ -24,4 +24,6 @@ def sanitize_text(text: Optional[str]) -> Optional[str]:
         text = str(text)
     if not text:
         return text
+    if '\x00' not in text:
+        return text
     return text.replace('\x00', '')
