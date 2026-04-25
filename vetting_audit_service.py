@@ -425,6 +425,7 @@ class VettingAuditService:
         gaps = (job_match.gaps_identified or '').lower()
         match_summary = (job_match.match_summary or '').lower()
         job_title = (job_match.job_title or '').lower()
+        platform_age_ceilings = get_platform_age_ceilings()
 
         recency_phrases = [
             'career trajectory has shifted away',
@@ -497,7 +498,7 @@ class VettingAuditService:
                         if required <= 0:
                             continue
                         skill_lower = skill.lower()
-                        for platform_key, ceiling in get_platform_age_ceilings().items():
+                        for platform_key, ceiling in platform_age_ceilings.items():
                             if platform_key in skill_lower and required > ceiling:
                                 issues.append({
                                     'check_type': 'platform_age_violation',

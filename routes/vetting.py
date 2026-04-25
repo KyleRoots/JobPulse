@@ -177,6 +177,11 @@ def save_vetting_settings():
         recruiter_gate_enabled = 'recruiter_activity_check_enabled' in request.form
         recruiter_lookback_raw = request.form.get('recruiter_activity_lookback_minutes', '60')
         # Quality auditor controls (Task #11 rescope)
+        # When the audit toggle is OFF the three fields below are disabled
+        # in the UI and won't be submitted. Detect that case so we preserve
+        # the previously-saved values instead of overwriting them with the
+        # request.form default fallbacks.
+        auditor_fields_submitted = 'quality_auditor_model' in request.form
         quality_auditor_model = request.form.get('quality_auditor_model', 'gpt-5.4').strip() or 'gpt-5.4'
         platform_age_ceilings_raw = request.form.get('platform_age_ceilings', '').strip()
         qualified_audit_sample_rate_raw = request.form.get('qualified_audit_sample_rate', '10')
@@ -223,13 +228,16 @@ def save_vetting_settings():
         except (ValueError, TypeError):
             recruiter_lookback = 60
 
-        # Validate qualified_audit_sample_rate (0-100; 0 disables Phase 2)
-        try:
-            qualified_sample_rate = int(str(qualified_audit_sample_rate_raw).strip())
-            if qualified_sample_rate < 0 or qualified_sample_rate > 100:
+        # Validate qualified_audit_sample_rate (0-100; 0 disables Phase 2).
+        # Skipped entirely when fields weren't submitted (audit toggle off).
+        qualified_sample_rate = 10
+        if auditor_fields_submitted:
+            try:
+                qualified_sample_rate = int(str(qualified_audit_sample_rate_raw).strip())
+                if qualified_sample_rate < 0 or qualified_sample_rate > 100:
+                    qualified_sample_rate = 10
+            except (ValueError, TypeError):
                 qualified_sample_rate = 10
-        except (ValueError, TypeError):
-            qualified_sample_rate = 10
 
         # Validate platform_age_ceilings JSON.
         # Empty string is allowed and means "use built-in defaults"; otherwise
@@ -237,7 +245,7 @@ def save_vetting_settings():
         # On parse failure we reject the save so the admin sees the error
         # instead of silently swallowing bad JSON and shipping defaults.
         platform_age_ceilings_value = ''
-        if platform_age_ceilings_raw:
+        if auditor_fields_submitted and platform_age_ceilings_raw:
             try:
                 import json as _json
                 parsed = _json.loads(platform_age_ceilings_raw)
@@ -276,10 +284,13 @@ def save_vetting_settings():
             ('recruiter_activity_check_enabled',
              'true' if recruiter_gate_enabled else 'false'),
             ('recruiter_activity_lookback_minutes', str(recruiter_lookback)),
-            ('quality_auditor_model', quality_auditor_model),
-            ('platform_age_ceilings', platform_age_ceilings_value),
-            ('qualified_audit_sample_rate', str(qualified_sample_rate)),
         ]
+        if auditor_fields_submitted:
+            settings_to_save.extend([
+                ('quality_auditor_model', quality_auditor_model),
+                ('platform_age_ceilings', platform_age_ceilings_value),
+                ('qualified_audit_sample_rate', str(qualified_sample_rate)),
+            ])
         
         for key, value in settings_to_save:
             config = VettingConfig.query.filter_by(setting_key=key).first()
