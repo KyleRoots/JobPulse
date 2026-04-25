@@ -391,12 +391,7 @@ class TestSearchPredicates:
         assert cand_ids == {70001}
 
     def test_digits_only_phone_search_works(self, app, monkeypatch):
-        # Recruiters often paste phones in their bare digits-only form
-        # (e.g. straight from a copy-paste off a CRM field). The route
-        # must surface phone matches for all-digit input AS WELL AS the
-        # exact Bullhorn ID hit (when the digits coincidentally match an
-        # ID). This is the architect-flagged Done criterion: phone
-        # search "with or without dashes, parens, spaces".
+        # Phone search must work for digits-only input.
         _ensure_admin(app)
         _seed_search_data(app, monkeypatch)
         c = _login(app)
@@ -411,12 +406,8 @@ class TestSearchPredicates:
     def test_all_digit_id_query_returns_id_match_plus_phone_match(
         self, app, monkeypatch
     ):
-        # Architect ruling: when q is purely numeric and 7+ digits long,
-        # both the exact-ID predicate and the phone-substring predicate
-        # fire. We surface BOTH the candidate whose ID equals q AND any
-        # candidates whose phone contains those digits — the recruiter
-        # picks. Exact ID is always present in the result set; phone
-        # spillover is additional, never replacing it.
+        # All-digit query 7+ chars fires both ID and phone predicates;
+        # exact ID hit must always be in the result set.
         from extensions import db
         from models import CandidateJobMatch, CandidateVettingLog, ParsedEmail
 
@@ -592,10 +583,8 @@ class TestFilterChips:
         )
 
     def test_pending_count_in_group_counts_for_unscoped_search(self, app, monkeypatch):
-        # When search has no status chip active, the group_counts.pending
-        # tile MUST reflect the count of pending logs matching q so the
-        # recruiter can see "X candidates awaiting screening" alongside
-        # match results.
+        # group_counts.pending reflects pending logs matching q when
+        # status is unset.
         _ensure_admin(app)
         _seed_search_data(app, monkeypatch)
         c = _login(app)
@@ -609,12 +598,8 @@ class TestFilterChips:
     def test_pending_count_zero_when_status_chip_scopes_to_match_bucket(
         self, app, monkeypatch
     ):
-        # Architect contract (counts and rows agree): when the recruiter
-        # actively scopes to a match-side bucket (qualified /
-        # not_recommended / location_barrier), the rows are bucket-only
-        # and the pending tile must show 0 — pending candidates are NOT
-        # in the displayed result set, so surfacing them in tiles would
-        # mislead the user.
+        # When status scopes to a match bucket, pending tile must be 0
+        # so tiles agree with the displayed rows.
         _ensure_admin(app)
         _seed_search_data(app, monkeypatch)
         c = _login(app)
@@ -632,10 +617,8 @@ class TestFilterChips:
     def test_this_week_filter_applied_in_sql_for_match_query(
         self, app, monkeypatch
     ):
-        # Architect-flagged: this_week must be a SQL WHERE on the match
-        # query so the SAFETY_CAP truncation honours the filter. Locked
-        # by an end-to-end check: a match older than 7 days must NOT
-        # appear in the result set when this_week=1.
+        # this_week is pushed into SQL so the SAFETY_CAP honours it.
+        # A match older than 7 days must not appear when this_week=1.
         from extensions import db
         from models import CandidateJobMatch, CandidateVettingLog
 

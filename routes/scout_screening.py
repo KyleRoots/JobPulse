@@ -555,12 +555,9 @@ def candidate_search():
     if not job_ids:
         return _empty()
 
-    # ------------------------------------------------------------------
-    # Build OR-search predicates over CandidateVettingLog. The same
-    # predicate set is reused for both the matched-candidates path and the
-    # pending-logs path so search semantics stay identical across the
-    # status chip toggle (architect-flagged: pending parity).
-    # ------------------------------------------------------------------
+    # OR predicates over CandidateVettingLog, reused by both the match
+    # query and the pending query so search semantics are identical
+    # across the status chip toggle.
     like = f'%{q}%'
     predicates = [
         CandidateVettingLog.candidate_name.ilike(like),
@@ -569,17 +566,12 @@ def candidate_search():
     if q.isdigit():
         predicates.append(CandidateVettingLog.bullhorn_candidate_id == int(q))
 
-    # Phone is not stored on the vetting log — resolve via ParsedEmail when the
-    # query carries enough digits to disambiguate (≥ 7 digits keeps the branch
-    # off for pure-name searches, which would otherwise force a wide scan).
-    #
-    # Note on all-digit queries: when q is purely numeric AND 7+ digits long
-    # (typical Bullhorn IDs and bare phone numbers), both the exact-ID
-    # predicate and the phone-substring predicate fire as an OR. This is
-    # deliberate — a recruiter pasting "5552349876" might be searching for
-    # a candidate ID or a phone, and we surface both rather than guessing.
-    # The exact-ID match always takes priority in the result set; phone
-    # matches are additional, never replacing the ID hit.
+    # Phone lives on ParsedEmail (no Candidate table — Bullhorn is the
+    # source of truth and we don't replicate it locally). Activate the
+    # phone branch when the query has 7+ digits after stripping
+    # separators. Pure-numeric input also fires the exact-ID predicate
+    # above, so an all-digit query returns both the ID hit (if any) and
+    # any phone-substring matches.
     digits = re.sub(r'\D', '', q)
     if len(digits) >= 7:
         try:
@@ -607,14 +599,8 @@ def candidate_search():
 
     week_ago = datetime.utcnow() - timedelta(days=7)
 
-    # ------------------------------------------------------------------
-    # Always compute the pending-log set first. We need it regardless of
-    # the status filter:
-    #   - When status='pending', it IS the result set.
-    #   - Otherwise, its size is reported in group_counts.pending so the
-    #     dashboard's Pending tile stays honest while search is active
-    #     (architect-flagged: pending parity).
-    # ------------------------------------------------------------------
+    # Pending logs — used either as the result set (status='pending')
+    # or as the source of group_counts['pending'] when status is unset.
     pending_log_q = (
         db.session.query(CandidateVettingLog)
         .filter(
@@ -648,15 +634,9 @@ def candidate_search():
         pending_dedup.append(log)
     pending_count = len(pending_dedup)
 
-    # ------------------------------------------------------------------
-    # status='pending' branch — return synthesised pseudo-match rows from
-    # the pending vetting logs. Pending logs have no scores, no jobs, and
-    # no per-job grouping yet, so we render one row per candidate. This
-    # matches the dashboard's existing Pending section visually.
-    # ------------------------------------------------------------------
+    # status='pending' — return one synthesised row per pending log
+    # (no score, no per-job match yet). min_score is N/A and ignored.
     if status_param == 'pending':
-        # min_score is intentionally ignored here — pending has no score
-        # yet, so applying min_score > 0 would always return empty.
         total_pending = pending_count
         total_pages_p = (total_pending + page_size - 1) // page_size if total_pending else 0
         if total_pages_p and page > total_pages_p:
@@ -703,16 +683,10 @@ def candidate_search():
             'truncated': pending_truncated,
         })
 
-    # ------------------------------------------------------------------
-    # Pull matching CandidateJobMatch IDs (capped) for in-memory grouping.
-    # Push this_week into SQL so the SAFETY_CAP truncation honours the
-    # active week filter (architect-flagged: filter parity at cap).
-    # status (qualified/loc_barrier/not_recommended) and min_score remain
-    # in Python because they require group-level aggregation across all
-    # matches for a candidate (best_score, has_loc_barrier exclusion of
-    # has_qualified, etc.) which can't be expressed as a row-level
-    # WHERE without losing groups that have one qualifying row.
-    # ------------------------------------------------------------------
+    # Match-side query, capped at SAFETY_CAP for in-memory grouping.
+    # this_week is pushed into SQL so the cap honours the week filter.
+    # status / min_score remain in Python because they require
+    # group-level aggregation (best_score across matches, etc.).
     base_q = (
         db.session.query(CandidateJobMatch.id)
         .join(CandidateVettingLog, CandidateJobMatch.vetting_log_id == CandidateVettingLog.id)
@@ -729,12 +703,8 @@ def candidate_search():
     raw_ids = raw_ids[:SAFETY_CAP]
 
     if not raw_ids:
-        # Empty matches but pending may still have hits. Pending tile
-        # mirrors the active status chip per architect contract: it only
-        # surfaces when status is unset (showing all) so counts and rows
-        # stay in agreement. Any non-empty status_param other than
-        # 'pending' (handled earlier) means the user has scoped to a
-        # match-side bucket, so pending=0 in tiles.
+        # Pending tile only surfaces when status is unset, so counts
+        # agree with the displayed rows.
         pending_tile = pending_count if status_param == '' else 0
         return jsonify({
             'results': [],
@@ -857,14 +827,8 @@ def candidate_search():
     filtered_groups = [g for g in groups.values() if _keep(g)]
     filtered_groups.sort(key=lambda g: g['latest_ts'], reverse=True)
 
-    # Aggregate counts across the active filtered set so tiles agree
-    # with displayed rows (architect contract: counts and rows agree).
-    # When status='qualified', filtered_groups holds only qualified
-    # groups, so qualified=N and the other status tiles are 0 — the
-    # tiles reflect "what's currently on screen" not "what could be on
-    # screen if you switched chips". Pending follows the same rule:
-    # it surfaces only when status is unset, otherwise the user has
-    # scoped to a match-side bucket and pending=0.
+    # Tiles agree with rows: counts derive from the active filtered
+    # set, and the pending tile surfaces only when status is unset.
     pending_tile = pending_count if status_param == '' else 0
     group_counts = {
         'qualified': sum(1 for g in filtered_groups if g['has_qualified']),
