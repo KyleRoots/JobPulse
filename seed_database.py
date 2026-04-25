@@ -293,10 +293,15 @@ def seed_global_settings(db, GlobalSettings):
                     settings_created.append(key)
         
         # Process automation toggles separately - NEVER overwrite existing values
-        # Defaults are always conservative (off) — user enables via UI
+        # Defaults are always conservative (off) — user enables via UI.
+        # automated_uploads_enabled default flipped from 'true' to 'false' on
+        # 2026-04-25 to match the documented "always conservative" contract and
+        # prevent fresh-install Repls from auto-uploading SFTP feeds before the
+        # operator has reviewed credentials. Existing prod values are preserved
+        # by the existence check below; this only changes first-run behavior.
         automation_toggles = {
             'sftp_enabled': 'false',
-            'automated_uploads_enabled': 'true',
+            'automated_uploads_enabled': 'false',
             'candidate_cleanup_enabled': 'false',
             'candidate_cleanup_batch_size': '50',
         }

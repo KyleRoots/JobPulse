@@ -130,6 +130,9 @@ class TestMissingKeysCreatedBySeed:
             'embedding_similarity_threshold', 'escalation_low',
             'escalation_high', 'layer2_model', 'vetting_cutoff_date',
             'global_custom_requirements',
+            'screening_audit_enabled',
+            'recruiter_activity_check_enabled',
+            'recruiter_activity_lookback_minutes',
         }
 
         with app.app_context():

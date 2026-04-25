@@ -34,7 +34,13 @@ def clean_vetting_config(app):
         db.session.commit()
 
 
-# All keys that seed_vetting_config should create
+# All keys that seed_vetting_config should create.
+# Updated 2026-04-25 to include three feature-flag keys added since this set
+# was last revised:
+#   - screening_audit_enabled         (Scout Screening Quality Auditor)
+#   - recruiter_activity_check_enabled  (Recruiter-Activity Pause Gate)
+#   - recruiter_activity_lookback_minutes (lookback window for the pause gate)
+# Both features are documented in replit.md and seeded by seed_vetting_config.
 EXPECTED_KEYS = {
     'vetting_enabled',
     'match_threshold',
@@ -49,6 +55,9 @@ EXPECTED_KEYS = {
     'layer2_model',
     'vetting_cutoff_date',
     'global_custom_requirements',
+    'screening_audit_enabled',
+    'recruiter_activity_check_enabled',
+    'recruiter_activity_lookback_minutes',
 }
 
 

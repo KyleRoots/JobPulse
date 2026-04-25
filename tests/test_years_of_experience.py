@@ -360,19 +360,37 @@ class TestYearsAnalysisPrompt:
                 prefetched_requirements=None
             )
         
-        # Verify the prompt sent to OpenAI
+        # Verify the prompt sent to OpenAI.
+        #
+        # NOTE (2026-04-25): During the March 2026 modular split of
+        # candidate_vetting_service.py into the screening/ package
+        # (commit c2a7f78a), the YEARS OF EXPERIENCE ANALYSIS section
+        # — along with all the supporting analysis instructions
+        # ("years_analysis", "50% weight", "University coursework",
+        # "YEARS OF EXPERIENCE MATTER", "DISTINGUISH PROFESSIONAL VS
+        # ACADEMIC EXPERIENCE") — was consolidated into the SYSTEM
+        # prompt rather than being split between system and user
+        # prompts.  The user prompt now only carries the per-call
+        # job/candidate context plus a reference back to the system
+        # prompt for instructions.  This test is updated to assert
+        # those strings against the system prompt where they actually
+        # live in production today.  The screening behavior is
+        # unchanged — only the prompt-message organization moved.
         call_args = service.openai_client.chat.completions.create.call_args
         messages = call_args.kwargs.get('messages', call_args[1].get('messages', []))
         user_prompt = messages[1]['content']
         system_prompt = messages[0]['content']
-        
-        # Check user prompt contains years analysis section
-        assert "YEARS OF EXPERIENCE ANALYSIS (MANDATORY)" in user_prompt
-        assert "years_analysis" in user_prompt
-        assert "50% weight" in user_prompt
-        assert "University coursework" in user_prompt
-        
-        # Check system prompt contains years rules
+
+        # User prompt is the per-call job/candidate context.
+        assert "JOB DETAILS:" in user_prompt
+        assert "CANDIDATE RESUME:" in user_prompt
+
+        # System prompt carries the full years-of-experience analysis
+        # instructions (moved here during the screening/ refactor).
+        assert "YEARS OF EXPERIENCE ANALYSIS (MANDATORY)" in system_prompt
+        assert "years_analysis" in system_prompt
+        assert "50% weight" in system_prompt
+        assert "University coursework" in system_prompt
         assert "YEARS OF EXPERIENCE MATTER" in system_prompt
         assert "DISTINGUISH PROFESSIONAL VS ACADEMIC EXPERIENCE" in system_prompt
 
