@@ -981,7 +981,21 @@ class CandidateVettingService(
             db.session.commit()
             
             logging.info(f"✅ Completed analysis for {candidate_name} (ID: {candidate_id}): {len(qualified_matches)} qualified matches out of {len(all_match_results)} jobs")
-            
+
+            # Back-fill any pending Quality Auditor re-vet rows for this
+            # candidate. _trigger_revet returns synchronously before the
+            # candidate is re-scored, so the originating VettingAuditLog
+            # row is left with revet_new_score=NULL until the next vetting
+            # cycle (this one) finishes scoring the same job.
+            try:
+                from vetting_audit_service import backfill_revet_new_score
+                backfill_revet_new_score(candidate_id, vetting_log=vetting_log)
+            except Exception as backfill_err:
+                logging.warning(
+                    f"⚠️ Audit revet_new_score back-fill failed for "
+                    f"candidate {candidate_id}: {backfill_err!r}"
+                )
+
             return vetting_log
             
         except Exception as e:

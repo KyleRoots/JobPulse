@@ -26,6 +26,16 @@ Also covers (Task #44):
                                             (mode='qualified_false_positive'),
                                             mirroring TestNotQualifiedAuditParity.
 
+Also covers (Task #43):
+  TestRevetNewScoreBackfill                - backfill_revet_new_score populates
+                                             VettingAuditLog.revet_new_score
+                                             from the post-revet
+                                             CandidateJobMatch.
+  TestAuditSummaryEmailUsesBackfilledScore - the audit summary email re-reads
+                                             the persisted revet_new_score so
+                                             the back-filled value lands in
+                                             the email when available.
+
 The tests do NOT call OpenAI; the AI confirmation step is mocked.
 """
 
@@ -1635,3 +1645,492 @@ class TestQualifiedAuditParity:
             assert audit['audit_finding'] == ai['reasoning']
         finally:
             _delete_audit_rows(app, vlog_id)
+
+
+# ---------------------------------------------------------------------------
+# Task #43 — backfill_revet_new_score: re-vetted score lands on audit row
+# ---------------------------------------------------------------------------
+
+
+class TestRevetNewScoreBackfill:
+    """`backfill_revet_new_score` populates `VettingAuditLog.revet_new_score`
+    for every audit row that triggered a re-vet, using the freshly-scored
+    `CandidateJobMatch.match_score` for the same applied job.
+
+    The Quality Auditor writes the audit row synchronously but `_trigger_revet`
+    cannot return the new score (it just clears the candidate's vetting state
+    so the next vetting cycle re-scores them). This back-fill helper closes
+    the loop so recruiters viewing audit history see the actual new score
+    instead of the perpetual "Pending" placeholder.
+    """
+
+    def _seed_audit_row(
+        self,
+        app,
+        *,
+        candidate_id,
+        job_id,
+        original_score=42.0,
+        revet_new_score=None,
+        action_taken='revet_triggered',
+        candidate_vetting_log_id=None,
+    ):
+        from app import db
+        from models import VettingAuditLog
+        with app.app_context():
+            row = VettingAuditLog(
+                candidate_vetting_log_id=(
+                    candidate_vetting_log_id
+                    if candidate_vetting_log_id is not None
+                    else candidate_id * 7 + job_id
+                ),
+                bullhorn_candidate_id=candidate_id,
+                candidate_name='Backfill Candidate',
+                job_id=job_id,
+                job_title='Senior Data Engineer',
+                original_score=original_score,
+                finding_type='recency_misfire',
+                confidence='high',
+                action_taken=action_taken,
+                revet_new_score=revet_new_score,
+                audit_finding='AI confirmed recency misfire.',
+            )
+            db.session.add(row)
+            db.session.commit()
+            return row.id
+
+    def _seed_new_vetting_run(
+        self,
+        app,
+        *,
+        candidate_id,
+        scores_by_job_id,
+    ):
+        """Persist a fresh CandidateVettingLog + CandidateJobMatch rows
+        representing the post-revet scoring cycle. Returns the new
+        vetting_log_id so callers can pass it to the helper if desired.
+        """
+        from app import db
+        from models import CandidateVettingLog, CandidateJobMatch
+        with app.app_context():
+            vlog = CandidateVettingLog(
+                bullhorn_candidate_id=candidate_id,
+                candidate_name='Backfill Candidate',
+                applied_job_id=next(iter(scores_by_job_id.keys())),
+                applied_job_title='Senior Data Engineer',
+                status='completed',
+                is_qualified=any(s >= 75 for s in scores_by_job_id.values()),
+                highest_match_score=max(scores_by_job_id.values()),
+                is_sandbox=False,
+                analyzed_at=datetime.utcnow(),
+            )
+            db.session.add(vlog)
+            db.session.flush()
+            for job_id, score in scores_by_job_id.items():
+                db.session.add(CandidateJobMatch(
+                    vetting_log_id=vlog.id,
+                    bullhorn_job_id=job_id,
+                    job_title='Senior Data Engineer',
+                    match_score=score,
+                    is_qualified=score >= 75,
+                    is_applied_job=(job_id == vlog.applied_job_id),
+                    match_summary='post-revet summary',
+                    gaps_identified='',
+                ))
+            db.session.commit()
+            return vlog.id
+
+    def _cleanup(self, app, candidate_ids):
+        from app import db
+        from models import (
+            CandidateVettingLog, CandidateJobMatch, VettingAuditLog,
+        )
+        with app.app_context():
+            for cid in candidate_ids:
+                vlog_ids = [
+                    v.id for v in CandidateVettingLog.query.filter_by(
+                        bullhorn_candidate_id=cid
+                    ).all()
+                ]
+                if vlog_ids:
+                    CandidateJobMatch.query.filter(
+                        CandidateJobMatch.vetting_log_id.in_(vlog_ids)
+                    ).delete(synchronize_session=False)
+                    CandidateVettingLog.query.filter(
+                        CandidateVettingLog.id.in_(vlog_ids)
+                    ).delete(synchronize_session=False)
+                VettingAuditLog.query.filter_by(
+                    bullhorn_candidate_id=cid
+                ).delete()
+            db.session.commit()
+
+    # -------------------------------------------------------------------
+    # Core back-fill behavior
+    # -------------------------------------------------------------------
+
+    def test_backfill_updates_pending_audit_row_for_same_job(self, app):
+        """An audit row with action_taken='revet_triggered' and
+        revet_new_score=NULL gets back-filled with the new
+        CandidateJobMatch.match_score for the same job_id."""
+        from app import db
+        from models import VettingAuditLog
+        from vetting_audit_service import backfill_revet_new_score
+
+        candidate_id = 880001
+        job_id = 770001
+        try:
+            audit_id = self._seed_audit_row(
+                app, candidate_id=candidate_id, job_id=job_id,
+                original_score=42.0,
+            )
+            self._seed_new_vetting_run(
+                app, candidate_id=candidate_id,
+                scores_by_job_id={job_id: 71.5},
+            )
+
+            with app.app_context():
+                count = backfill_revet_new_score(candidate_id)
+                assert count == 1
+                audit = VettingAuditLog.query.get(audit_id)
+                assert audit.revet_new_score == 71.5
+                assert audit.action_taken == 'revet_triggered'
+        finally:
+            self._cleanup(app, [candidate_id])
+
+    def test_backfill_uses_provided_vetting_log(self, app):
+        """When called with an explicit vetting_log argument the helper
+        scores from that log's matches, even if a newer log exists."""
+        from app import db
+        from models import (
+            VettingAuditLog, CandidateVettingLog, CandidateJobMatch,
+        )
+        from vetting_audit_service import backfill_revet_new_score
+
+        candidate_id = 880002
+        job_id = 770002
+        try:
+            audit_id = self._seed_audit_row(
+                app, candidate_id=candidate_id, job_id=job_id,
+            )
+            target_vlog_id = self._seed_new_vetting_run(
+                app, candidate_id=candidate_id,
+                scores_by_job_id={job_id: 64.0},
+            )
+
+            with app.app_context():
+                target_vlog = CandidateVettingLog.query.get(target_vlog_id)
+                count = backfill_revet_new_score(
+                    candidate_id, vetting_log=target_vlog
+                )
+                assert count == 1
+                audit = VettingAuditLog.query.get(audit_id)
+                assert audit.revet_new_score == 64.0
+        finally:
+            self._cleanup(app, [candidate_id])
+
+    def test_backfill_skips_rows_for_other_jobs(self, app):
+        """Back-fill only touches audit rows whose job_id has a matching
+        new CandidateJobMatch — unrelated audit rows stay NULL."""
+        from app import db
+        from models import VettingAuditLog
+        from vetting_audit_service import backfill_revet_new_score
+
+        candidate_id = 880003
+        applied_job = 770003
+        unrelated_job = 770099
+        try:
+            applied_audit_id = self._seed_audit_row(
+                app, candidate_id=candidate_id, job_id=applied_job,
+                candidate_vetting_log_id=600100,
+            )
+            unrelated_audit_id = self._seed_audit_row(
+                app, candidate_id=candidate_id, job_id=unrelated_job,
+                candidate_vetting_log_id=600101,
+            )
+            self._seed_new_vetting_run(
+                app, candidate_id=candidate_id,
+                scores_by_job_id={applied_job: 80.0},
+            )
+
+            with app.app_context():
+                count = backfill_revet_new_score(candidate_id)
+                assert count == 1
+                applied_audit = VettingAuditLog.query.get(applied_audit_id)
+                unrelated_audit = VettingAuditLog.query.get(unrelated_audit_id)
+                assert applied_audit.revet_new_score == 80.0
+                assert unrelated_audit.revet_new_score is None
+        finally:
+            self._cleanup(app, [candidate_id])
+
+    def test_backfill_ignores_already_filled_rows(self, app):
+        """Rows that already carry a revet_new_score are not touched —
+        the helper is idempotent and never overwrites a known score."""
+        from app import db
+        from models import VettingAuditLog
+        from vetting_audit_service import backfill_revet_new_score
+
+        candidate_id = 880004
+        job_id = 770004
+        try:
+            audit_id = self._seed_audit_row(
+                app, candidate_id=candidate_id, job_id=job_id,
+                revet_new_score=55.0,
+            )
+            self._seed_new_vetting_run(
+                app, candidate_id=candidate_id,
+                scores_by_job_id={job_id: 90.0},
+            )
+
+            with app.app_context():
+                count = backfill_revet_new_score(candidate_id)
+                assert count == 0
+                audit = VettingAuditLog.query.get(audit_id)
+                assert audit.revet_new_score == 55.0
+        finally:
+            self._cleanup(app, [candidate_id])
+
+    def test_backfill_ignores_non_revet_actions(self, app):
+        """flagged_for_review / no_action audit rows are never
+        back-filled, even if a same-job CandidateJobMatch exists."""
+        from app import db
+        from models import VettingAuditLog
+        from vetting_audit_service import backfill_revet_new_score
+
+        candidate_id = 880005
+        job_id = 770005
+        try:
+            flagged_id = self._seed_audit_row(
+                app, candidate_id=candidate_id, job_id=job_id,
+                action_taken='flagged_for_review',
+            )
+            self._seed_new_vetting_run(
+                app, candidate_id=candidate_id,
+                scores_by_job_id={job_id: 88.0},
+            )
+
+            with app.app_context():
+                count = backfill_revet_new_score(candidate_id)
+                assert count == 0
+                audit = VettingAuditLog.query.get(flagged_id)
+                assert audit.revet_new_score is None
+                assert audit.action_taken == 'flagged_for_review'
+        finally:
+            self._cleanup(app, [candidate_id])
+
+    def test_backfill_returns_zero_when_no_pending_rows(self, app):
+        """No audit rows ⇒ helper exits cleanly with 0 back-fills."""
+        from vetting_audit_service import backfill_revet_new_score
+
+        candidate_id = 880006
+        try:
+            self._seed_new_vetting_run(
+                app, candidate_id=candidate_id,
+                scores_by_job_id={770006: 73.0},
+            )
+            with app.app_context():
+                count = backfill_revet_new_score(candidate_id)
+                assert count == 0
+        finally:
+            self._cleanup(app, [candidate_id])
+
+    def test_backfill_returns_zero_when_no_matches_yet(self, app):
+        """An audit row exists but the candidate has no completed vetting
+        log yet ⇒ helper bails out gracefully without touching the row."""
+        from app import db
+        from models import VettingAuditLog
+        from vetting_audit_service import backfill_revet_new_score
+
+        candidate_id = 880007
+        job_id = 770007
+        try:
+            audit_id = self._seed_audit_row(
+                app, candidate_id=candidate_id, job_id=job_id,
+            )
+            with app.app_context():
+                count = backfill_revet_new_score(candidate_id)
+                assert count == 0
+                audit = VettingAuditLog.query.get(audit_id)
+                assert audit.revet_new_score is None
+        finally:
+            self._cleanup(app, [candidate_id])
+
+    # -------------------------------------------------------------------
+    # End-to-end: the vetting service post-commit hook calls the helper.
+    # -------------------------------------------------------------------
+
+    def test_vetting_service_invokes_backfill_after_commit(self):
+        """`CandidateVettingService` calls `backfill_revet_new_score` from
+        its post-commit hook so the integration is wired up — not just the
+        helper in isolation. Guarded as a source-text check because the
+        full vetting pipeline is too heavy to drive in this test module."""
+        import candidate_vetting_service as cvs_module
+        src = open(cvs_module.__file__, 'r', encoding='utf-8').read()
+        assert 'from vetting_audit_service import backfill_revet_new_score' in src, (
+            'CandidateVettingService must import backfill_revet_new_score'
+        )
+        assert 'backfill_revet_new_score(candidate_id' in src, (
+            'CandidateVettingService must call backfill_revet_new_score '
+            'after committing the new vetting log + matches'
+        )
+
+
+class TestAuditSummaryEmailUsesBackfilledScore:
+    """`_send_audit_summary_email` re-reads `VettingAuditLog.revet_new_score`
+    from the database when the in-memory summary entry has new_score=None.
+    This guarantees that if the back-fill landed between the audit cycle
+    and email send time, recruiters see the actual score instead of
+    'Pending'."""
+
+    def test_email_renders_backfilled_score(self, app, monkeypatch):
+        from app import db
+        from vetting_audit_service import VettingAuditService
+        from models import VettingAuditLog, VettingConfig
+
+        with app.app_context():
+            VettingConfig.query.delete()
+            db.session.add(VettingConfig(
+                setting_key='admin_notification_email',
+                setting_value='qa-test@example.com',
+            ))
+            audit = VettingAuditLog(
+                candidate_vetting_log_id=850100,
+                bullhorn_candidate_id=850100,
+                candidate_name='Backfilled Email Candidate',
+                job_id=860100,
+                job_title='Senior Data Engineer',
+                original_score=42.0,
+                finding_type='recency_misfire',
+                confidence='high',
+                action_taken='revet_triggered',
+                revet_new_score=78.0,
+                audit_finding='AI confirmed recency misfire.',
+            )
+            db.session.add(audit)
+            db.session.commit()
+            audit_id = audit.id
+
+            captured = {}
+
+            class StubEmailService:
+                def __init__(self, *a, **kw):
+                    pass
+
+                def send_email(self, **kwargs):
+                    captured.update(kwargs)
+                    return True
+
+            monkeypatch.setattr(
+                'email_service.EmailService', StubEmailService
+            )
+
+            svc = VettingAuditService()
+            summary = {
+                'total_audited': 1,
+                'issues_found': 1,
+                'revets_triggered': 1,
+                'qualified_audited': 0,
+                'qualified_issues_found': 0,
+                'details': [{
+                    'candidate_id': 850100,
+                    'candidate_name': 'Backfilled Email Candidate',
+                    'job_id': 860100,
+                    'job_title': 'Senior Data Engineer',
+                    'original_score': 42.0,
+                    'finding_type': 'recency_misfire',
+                    'confidence': 'high',
+                    'action_taken': 'revet_triggered',
+                    'new_score': None,
+                    'audit_log_id': audit_id,
+                    'mode': 'not_qualified',
+                }],
+            }
+
+            svc._send_audit_summary_email(summary)
+
+            assert captured, 'email was not sent'
+            html = captured.get('html_content', '')
+            assert '78%' in html, (
+                f'Expected back-filled score 78% in email body, got: {html}'
+            )
+            assert 'Pending' not in html or html.count('Pending') == 0
+
+            VettingAuditLog.query.filter_by(id=audit_id).delete()
+            VettingConfig.query.delete()
+            db.session.commit()
+
+    def test_email_renders_pending_when_no_backfill(self, app, monkeypatch):
+        """If neither the in-memory new_score nor the persisted column has
+        a value, the email still falls back to 'Pending' so recruiters
+        know the re-vet hasn't landed yet."""
+        from app import db
+        from vetting_audit_service import VettingAuditService
+        from models import VettingAuditLog, VettingConfig
+
+        with app.app_context():
+            VettingConfig.query.delete()
+            db.session.add(VettingConfig(
+                setting_key='admin_notification_email',
+                setting_value='qa-test@example.com',
+            ))
+            audit = VettingAuditLog(
+                candidate_vetting_log_id=850200,
+                bullhorn_candidate_id=850200,
+                candidate_name='Pending Email Candidate',
+                job_id=860200,
+                job_title='Senior Data Engineer',
+                original_score=42.0,
+                finding_type='recency_misfire',
+                confidence='high',
+                action_taken='revet_triggered',
+                revet_new_score=None,
+                audit_finding='AI confirmed recency misfire.',
+            )
+            db.session.add(audit)
+            db.session.commit()
+            audit_id = audit.id
+
+            captured = {}
+
+            class StubEmailService:
+                def __init__(self, *a, **kw):
+                    pass
+
+                def send_email(self, **kwargs):
+                    captured.update(kwargs)
+                    return True
+
+            monkeypatch.setattr(
+                'email_service.EmailService', StubEmailService
+            )
+
+            svc = VettingAuditService()
+            summary = {
+                'total_audited': 1,
+                'issues_found': 1,
+                'revets_triggered': 1,
+                'qualified_audited': 0,
+                'qualified_issues_found': 0,
+                'details': [{
+                    'candidate_id': 850200,
+                    'candidate_name': 'Pending Email Candidate',
+                    'job_id': 860200,
+                    'job_title': 'Senior Data Engineer',
+                    'original_score': 42.0,
+                    'finding_type': 'recency_misfire',
+                    'confidence': 'high',
+                    'action_taken': 'revet_triggered',
+                    'new_score': None,
+                    'audit_log_id': audit_id,
+                    'mode': 'not_qualified',
+                }],
+            }
+
+            svc._send_audit_summary_email(summary)
+
+            assert captured, 'email was not sent'
+            html = captured.get('html_content', '')
+            assert 'Pending' in html
+
+            VettingAuditLog.query.filter_by(id=audit_id).delete()
+            VettingConfig.query.delete()
+            db.session.commit()

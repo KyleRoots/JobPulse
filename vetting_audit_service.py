@@ -77,6 +77,110 @@ def get_auditor_model() -> str:
     return DEFAULT_AUDITOR_MODEL
 
 
+def backfill_revet_new_score(
+    candidate_id: int,
+    vetting_log=None,
+) -> int:
+    """Back-fill ``VettingAuditLog.revet_new_score`` after a re-vet completes.
+
+    ``_trigger_revet`` is asynchronous: it deletes the candidate's vetting
+    logs and lets the next vetting cycle re-score them, so it cannot
+    return the new score synchronously and the audit row is written with
+    ``revet_new_score=NULL``. This helper is invoked from the vetting
+    service once the new ``CandidateJobMatch`` rows have been committed;
+    it locates every audit row for this candidate that was waiting on a
+    re-vet score and copies the newly-scored ``match_score`` for the
+    same applied job.
+
+    Parameters
+    ----------
+    candidate_id:
+        The Bullhorn candidate id whose audit rows should be back-filled.
+    vetting_log:
+        Optional ``CandidateVettingLog`` instance whose
+        ``CandidateJobMatch`` rows should be used as the source of new
+        scores. When omitted, the helper resolves the most recent
+        completed vetting log for the candidate and reads its matches.
+
+    Returns
+    -------
+    int
+        Number of audit log rows that were updated.
+    """
+    from app import db
+    from models import VettingAuditLog, CandidateJobMatch, CandidateVettingLog
+
+    try:
+        pending = VettingAuditLog.query.filter(
+            VettingAuditLog.bullhorn_candidate_id == candidate_id,
+            VettingAuditLog.action_taken == 'revet_triggered',
+            VettingAuditLog.revet_new_score.is_(None),
+        ).all()
+
+        if not pending:
+            return 0
+
+        if vetting_log is not None and getattr(vetting_log, 'id', None):
+            matches = CandidateJobMatch.query.filter_by(
+                vetting_log_id=vetting_log.id
+            ).all()
+        else:
+            latest = (
+                CandidateVettingLog.query
+                .filter_by(
+                    bullhorn_candidate_id=candidate_id,
+                    status='completed',
+                )
+                .order_by(CandidateVettingLog.id.desc())
+                .first()
+            )
+            if not latest:
+                return 0
+            matches = CandidateJobMatch.query.filter_by(
+                vetting_log_id=latest.id
+            ).all()
+
+        score_by_job: Dict[int, float] = {}
+        for m in matches:
+            if m.bullhorn_job_id is None or m.match_score is None:
+                continue
+            score_by_job[int(m.bullhorn_job_id)] = float(m.match_score)
+
+        if not score_by_job:
+            return 0
+
+        backfilled = 0
+        for audit_row in pending:
+            if audit_row.job_id is None:
+                continue
+            new_score = score_by_job.get(int(audit_row.job_id))
+            if new_score is None:
+                continue
+            audit_row.revet_new_score = new_score
+            backfilled += 1
+
+        if backfilled == 0:
+            return 0
+
+        db.session.commit()
+        logging.info(
+            f"🔁 Back-filled revet_new_score on {backfilled} audit row(s) "
+            f"for candidate {candidate_id}"
+        )
+        return backfilled
+
+    except Exception as e:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        logging.warning(
+            f"⚠️ Failed to back-fill revet_new_score for candidate "
+            f"{candidate_id}: {e!r}"
+        )
+        return 0
+
+
 def get_qualified_sample_rate() -> int:
     """Load the Qualified false-positive sample rate (percent, 0-100).
 
@@ -455,12 +559,14 @@ class VettingAuditService:
                 summary['details'].append({
                     'candidate_id': vetting_log.bullhorn_candidate_id,
                     'candidate_name': vetting_log.candidate_name,
+                    'job_id': applied_match.bullhorn_job_id,
                     'job_title': applied_match.job_title,
                     'original_score': applied_match.match_score,
                     'finding_type': finding_type,
                     'confidence': confidence,
                     'action_taken': action_taken,
                     'new_score': revet_new_score,
+                    'audit_log_id': audit_log.id,
                     'mode': mode
                 })
 
@@ -1059,6 +1165,14 @@ IMPORTANT:
             logging.warning("No admin_notification_email configured — skipping audit summary email")
             return
 
+        # Re-read the persisted revet_new_score from VettingAuditLog when
+        # available so this email reflects any back-fill that landed
+        # between the audit cycle and email send time. The synchronous
+        # _trigger_revet path returns None (the next vetting cycle is
+        # async), so the in-memory ``new_score`` will be None for fresh
+        # re-vets; the back-fill helper updates the persisted column the
+        # moment the next vetting cycle finishes.
+        from models import VettingAuditLog
         details_html = ''
         if summary.get('details'):
             rows = ''
@@ -1069,7 +1183,23 @@ IMPORTANT:
                     'no_action': '<span style="color: #6b7280;">—</span>'
                 }.get(d.get('action_taken', ''), '—')
 
-                new_score_str = f"{d['new_score']:.0f}%" if d.get('new_score') is not None else 'Pending'
+                resolved_new_score = d.get('new_score')
+                if resolved_new_score is None and d.get('audit_log_id'):
+                    try:
+                        audit_row = VettingAuditLog.query.get(d['audit_log_id'])
+                        if audit_row is not None and audit_row.revet_new_score is not None:
+                            resolved_new_score = audit_row.revet_new_score
+                    except Exception as lookup_err:
+                        logging.warning(
+                            f"⚠️ Audit summary email: failed to re-read "
+                            f"audit row {d.get('audit_log_id')}: {lookup_err!r}"
+                        )
+
+                new_score_str = (
+                    f"{resolved_new_score:.0f}%"
+                    if resolved_new_score is not None
+                    else 'Pending'
+                )
 
                 rows += f"""<tr>
                     <td style="padding: 8px; border-bottom: 1px solid #374151;">{d.get('candidate_name', 'Unknown')}</td>
