@@ -96,6 +96,19 @@
 {% endif %}
 {% endwith %}
 
+<div class="alert alert-info d-flex align-items-start mb-3" role="alert"
+     style="background: rgba(74, 150, 120, 0.10); border: 1px solid rgba(74, 150, 120, 0.35); color: rgba(255,255,255,0.85);">
+    <i class="fas fa-info-circle me-2 mt-1" style="color: #4a9678;"></i>
+    <div>
+        <strong>Credentials are managed here, not via environment variables.</strong>
+        After the initial install, the SFTP credentials below are the sole source of truth.
+        To rotate or change the SFTP hostname, port, username, password, or upload directory,
+        update the fields on this page and click <em>Save Inbound Config</em>. Changing the
+        deployment environment variables will have no effect — they are only read on a
+        fresh, first-time install when no value has been saved yet.
+    </div>
+</div>
+
 <form method="POST" action="{{ url_for('settings.update_inbound_config') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
