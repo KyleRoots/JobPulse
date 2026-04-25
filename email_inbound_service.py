@@ -16,6 +16,17 @@ from email.utils import parseaddr
 
 from openai import OpenAI
 
+from utils.candidate_name_extraction import (
+    build_extraction_summary,
+    extract_name_from_pattern,
+    is_valid_name,
+    merge_name_candidates,
+    parse_name_from_email_address,
+    parse_name_from_filename,
+    split_full_name,
+    strip_html_to_text,
+)
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -92,8 +103,14 @@ class EmailInboundService:
         else:
             self.logger.warning("OPENAI_API_KEY not set - AI resume parsing disabled")
     
-    def _notify_admin_parse_failure(self, parsed_email, error_msg: str):
-        """Send email notification to admin when a candidate fails to parse."""
+    def _notify_admin_parse_failure(self, parsed_email, error_msg: str, extraction_summary: Optional[Dict] = None):
+        """Send email notification to admin when a candidate fails to parse.
+
+        When ``extraction_summary`` is provided (Layer 6), the email
+        includes everything we *did* manage to extract — skills, current
+        title, work history, partial name guesses — so the admin can
+        manually create the candidate without re-doing the parsing work.
+        """
         try:
             from email_service import EmailService
             from models import User
@@ -114,6 +131,38 @@ class EmailInboundService:
             resume = parsed_email.resume_filename or 'None'
             
             subject = f"[Scout Genius] Candidate Parse Failure — {candidate_name}"
+
+            extraction_block = ''
+            if extraction_summary:
+                email_part = extraction_summary.get('email_extracted', {}) or {}
+                resume_part = extraction_summary.get('resume_extracted', {}) or {}
+                lines = ["", "--- Data We DID Extract (use to create candidate manually) ---"]
+                lines.append(
+                    f"From email subject/body: name={email_part.get('first_name')} {email_part.get('last_name')}, "
+                    f"email={email_part.get('email')}, phone={email_part.get('phone')}"
+                )
+                lines.append(
+                    f"From AI resume parser:   name={resume_part.get('first_name')} {resume_part.get('last_name')}, "
+                    f"email={resume_part.get('email')}, phone={resume_part.get('phone')}"
+                )
+                if resume_part.get('current_title') or resume_part.get('current_company'):
+                    lines.append(
+                        f"Current role: {resume_part.get('current_title') or 'N/A'} at "
+                        f"{resume_part.get('current_company') or 'N/A'}"
+                    )
+                if resume_part.get('years_experience') is not None:
+                    lines.append(f"Years experience: {resume_part.get('years_experience')}")
+                if resume_part.get('city') or resume_part.get('state'):
+                    lines.append(
+                        f"Location: {resume_part.get('city') or ''}, {resume_part.get('state') or ''}".rstrip(', ')
+                    )
+                if resume_part.get('skills_count'):
+                    lines.append(
+                        f"Skills extracted: {resume_part.get('skills_count')} "
+                        f"(first 10: {resume_part.get('skills_preview')})"
+                    )
+                extraction_block = "\n" + "\n".join(lines) + "\n"
+
             body = (
                 f"A candidate application has failed to parse inside the ATS.\n\n"
                 f"--- Failure Details ---\n"
@@ -127,8 +176,9 @@ class EmailInboundService:
                 f"--- Error ---\n"
                 f"{error_msg}\n\n"
                 f"--- Notes ---\n"
-                f"{parsed_email.processing_notes or 'N/A'}\n\n"
-                f"This candidate profile did not make it through the parsing workflow. "
+                f"{parsed_email.processing_notes or 'N/A'}\n"
+                f"{extraction_block}"
+                f"\nThis candidate profile did not make it through the parsing workflow. "
                 f"Please review and take corrective action if needed.\n\n"
                 f"— Scout Genius Automation"
             )
@@ -254,25 +304,26 @@ class EmailInboundService:
     def _extract_dice_candidate(self, subject: str, body: str) -> Dict[str, Any]:
         """Extract candidate info from Dice email format"""
         result = {}
-        
+
         # Extract name from subject: "Job Title (ID) - Christopher (Chris) Huebner has applied"
-        name_match = re.search(r'-\s*([A-Za-z]+(?:\s*\([^)]+\))?\s+[A-Za-z]+)\s+has applied', subject)
-        if name_match:
-            full_name = name_match.group(1)
-            # Remove nickname in parentheses
-            full_name = re.sub(r'\s*\([^)]+\)\s*', ' ', full_name).strip()
-            parts = full_name.split()
-            if len(parts) >= 2:
-                result['first_name'] = parts[0]
-                result['last_name'] = parts[-1]
-        
+        # Strip nickname-in-parentheses first so multi-token names survive cleanly.
+        cleaned_subject = re.sub(r'\s*\([A-Za-z][^)]*\)\s*', ' ', subject)
+        first, last = extract_name_from_pattern(cleaned_subject, r'-\s*')
+        if first or last:
+            result['first_name'] = first
+            result['last_name'] = last
+
+        # HTML-aware body extraction: strip markup before regex so labels in
+        # <strong>Email:</strong>-style messages still match.
+        body_text = strip_html_to_text(body)
+
         # Extract email from body
-        email_match = re.search(r'Email[:\s]+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})', body)
+        email_match = re.search(r'Email[:\s]+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})', body_text)
         if email_match:
             result['email'] = email_match.group(1).lower()
-        
+
         # Extract phone from body
-        phone_match = re.search(r'Phone[:\s]+(\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4})', body)
+        phone_match = re.search(r'Phone[:\s]+(\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4})', body_text)
         if phone_match:
             result['phone'] = phone_match.group(1)
         
@@ -297,57 +348,63 @@ class EmailInboundService:
     def _extract_linkedin_candidate(self, subject: str, body: str) -> Dict[str, Any]:
         """Extract candidate info from LinkedIn email format"""
         result = {}
-        
+
+        # HTML-aware body — LinkedIn forwarded emails frequently arrive as
+        # rich HTML with <strong>Email:</strong>-style labels.
+        body_text = strip_html_to_text(body)
+
         # Extract name from subject: "Job Title (ID) - Rahul Kauldhar has applied on LinkedIn"
-        name_match = re.search(r'-\s*([A-Za-z]+\s+[A-Za-z]+)\s+has applied', subject)
-        if name_match:
-            parts = name_match.group(1).split()
-            if len(parts) >= 2:
-                result['first_name'] = parts[0]
-                result['last_name'] = parts[-1]
-        
+        # New: handles 2-5 token names, hyphenated names, and particles
+        # (e.g. "Abderrahmane El Fared", "Mary-Jane O'Brien", "Jean van der Berg").
+        first, last = extract_name_from_pattern(subject, r'-\s*')
+        if first or last:
+            result['first_name'] = first
+            result['last_name'] = last
+
         # Extract name from body: "Name: Rahul Kauldhar"
-        name_body_match = re.search(r'Name[:\s]+([A-Za-z]+\s+[A-Za-z]+)', body)
-        if name_body_match and not result.get('first_name'):
-            parts = name_body_match.group(1).split()
-            if len(parts) >= 2:
-                result['first_name'] = parts[0]
-                result['last_name'] = parts[-1]
-        
+        if not result.get('first_name'):
+            first, last = extract_name_from_pattern(body_text, r'Name[:\s]+')
+            if first or last:
+                result['first_name'] = first
+                result['last_name'] = last
+
         # Extract email from body
-        email_match = re.search(r'Email[:\s]+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})', body)
+        email_match = re.search(r'Email[:\s]+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})', body_text)
         if email_match:
             result['email'] = email_match.group(1).lower()
-        
+
         # Extract phone from body
-        phone_match = re.search(r'Phone[:\s]+(\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4})', body)
+        phone_match = re.search(r'Phone[:\s]+(\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4})', body_text)
         if phone_match:
             result['phone'] = phone_match.group(1)
-        
+
         return result
-    
+
     def _extract_generic_candidate(self, subject: str, body: str) -> Dict[str, Any]:
         """Generic candidate extraction for unknown sources"""
         result = {}
-        
+
+        body_text = strip_html_to_text(body)
+
         # Extract email
-        email_match = re.search(r'([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})', body)
+        email_match = re.search(r'([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})', body_text)
         if email_match:
             result['email'] = email_match.group(1).lower()
-        
+
         # Extract phone
-        phone_match = re.search(r'(\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4})', body)
+        phone_match = re.search(r'(\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4})', body_text)
         if phone_match:
             result['phone'] = phone_match.group(1)
-        
-        # Try to extract name from subject
-        name_match = re.search(r'-\s*([A-Za-z]+\s+[A-Za-z]+)\s+(?:has applied|applied)', subject)
-        if name_match:
-            parts = name_match.group(1).split()
-            if len(parts) >= 2:
-                result['first_name'] = parts[0]
-                result['last_name'] = parts[-1]
-        
+
+        # Try to extract name from subject — handles 2-5 token names + particles
+        first, last = extract_name_from_pattern(subject, r'-\s*')
+        if not (first or last):
+            # Some generic boards use "applied for" or "applied to" phrasing
+            first, last = extract_name_from_pattern(subject, r'(?:from|by)\s+')
+        if first or last:
+            result['first_name'] = first
+            result['last_name'] = last
+
         return result
     
     def parse_resume_with_ai(self, resume_text: str) -> Dict[str, Any]:
@@ -430,7 +487,88 @@ Resume text:
                 return {'_timeout_error': 'OpenAI API timeout - resume parsing took too long'}
             self.logger.error(f"AI resume parsing error ({error_type}): {e}")
             return {}  # Return empty dict for non-timeout errors - allow fallback to email data
-    
+
+    def _last_resort_ai_extraction(
+        self,
+        subject: str,
+        sender: str,
+        resume_filename: Optional[str],
+        resume_text_preview: str,
+        body_preview: str,
+    ) -> Dict[str, Any]:
+        """Layer 5: focused AI safety net for unusual emails.
+
+        Fires only when subject regex, AI resume parser, filename parsing,
+        and email-local-part parsing have all failed to recover a usable
+        candidate name + contact pair.
+
+        Uses gpt-4.1-mini with a tight JSON-only prompt and a strict
+        15-second timeout. Returns ``{}`` on any failure — never raises.
+        """
+        if not self.openai_client:
+            return {}
+        if not (subject or resume_filename or resume_text_preview or body_preview):
+            return {}
+
+        prompt = (
+            "Extract the candidate's name and contact info from the following "
+            "job-board application signals. Return STRICT JSON with exactly "
+            "these keys (use null when truly unknown):\n"
+            '{"first_name": string|null, "last_name": string|null, '
+            '"email": string|null, "phone": string|null}\n\n'
+            "Rules:\n"
+            "- first_name and last_name must be a real person\u2019s name parts. "
+            "Do NOT return generic words like \u201cResume\u201d, \u201cCV\u201d, "
+            "\u201cCandidate\u201d, \u201cApplicant\u201d, \u201cNone\u201d, or filler.\n"
+            "- Preserve original casing and accents.\n"
+            "- email must be a valid RFC-5322 address; phone must be 10+ digits.\n"
+            "- Return null rather than guessing.\n\n"
+            f"Email subject: {subject!r}\n"
+            f"Email sender: {sender!r}\n"
+            f"Resume filename: {resume_filename!r}\n"
+            f"First chars of resume text:\n{resume_text_preview}\n\n"
+            f"First chars of email body (HTML stripped):\n{body_preview}\n"
+        )
+
+        try:
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4.1-mini",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You extract candidate identity from job board "
+                            "applications. You return only valid JSON matching "
+                            "the requested schema. You never invent data."
+                        ),
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                response_format={"type": "json_object"},
+                max_completion_tokens=300,
+                timeout=15.0,
+            )
+            content = (response.choices[0].message.content or "").strip()
+            if not content:
+                return {}
+            data = json.loads(content)
+            # Normalise empty strings to None for downstream is_valid_name checks
+            for key in ("first_name", "last_name", "email", "phone"):
+                if isinstance(data.get(key), str) and not data[key].strip():
+                    data[key] = None
+            self.logger.info(
+                f"🤖 Last-resort AI extraction returned: "
+                f"name={data.get('first_name')} {data.get('last_name')}, "
+                f"email={data.get('email')}, phone={data.get('phone')}"
+            )
+            return data
+        except json.JSONDecodeError as e:
+            self.logger.warning(f"Last-resort AI returned non-JSON: {e}")
+            return {}
+        except Exception as e:
+            self.logger.warning(f"Last-resort AI extraction failed ({type(e).__name__}): {e}")
+            return {}
+
     def find_duplicate_candidate(self, email: str, phone: str, first_name: str, last_name: str, 
                                   bullhorn_service) -> Tuple[Optional[int], float]:
         """
@@ -911,28 +1049,112 @@ Consider: name spelling variations, nicknames, contact info matches.
             first_name = email_candidate.get('first_name') or resume_data.get('first_name')
             last_name = email_candidate.get('last_name') or resume_data.get('last_name')
             
-            has_name = bool(first_name or last_name)
+            # Strict gate: only a fully-validated (first, last) pair counts as
+            # "has_name". This ensures the fallback layers (3, 3b, 5) actually
+            # fire when the upstream sources produced placeholder garbage like
+            # "Resume", "None None", or generic filename tokens that pass a
+            # truthy check but are not a real candidate name.
+            has_name = is_valid_name(first_name, last_name)
             has_contact = bool(candidate_email or candidate_phone)
             has_email_data = bool(email_candidate.get('first_name') or email_candidate.get('email'))
-            
+
+            # ----------------------------------------------------------------
+            # FALLBACK LAYER 3 — Resume filename parsing
+            # ----------------------------------------------------------------
+            # Triggers when subject regex + AI resume parser both missed the
+            # name. Filenames like "EL Fared Abderrahmane Resume.docx" are a
+            # strong deterministic signal we previously ignored.
+            if not is_valid_name(first_name, last_name) and parsed_email.resume_filename:
+                fn_first, fn_last = parse_name_from_filename(parsed_email.resume_filename)
+                if is_valid_name(fn_first, fn_last):
+                    self.logger.info(
+                        f"📁 Layer 3 (filename) recovered name: {fn_first} {fn_last} "
+                        f"from '{parsed_email.resume_filename}'"
+                    )
+                    first_name = first_name or fn_first
+                    last_name = last_name or fn_last
+                    parsed_email.candidate_name = f"{first_name} {last_name}".strip()
+                    has_name = True
+
+            # ----------------------------------------------------------------
+            # FALLBACK LAYER 3b — Email-address local-part parsing
+            # ----------------------------------------------------------------
+            if not is_valid_name(first_name, last_name) and candidate_email:
+                ea_first, ea_last = parse_name_from_email_address(candidate_email)
+                if is_valid_name(ea_first, ea_last):
+                    self.logger.info(
+                        f"✉️  Layer 3b (email local-part) recovered name: {ea_first} {ea_last}"
+                    )
+                    first_name = first_name or ea_first
+                    last_name = last_name or ea_last
+                    parsed_email.candidate_name = f"{first_name} {last_name}".strip()
+                    has_name = True
+
+            # ----------------------------------------------------------------
+            # FALLBACK LAYER 5 — Last-resort focused AI extraction
+            # ----------------------------------------------------------------
+            # Fires only when layers 1-3b all failed AND we still don't have
+            # name + contact info. Tight prompt, cheap model, narrow JSON
+            # schema. Result is merged in only if it passes is_valid_name().
+            if (not is_valid_name(first_name, last_name) or not has_contact):
+                ai_recovered = self._last_resort_ai_extraction(
+                    subject=subject,
+                    sender=sender,
+                    resume_filename=parsed_email.resume_filename,
+                    resume_text_preview=(resume_text or '')[:600],
+                    body_preview=strip_html_to_text(body)[:800] if body else '',
+                )
+                if ai_recovered:
+                    if not is_valid_name(first_name, last_name):
+                        ai_first, ai_last = ai_recovered.get('first_name'), ai_recovered.get('last_name')
+                        if is_valid_name(ai_first, ai_last):
+                            self.logger.info(
+                                f"🤖 Layer 5 (last-resort AI) recovered name: {ai_first} {ai_last}"
+                            )
+                            first_name = ai_first
+                            last_name = ai_last
+                            parsed_email.candidate_name = f"{first_name} {last_name}".strip()
+                            has_name = True
+                    if not candidate_email and ai_recovered.get('email'):
+                        candidate_email = ai_recovered['email'].strip().lower()
+                        parsed_email.candidate_email = candidate_email
+                        self.logger.info(f"🤖 Layer 5 recovered email: {candidate_email}")
+                    if not candidate_phone and ai_recovered.get('phone'):
+                        candidate_phone = ai_recovered['phone'].strip()
+                        parsed_email.candidate_phone = candidate_phone
+                        self.logger.info(f"🤖 Layer 5 recovered phone: {candidate_phone}")
+                    has_contact = bool(candidate_email or candidate_phone)
+                    db.session.commit()
+
+            # Recompute final eligibility after the fallback chain
+            has_name = bool(first_name or last_name)
+            has_contact = bool(candidate_email or candidate_phone)
+
+            # Layer 6 extraction summary used for richer admin notifications
+            extraction_summary = build_extraction_summary(
+                resume_data=resume_data or {},
+                email_candidate=email_candidate or {},
+                filename=parsed_email.resume_filename,
+            )
+
             # Check if AI had a TIMEOUT error - this is more serious
             timeout_error = resume_data.get('_timeout_error')
             if timeout_error:
                 self.logger.warning(f"⚠️ Resume parsing timed out: {timeout_error}")
                 # Only fail if we don't have email-extracted candidate info to fall back on
-                if not has_email_data:
+                if not has_email_data and not has_name:
                     parsed_email.status = 'failed'
                     parsed_email.processed_at = datetime.utcnow()
                     parsed_email.processing_notes = f"Resume parsing timed out and no candidate info in email body"
                     db.session.commit()
-                    self._notify_admin_parse_failure(parsed_email, timeout_error)
+                    self._notify_admin_parse_failure(parsed_email, timeout_error, extraction_summary)
                     result['success'] = False
                     result['message'] = timeout_error
                     return result
                 else:
-                    # Log the timeout but continue with email data
-                    self.logger.info(f"⚠️ AI timed out but using email-extracted candidate info: {first_name} {last_name}")
-            
+                    # Log the timeout but continue with whatever we recovered
+                    self.logger.info(f"⚠️ AI timed out but using fallback-extracted candidate info: {first_name} {last_name}")
+
             # Check if we have ANY usable candidate information
             if not has_name and not has_contact:
                 # Check for specific failure reasons to provide helpful messages
@@ -945,14 +1167,14 @@ Consider: name spelling variations, nicknames, contact info matches.
                 elif not resume_data or len(resume_data) == 0:
                     error_msg = "AI could not extract any information from resume and no candidate info in email body"
                 else:
-                    error_msg = "Could not extract candidate name or contact information from email or resume"
+                    error_msg = "Could not extract candidate name or contact information from email or resume (all 5 fallback layers exhausted)"
                 
                 self.logger.warning(f"⚠️ Early validation failed: {error_msg}")
                 parsed_email.status = 'failed'
                 parsed_email.processed_at = datetime.utcnow()
                 parsed_email.processing_notes = error_msg
                 db.session.commit()
-                self._notify_admin_parse_failure(parsed_email, error_msg)
+                self._notify_admin_parse_failure(parsed_email, error_msg, extraction_summary)
                 result['success'] = False
                 result['message'] = error_msg
                 return result

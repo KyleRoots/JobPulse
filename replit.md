@@ -1,7 +1,7 @@
 # Scout Genius™ - AI-Powered Job Feed Automation Platform
 
 ## Overview
-Scout Genius is a Flask-based web application designed to automate XML job feed processing, synchronize job listings with Bullhorn ATS/CRM, and provide AI-powered candidate vetting. Its primary purpose is to maintain accurate, real-time job listings, streamline application workflows, and enhance recruitment efficiency through automation. The project aims to become a multi-tenant SaaS platform, revolutionizing recruitment operations. Key capabilities include automated job feed generation, Bullhorn integration, and AI-powered candidate screening (Scout Vetting).
+Scout Genius is a Flask-based web application that automates XML job feed processing and synchronizes job listings with Bullhorn ATS/CRM. It provides AI-powered candidate vetting, aiming to maintain accurate, real-time job listings, streamline application workflows, and enhance recruitment efficiency. The platform intends to evolve into a multi-tenant SaaS solution, transforming recruitment operations through automated job feed generation, Bullhorn integration, and advanced AI-driven candidate screening (Scout Vetting).
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -27,14 +27,14 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 - **Database**: PostgreSQL with SQLAlchemy ORM and Alembic.
 - **Authentication**: Flask-Login for user management, with username/email login and password reset.
 - **Authorization**: Granular module-based access control.
-- **Background Processing**: APScheduler for automated tasks (e.g., tearsheet monitoring, SFTP uploads, Scout Vetting cycle).
+- **Background Processing**: APScheduler for automated tasks like tearsheet monitoring, SFTP uploads, and Scout Vetting.
 - **XML Processing**: Custom `lxml` processor for data handling and HTML consistency.
 - **Email Service**: SendGrid for notifications.
-- **AI/LLM Integration**: OpenAI GPT-5.4 standardized across all modules for candidate vetting, screening, resume formatting, quality auditing, job requirements extraction, duplicate candidate detection, job classification, Scout Support conversation analysis, Scout Prospector research, and occupation/title extraction.
-- **Embedding Service**: OpenAI text-embedding-3-large for similarity-based pre-filtering in candidate-job matching.
+- **AI/LLM Integration**: OpenAI GPT-5.4 is standardized across modules for candidate vetting, screening, resume formatting, quality auditing, job requirements extraction, duplicate candidate detection, job classification, Scout Support, Scout Prospector research, and occupation/title extraction.
+- **Embedding Service**: OpenAI `text-embedding-3-large` for similarity-based pre-filtering in candidate-job matching.
 - **Error Tracking**: Sentry SDK integration.
 - **Testing**: Comprehensive pytest suite.
-- **Screening Engine Architecture**: Modular mixin package with an orchestrator for managing AI prompts, Bullhorn note formatting, notifications, candidate detection, job management, and recovery. Batch-optimized processing of candidates (5-at-a-time) using `ThreadPoolExecutor` with thread-safe Bullhorn access and SQLAlchemy session isolation.
+- **Screening Engine Architecture**: Modular mixin package with an orchestrator for managing AI prompts, Bullhorn note formatting, notifications, candidate detection, job management, and recovery. Batch-optimized processing of candidates using `ThreadPoolExecutor` with thread-safe Bullhorn access and SQLAlchemy session isolation.
 - **Dual XML Feed System**: Generates two XML files (`myticas-job-feed-v2.xml` and `myticas-job-feed-pando.xml`) every 30 minutes.
 - **Dual-Cycle Monitoring**: 5-minute tearsheet monitoring and 30-minute automated SFTP upload cycles.
 - **Job Application Forms**: Public forms with multi-brand support, resume parsing, and Bullhorn integration including duplicate candidate detection and profile enrichment.
@@ -43,25 +43,26 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 - **Bullhorn JSON-Enveloped File Unwrapping**: Automatic detection and decoding of Bullhorn's JSON-wrapped file responses.
 - **Magic Byte File Format Detection**: Inspects file content bytes for format detection (DOCX/ZIP, DOC, PDF) to ensure correct parsing and fallbacks.
 - **AI Job Classification**: Classifies jobs based on LinkedIn taxonomy.
-- **Scout Vetting**: AI-powered candidate screening using GPT-5.4 with embedding pre-filtering, experience-level classification, two-phase scoring, work authorization/security clearance inference, configurable prompts, employment gap penalties, AI-native recency relevance, and per-job Employer Prestige Boost. Includes special notifications for below-threshold prestige candidates.
-- **Inline-Editable AI Requirements (Configure modal)**: Recruiters can edit AI-extracted requirements directly. Edits are stored in `JobVettingRequirements.edited_requirements` and take priority. Includes a "Reset to AI extraction" link and an "Edited by … on …" badge.
+- **Scout Vetting**: AI-powered candidate screening using GPT-5.4 with embedding pre-filtering, experience-level classification, two-phase scoring, work authorization/security clearance inference, configurable prompts, employment gap penalties, AI-native recency relevance, and per-job Employer Prestige Boost.
+- **Inline-Editable AI Requirements (Configure modal)**: Recruiters can edit AI-extracted requirements directly, with edits prioritized and options to reset.
 - **Vetting System Health Monitoring**: Automated checks for Bullhorn, OpenAI, database, and scheduler status.
 - **Scout Screening Portal**: Recruiter-facing dashboard for AI match results, scores, and qualification status.
 - **Scout Screening Quality Auditor**: Background AI audit to review "Not Qualified" results for scoring errors, with auto-trigger re-vets.
-- **Job Eligibility — Single Source of Truth**: `utils/job_status.py` defines `INELIGIBLE_STATUSES` and `is_job_eligible(job)` to ensure consistent job eligibility checks across the system.
-- **Matador API Candidate Detection**: Owner-based detection path for corporate-website applicants from Bullhorn with `owner.name='Matador API'` and `status='New Lead'`.
-- **Recruiter-Activity Pause Gate (with super-admin UI)**: Auto-screening defers when a human recruiter has interacted with a candidate within a configurable lookback period. Super-admins can manage this gate via the Vetting Settings page.
-- **Resilient JobSubmission Lookup (Pandologic + Matador)**: A shared helper `CandidateDetectionMixin._fetch_latest_job_submission` fetches the most recent JobSubmission for a candidate with retry logic for transient failures.
-- **Bullhorn Note Duplicate Safeguard**: Prevents stale "Incomplete" or "Analysis failed" notes from blocking successful re-screen results and correctly classifies different types of 0% scores.
-- **NUL-Byte Sanitization at Persistence Boundaries**: Shared helper `utils/text_sanitization.sanitize_text()` strips PostgreSQL-incompatible NUL bytes (0x00) from every text/varchar field sourced from Bullhorn (candidate description/firstName/lastName/email, job title/location/tearsheet, recruiter name/email), OpenAI (match summary, skills/experience/gaps), and exception messages before assignment to `CandidateVettingLog` / `CandidateJobMatch`. Prevents the recurring `A string literal cannot contain NUL (0x00) characters` flush failures that silently dropped candidates from screening when their Bullhorn description contained PDF/paste artifacts. Legacy `vetting.resume_utils._sanitize_text` re-exports from the shared module for back-compat. As of M1 (Apr 2026), the audited 16 Bullhorn-sourced fields use `SafeText`/`SafeString` SQLAlchemy `TypeDecorator` column types (`utils/sqlalchemy_types.py`) that automatically call `sanitize_text()` in `process_bind_param`, so the safety property is enforced at the ORM boundary and no longer load-bearing on developer discipline at every call site. Existing manual `sanitize_text()` calls remain as defence in depth. A parametrized regression test (`tests/test_safe_text_columns.py`) fails immediately if any audited field is declared as raw `db.Text`/`db.String`. Underlying SQL column types are unchanged (TEXT / VARCHAR(N)) — no schema migration required.
+- **Job Eligibility — Single Source of Truth**: `utils/job_status.py` defines `INELIGIBLE_STATUSES` and `is_job_eligible(job)` for consistent job eligibility checks.
+- **Matador API Candidate Detection**: Owner-based detection path for corporate-website applicants from Bullhorn.
+- **Recruiter-Activity Pause Gate**: Auto-screening defers when a human recruiter has interacted with a candidate within a configurable lookback period, manageable via a super-admin UI.
+- **Resilient JobSubmission Lookup**: Helper `CandidateDetectionMixin._fetch_latest_job_submission` fetches the most recent JobSubmission for a candidate with retry logic.
+- **Bullhorn Note Duplicate Safeguard**: Prevents stale notes from blocking successful re-screen results and correctly classifies 0% scores.
+- **NUL-Byte Sanitization at Persistence Boundaries**: Shared helper `utils/text_sanitization.sanitize_text()` strips PostgreSQL-incompatible NUL bytes from all text/varchar fields sourced from Bullhorn and OpenAI before persistence, using `SafeText`/`SafeString` SQLAlchemy `TypeDecorator` column types.
 - **Zero-Score Verification**: Automated re-verification of 0% scores for top 3 jobs using GPT-4.1-mini.
 - **Zero-Score Failure Retry Limiter**: Tracks and limits automatic retries for candidates with 0% API failures.
-- **AI-Output XSS Hardening — Scout Prospector (L2 Phase A, Apr 2026)**: The two `<script>` blocks in Scout Prospector templates that consume AI-generated content no longer use `innerHTML` string concatenation. (1) `templates/scout_prospector_detail.html` — the `hiringActivityText` URL-to-button rewriter now reads via `textContent`, walks the text with a unified regex, validates every captured URL with `new URL(...)` plus an explicit `http:`/`https:` scheme allowlist (blocks `javascript:`/`data:`/`vbscript:`), builds `<a>` nodes with `createElement`/`setAttribute`, and swaps content via `replaceChildren`. (2) `templates/scout_prospector_profile_form.html` — the `refineSuggestions` renderer (and the success-alert banner) build all DOM nodes with `createElement`/`textContent`, never assigning AI- or user-derived strings to `innerHTML`. The remaining `btn.innerHTML` assignments in the file are static literal swaps (button label flips like "Analyzing…") with no dynamic content, intentionally untouched. Static regression test `tests/test_prospector_xss_regression.py` (7 cases) fails immediately if a future contributor reintroduces `innerHTML` assignment in either targeted block, or if URL scheme validation or the `buildSuggestionRow` safe helper is removed. Phase A scope is the two AI-fed sinks only; broader app-wide XSS sweeps (Phases B and C) remain on the roadmap.
+- **AI-Output XSS Hardening — Scout Prospector**: Templates consuming AI-generated content use `textContent` and `createElement` for DOM manipulation to prevent XSS.
+- **Fool-Proof Inbound Email Candidate Extraction**: Multi-layer defense chain (`email_inbound_service.py` and `utils/candidate_name_extraction.py`) ensures zero silent drops when applicants arrive via job-board email forwards, including multi-token regex, AI parsing, filename parsing, email address parsing, HTML-aware body extraction, and last-resort focused AI extraction.
 - **Automated Duplicate Candidate Merge**: Two-mode system for merging duplicate candidate records with an audit trail.
 - **Candidate Data Cleanup (Scheduled)**: Background job to extract missing emails, reparse empty descriptions, and fill missing occupation/title fields using AI.
 - **Activity Log (Super-Admin Only)**: System-wide admin visibility tracking login history, module usage, email delivery, and active users.
 - **Vetting Sandbox (Super-Admin Only)**: 5-stage wizard for manually testing the AI vetting pipeline.
-- **Scout Support**: AI-powered internal ATS support ticket module with two-tier approval, AI intake, clarification, solution proposals, Bullhorn API execution, and a Knowledge Hub. Features dual feedback, admin takeover, and intelligent retry.
+- **Scout Support**: AI-powered internal ATS support ticket module with two-tier approval, AI intake, clarification, solution proposals, Bullhorn API execution, and a Knowledge Hub.
 - **Platform Support (Feedback-to-Ticket)**: User feedback creates support tickets with simplified workflow and "My Tickets" page.
 - **Send to Agent for Build (Scout product tickets only)**: Admin workflow for queuing feature requests/bug reports, tracking development, and notifying users upon deployment.
 

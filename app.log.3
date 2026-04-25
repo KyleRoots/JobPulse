@@ -1,61 +1,145 @@
-2026-04-24 20:02:10,630 - seed_database - INFO - 🌱 Starting database seeding for production environment...
-2026-04-24 20:02:10,800 - seed_database - INFO - ℹ️ Preserving user setting: sftp_enabled=false
-2026-04-24 20:02:10,803 - seed_database - INFO - ℹ️ Preserving user setting: sftp_enabled=false
-2026-04-24 20:02:10,848 - seed_database - INFO - ✅ Admin user already exists: admin (kroots@myticas.com)
-2026-04-24 20:02:10,867 - seed_database - INFO - ℹ️ Preserving user setting: automated_uploads_enabled=true
-2026-04-24 20:02:10,867 - seed_database - INFO - ℹ️ Preserving user setting: automated_uploads_enabled=true
-2026-04-24 20:02:10,868 - seed_database - INFO - ℹ️ Preserving user setting: candidate_cleanup_enabled=false
-2026-04-24 20:02:10,868 - seed_database - INFO - ℹ️ Preserving user setting: candidate_cleanup_enabled=false
-2026-04-24 20:02:10,869 - seed_database - INFO - ℹ️ Preserving user setting: candidate_cleanup_batch_size=50
-2026-04-24 20:02:10,869 - seed_database - INFO - ✅ Global settings already up to date
-2026-04-24 20:02:10,869 - seed_database - INFO - ℹ️ Preserving user setting: candidate_cleanup_batch_size=50
-2026-04-24 20:02:10,869 - seed_database - INFO - ✅ Global settings already up to date
-2026-04-24 20:02:10,875 - seed_database - INFO - ✅ All 5 Bullhorn monitors already configured correctly
-2026-04-24 20:02:10,875 - seed_database - INFO - ✅ All 5 Bullhorn monitors already configured correctly
-2026-04-24 20:02:10,879 - seed_database - INFO - ✅ Production environment monitoring already configured
-2026-04-24 20:02:10,879 - seed_database - INFO - ✅ Production environment monitoring already configured
-2026-04-24 20:02:10,966 - seed_database - INFO - 🔄 Updated admin user: password (rotated from env)
-2026-04-24 20:02:10,975 - seed_database - INFO - ℹ️ Preserving user setting: sftp_enabled=false
-2026-04-24 20:02:10,976 - seed_database - INFO - ℹ️ Preserving user setting: automated_uploads_enabled=true
-2026-04-24 20:02:10,977 - seed_database - INFO - ℹ️ Preserving user setting: candidate_cleanup_enabled=false
-2026-04-24 20:02:10,977 - seed_database - INFO - ℹ️ Preserving user setting: candidate_cleanup_batch_size=50
-2026-04-24 20:02:10,977 - seed_database - INFO - ✅ Global settings already up to date
-2026-04-24 20:02:10,983 - seed_database - INFO - ✅ All 5 Bullhorn monitors already configured correctly
-2026-04-24 20:02:10,983 - seed_database - INFO - ✅ RefreshLog has 2 entries (most recent: 2026-04-23 14:53:15.909534 UTC) - preserving history
-2026-04-24 20:02:10,985 - seed_database - INFO - ✅ RefreshLog has 2 entries (most recent: 2026-04-23 14:53:15.909534 UTC) - preserving history
-2026-04-24 20:02:10,987 - seed_database - INFO - ✅ Production environment monitoring already configured
-2026-04-24 20:02:11,007 - seed_database - INFO - ✅ All 40 recruiter mappings already up to date
-2026-04-24 20:02:11,008 - seed_database - INFO - ✅ Loaded global screening prompt from /home/runner/workspace/config/global_screening_prompt.txt (6946 chars)
-2026-04-24 20:02:11,009 - seed_database - INFO - ✅ All 40 recruiter mappings already up to date
-2026-04-24 20:02:11,009 - seed_database - INFO - ✅ Loaded global screening prompt from /home/runner/workspace/config/global_screening_prompt.txt (6946 chars)
-2026-04-24 20:02:11,010 - seed_database - INFO - ℹ️ Preserving vetting setting: vetting_enabled=false
-2026-04-24 20:02:11,011 - seed_database - INFO - ℹ️ Preserving vetting setting: match_threshold=80
-2026-04-24 20:02:11,012 - seed_database - INFO - ℹ️ Preserving vetting setting: batch_size=25
-2026-04-24 20:02:11,012 - seed_database - INFO - ℹ️ Preserving vetting setting: vetting_enabled=false
-2026-04-24 20:02:11,013 - seed_database - INFO - ℹ️ Preserving vetting setting: admin_notification_email=kroots@myticas.com
-2026-04-24 20:02:11,013 - seed_database - INFO - ℹ️ Preserving vetting setting: match_threshold=80
-2026-04-24 20:02:11,013 - seed_database - INFO - ℹ️ Preserving vetting setting: health_alert_email=kroots@myticas.com
-2026-04-24 20:02:11,014 - seed_database - INFO - ℹ️ Preserving vetting setting: batch_size=25
-2026-04-24 20:02:11,014 - seed_database - INFO - ℹ️ Preserving vetting setting: send_recruiter_emails=false
-2026-04-24 20:02:11,055 - seed_database - INFO - ℹ️ Preserving vetting setting: embedding_filter_enabled=true
-2026-04-24 20:02:11,055 - seed_database - INFO - ℹ️ Preserving vetting setting: admin_notification_email=kroots@myticas.com
-2026-04-24 20:02:11,056 - seed_database - INFO - ℹ️ Preserving vetting setting: embedding_similarity_threshold=0.25
-2026-04-24 20:02:11,056 - seed_database - INFO - ℹ️ Preserving vetting setting: health_alert_email=kroots@myticas.com
-2026-04-24 20:02:11,057 - seed_database - INFO - ℹ️ Preserving vetting setting: escalation_low=60
-2026-04-24 20:02:11,057 - seed_database - INFO - ℹ️ Preserving vetting setting: send_recruiter_emails=false
-2026-04-24 20:02:11,058 - seed_database - INFO - ℹ️ Preserving vetting setting: escalation_high=85
-2026-04-24 20:02:11,058 - seed_database - INFO - ℹ️ Preserving vetting setting: embedding_filter_enabled=true
-2026-04-24 20:02:11,058 - seed_database - INFO - ℹ️ Preserving vetting setting: layer2_model=gpt-5.4
-2026-04-24 20:02:11,059 - seed_database - INFO - ℹ️ Preserving vetting setting: embedding_similarity_threshold=0.25
-2026-04-24 20:02:11,059 - seed_database - INFO - ℹ️ Preserving vetting setting: vetting_cutoff_date=
-2026-04-24 20:02:11,060 - seed_database - INFO - ℹ️ Preserving vetting setting: escalation_low=60
-2026-04-24 20:02:11,060 - seed_database - INFO - ℹ️ Preserving vetting setting: screening_audit_enabled=false
-2026-04-24 20:02:11,061 - seed_database - INFO - ℹ️ Preserving vetting setting: recruiter_activity_check_enabled=true
-2026-04-24 20:02:11,061 - seed_database - INFO - ℹ️ Preserving vetting setting: escalation_high=85
-2026-04-24 20:02:11,061 - seed_database - INFO - ℹ️ Preserving vetting setting: recruiter_activity_lookback_minutes=60
-2026-04-24 20:02:11,061 - seed_database - INFO - ℹ️ Preserving vetting setting: layer2_model=gpt-5.4
-2026-04-24 20:02:11,062 - seed_database - INFO - ℹ️ Preserving vetting setting: vetting_cutoff_date=
-2026-04-24 20:02:11,062 - seed_database - INFO - ℹ️ Preserving vetting setting: global_custom_requirements=WORK AUTHORIZATION & SECURITY CLEARANCE INFERENCE RULES
+2026-04-25 02:30:29,577 - apscheduler.scheduler - INFO - Scheduler has been shut down
+2026-04-25 02:30:31,253 - main - INFO - Starting application initialization...
+2026-04-25 02:30:31,337 - main - INFO - Starting application initialization...
+2026-04-25 02:30:31,374 - main - INFO - Starting application initialization...
+2026-04-25 02:30:31,381 - main - INFO - Starting application initialization...
+2026-04-25 02:30:33,247 - sentry_config - INFO - Sentry disabled – SENTRY_DSN not set
+2026-04-25 02:30:33,465 - sentry_config - INFO - Sentry disabled – SENTRY_DSN not set
+2026-04-25 02:30:33,515 - sentry_config - INFO - Sentry disabled – SENTRY_DSN not set
+2026-04-25 02:30:33,519 - sentry_config - INFO - Sentry disabled – SENTRY_DSN not set
+2026-04-25 02:30:33,604 - seed_database - INFO - ℹ️ Column is_company_admin already exists on user table
+2026-04-25 02:30:33,606 - seed_database - INFO - ℹ️ Column last_active_at already exists on user table
+2026-04-25 02:30:33,609 - seed_database - INFO - ℹ️ Column is_sandbox already exists on candidate_vetting_log table
+2026-04-25 02:30:33,611 - seed_database - INFO - ℹ️ Column is_sandbox already exists on scout_vetting_session table
+2026-04-25 02:30:33,613 - seed_database - INFO - ℹ️ Column thread_message_id already exists on scout_vetting_session table
+2026-04-25 02:30:33,615 - seed_database - INFO - ℹ️ Column resolution_note already exists on support_ticket table
+2026-04-25 02:30:33,617 - seed_database - INFO - ℹ️ Column resolved_by already exists on support_ticket table
+2026-04-25 02:30:33,619 - seed_database - INFO - ℹ️ Column sent_to_build_at already exists on support_ticket table
+2026-04-25 02:30:33,621 - seed_database - INFO - ℹ️ Column sent_to_build_by already exists on support_ticket table
+2026-04-25 02:30:33,623 - seed_database - INFO - ℹ️ Column build_summary already exists on support_ticket table
+2026-04-25 02:30:33,625 - seed_database - INFO - ℹ️ Column deployed_at already exists on support_ticket table
+2026-04-25 02:30:33,627 - seed_database - INFO - ℹ️ Column deployed_by already exists on support_ticket table
+2026-04-25 02:30:33,630 - seed_database - INFO - ℹ️ Column deploy_commit_link already exists on support_ticket table
+2026-04-25 02:30:33,632 - seed_database - INFO - ℹ️ Column onedrive_item_id already exists on knowledge_document table
+2026-04-25 02:30:33,634 - seed_database - INFO - ℹ️ Column onedrive_etag already exists on knowledge_document table
+2026-04-25 02:30:33,636 - seed_database - INFO - ℹ️ Column onedrive_folder_id already exists on knowledge_document table
+2026-04-25 02:30:33,638 - seed_database - INFO - ℹ️ Column vetting_retry_count already exists on parsed_email table
+2026-04-25 02:30:33,644 - seed_database - INFO - ℹ️ Column conversation_id already exists on support_attachment table
+2026-04-25 02:30:33,648 - seed_database - INFO - ℹ️ UNIQUE constraint on candidate_vetting_log.bullhorn_candidate_id already removed
+2026-04-25 02:30:33,649 - seed_database - INFO - ℹ️ pg_trgm extension ensured
+2026-04-25 02:30:33,650 - seed_database - INFO - ℹ️ Trigram GIN index creation skipped in dev workspace (runs on deployed prod only)
+2026-04-25 02:30:33,652 - seed_database - INFO - ℹ️ Composite index idx_match_job_created already exists
+2026-04-25 02:30:33,653 - seed_database - INFO - ℹ️ Prospector table 'prospector_profile' exists
+2026-04-25 02:30:33,654 - seed_database - INFO - ℹ️ Prospector table 'prospector_run' exists
+2026-04-25 02:30:33,655 - seed_database - INFO - ℹ️ Prospector table 'prospect' exists
+2026-04-25 02:30:33,656 - seed_database - INFO - 🌱 Starting database seeding for production environment...
+2026-04-25 02:30:33,781 - seed_database - INFO - ✅ Admin user already exists: admin (kroots@myticas.com)
+2026-04-25 02:30:33,922 - seed_database - INFO - 🔄 Updated admin user: password (rotated from env)
+2026-04-25 02:30:33,949 - seed_database - INFO - ℹ️ Preserving user setting: sftp_enabled=false
+2026-04-25 02:30:33,950 - seed_database - INFO - ℹ️ Preserving user setting: automated_uploads_enabled=true
+2026-04-25 02:30:33,951 - seed_database - INFO - ℹ️ Preserving user setting: candidate_cleanup_enabled=false
+2026-04-25 02:30:33,952 - seed_database - INFO - ℹ️ Preserving user setting: candidate_cleanup_batch_size=50
+2026-04-25 02:30:33,952 - seed_database - INFO - ✅ Global settings already up to date
+2026-04-25 02:30:33,957 - seed_database - INFO - ℹ️ Column is_company_admin already exists on user table
+2026-04-25 02:30:33,960 - seed_database - INFO - ℹ️ Column last_active_at already exists on user table
+2026-04-25 02:30:33,965 - seed_database - INFO - ℹ️ Column is_sandbox already exists on candidate_vetting_log table
+2026-04-25 02:30:33,968 - seed_database - INFO - ℹ️ Column is_sandbox already exists on scout_vetting_session table
+2026-04-25 02:30:33,970 - seed_database - INFO - ℹ️ Column thread_message_id already exists on scout_vetting_session table
+2026-04-25 02:30:33,972 - seed_database - INFO - ℹ️ Column resolution_note already exists on support_ticket table
+2026-04-25 02:30:33,974 - seed_database - INFO - ℹ️ Column resolved_by already exists on support_ticket table
+2026-04-25 02:30:33,975 - seed_database - INFO - ✅ All 5 Bullhorn monitors already configured correctly
+2026-04-25 02:30:33,980 - seed_database - INFO - ℹ️ Column sent_to_build_at already exists on support_ticket table
+2026-04-25 02:30:33,984 - seed_database - INFO - ℹ️ Column sent_to_build_by already exists on support_ticket table
+2026-04-25 02:30:33,986 - seed_database - INFO - ℹ️ Column build_summary already exists on support_ticket table
+2026-04-25 02:30:33,987 - seed_database - INFO - ✅ Production environment monitoring already configured
+2026-04-25 02:30:33,995 - seed_database - INFO - ℹ️ Column deployed_at already exists on support_ticket table
+2026-04-25 02:30:34,003 - seed_database - INFO - ℹ️ Column deployed_by already exists on support_ticket table
+2026-04-25 02:30:34,009 - seed_database - INFO - ℹ️ Column deploy_commit_link already exists on support_ticket table
+2026-04-25 02:30:34,026 - seed_database - INFO - ℹ️ Column onedrive_item_id already exists on knowledge_document table
+2026-04-25 02:30:34,028 - seed_database - INFO - ℹ️ Column onedrive_etag already exists on knowledge_document table
+2026-04-25 02:30:34,031 - seed_database - INFO - ℹ️ Column onedrive_folder_id already exists on knowledge_document table
+2026-04-25 02:30:34,039 - seed_database - INFO - ℹ️ Column vetting_retry_count already exists on parsed_email table
+2026-04-25 02:30:34,046 - seed_database - INFO - ℹ️ Column is_company_admin already exists on user table
+2026-04-25 02:30:34,050 - seed_database - INFO - ℹ️ Column is_company_admin already exists on user table
+2026-04-25 02:30:34,062 - seed_database - INFO - ℹ️ Column conversation_id already exists on support_attachment table
+2026-04-25 02:30:34,063 - seed_database - INFO - ℹ️ Column last_active_at already exists on user table
+2026-04-25 02:30:34,075 - seed_database - INFO - ℹ️ Column is_sandbox already exists on candidate_vetting_log table
+2026-04-25 02:30:34,077 - seed_database - INFO - ℹ️ Column last_active_at already exists on user table
+2026-04-25 02:30:34,077 - seed_database - INFO - ℹ️ UNIQUE constraint on candidate_vetting_log.bullhorn_candidate_id already removed
+2026-04-25 02:30:34,078 - seed_database - INFO - ℹ️ Column is_sandbox already exists on scout_vetting_session table
+2026-04-25 02:30:34,081 - seed_database - INFO - ℹ️ Column is_sandbox already exists on candidate_vetting_log table
+2026-04-25 02:30:34,081 - seed_database - INFO - ℹ️ pg_trgm extension ensured
+2026-04-25 02:30:34,081 - seed_database - INFO - ℹ️ Trigram GIN index creation skipped in dev workspace (runs on deployed prod only)
+2026-04-25 02:30:34,081 - seed_database - INFO - ℹ️ Column thread_message_id already exists on scout_vetting_session table
+2026-04-25 02:30:34,084 - seed_database - INFO - ℹ️ Column is_sandbox already exists on scout_vetting_session table
+2026-04-25 02:30:34,086 - seed_database - INFO - ℹ️ Composite index idx_match_job_created already exists
+2026-04-25 02:30:34,085 - seed_database - INFO - ℹ️ Column resolution_note already exists on support_ticket table
+2026-04-25 02:30:34,087 - seed_database - INFO - ℹ️ Column thread_message_id already exists on scout_vetting_session table
+2026-04-25 02:30:34,089 - seed_database - INFO - ℹ️ Column resolved_by already exists on support_ticket table
+2026-04-25 02:30:34,090 - seed_database - INFO - ℹ️ Prospector table 'prospector_profile' exists
+2026-04-25 02:30:34,091 - seed_database - INFO - ℹ️ Column sent_to_build_at already exists on support_ticket table
+2026-04-25 02:30:34,093 - seed_database - INFO - ℹ️ Prospector table 'prospector_run' exists
+2026-04-25 02:30:34,093 - seed_database - INFO - ℹ️ Column resolution_note already exists on support_ticket table
+2026-04-25 02:30:34,094 - seed_database - INFO - ℹ️ Prospector table 'prospect' exists
+2026-04-25 02:30:34,094 - seed_database - INFO - ℹ️ Column sent_to_build_by already exists on support_ticket table
+2026-04-25 02:30:34,095 - seed_database - INFO - 🌱 Starting database seeding for production environment...
+2026-04-25 02:30:34,100 - seed_database - INFO - ℹ️ Column build_summary already exists on support_ticket table
+2026-04-25 02:30:34,103 - seed_database - INFO - ℹ️ Column resolved_by already exists on support_ticket table
+2026-04-25 02:30:34,104 - seed_database - INFO - ℹ️ Column deployed_at already exists on support_ticket table
+2026-04-25 02:30:34,110 - seed_database - INFO - ℹ️ Column deployed_by already exists on support_ticket table
+2026-04-25 02:30:34,116 - seed_database - INFO - ℹ️ Column deploy_commit_link already exists on support_ticket table
+2026-04-25 02:30:34,123 - seed_database - INFO - ℹ️ Column onedrive_item_id already exists on knowledge_document table
+2026-04-25 02:30:34,121 - seed_database - INFO - ℹ️ Column sent_to_build_at already exists on support_ticket table
+2026-04-25 02:30:34,124 - seed_database - INFO - ℹ️ Column onedrive_etag already exists on knowledge_document table
+2026-04-25 02:30:34,126 - seed_database - INFO - ℹ️ Column onedrive_folder_id already exists on knowledge_document table
+2026-04-25 02:30:34,128 - seed_database - INFO - ℹ️ Column vetting_retry_count already exists on parsed_email table
+2026-04-25 02:30:34,130 - seed_database - INFO - ℹ️ Column conversation_id already exists on support_attachment table
+2026-04-25 02:30:34,132 - seed_database - INFO - ℹ️ Column sent_to_build_by already exists on support_ticket table
+2026-04-25 02:30:34,134 - seed_database - INFO - ℹ️ Column build_summary already exists on support_ticket table
+2026-04-25 02:30:34,136 - seed_database - INFO - ℹ️ Column deployed_at already exists on support_ticket table
+2026-04-25 02:30:34,138 - seed_database - INFO - ℹ️ Column deployed_by already exists on support_ticket table
+2026-04-25 02:30:34,139 - seed_database - INFO - ℹ️ Column deploy_commit_link already exists on support_ticket table
+2026-04-25 02:30:34,141 - seed_database - INFO - ℹ️ Column onedrive_item_id already exists on knowledge_document table
+2026-04-25 02:30:34,143 - seed_database - INFO - ℹ️ Column onedrive_etag already exists on knowledge_document table
+2026-04-25 02:30:34,144 - seed_database - INFO - ℹ️ UNIQUE constraint on candidate_vetting_log.bullhorn_candidate_id already removed
+2026-04-25 02:30:34,146 - seed_database - INFO - ℹ️ Column onedrive_folder_id already exists on knowledge_document table
+2026-04-25 02:30:34,147 - seed_database - INFO - ℹ️ pg_trgm extension ensured
+2026-04-25 02:30:34,147 - seed_database - INFO - ℹ️ Trigram GIN index creation skipped in dev workspace (runs on deployed prod only)
+2026-04-25 02:30:34,150 - seed_database - INFO - ℹ️ Composite index idx_match_job_created already exists
+2026-04-25 02:30:34,152 - seed_database - INFO - ℹ️ Prospector table 'prospector_profile' exists
+2026-04-25 02:30:34,152 - seed_database - INFO - ℹ️ Column vetting_retry_count already exists on parsed_email table
+2026-04-25 02:30:34,153 - seed_database - INFO - ℹ️ Prospector table 'prospector_run' exists
+2026-04-25 02:30:34,154 - seed_database - INFO - ℹ️ Prospector table 'prospect' exists
+2026-04-25 02:30:34,155 - seed_database - INFO - ℹ️ Column conversation_id already exists on support_attachment table
+2026-04-25 02:30:34,157 - seed_database - INFO - ℹ️ UNIQUE constraint on candidate_vetting_log.bullhorn_candidate_id already removed
+2026-04-25 02:30:34,158 - seed_database - INFO - ℹ️ pg_trgm extension ensured
+2026-04-25 02:30:34,158 - seed_database - INFO - ℹ️ Trigram GIN index creation skipped in dev workspace (runs on deployed prod only)
+2026-04-25 02:30:34,160 - seed_database - INFO - ℹ️ Composite index idx_match_job_created already exists
+2026-04-25 02:30:34,161 - seed_database - INFO - ℹ️ Prospector table 'prospector_profile' exists
+2026-04-25 02:30:34,162 - seed_database - INFO - ℹ️ Prospector table 'prospector_run' exists
+2026-04-25 02:30:34,163 - seed_database - INFO - ℹ️ Prospector table 'prospect' exists
+2026-04-25 02:30:34,164 - seed_database - INFO - 🌱 Starting database seeding for production environment...
+2026-04-25 02:30:34,170 - seed_database - INFO - 🌱 Starting database seeding for production environment...
+2026-04-25 02:30:34,188 - seed_database - INFO - ✅ RefreshLog has 2 entries (most recent: 2026-04-25 00:47:40.217235 UTC) - preserving history
+2026-04-25 02:30:34,216 - seed_database - INFO - ✅ All 40 recruiter mappings already up to date
+2026-04-25 02:30:34,217 - seed_database - INFO - ✅ Loaded global screening prompt from /home/runner/workspace/config/global_screening_prompt.txt (6946 chars)
+2026-04-25 02:30:34,219 - seed_database - INFO - ℹ️ Preserving vetting setting: vetting_enabled=false
+2026-04-25 02:30:34,220 - seed_database - INFO - ℹ️ Preserving vetting setting: match_threshold=80
+2026-04-25 02:30:34,221 - seed_database - INFO - ℹ️ Preserving vetting setting: batch_size=25
+2026-04-25 02:30:34,222 - seed_database - INFO - ℹ️ Preserving vetting setting: admin_notification_email=kroots@myticas.com
+2026-04-25 02:30:34,223 - seed_database - INFO - ℹ️ Preserving vetting setting: health_alert_email=kroots@myticas.com
+2026-04-25 02:30:34,224 - seed_database - INFO - ℹ️ Preserving vetting setting: send_recruiter_emails=false
+2026-04-25 02:30:34,225 - seed_database - INFO - ℹ️ Preserving vetting setting: embedding_filter_enabled=true
+2026-04-25 02:30:34,226 - seed_database - INFO - ℹ️ Preserving vetting setting: embedding_similarity_threshold=0.25
+2026-04-25 02:30:34,227 - seed_database - INFO - ℹ️ Preserving vetting setting: escalation_low=60
+2026-04-25 02:30:34,244 - seed_database - INFO - ℹ️ Preserving vetting setting: escalation_high=85
+2026-04-25 02:30:34,277 - seed_database - INFO - ✅ Admin user already exists: admin (kroots@myticas.com)
+2026-04-25 02:30:34,285 - seed_database - INFO - ℹ️ Preserving vetting setting: layer2_model=gpt-5.4
+2026-04-25 02:30:34,287 - seed_database - INFO - ℹ️ Preserving vetting setting: vetting_cutoff_date=
+2026-04-25 02:30:34,288 - seed_database - INFO - ℹ️ Preserving vetting setting: screening_audit_enabled=false
+2026-04-25 02:30:34,291 - seed_database - INFO - ℹ️ Preserving vetting setting: recruiter_activity_check_enabled=true
+2026-04-25 02:30:34,292 - seed_database - INFO - ℹ️ Preserving vetting setting: recruiter_activity_lookback_minutes=60
+2026-04-25 02:30:34,295 - seed_database - INFO - ℹ️ Preserving vetting setting: global_custom_requirements=WORK AUTHORIZATION & SECURITY CLEARANCE INFERENCE RULES
 
 These rules supplement — never override — the core scoring guidelines above.
 These rules are purely reactive: they ONLY activate when the job description explicitly contains trigger language. If a job makes no mention of work authorization or clearance, ignore these rules entirely.
@@ -124,13 +208,73 @@ Inference tiers (based on TOTAL Canadian work experience calculated above):
 • Canadian clearance rules activate ONLY when the job description contains clearance trigger language AND the job is Canadian-based (not US-based — see geographic guard above).
 • NEVER cross-apply rules (e.g., do not apply US authorization logic when clearance language is present, or vice versa).
 • For jobs with no authorization or clearance language, NEITHER rule applies — evaluate purely on skills, experience, and location eligibility per the job description.
-2026-04-24 20:02:11,063 - seed_database - INFO - ✅ Vetting settings already up to date
-2026-04-24 20:02:11,063 - seed_database - INFO - ℹ️ Preserving vetting setting: screening_audit_enabled=false
-2026-04-24 20:02:11,087 - seed_database - INFO - ✅ RefreshLog has 2 entries (most recent: 2026-04-23 14:53:15.909534 UTC) - preserving history
-2026-04-24 20:02:11,153 - seed_database - INFO - ℹ️ Preserving vetting setting: recruiter_activity_check_enabled=true
-2026-04-24 20:02:11,153 - seed_database - INFO - ℹ️ Vetting clean slate already completed - skipping
-2026-04-24 20:02:11,154 - seed_database - INFO - ℹ️ Preserving vetting setting: recruiter_activity_lookback_minutes=60
-2026-04-24 20:02:11,155 - seed_database - INFO - ℹ️ Preserving vetting setting: global_custom_requirements=WORK AUTHORIZATION & SECURITY CLEARANCE INFERENCE RULES
+2026-04-25 02:30:34,296 - seed_database - INFO - ✅ Vetting settings already up to date
+2026-04-25 02:30:34,297 - seed_database - INFO - ℹ️ Vetting clean slate already completed - skipping
+2026-04-25 02:30:34,308 - seed_database - INFO - 🔒 STARTUP AUDIT — critical settings: vetting_enabled=false | send_recruiter_emails=false | embedding_filter_enabled=true | embedding_similarity_threshold=0.25 | vetting_cutoff_date= | match_threshold=80 | batch_size=25 | layer2_model=gpt-5.4 | sftp_enabled=false | automated_uploads_enabled=true
+2026-04-25 02:30:34,312 - seed_database - INFO - ✅ All 12 built-in automations already exist
+2026-04-25 02:30:34,313 - seed_database - INFO - ℹ️ No legacy custom_requirements rows needed migration
+2026-04-25 02:30:34,316 - seed_database - INFO - ✅ All 24 Myticas support contacts already up to date
+2026-04-25 02:30:34,316 - seed_database - INFO - ✅ All 15 STSI support contacts already up to date
+2026-04-25 02:30:34,319 - seed_database - INFO - ✅ All STSI user accounts already exist
+2026-04-25 02:30:34,320 - seed_database - INFO - ✅ All users already have correct module subscriptions
+2026-04-25 02:30:34,321 - seed_database - INFO - ✅ Database seeding completed successfully for production
+2026-04-25 02:30:34,321 - extensions - INFO - 🌱 Database seeding: Admin user already exists (admin)
+2026-04-25 02:30:34,322 - scheduler_setup - INFO - ⚠️ Process 31132 could not acquire scheduler lock - another scheduler is already running
+2026-04-25 02:30:34,322 - extensions - INFO - 📌 Process Scheduled XML Files job DISABLED - Enhanced 8-Step Monitor handles all XML updates
+2026-04-25 02:30:34,322 - extensions - INFO - ⚠️ Process 31132 skipping scheduler setup - another worker handles scheduling
+2026-04-25 02:30:34,323 - main - INFO - Flask application imported successfully
+2026-04-25 02:30:34,327 - main - INFO - Health check passed during startup
+2026-04-25 02:30:34,328 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 02:30:34,329 - extensions - INFO - Background scheduler started/restarted successfully
+2026-04-25 02:30:34,329 - extensions - INFO - 📡 Scheduler job execution listeners registered
+2026-04-25 02:30:34,334 - extensions - INFO - Forced immediate check for 6 monitors after restart
+2026-04-25 02:30:34,334 - main - INFO - Monitoring system auto-started successfully on boot
+2026-04-25 02:30:34,360 - seed_database - INFO - ✅ Admin user already exists: admin (kroots@myticas.com)
+2026-04-25 02:30:34,445 - seed_database - INFO - 🔄 Updated admin user: password (rotated from env)
+2026-04-25 02:30:34,464 - seed_database - INFO - ✅ Admin user already exists: admin (kroots@myticas.com)
+2026-04-25 02:30:34,469 - seed_database - INFO - ℹ️ Preserving user setting: sftp_enabled=false
+2026-04-25 02:30:34,470 - seed_database - INFO - ℹ️ Preserving user setting: automated_uploads_enabled=true
+2026-04-25 02:30:34,471 - seed_database - INFO - ℹ️ Preserving user setting: candidate_cleanup_enabled=false
+2026-04-25 02:30:34,474 - seed_database - INFO - ℹ️ Preserving user setting: candidate_cleanup_batch_size=50
+2026-04-25 02:30:34,474 - seed_database - INFO - ✅ Global settings already up to date
+2026-04-25 02:30:34,482 - seed_database - INFO - ✅ All 5 Bullhorn monitors already configured correctly
+2026-04-25 02:30:34,488 - seed_database - INFO - ✅ Production environment monitoring already configured
+2026-04-25 02:30:34,522 - seed_database - INFO - 🔄 Updated admin user: password (rotated from env)
+2026-04-25 02:30:34,537 - seed_database - INFO - ℹ️ Preserving user setting: sftp_enabled=false
+2026-04-25 02:30:34,538 - seed_database - INFO - ℹ️ Preserving user setting: automated_uploads_enabled=true
+2026-04-25 02:30:34,541 - seed_database - INFO - ℹ️ Preserving user setting: candidate_cleanup_enabled=false
+2026-04-25 02:30:34,542 - seed_database - INFO - ℹ️ Preserving user setting: candidate_cleanup_batch_size=50
+2026-04-25 02:30:34,542 - seed_database - INFO - ✅ Global settings already up to date
+2026-04-25 02:30:34,548 - seed_database - INFO - ✅ All 5 Bullhorn monitors already configured correctly
+2026-04-25 02:30:34,552 - seed_database - INFO - ✅ Production environment monitoring already configured
+2026-04-25 02:30:34,622 - seed_database - INFO - 🔄 Updated admin user: password (rotated from env)
+2026-04-25 02:30:34,636 - seed_database - INFO - ℹ️ Preserving user setting: sftp_enabled=false
+2026-04-25 02:30:34,637 - seed_database - INFO - ℹ️ Preserving user setting: automated_uploads_enabled=true
+2026-04-25 02:30:34,637 - seed_database - INFO - ℹ️ Preserving user setting: candidate_cleanup_enabled=false
+2026-04-25 02:30:34,638 - seed_database - INFO - ℹ️ Preserving user setting: candidate_cleanup_batch_size=50
+2026-04-25 02:30:34,638 - seed_database - INFO - ✅ Global settings already up to date
+2026-04-25 02:30:34,644 - seed_database - INFO - ✅ All 5 Bullhorn monitors already configured correctly
+2026-04-25 02:30:34,648 - seed_database - INFO - ✅ Production environment monitoring already configured
+2026-04-25 02:30:34,677 - seed_database - INFO - ✅ RefreshLog has 2 entries (most recent: 2026-04-25 00:47:40.217235 UTC) - preserving history
+2026-04-25 02:30:34,707 - seed_database - INFO - ✅ All 40 recruiter mappings already up to date
+2026-04-25 02:30:34,709 - seed_database - INFO - ✅ Loaded global screening prompt from /home/runner/workspace/config/global_screening_prompt.txt (6946 chars)
+2026-04-25 02:30:34,712 - seed_database - INFO - ℹ️ Preserving vetting setting: vetting_enabled=false
+2026-04-25 02:30:34,713 - seed_database - INFO - ℹ️ Preserving vetting setting: match_threshold=80
+2026-04-25 02:30:34,714 - seed_database - INFO - ℹ️ Preserving vetting setting: batch_size=25
+2026-04-25 02:30:34,715 - seed_database - INFO - ℹ️ Preserving vetting setting: admin_notification_email=kroots@myticas.com
+2026-04-25 02:30:34,716 - seed_database - INFO - ℹ️ Preserving vetting setting: health_alert_email=kroots@myticas.com
+2026-04-25 02:30:34,716 - seed_database - INFO - ℹ️ Preserving vetting setting: send_recruiter_emails=false
+2026-04-25 02:30:34,717 - seed_database - INFO - ℹ️ Preserving vetting setting: embedding_filter_enabled=true
+2026-04-25 02:30:34,718 - seed_database - INFO - ℹ️ Preserving vetting setting: embedding_similarity_threshold=0.25
+2026-04-25 02:30:34,719 - seed_database - INFO - ℹ️ Preserving vetting setting: escalation_low=60
+2026-04-25 02:30:34,720 - seed_database - INFO - ℹ️ Preserving vetting setting: escalation_high=85
+2026-04-25 02:30:34,721 - seed_database - INFO - ℹ️ Preserving vetting setting: layer2_model=gpt-5.4
+2026-04-25 02:30:34,722 - seed_database - INFO - ℹ️ Preserving vetting setting: vetting_cutoff_date=
+2026-04-25 02:30:34,722 - seed_database - INFO - ✅ RefreshLog has 2 entries (most recent: 2026-04-25 00:47:40.217235 UTC) - preserving history
+2026-04-25 02:30:34,723 - seed_database - INFO - ℹ️ Preserving vetting setting: screening_audit_enabled=false
+2026-04-25 02:30:34,724 - seed_database - INFO - ℹ️ Preserving vetting setting: recruiter_activity_check_enabled=true
+2026-04-25 02:30:34,724 - seed_database - INFO - ℹ️ Preserving vetting setting: recruiter_activity_lookback_minutes=60
+2026-04-25 02:30:34,726 - seed_database - INFO - ℹ️ Preserving vetting setting: global_custom_requirements=WORK AUTHORIZATION & SECURITY CLEARANCE INFERENCE RULES
 
 These rules supplement — never override — the core scoring guidelines above.
 These rules are purely reactive: they ONLY activate when the job description explicitly contains trigger language. If a job makes no mention of work authorization or clearance, ignore these rules entirely.
@@ -199,57 +343,46 @@ Inference tiers (based on TOTAL Canadian work experience calculated above):
 • Canadian clearance rules activate ONLY when the job description contains clearance trigger language AND the job is Canadian-based (not US-based — see geographic guard above).
 • NEVER cross-apply rules (e.g., do not apply US authorization logic when clearance language is present, or vice versa).
 • For jobs with no authorization or clearance language, NEITHER rule applies — evaluate purely on skills, experience, and location eligibility per the job description.
-2026-04-24 20:02:11,155 - seed_database - INFO - ✅ Vetting settings already up to date
-2026-04-24 20:02:11,156 - seed_database - INFO - ℹ️ Vetting clean slate already completed - skipping
-2026-04-24 20:02:11,160 - seed_database - INFO - 🔒 STARTUP AUDIT — critical settings: vetting_enabled=false | send_recruiter_emails=false | embedding_filter_enabled=true | embedding_similarity_threshold=0.25 | vetting_cutoff_date= | match_threshold=80 | batch_size=25 | layer2_model=gpt-5.4 | sftp_enabled=false | automated_uploads_enabled=true
-2026-04-24 20:02:11,163 - seed_database - INFO - 🔒 STARTUP AUDIT — critical settings: vetting_enabled=false | send_recruiter_emails=false | embedding_filter_enabled=true | embedding_similarity_threshold=0.25 | vetting_cutoff_date= | match_threshold=80 | batch_size=25 | layer2_model=gpt-5.4 | sftp_enabled=false | automated_uploads_enabled=true
-2026-04-24 20:02:11,164 - seed_database - INFO - ✅ All 12 built-in automations already exist
-2026-04-24 20:02:11,165 - seed_database - INFO - ℹ️ No legacy custom_requirements rows needed migration
-2026-04-24 20:02:11,167 - seed_database - INFO - ✅ All 12 built-in automations already exist
-2026-04-24 20:02:11,167 - seed_database - INFO - ✅ All 24 Myticas support contacts already up to date
-2026-04-24 20:02:11,167 - seed_database - INFO - ℹ️ No legacy custom_requirements rows needed migration
-2026-04-24 20:02:11,168 - seed_database - INFO - ✅ All 15 STSI support contacts already up to date
-2026-04-24 20:02:11,170 - seed_database - INFO - ✅ All 24 Myticas support contacts already up to date
-2026-04-24 20:02:11,171 - seed_database - INFO - ✅ All 15 STSI support contacts already up to date
-2026-04-24 20:02:11,171 - seed_database - INFO - ✅ All STSI user accounts already exist
-2026-04-24 20:02:11,173 - seed_database - INFO - ✅ All users already have correct module subscriptions
-2026-04-24 20:02:11,173 - seed_database - INFO - ✅ Database seeding completed successfully for production
-2026-04-24 20:02:11,173 - seed_database - INFO - ✅ All STSI user accounts already exist
-2026-04-24 20:02:11,173 - extensions - INFO - 🌱 Database seeding: Admin user already exists (admin)
-2026-04-24 20:02:11,174 - seed_database - INFO - ✅ All users already have correct module subscriptions
-2026-04-24 20:02:11,174 - seed_database - INFO - ✅ Database seeding completed successfully for production
-2026-04-24 20:02:11,175 - extensions - INFO - 🌱 Database seeding: Admin user already exists (admin)
-2026-04-24 20:02:11,179 - seed_database - INFO - ✅ All 40 recruiter mappings already up to date
-2026-04-24 20:02:11,179 - seed_database - INFO - ✅ Loaded global screening prompt from /home/runner/workspace/config/global_screening_prompt.txt (6946 chars)
-2026-04-24 20:02:11,181 - seed_database - INFO - ℹ️ Preserving vetting setting: vetting_enabled=false
-2026-04-24 20:02:11,182 - seed_database - INFO - ℹ️ Preserving vetting setting: match_threshold=80
-2026-04-24 20:02:11,183 - seed_database - INFO - ℹ️ Preserving vetting setting: batch_size=25
-2026-04-24 20:02:11,183 - seed_database - INFO - ℹ️ Preserving vetting setting: admin_notification_email=kroots@myticas.com
-2026-04-24 20:02:11,184 - seed_database - INFO - ℹ️ Preserving vetting setting: health_alert_email=kroots@myticas.com
-2026-04-24 20:02:11,306 - seed_database - INFO - ℹ️ Preserving vetting setting: send_recruiter_emails=false
-2026-04-24 20:02:11,306 - seed_database - INFO - ℹ️ Preserving vetting setting: embedding_filter_enabled=true
-2026-04-24 20:02:11,307 - scheduler_setup - INFO - ✅ Process 3598 acquired scheduler lock - will run as PRIMARY scheduler
-2026-04-24 20:02:11,307 - scheduler_setup - INFO - ⚠️ Process 3595 could not acquire scheduler lock - another scheduler is already running
-2026-04-24 20:02:11,307 - extensions - INFO - 📌 Process Scheduled XML Files job DISABLED - Enhanced 8-Step Monitor handles all XML updates
-2026-04-24 20:02:11,307 - extensions - INFO - 📌 Process Scheduled XML Files job DISABLED - Enhanced 8-Step Monitor handles all XML updates
-2026-04-24 20:02:11,307 - extensions - INFO - ⚠️ Process 3595 skipping scheduler setup - another worker handles scheduling
-2026-04-24 20:02:11,307 - main - INFO - Flask application imported successfully
-2026-04-24 20:02:11,308 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-24 20:02:11,308 - seed_database - INFO - ℹ️ Preserving vetting setting: embedding_similarity_threshold=0.25
-2026-04-24 20:02:11,308 - extensions - INFO - ✅ 5-minute tearsheet monitoring ENABLED - provides UI visibility before 30-minute upload cycle
-2026-04-24 20:02:11,308 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-24 20:02:11,308 - extensions - INFO - Monitor health check enabled - periodic check every 2 hours for manual workflow
-2026-04-24 20:02:11,308 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-24 20:02:11,308 - extensions - INFO - Environment monitoring enabled - checking production status every 5 minutes
-2026-04-24 20:02:11,308 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-24 20:02:11,309 - seed_database - INFO - ℹ️ Preserving vetting setting: escalation_low=60
-2026-04-24 20:02:11,309 - seed_database - INFO - ℹ️ Preserving vetting setting: escalation_high=85
-2026-04-24 20:02:11,310 - seed_database - INFO - ℹ️ Preserving vetting setting: layer2_model=gpt-5.4
-2026-04-24 20:02:11,311 - seed_database - INFO - ℹ️ Preserving vetting setting: vetting_cutoff_date=
-2026-04-24 20:02:11,312 - seed_database - INFO - ℹ️ Preserving vetting setting: screening_audit_enabled=false
-2026-04-24 20:02:11,313 - seed_database - INFO - ℹ️ Preserving vetting setting: recruiter_activity_check_enabled=true
-2026-04-24 20:02:11,314 - seed_database - INFO - ℹ️ Preserving vetting setting: recruiter_activity_lookback_minutes=60
-2026-04-24 20:02:11,315 - seed_database - INFO - ℹ️ Preserving vetting setting: global_custom_requirements=WORK AUTHORIZATION & SECURITY CLEARANCE INFERENCE RULES
+2026-04-25 02:30:34,726 - seed_database - INFO - ✅ Vetting settings already up to date
+2026-04-25 02:30:34,727 - seed_database - INFO - ℹ️ Vetting clean slate already completed - skipping
+2026-04-25 02:30:34,735 - seed_database - INFO - 🔒 STARTUP AUDIT — critical settings: vetting_enabled=false | send_recruiter_emails=false | embedding_filter_enabled=true | embedding_similarity_threshold=0.25 | vetting_cutoff_date= | match_threshold=80 | batch_size=25 | layer2_model=gpt-5.4 | sftp_enabled=false | automated_uploads_enabled=true
+2026-04-25 02:30:34,740 - seed_database - INFO - ✅ All 12 built-in automations already exist
+2026-04-25 02:30:34,741 - seed_database - INFO - ℹ️ No legacy custom_requirements rows needed migration
+2026-04-25 02:30:34,744 - seed_database - INFO - ✅ All 24 Myticas support contacts already up to date
+2026-04-25 02:30:34,744 - seed_database - INFO - ✅ All 15 STSI support contacts already up to date
+2026-04-25 02:30:34,747 - seed_database - INFO - ✅ All STSI user accounts already exist
+2026-04-25 02:30:34,748 - seed_database - INFO - ✅ All users already have correct module subscriptions
+2026-04-25 02:30:34,748 - seed_database - INFO - ✅ Database seeding completed successfully for production
+2026-04-25 02:30:34,749 - extensions - INFO - 🌱 Database seeding: Admin user already exists (admin)
+2026-04-25 02:30:34,750 - scheduler_setup - INFO - ⚠️ Process 31133 could not acquire scheduler lock - another scheduler is already running
+2026-04-25 02:30:34,750 - extensions - INFO - 📌 Process Scheduled XML Files job DISABLED - Enhanced 8-Step Monitor handles all XML updates
+2026-04-25 02:30:34,750 - extensions - INFO - ⚠️ Process 31133 skipping scheduler setup - another worker handles scheduling
+2026-04-25 02:30:34,750 - main - INFO - Flask application imported successfully
+2026-04-25 02:30:34,752 - seed_database - INFO - ✅ All 40 recruiter mappings already up to date
+2026-04-25 02:30:34,752 - seed_database - INFO - ✅ Loaded global screening prompt from /home/runner/workspace/config/global_screening_prompt.txt (6946 chars)
+2026-04-25 02:30:34,754 - main - INFO - Health check passed during startup
+2026-04-25 02:30:34,754 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 02:30:34,755 - seed_database - INFO - ℹ️ Preserving vetting setting: vetting_enabled=false
+2026-04-25 02:30:34,755 - extensions - INFO - Background scheduler started/restarted successfully
+2026-04-25 02:30:34,755 - extensions - INFO - 📡 Scheduler job execution listeners registered
+2026-04-25 02:30:34,755 - seed_database - INFO - ℹ️ Preserving vetting setting: match_threshold=80
+2026-04-25 02:30:34,756 - seed_database - INFO - ℹ️ Preserving vetting setting: batch_size=25
+2026-04-25 02:30:34,757 - seed_database - INFO - ℹ️ Preserving vetting setting: admin_notification_email=kroots@myticas.com
+2026-04-25 02:30:34,758 - seed_database - INFO - ℹ️ Preserving vetting setting: health_alert_email=kroots@myticas.com
+2026-04-25 02:30:34,759 - seed_database - INFO - ℹ️ Preserving vetting setting: send_recruiter_emails=false
+2026-04-25 02:30:34,759 - extensions - INFO - Forced immediate check for 6 monitors after restart
+2026-04-25 02:30:34,759 - main - INFO - Monitoring system auto-started successfully on boot
+2026-04-25 02:30:34,759 - seed_database - INFO - ℹ️ Preserving vetting setting: embedding_filter_enabled=true
+2026-04-25 02:30:34,760 - seed_database - INFO - ℹ️ Preserving vetting setting: embedding_similarity_threshold=0.25
+2026-04-25 02:30:34,761 - seed_database - INFO - ℹ️ Preserving vetting setting: escalation_low=60
+2026-04-25 02:30:34,761 - seed_database - INFO - ℹ️ Preserving vetting setting: escalation_high=85
+2026-04-25 02:30:34,762 - seed_database - INFO - ℹ️ Preserving vetting setting: layer2_model=gpt-5.4
+2026-04-25 02:30:34,763 - seed_database - INFO - ℹ️ Preserving vetting setting: vetting_cutoff_date=
+2026-04-25 02:30:34,763 - seed_database - INFO - ℹ️ Preserving vetting setting: screening_audit_enabled=false
+2026-04-25 02:30:34,764 - seed_database - INFO - ℹ️ Preserving vetting setting: recruiter_activity_check_enabled=true
+2026-04-25 02:30:34,765 - seed_database - INFO - ℹ️ Preserving vetting setting: recruiter_activity_lookback_minutes=60
+2026-04-25 02:30:34,775 - seed_database - INFO - ✅ RefreshLog has 2 entries (most recent: 2026-04-25 00:47:40.217235 UTC) - preserving history
+2026-04-25 02:30:34,766 - seed_database - INFO - ℹ️ Preserving vetting setting: global_custom_requirements=WORK AUTHORIZATION & SECURITY CLEARANCE INFERENCE RULES
 
 These rules supplement — never override — the core scoring guidelines above.
 These rules are purely reactive: they ONLY activate when the job description explicitly contains trigger language. If a job makes no mention of work authorization or clearance, ignore these rules entirely.
@@ -318,469 +451,131 @@ Inference tiers (based on TOTAL Canadian work experience calculated above):
 • Canadian clearance rules activate ONLY when the job description contains clearance trigger language AND the job is Canadian-based (not US-based — see geographic guard above).
 • NEVER cross-apply rules (e.g., do not apply US authorization logic when clearance language is present, or vice versa).
 • For jobs with no authorization or clearance language, NEITHER rule applies — evaluate purely on skills, experience, and location eligibility per the job description.
-2026-04-24 20:02:11,315 - seed_database - INFO - ✅ Vetting settings already up to date
-2026-04-24 20:02:11,316 - seed_database - INFO - ℹ️ Vetting clean slate already completed - skipping
-2026-04-24 20:02:11,322 - main - INFO - Health check passed during startup
-2026-04-24 20:02:11,323 - apscheduler.scheduler - INFO - Scheduler started
-2026-04-24 20:02:11,323 - extensions - INFO - Background scheduler started/restarted successfully
-2026-04-24 20:02:11,323 - extensions - INFO - 📡 Scheduler job execution listeners registered
-2026-04-24 20:02:11,323 - extensions - WARNING - Failed to restore paused scheduler jobs: Working outside of application context.
+2026-04-25 02:30:34,823 - seed_database - INFO - ✅ Vetting settings already up to date
+2026-04-25 02:30:34,825 - seed_database - INFO - ℹ️ Vetting clean slate already completed - skipping
+2026-04-25 02:30:34,851 - seed_database - INFO - ✅ All 40 recruiter mappings already up to date
+2026-04-25 02:30:34,831 - seed_database - INFO - 🔒 STARTUP AUDIT — critical settings: vetting_enabled=false | send_recruiter_emails=false | embedding_filter_enabled=true | embedding_similarity_threshold=0.25 | vetting_cutoff_date= | match_threshold=80 | batch_size=25 | layer2_model=gpt-5.4 | sftp_enabled=false | automated_uploads_enabled=true
+2026-04-25 02:30:34,866 - seed_database - INFO - ✅ Loaded global screening prompt from /home/runner/workspace/config/global_screening_prompt.txt (6946 chars)
+2026-04-25 02:30:34,869 - seed_database - INFO - ℹ️ Preserving vetting setting: vetting_enabled=false
+2026-04-25 02:30:34,870 - seed_database - INFO - ℹ️ Preserving vetting setting: match_threshold=80
+2026-04-25 02:30:34,870 - seed_database - INFO - ✅ All 12 built-in automations already exist
+2026-04-25 02:30:34,871 - seed_database - INFO - ℹ️ Preserving vetting setting: batch_size=25
+2026-04-25 02:30:34,872 - seed_database - INFO - ℹ️ Preserving vetting setting: admin_notification_email=kroots@myticas.com
+2026-04-25 02:30:34,872 - seed_database - INFO - ℹ️ No legacy custom_requirements rows needed migration
+2026-04-25 02:30:34,873 - seed_database - INFO - ℹ️ Preserving vetting setting: health_alert_email=kroots@myticas.com
+2026-04-25 02:30:34,874 - seed_database - INFO - ℹ️ Preserving vetting setting: send_recruiter_emails=false
+2026-04-25 02:30:34,874 - seed_database - INFO - ✅ All 24 Myticas support contacts already up to date
+2026-04-25 02:30:34,875 - seed_database - INFO - ℹ️ Preserving vetting setting: embedding_filter_enabled=true
+2026-04-25 02:30:34,875 - seed_database - INFO - ✅ All 15 STSI support contacts already up to date
+2026-04-25 02:30:34,876 - seed_database - INFO - ℹ️ Preserving vetting setting: embedding_similarity_threshold=0.25
+2026-04-25 02:30:34,877 - seed_database - INFO - ℹ️ Preserving vetting setting: escalation_low=60
+2026-04-25 02:30:34,878 - seed_database - INFO - ✅ All STSI user accounts already exist
+2026-04-25 02:30:34,878 - seed_database - INFO - ℹ️ Preserving vetting setting: escalation_high=85
+2026-04-25 02:30:34,878 - seed_database - INFO - ℹ️ Preserving vetting setting: layer2_model=gpt-5.4
+2026-04-25 02:30:34,879 - seed_database - INFO - ℹ️ Preserving vetting setting: vetting_cutoff_date=
+2026-04-25 02:30:34,879 - seed_database - INFO - ✅ All users already have correct module subscriptions
+2026-04-25 02:30:34,880 - seed_database - INFO - ✅ Database seeding completed successfully for production
+2026-04-25 02:30:34,880 - extensions - INFO - 🌱 Database seeding: Admin user already exists (admin)
+2026-04-25 02:30:34,880 - seed_database - INFO - ℹ️ Preserving vetting setting: screening_audit_enabled=false
+2026-04-25 02:30:34,881 - seed_database - INFO - ℹ️ Preserving vetting setting: recruiter_activity_check_enabled=true
+2026-04-25 02:30:34,881 - scheduler_setup - INFO - ⚠️ Process 31131 could not acquire scheduler lock - another scheduler is already running
+2026-04-25 02:30:34,881 - extensions - INFO - 📌 Process Scheduled XML Files job DISABLED - Enhanced 8-Step Monitor handles all XML updates
+2026-04-25 02:30:34,881 - extensions - INFO - ⚠️ Process 31131 skipping scheduler setup - another worker handles scheduling
+2026-04-25 02:30:34,881 - main - INFO - Flask application imported successfully
+2026-04-25 02:30:34,881 - seed_database - INFO - ℹ️ Preserving vetting setting: recruiter_activity_lookback_minutes=60
+2026-04-25 02:30:34,882 - seed_database - INFO - ℹ️ Preserving vetting setting: global_custom_requirements=WORK AUTHORIZATION & SECURITY CLEARANCE INFERENCE RULES
 
-This typically means that you attempted to use functionality that needed
-the current application. To solve this, set up an application context
-with app.app_context(). See the documentation for more information.
-2026-04-24 20:02:11,325 - seed_database - INFO - 🔒 STARTUP AUDIT — critical settings: vetting_enabled=false | send_recruiter_emails=false | embedding_filter_enabled=true | embedding_similarity_threshold=0.25 | vetting_cutoff_date= | match_threshold=80 | batch_size=25 | layer2_model=gpt-5.4 | sftp_enabled=false | automated_uploads_enabled=true
-2026-04-24 20:02:11,327 - extensions - INFO - Forced immediate check for 6 monitors after restart
-2026-04-24 20:02:11,327 - main - INFO - Monitoring system auto-started successfully on boot
-2026-04-24 20:02:11,330 - seed_database - INFO - ✅ All 12 built-in automations already exist
-2026-04-24 20:02:11,331 - seed_database - INFO - ℹ️ No legacy custom_requirements rows needed migration
-2026-04-24 20:02:11,333 - seed_database - INFO - ✅ All 24 Myticas support contacts already up to date
-2026-04-24 20:02:11,334 - seed_database - INFO - ✅ All 15 STSI support contacts already up to date
-2026-04-24 20:02:11,336 - seed_database - INFO - ✅ All STSI user accounts already exist
-2026-04-24 20:02:11,338 - seed_database - INFO - ✅ All users already have correct module subscriptions
-2026-04-24 20:02:11,338 - seed_database - INFO - ✅ Database seeding completed successfully for production
-2026-04-24 20:02:11,338 - extensions - INFO - 🌱 Database seeding: Admin user already exists (admin)
-2026-04-24 20:02:11,339 - scheduler_setup - INFO - ⚠️ Process 3596 could not acquire scheduler lock - another scheduler is already running
-2026-04-24 20:02:11,340 - extensions - INFO - 📌 Process Scheduled XML Files job DISABLED - Enhanced 8-Step Monitor handles all XML updates
-2026-04-24 20:02:11,340 - extensions - INFO - ⚠️ Process 3596 skipping scheduler setup - another worker handles scheduling
-2026-04-24 20:02:11,340 - main - INFO - Flask application imported successfully
-2026-04-24 20:02:11,344 - main - INFO - Health check passed during startup
-2026-04-24 20:02:11,345 - apscheduler.scheduler - INFO - Scheduler started
-2026-04-24 20:02:11,345 - extensions - INFO - Background scheduler started/restarted successfully
-2026-04-24 20:02:11,345 - extensions - INFO - 📡 Scheduler job execution listeners registered
-2026-04-24 20:02:11,345 - extensions - WARNING - Failed to restore paused scheduler jobs: Working outside of application context.
+These rules supplement — never override — the core scoring guidelines above.
+These rules are purely reactive: they ONLY activate when the job description explicitly contains trigger language. If a job makes no mention of work authorization or clearance, ignore these rules entirely.
 
-This typically means that you attempted to use functionality that needed
-the current application. To solve this, set up an application context
-with app.app_context(). See the documentation for more information.
-2026-04-24 20:02:11,348 - extensions - INFO - Forced immediate check for 6 monitors after restart
-2026-04-24 20:02:11,348 - main - INFO - Monitoring system auto-started successfully on boot
-2026-04-24 20:02:11,375 - root - INFO - 🔄 Bullhorn One API mode ENABLED - using new fixed endpoints
-2026-04-24 20:02:11,376 - root - INFO -    Auth URL: https://auth-east.bullhornstaffing.com/oauth/authorize
-2026-04-24 20:02:11,376 - root - INFO -    Token URL: https://auth-east.bullhornstaffing.com/oauth/token
-2026-04-24 20:02:11,376 - root - INFO -    REST Login URL: https://rest-east.bullhornstaffing.com/rest-services/login
-2026-04-24 20:02:11,376 - root - INFO -    REST URL: https://rest45.bullhornstaffing.com/rest-services/dcc900/
-2026-04-24 20:02:11,378 - root - INFO - 🔄 Using Bullhorn One fixed endpoints for authentication
-2026-04-24 20:02:11,378 - root - INFO - Using redirect URI: https://app.scoutgenius.ai/bullhorn/oauth/callback
-2026-04-24 20:02:11,379 - root - INFO - Auth endpoint: https://auth-east.bullhornstaffing.com/oauth/authorize
-2026-04-24 20:02:11,561 - root - INFO - Auth response status: 302
-2026-04-24 20:02:11,561 - root - INFO - Auth response headers: [redacted for security]
-2026-04-24 20:02:11,562 - root - INFO - Got authorization code (first 10 chars): 28404_8195...
-2026-04-24 20:02:11,562 - root - INFO - Exchanging auth code at token endpoint: https://auth-east.bullhornstaffing.com/oauth/token
-2026-04-24 20:02:11,702 - root - INFO - Getting REST token from: https://rest-east.bullhornstaffing.com/rest-services/login
-2026-04-24 20:02:11,907 - root - INFO - REST login response keys: ['BhRestToken', 'restUrl']
-2026-04-24 20:02:11,907 - root - INFO - Bullhorn authentication successful. Base URL: https://rest45.bullhornstaffing.com/rest-services/dcc900/
-2026-04-24 20:02:11,907 - root - INFO - REST Token: ***d6ad
-2026-04-24 20:02:11,907 - root - WARNING - ⚠️ No userId in REST response, querying current user...
-2026-04-24 20:02:12,050 - root - INFO - Got user ID from settings endpoint: 1147490
-2026-04-24 20:02:12,051 - root - INFO - User ID for note creation: 1147490
-2026-04-24 20:02:12,336 - root - INFO - Tearsheet 1232: Entity API reports 1 total jobs
-2026-04-24 20:02:12,575 - root - INFO - Tearsheet 1233: Entity API reports 0 total jobs
-2026-04-24 20:02:12,824 - root - INFO - Tearsheet 1231: Entity API reports 50 total jobs
-2026-04-24 20:02:13,374 - root - WARNING - Tearsheet 1231: Entity API reports 50 jobs but Search API returned 52. Using Search API results (authoritative for tearsheet membership).
-2026-04-24 20:02:13,794 - root - INFO - Tearsheet 1239: Entity API reports 8 total jobs
-2026-04-24 20:02:14,542 - root - INFO - Tearsheet 1474: Entity API reports 5 total jobs
-2026-04-24 20:02:14,859 - root - INFO - Tearsheet 1531: Entity API reports 13 total jobs
-2026-04-24 20:02:15,331 - root - WARNING - Tearsheet 1531: Entity API reports 13 jobs but Search API returned 14. Using Search API results (authoritative for tearsheet membership).
-2026-04-24 20:02:17,082 - root - INFO - 📧 Fetched emails for 17/17 users
-2026-04-24 20:02:17,082 - root - INFO - Loaded 80 jobs from 6 tearsheets with 17 user emails
-2026-04-24 20:02:17,085 - extensions - INFO - 🔄 Active job IDs cache refreshed: 80 jobs
-2026-04-24 20:02:17,091 - extensions - INFO - Active job IDs background cache refresh enabled (5-min interval)
-2026-04-24 20:02:17,094 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-24 20:02:17,094 - extensions - INFO - 📋 Scheduled activity retention cleanup (15 days)
-2026-04-24 20:02:17,094 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-24 20:02:17,094 - extensions - INFO - 📊 Log monitoring enabled - checking Render logs every 15 minutes
-2026-04-24 20:02:17,094 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-24 20:02:17,094 - extensions - INFO - 📧 Scheduled email parsing timeout cleanup (10 min threshold, every 5 min)
-2026-04-24 20:02:17,095 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-24 20:02:17,095 - extensions - INFO - 🧹 Scheduled data retention cleanup (daily at 3 AM UTC)
-2026-04-24 20:02:17,095 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-24 20:02:17,095 - extensions - INFO - 🩺 Scheduled vetting system health check (every 10 minutes)
-2026-04-24 20:02:17,095 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-24 20:02:17,095 - extensions - INFO - 🎯 Scheduled AI candidate vetting cycle (every 1 minute)
-2026-04-24 20:02:17,095 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-24 20:02:17,095 - extensions - INFO - 📤 Scheduled automated uploads every 30 minutes
-2026-04-24 20:02:17,099 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-24 20:02:17,099 - extensions - INFO - 🔗 LinkedIn source cleanup enabled — runs hourly to update stale source tags
-2026-04-24 20:02:17,099 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-24 20:02:17,099 - extensions - INFO - 🌐 Enforce tearsheet jobs public enabled — runs every 30 minutes to set isPublic=true on all active tearsheet jobs
-2026-04-24 20:02:17,099 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-24 20:02:17,100 - extensions - INFO - 🔍 Requirements maintenance enabled — auto-extracts for new jobs and re-interprets modified descriptions every 5 minutes
-2026-04-24 20:02:17,100 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-24 20:02:17,100 - extensions - INFO - 🏢 Scheduled Sales Rep display name sync every 30 minutes
-2026-04-24 20:02:17,100 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-24 20:02:17,100 - extensions - INFO - ⏰ Scheduled stale platform ticket escalation check every 6 hours
-2026-04-24 20:02:17,100 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-24 20:02:17,100 - extensions - INFO - 🔀 Scheduled duplicate candidate merge check every 60 minutes
-2026-04-24 20:02:17,100 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-24 20:02:17,100 - extensions - INFO - ☁️ Scheduled OneDrive knowledge sync every 4 hours
-2026-04-24 20:02:17,102 - extensions - INFO - 📝 Reference refresh: last_run=2026-04-23 14:53:15 UTC, next_run=2026-04-28 14:53:15 UTC, overdue=false (90.8h remaining)
-2026-04-24 20:02:17,102 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-24 20:02:17,102 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-24 20:02:17,102 - extensions - INFO - 🧹 Candidate data cleanup scheduled — runs every 15 minutes when enabled
-2026-04-24 20:02:17,103 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-24 20:02:17,103 - extensions - INFO - ♻️  Incomplete rescreen job scheduled — runs every 15 minutes when enabled
-2026-04-24 20:02:17,103 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-24 20:02:17,103 - extensions - INFO - 🔍 Screening quality audit job scheduled — runs every 15 minutes when enabled
-2026-04-24 20:02:17,103 - extensions - INFO - 📧 XML Change Monitor: Auto-notifications DISABLED - notifications now sent only during manual downloads
-2026-04-24 20:02:17,103 - main - INFO - Flask application imported successfully
-2026-04-24 20:02:17,107 - main - INFO - Health check passed during startup
-2026-04-24 20:02:17,107 - apscheduler.scheduler - INFO - Added job "5-Minute Tearsheet Monitor with Keyword Classification" to job store "default"
-2026-04-24 20:02:17,107 - apscheduler.scheduler - INFO - Added job "Monitor Health Check (Manual Workflow)" to job store "default"
-2026-04-24 20:02:17,107 - apscheduler.scheduler - INFO - Added job "Production Environment Monitoring" to job store "default"
-2026-04-24 20:02:17,108 - apscheduler.scheduler - INFO - Added job "Active Job IDs Cache Refresh (5 min)" to job store "default"
-2026-04-24 20:02:17,108 - apscheduler.scheduler - INFO - Added job "Activity Retention Cleanup (15 days)" to job store "default"
-2026-04-24 20:02:17,108 - apscheduler.scheduler - INFO - Added job "Render Log Monitoring (Self-Healing) - 15min" to job store "default"
-2026-04-24 20:02:17,108 - apscheduler.scheduler - INFO - Added job "Email Parsing Timeout Cleanup (10 min)" to job store "default"
-2026-04-24 20:02:17,108 - apscheduler.scheduler - INFO - Added job "Data Retention Cleanup (Daily)" to job store "default"
-2026-04-24 20:02:17,108 - apscheduler.scheduler - INFO - Added job "Vetting System Health Check" to job store "default"
-2026-04-24 20:02:17,108 - apscheduler.scheduler - INFO - Added job "AI Candidate Vetting Cycle" to job store "default"
-2026-04-24 20:02:17,108 - apscheduler.scheduler - INFO - Added job "Automated Upload (Every 30 Minutes)" to job store "default"
-2026-04-24 20:02:17,108 - apscheduler.scheduler - INFO - Added job "LinkedIn Source Cleanup (hourly)" to job store "default"
-2026-04-24 20:02:17,108 - apscheduler.scheduler - INFO - Added job "Enforce Tearsheet Jobs Public (Every 30 Minutes)" to job store "default"
-2026-04-24 20:02:17,108 - apscheduler.scheduler - INFO - Added job "Requirements Maintenance — New & Modified Jobs (5 min)" to job store "default"
-2026-04-24 20:02:17,108 - apscheduler.scheduler - INFO - Added job "Sales Rep Display Name Sync (Every 30 Minutes)" to job store "default"
-2026-04-24 20:02:17,109 - apscheduler.scheduler - INFO - Added job "Stale Platform Ticket Escalation Check (Every 6 Hours)" to job store "default"
-2026-04-24 20:02:17,109 - apscheduler.scheduler - INFO - Added job "Duplicate Candidate Merge Check (Every 60 Minutes)" to job store "default"
-2026-04-24 20:02:17,109 - apscheduler.scheduler - INFO - Added job "OneDrive Knowledge Sync (Every 4 Hours)" to job store "default"
-2026-04-24 20:02:17,109 - apscheduler.scheduler - INFO - Added job "120-Hour Reference Number Refresh" to job store "default"
-2026-04-24 20:02:17,109 - apscheduler.scheduler - INFO - Added job "Candidate Data Cleanup (Every 15 Minutes)" to job store "default"
-2026-04-24 20:02:17,109 - apscheduler.scheduler - INFO - Added job "Incomplete Candidate Rescreen (Every 15 Minutes)" to job store "default"
-2026-04-24 20:02:17,109 - apscheduler.scheduler - INFO - Added job "Scout Screening Quality Audit (15 min)" to job store "default"
-2026-04-24 20:02:17,109 - apscheduler.scheduler - INFO - Scheduler started
-2026-04-24 20:02:17,110 - extensions - INFO - Background scheduler started/restarted successfully
-2026-04-24 20:02:17,110 - extensions - INFO - 📡 Scheduler job execution listeners registered
-2026-04-24 20:02:17,110 - extensions - WARNING - Failed to restore paused scheduler jobs: Working outside of application context.
+=== RULE 0: EXPLICIT AUTHORIZATION STATEMENTS (HIGHEST PRIORITY) ===
+If the resume or candidate profile explicitly states work authorization status — for example: "Green Card", "Permanent Resident", "US Citizen", "Authorized to work in the US", "WA: Green Card", "H-1B", "EAD", "Canadian Citizen", "PR" — this OVERRIDES the inference tiers in Rules 1 and 2 below.
+• Accept the stated authorization at face value with NO score penalty.
+• Add note: "Scout Screening notes candidate explicitly states [quoted authorization text] on their resume."
+• Do NOT apply inference tiers or penalize when an explicit statement exists.
+• This rule takes absolute precedence over Rules 1 and 2.
 
-This typically means that you attempted to use functionality that needed
-the current application. To solve this, set up an application context
-with app.app_context(). See the documentation for more information.
-2026-04-24 20:02:17,113 - extensions - INFO - Forced immediate check for 6 monitors after restart
-2026-04-24 20:02:17,113 - main - INFO - Monitoring system auto-started successfully on boot
-2026-04-24 20:03:17,096 - apscheduler.executors.default - INFO - Running job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-04-24 20:04:17 UTC)" (scheduled at 2026-04-24 20:03:17.095466+00:00)
-2026-04-24 20:03:17,098 - apscheduler.executors.default - INFO - Job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-04-24 20:04:17 UTC)" executed successfully
-2026-04-24 20:03:39,003 - extensions - ERROR - Exception on /screening [GET]
-Traceback (most recent call last):
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
-    self.dialect.do_execute(
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
-    cursor.execute(statement, parameters)
-psycopg2.errors.UndefinedTable: relation "user" does not exist
-LINE 2: FROM "user" 
-             ^
+=== RULE 1: US WORK AUTHORIZATION ===
+Trigger: The job description contains language such as "US citizen", "W2 only", "authorized to work in the US", "no sponsorship", or similar work-authorization requirements. The job description language is the primary trigger; job location metadata (if US) is a confirming signal but is NOT required. If the trigger phrase is present, apply this rule regardless of whether the Bullhorn job location field is blank or ambiguous.
+Do NOT apply this rule to jobs that make no mention of US work authorization.
 
+Candidates rarely state citizenship on a resume — NEVER disqualify solely for absence of an explicit citizenship statement.
 
-The above exception was the direct cause of the following exception:
+MANDATORY WORK HISTORY ENUMERATION:
+Before applying the inference tiers below, you MUST enumerate ALL full-time professional US roles from the resume and sum their durations. Do NOT count only the most recent role.
 
-Traceback (most recent call last):
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 1511, in wsgi_app
-    response = self.full_dispatch_request()
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 919, in full_dispatch_request
-    rv = self.handle_user_exception(e)
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 915, in full_dispatch_request
-    rv = self.preprocess_request()
-         ^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 1291, in preprocess_request
-    rv = self.ensure_sync(before_func)()
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/app.py", line 226, in _track_module_access
-    if not current_user.is_authenticated:
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/werkzeug/local.py", line 318, in __get__
-    obj = instance._get_current_object()
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/werkzeug/local.py", line 526, in _get_current_object
-    return get_name(local())
-                    ^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask_login/utils.py", line 25, in <lambda>
-    current_user = LocalProxy(lambda: _get_user())
-                                      ^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask_login/utils.py", line 370, in _get_user
-    current_app.login_manager._load_user()
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask_login/login_manager.py", line 364, in _load_user
-    user = self._user_callback(user_id)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/app.py", line 288, in load_user
-    return User.query.get(int(user_id))
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "<string>", line 2, in get
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/util/deprecations.py", line 386, in warned
-    return fn(*args, **kwargs)  # type: ignore[no-any-return]
-           ^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/query.py", line 1126, in get
-    return self._get_impl(ident, loading.load_on_pk_identity)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/query.py", line 1135, in _get_impl
-    return self.session._get_impl(
-           ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 3859, in _get_impl
-    return db_load_fn(
-           ^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/loading.py", line 695, in load_on_pk_identity
-    session.execute(
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2351, in execute
-    return self._execute_internal(
-           ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2249, in _execute_internal
-    result: Result[Any] = compile_state_cls.orm_execute_statement(
-                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
-    result = conn.execute(
-             ^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1419, in execute
-    return meth(
-           ^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/sql/elements.py", line 527, in _execute_on_connection
-    return connection._execute_clauseelement(
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1641, in _execute_clauseelement
-    ret = self._execute_context(
-          ^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1846, in _execute_context
-    return self._exec_single_context(
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1986, in _exec_single_context
-    self._handle_dbapi_exception(
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 2363, in _handle_dbapi_exception
-    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
-    self.dialect.do_execute(
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
-    cursor.execute(statement, parameters)
-sqlalchemy.exc.ProgrammingError: (psycopg2.errors.UndefinedTable) relation "user" does not exist
-LINE 2: FROM "user" 
-             ^
+Step 1: List every full-time US-based role with start and end dates
+Step 2: Calculate months for each role: (end_year - start_year) × 12 + (end_month - start_month)
+Step 3: Sum total months across ALL US roles
+Step 4: Convert total months to years (total_months / 12)
+Step 5: Apply the appropriate inference tier based on total years
 
-[SQL: SELECT "user".id AS user_id, "user".username AS user_username, "user".email AS user_email, "user".password_hash AS user_password_hash, "user".is_admin AS user_is_admin, "user".is_company_admin AS user_is_company_admin, "user".role AS user_role, "user".company AS user_company, "user".bullhorn_user_id AS user_bullhorn_user_id, "user".display_name AS user_display_name, "user".subscribed_modules AS user_subscribed_modules, "user".created_at AS user_created_at, "user".last_login AS user_last_login, "user".last_active_at AS user_last_active_at 
-FROM "user" 
-WHERE "user".id = %(pk_1)s]
-[parameters: {'pk_1': 1}]
-(Background on this error at: https://sqlalche.me/e/20/f405)
-2026-04-24 20:03:39,206 - extensions - ERROR - Exception on /screening/activity-monitor [GET]
-Traceback (most recent call last):
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
-    self.dialect.do_execute(
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
-    cursor.execute(statement, parameters)
-psycopg2.errors.UndefinedTable: relation "user" does not exist
-LINE 2: FROM "user" 
-             ^
+Example:
+- Role 1: Software Engineer at Acme Corp (08/2016 – 02/2023) = (2023-2016)×12 + (2-8) = 78 months
+- Role 2: Senior Engineer at Beta Inc (03/2023 – 02/2026) = (2026-2023)×12 + (2-3) = 35 months
+- Total: 78 + 35 = 113 months = 9.4 years → 5+ tier, no score penalty
 
+CRITICAL: You MUST sum ALL roles, not just the most recent one. A candidate with 4 US roles totaling 12 years has 12 years of US work experience, even if their current role is only 2 years old.
 
-The above exception was the direct cause of the following exception:
+Inference tiers (based on TOTAL US work experience calculated above):
+• 5+ years US work experience → Infer strong likelihood of US citizenship or permanent residency. No score penalty. Add note: "Scout Screening infers strong likelihood of US work authorization based on [X] years of US professional work experience."
+• 3–4 years US work experience → Treat as a soft gap. Apply a minor score reduction (3-5 points). Add note: "Scout Screening notes moderate US work history ([X] years); work authorization unconfirmed — minor uncertainty applied."
+• Under 3 years US work experience → Flag as a gap. Apply standard gap scoring. Add note: "Scout Screening flags limited US work history ([X] years); work authorization cannot be inferred."
 
-Traceback (most recent call last):
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 1511, in wsgi_app
-    response = self.full_dispatch_request()
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 919, in full_dispatch_request
-    rv = self.handle_user_exception(e)
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 915, in full_dispatch_request
-    rv = self.preprocess_request()
-         ^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 1291, in preprocess_request
-    rv = self.ensure_sync(before_func)()
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/app.py", line 226, in _track_module_access
-    if not current_user.is_authenticated:
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/werkzeug/local.py", line 318, in __get__
-    obj = instance._get_current_object()
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/werkzeug/local.py", line 526, in _get_current_object
-    return get_name(local())
-                    ^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask_login/utils.py", line 25, in <lambda>
-    current_user = LocalProxy(lambda: _get_user())
-                                      ^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask_login/utils.py", line 370, in _get_user
-    current_app.login_manager._load_user()
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask_login/login_manager.py", line 364, in _load_user
-    user = self._user_callback(user_id)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/app.py", line 288, in load_user
-    return User.query.get(int(user_id))
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "<string>", line 2, in get
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/util/deprecations.py", line 386, in warned
-    return fn(*args, **kwargs)  # type: ignore[no-any-return]
-           ^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/query.py", line 1126, in get
-    return self._get_impl(ident, loading.load_on_pk_identity)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/query.py", line 1135, in _get_impl
-    return self.session._get_impl(
-           ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 3859, in _get_impl
-    return db_load_fn(
-           ^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/loading.py", line 695, in load_on_pk_identity
-    session.execute(
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2351, in execute
-    return self._execute_internal(
-           ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2249, in _execute_internal
-    result: Result[Any] = compile_state_cls.orm_execute_statement(
-                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
-    result = conn.execute(
-             ^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1419, in execute
-    return meth(
-           ^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/sql/elements.py", line 527, in _execute_on_connection
-    return connection._execute_clauseelement(
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1641, in _execute_clauseelement
-    ret = self._execute_context(
-          ^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1846, in _execute_context
-    return self._exec_single_context(
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1986, in _exec_single_context
-    self._handle_dbapi_exception(
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 2363, in _handle_dbapi_exception
-    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
-    self.dialect.do_execute(
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
-    cursor.execute(statement, parameters)
-sqlalchemy.exc.ProgrammingError: (psycopg2.errors.UndefinedTable) relation "user" does not exist
-LINE 2: FROM "user" 
-             ^
+=== RULE 2: CANADIAN SECURITY CLEARANCE ===
+Trigger: The job description references security clearance requirements (e.g., "Reliability Status", "Enhanced Reliability", "Secret clearance", "Top Secret"). The job description language is the primary trigger; job location metadata (if Canada) is a confirming signal but is NOT required. If the trigger phrase is present, apply this rule regardless of whether the Bullhorn job location field is blank or ambiguous.
+Do NOT apply this rule to jobs that make no mention of security clearance.
 
-[SQL: SELECT "user".id AS user_id, "user".username AS user_username, "user".email AS user_email, "user".password_hash AS user_password_hash, "user".is_admin AS user_is_admin, "user".is_company_admin AS user_is_company_admin, "user".role AS user_role, "user".company AS user_company, "user".bullhorn_user_id AS user_bullhorn_user_id, "user".display_name AS user_display_name, "user".subscribed_modules AS user_subscribed_modules, "user".created_at AS user_created_at, "user".last_login AS user_last_login, "user".last_active_at AS user_last_active_at 
-FROM "user" 
-WHERE "user".id = %(pk_1)s]
-[parameters: {'pk_1': 1}]
-(Background on this error at: https://sqlalche.me/e/20/f405)
-2026-04-24 20:03:39,329 - extensions - ERROR - Exception on /screening [GET]
-Traceback (most recent call last):
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
-    self.dialect.do_execute(
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
-    cursor.execute(statement, parameters)
-psycopg2.errors.UndefinedTable: relation "user" does not exist
-LINE 2: FROM "user" 
-             ^
+IMPORTANT GEOGRAPHIC GUARD: This rule applies to Canadian clearance eligibility inference only. If a US-based job mentions security clearance requirements (e.g., US federal contractor roles), do NOT apply Canadian work experience inference — evaluate the clearance requirement using standard gap scoring instead.
 
+Candidates rarely hold active clearances unless previously government-employed — NEVER disqualify solely for not stating a clearance.
 
-The above exception was the direct cause of the following exception:
+MANDATORY CANADIAN WORK HISTORY ENUMERATION:
+Before applying the inference tiers below, you MUST enumerate ALL full-time professional Canadian roles from the resume and sum their durations. Do NOT count only the most recent role.
 
-Traceback (most recent call last):
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 1511, in wsgi_app
-    response = self.full_dispatch_request()
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 919, in full_dispatch_request
-    rv = self.handle_user_exception(e)
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 915, in full_dispatch_request
-    rv = self.preprocess_request()
-         ^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 1291, in preprocess_request
-    rv = self.ensure_sync(before_func)()
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/app.py", line 226, in _track_module_access
-    if not current_user.is_authenticated:
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/werkzeug/local.py", line 318, in __get__
-    obj = instance._get_current_object()
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/werkzeug/local.py", line 526, in _get_current_object
-    return get_name(local())
-                    ^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask_login/utils.py", line 25, in <lambda>
-    current_user = LocalProxy(lambda: _get_user())
-                                      ^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask_login/utils.py", line 370, in _get_user
-    current_app.login_manager._load_user()
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask_login/login_manager.py", line 364, in _load_user
-    user = self._user_callback(user_id)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/app.py", line 288, in load_user
-    return User.query.get(int(user_id))
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "<string>", line 2, in get
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/util/deprecations.py", line 386, in warned
-    return fn(*args, **kwargs)  # type: ignore[no-any-return]
-           ^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/query.py", line 1126, in get
-    return self._get_impl(ident, loading.load_on_pk_identity)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/query.py", line 1135, in _get_impl
-    return self.session._get_impl(
-           ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 3859, in _get_impl
-    return db_load_fn(
-           ^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/loading.py", line 695, in load_on_pk_identity
-    session.execute(
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2351, in execute
-    return self._execute_internal(
-           ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2249, in _execute_internal
-    result: Result[Any] = compile_state_cls.orm_execute_statement(
-                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
-    result = conn.execute(
-             ^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1419, in execute
-    return meth(
-           ^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/sql/elements.py", line 527, in _execute_on_connection
-    return connection._execute_clauseelement(
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1641, in _execute_clauseelement
-    ret = self._execute_context(
-          ^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1846, in _execute_context
-    return self._exec_single_context(
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1986, in _exec_single_context
-    self._handle_dbapi_exception(
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 2363, in _handle_dbapi_exception
-    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
-    self.dialect.do_execute(
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
-    cursor.execute(statement, parameters)
-sqlalchemy.exc.ProgrammingError: (psycopg2.errors.UndefinedTable) relation "user" does not exist
-LINE 2: FROM "user" 
-             ^
+Step 1: List every full-time Canadian-based role with start and end dates
+Step 2: Calculate months for each role: (end_year - start_year) × 12 + (end_month - start_month)
+Step 3: Sum total months across ALL Canadian roles
+Step 4: Convert total months to years (total_months / 12)
+Step 5: Apply the appropriate inference tier based on total years
 
-[SQL: SELECT "user".id AS user_id, "user".username AS user_username, "user".email AS user_email, "user".password_hash AS user_password_hash, "user".is_admin AS user_is_admin, "user".is_company_admin AS user_is_company_admin, "user".role AS user_role, "user".company AS user_company, "user".bullhorn_user_id AS user_bullhorn_user_id, "user".display_name AS user_display_name, "user".subscribed_modules AS user_subscribed_modules, "user".created_at AS user_created_at, "user".last_login AS user_last_login, "user".last_active_at AS user_last_active_at 
-FROM "user" 
-WHERE "user".id = %(pk_1)s]
-[parameters: {'pk_1': 1}]
-(Background on this error at: https://sqlalche.me/e/20/f405)
-2026-04-24 20:04:17,095 - apscheduler.executors.default - INFO - Running job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-04-24 20:05:17 UTC)" (scheduled at 2026-04-24 20:04:17.095466+00:00)
-2026-04-24 20:04:17,112 - extensions - ERROR - Candidate vetting cycle error: (psycopg2.errors.UndefinedTable) relation "vetting_config" does not exist
-LINE 2: FROM vetting_config 
-             ^
+CRITICAL: You MUST sum ALL Canadian roles, not just the most recent one.
 
-[SQL: SELECT vetting_config.id AS vetting_config_id, vetting_config.setting_key AS vetting_config_setting_key, vetting_config.setting_value AS vetting_config_setting_value, vetting_config.description AS vetting_config_description, vetting_config.created_at AS vetting_config_created_at, vetting_config.updated_at AS vetting_config_updated_at 
-FROM vetting_config 
-WHERE vetting_config.setting_key = %(setting_key_1)s 
- LIMIT %(param_1)s]
-[parameters: {'setting_key_1': 'vetting_enabled', 'param_1': 1}]
-(Background on this error at: https://sqlalche.me/e/20/f405)
-2026-04-24 20:04:17,113 - apscheduler.executors.default - INFO - Job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-04-24 20:05:17 UTC)" executed successfully
-2026-04-24 20:05:17,095 - apscheduler.executors.default - INFO - Running job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-04-24 20:06:17 UTC)" (scheduled at 2026-04-24 20:05:17.095466+00:00)
-2026-04-24 20:05:17,097 - extensions - ERROR - Candidate vetting cycle error: (psycopg2.errors.UndefinedTable) relation "vetting_config" does not exist
-LINE 2: FROM vetting_config 
-             ^
+Inference tiers (based on TOTAL Canadian work experience calculated above):
+• Enhanced Reliability / Reliability Status required + candidate has 5+ years Canadian work experience → Eligible to obtain. No score penalty. Add note: "Scout Screening notes candidate is likely eligible to obtain Enhanced Reliability clearance based on [X] years of Canadian professional work experience."
+• Secret-level clearance required + candidate has 10+ years Canadian work experience → Eligible to obtain. No score penalty. Add note: "Scout Screening notes candidate is likely eligible to obtain Secret clearance based on [X] years of Canadian professional work experience."
+• Top Secret clearance required + candidate has 15+ years Canadian work experience → Eligible to obtain. No score penalty. Add note: "Scout Screening notes candidate is likely eligible to obtain Top Secret clearance based on [X] years of Canadian professional work experience."
+• Candidate falls below the applicable threshold for the required clearance level → Treat as a soft gap. Apply a minor score reduction (3-5 points). Add note: "Scout Screening notes candidate has [X] years of Canadian work experience; clearance eligibility is uncertain for [clearance level]."
 
-[SQL: SELECT vetting_config.id AS vetting_config_id, vetting_config.setting_key AS vetting_config_setting_key, vetting_config.setting_value AS vetting_config_setting_value, vetting_config.description AS vetting_config_description, vetting_config.created_at AS vetting_config_created_at, vetting_config.updated_at AS vetting_config_updated_at 
-FROM vetting_config 
-WHERE vetting_config.setting_key = %(setting_key_1)s 
- LIMIT %(param_1)s]
-[parameters: {'setting_key_1': 'vetting_enabled', 'param_1': 1}]
-(Background on this error at: https://sqlalche.me/e/20/f405)
-2026-04-24 20:05:17,098 - apscheduler.executors.default - INFO - Job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-04-24 20:06:17 UTC)" executed successfully
-2026-04-24 20:05:25,155 - apscheduler.scheduler - INFO - Scheduler has been shut down
-2026-04-24 20:05:25,155 - apscheduler.scheduler - INFO - Scheduler has been shut down
-2026-04-24 20:05:25,155 - scheduler_setup - INFO - 🔓 Released scheduler lock on process exit
-2026-04-24 20:05:25,155 - apscheduler.scheduler - INFO - Scheduler has been shut down
+=== RULE 3: CROSS-BORDER & INTERNATIONAL ===
+• US work authorization rules activate ONLY when the job description contains US authorization trigger language.
+• Canadian clearance rules activate ONLY when the job description contains clearance trigger language AND the job is Canadian-based (not US-based — see geographic guard above).
+• NEVER cross-apply rules (e.g., do not apply US authorization logic when clearance language is present, or vice versa).
+• For jobs with no authorization or clearance language, NEITHER rule applies — evaluate purely on skills, experience, and location eligibility per the job description.
+2026-04-25 02:30:34,885 - main - INFO - Health check passed during startup
+2026-04-25 02:30:34,997 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 02:30:34,998 - extensions - INFO - Background scheduler started/restarted successfully
+2026-04-25 02:30:34,999 - extensions - INFO - 📡 Scheduler job execution listeners registered
+2026-04-25 02:30:34,998 - seed_database - INFO - ✅ Vetting settings already up to date
+2026-04-25 02:30:35,001 - seed_database - INFO - ℹ️ Vetting clean slate already completed - skipping
+2026-04-25 02:30:35,009 - extensions - INFO - Forced immediate check for 6 monitors after restart
+2026-04-25 02:30:35,009 - main - INFO - Monitoring system auto-started successfully on boot
+2026-04-25 02:30:35,016 - seed_database - INFO - 🔒 STARTUP AUDIT — critical settings: vetting_enabled=false | send_recruiter_emails=false | embedding_filter_enabled=true | embedding_similarity_threshold=0.25 | vetting_cutoff_date= | match_threshold=80 | batch_size=25 | layer2_model=gpt-5.4 | sftp_enabled=false | automated_uploads_enabled=true
+2026-04-25 02:30:35,103 - seed_database - INFO - ✅ All 12 built-in automations already exist
+2026-04-25 02:30:35,104 - seed_database - INFO - ℹ️ No legacy custom_requirements rows needed migration
+2026-04-25 02:30:35,106 - seed_database - INFO - ✅ All 24 Myticas support contacts already up to date
+2026-04-25 02:30:35,107 - seed_database - INFO - ✅ All 15 STSI support contacts already up to date
+2026-04-25 02:30:35,109 - seed_database - INFO - ✅ All STSI user accounts already exist
+2026-04-25 02:30:35,111 - seed_database - INFO - ✅ All users already have correct module subscriptions
+2026-04-25 02:30:35,111 - seed_database - INFO - ✅ Database seeding completed successfully for production
+2026-04-25 02:30:35,111 - extensions - INFO - 🌱 Database seeding: Admin user already exists (admin)
+2026-04-25 02:30:35,113 - scheduler_setup - INFO - ⚠️ Process 31134 could not acquire scheduler lock - another scheduler is already running
+2026-04-25 02:30:35,113 - extensions - INFO - 📌 Process Scheduled XML Files job DISABLED - Enhanced 8-Step Monitor handles all XML updates
+2026-04-25 02:30:35,113 - extensions - INFO - ⚠️ Process 31134 skipping scheduler setup - another worker handles scheduling
+2026-04-25 02:30:35,113 - main - INFO - Flask application imported successfully
+2026-04-25 02:30:35,116 - main - INFO - Health check passed during startup
+2026-04-25 02:30:35,117 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 02:30:35,117 - extensions - INFO - Background scheduler started/restarted successfully
+2026-04-25 02:30:35,117 - extensions - INFO - 📡 Scheduler job execution listeners registered
+2026-04-25 02:30:35,123 - extensions - INFO - Forced immediate check for 6 monitors after restart
+2026-04-25 02:30:35,124 - main - INFO - Monitoring system auto-started successfully on boot
