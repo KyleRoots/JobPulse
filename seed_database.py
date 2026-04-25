@@ -15,30 +15,41 @@ Environment Variables:
     - ADMIN_USERNAME: Admin user username (default: admin)
     - ADMIN_EMAIL: Admin user email (default: kroots@myticas.com)
     - ADMIN_PASSWORD: Admin user password (REQUIRED for production)
-    
-    SFTP Configuration:
+
+    SFTP Configuration (FIRST-RUN BOOTSTRAP ONLY):
     - SFTP_HOSTNAME: SFTP server hostname
     - SFTP_USERNAME: SFTP username
     - SFTP_PASSWORD: SFTP password
     - SFTP_PORT: SFTP port (default: 22)
     - SFTP_DIRECTORY: Upload directory (default: /)
-    
-    Bullhorn API Configuration:
+
+    Bullhorn API Configuration (FIRST-RUN BOOTSTRAP ONLY):
     - BULLHORN_CLIENT_ID: Bullhorn OAuth client ID
     - BULLHORN_CLIENT_SECRET: Bullhorn OAuth client secret
     - BULLHORN_USERNAME: Bullhorn API username
     - BULLHORN_PASSWORD: Bullhorn API password
-    
+
+    NOTE: SFTP and Bullhorn credential env vars are used ONLY to seed empty
+    rows on a fresh install. If these rows already exist in the database (i.e.
+    the operator has set credentials via the UI), the seed will NEVER overwrite
+    them regardless of env var values. To update credentials after initial
+    bootstrap, use the Inbound Config settings page in the admin UI.
+
     System:
     - REPLIT_DEPLOYMENT: Detected automatically (production indicator)
 
 What Gets Seeded:
     ✅ Admin user with credentials from environment
-    ✅ SFTP settings for automated uploads
-    ✅ Bullhorn API credentials for job feed generation
-    ✅ 5 Bullhorn tearsheet monitors (1256, 1264, 1499, 1556, 1257)
-    ✅ Automation toggles (enabled in production, disabled in dev)
+    ✅ SFTP settings for automated uploads (first-run bootstrap only)
+    ✅ Bullhorn API credentials for job feed generation (first-run bootstrap only)
+    ✅ Bullhorn tearsheet monitors
+    ✅ Automation toggles (conservative defaults; user enables via UI)
     ✅ Environment monitoring (production only)
+
+Preservation guarantees (no deploy can overwrite these):
+    🔒 SFTP and Bullhorn credential rows (if they exist in the database)
+    🔒 Automation toggles (sftp_enabled, automated_uploads_enabled, etc.)
+    🔒 All vetting/screening configuration
 """
 
 import os
@@ -268,21 +279,21 @@ def seed_global_settings(db, GlobalSettings):
             'bullhorn_password': bullhorn_config['bullhorn_password']
         }
         
-        settings_updated = []
         settings_created = []
-        
+
         # Process credential settings
         for key, value in credential_settings.items():
             existing = GlobalSettings.query.filter_by(setting_key=key).first()
-            
+
             if existing:
-                # Only update credentials if new value is not empty
-                if value and existing.setting_value != value:
-                    existing.setting_value = value
-                    existing.updated_at = datetime.utcnow()
-                    settings_updated.append(key)
+                # PRESERVE existing credentials — NEVER overwrite values managed via the UI.
+                # Production credentials are the source of truth; env vars only seed first-run
+                # rows. This prevents a deployment from resetting credentials that an operator
+                # has updated through the UI after the initial bootstrap.
+                logger.info(f"ℹ️ Preserving credential setting: {key}")
+                continue
             else:
-                # Create new credential setting only if value exists
+                # Create new credential setting only if value exists (first-run bootstrap only)
                 if value:
                     new_setting = GlobalSettings(
                         setting_key=key,
@@ -326,13 +337,9 @@ def seed_global_settings(db, GlobalSettings):
                 settings_created.append(key)
                 logger.info(f"✅ Created automation toggle: {key}={default_value} (production={is_production_environment()})")
         
-        if settings_updated or settings_created:
+        if settings_created:
             db.session.commit()
-            
-            if settings_created:
-                logger.info(f"✅ Created settings: {', '.join(settings_created)}")
-            if settings_updated:
-                logger.info(f"🔄 Updated settings: {', '.join(settings_updated)}")
+            logger.info(f"✅ Created settings: {', '.join(settings_created)}")
         else:
             logger.info("✅ Global settings already up to date")
             

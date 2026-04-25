@@ -10,6 +10,7 @@ Development Approval Process: Before executing any development task, always prov
   - Autonomy level (Economy/Power)
   - Brief rationale for the choice
   - Wait for user approval before proceeding
+Task Plans: Every project task plan must include the recommended autonomy level (Economy/Power) and a one-line rationale at the top, so the user can set the correct mode before the task starts.
 Source of Truth: GitHub repository (KyleRoots/Scout Genius) — main branch.
 Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 

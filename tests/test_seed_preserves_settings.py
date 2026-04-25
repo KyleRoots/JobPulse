@@ -307,3 +307,115 @@ class TestFullSeedNeverOverwritesSFTPFlags:
                     f"expected 'false', got '{actual}'"
                 )
 
+
+class TestCredentialRowsNeverOverwrittenBySeed:
+    """SFTP and Bullhorn credential rows must survive any seed pass, even when
+    environment variables hold conflicting values.
+
+    This is the regression guard for the deploy-time overwrite bug where
+    production credentials edited via the UI were silently reset to whatever
+    the deployment environment variable held on the next app boot.
+    """
+
+    # The nine credential keys managed by seed_global_settings()
+    CREDENTIAL_KEYS = [
+        'sftp_hostname',
+        'sftp_username',
+        'sftp_password',
+        'sftp_port',
+        'sftp_directory',
+        'bullhorn_client_id',
+        'bullhorn_client_secret',
+        'bullhorn_username',
+        'bullhorn_password',
+    ]
+
+    # Known-good values that represent what an operator set via the UI
+    KNOWN_GOOD_VALUES = {
+        'sftp_hostname': 'prod.sftp.example.com',
+        'sftp_username': 'prod_user',
+        'sftp_password': 'prod_s3cr3t!',
+        'sftp_port': '2222',
+        'sftp_directory': '/wp-content/uploads/',
+        'bullhorn_client_id': 'prod_bh_client_id',
+        'bullhorn_client_secret': 'prod_bh_client_secret',
+        'bullhorn_username': 'prod_bh_user',
+        'bullhorn_password': 'prod_bh_pass',
+    }
+
+    # Conflicting env var values that a deployment might inject
+    CONFLICTING_ENV = {
+        'SFTP_HOSTNAME': 'dev.sftp.example.com',
+        'SFTP_USERNAME': 'dev_user',
+        'SFTP_PASSWORD': 'dev_pass',
+        'SFTP_PORT': '22',
+        'SFTP_DIRECTORY': '/',
+        'BULLHORN_CLIENT_ID': 'dev_bh_client_id',
+        'BULLHORN_CLIENT_SECRET': 'dev_bh_client_secret',
+        'BULLHORN_USERNAME': 'dev_bh_user',
+        'BULLHORN_PASSWORD': 'dev_bh_pass',
+    }
+
+    def test_credential_rows_preserved_when_env_vars_conflict(self, app, models):
+        """All nine credential rows survive seed_global_settings() with conflicting env vars."""
+        from app import db
+        from seed_database import seed_global_settings
+        _, GlobalSettings = models
+
+        with app.app_context():
+            # Pre-populate all credential rows (simulates an operator who has
+            # set credentials via the UI after initial bootstrap)
+            for key, val in self.KNOWN_GOOD_VALUES.items():
+                db.session.add(GlobalSettings(
+                    setting_key=key,
+                    setting_value=val,
+                    created_at=datetime(2026, 1, 1)
+                ))
+            db.session.commit()
+
+            # Run seed with env vars that differ from every DB value — this is
+            # exactly what happens on a new deployment if the deployment secret
+            # store holds old or dev-environment values
+            with patch.dict('os.environ', self.CONFLICTING_ENV, clear=False):
+                with patch('seed_database.is_production_environment', return_value=False):
+                    seed_global_settings(db, GlobalSettings)
+
+            # Every credential row must still hold its pre-seed value
+            for key, expected in self.KNOWN_GOOD_VALUES.items():
+                row = GlobalSettings.query.filter_by(setting_key=key).first()
+                assert row is not None, f"Credential row '{key}' was deleted by seed"
+                assert row.setting_value == expected, (
+                    f"Credential '{key}' was overwritten by seed_global_settings(): "
+                    f"expected '{expected}', got '{row.setting_value}'"
+                )
+
+    def test_credential_rows_preserved_through_full_seed(self, app, models):
+        """All nine credential rows survive a full seed_database() call with conflicting env vars."""
+        from app import db
+        from seed_database import seed_database as run_seed
+        from models import User, GlobalSettings
+
+        with app.app_context():
+            # Pre-populate all credential rows
+            for key, val in self.KNOWN_GOOD_VALUES.items():
+                db.session.add(GlobalSettings(
+                    setting_key=key,
+                    setting_value=val,
+                    created_at=datetime(2026, 1, 1)
+                ))
+            db.session.commit()
+
+            # Full seed_database() with conflicting env vars — simulates a prod deploy
+            with patch.dict('os.environ', self.CONFLICTING_ENV, clear=False):
+                with patch('seed_database.is_production_environment', return_value=False):
+                    run_seed(db, User)
+
+            # Every credential row must still hold its pre-seed value
+            for key, expected in self.KNOWN_GOOD_VALUES.items():
+                row = GlobalSettings.query.filter_by(setting_key=key).first()
+                assert row is not None, f"Credential row '{key}' was deleted by full seed"
+                assert row.setting_value == expected, (
+                    f"Credential '{key}' was overwritten by seed_database(): "
+                    f"expected '{expected}', got '{row.setting_value}'"
+                )
+
