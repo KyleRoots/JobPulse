@@ -621,7 +621,9 @@
         }
 
         function renderFileList() {
-            fileList.innerHTML = '';
+            // XSS-safe: build each file row via createElement so user-supplied file.name
+            // (which can contain HTML chars) is rendered as text.
+            window.AIOutput.clear(fileList);
             selectedFiles.forEach((file, index) => {
                 const fileSize = file.size < 1024 * 1024
                     ? (file.size / 1024).toFixed(1) + ' KB'
@@ -635,13 +637,27 @@
 
                 const item = document.createElement('div');
                 item.className = 'file-item';
-                item.innerHTML = `
-                    <i class="fas ${iconClass} me-2" style="color: #4FC3F7;"></i>
-                    <span class="file-name">${file.name} (${fileSize})</span>
-                    <button type="button" class="btn-remove" onclick="removeFile(${index})">
-                        <i class="fas fa-times" style="font-size: 0.75rem;"></i>
-                    </button>
-                `;
+
+                const icon = document.createElement('i');
+                icon.className = 'fas ' + iconClass + ' me-2';
+                icon.style.color = '#4FC3F7';
+                item.appendChild(icon);
+
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'file-name';
+                nameSpan.appendChild(document.createTextNode(file.name + ' (' + fileSize + ')'));
+                item.appendChild(nameSpan);
+
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'btn-remove';
+                removeBtn.addEventListener('click', () => removeFile(index));
+                const removeIcon = document.createElement('i');
+                removeIcon.className = 'fas fa-times';
+                removeIcon.style.fontSize = '0.75rem';
+                removeBtn.appendChild(removeIcon);
+                item.appendChild(removeBtn);
+
                 fileList.appendChild(item);
             });
         }
@@ -774,15 +790,21 @@
 
         function renderDropdown(contacts, query) {
             activeIndex = -1;
-            nameDropdown.innerHTML = '';
+            window.AIOutput.clear(nameDropdown);
             contacts.forEach((contact, idx) => {
                 const item = document.createElement('div');
                 item.className = 'autocomplete-item';
-                const highlighted = highlightMatch(contact.full_name, query);
-                item.innerHTML = `
-                    <span class="contact-name">${highlighted}</span>
-                    <span class="contact-email">${contact.email}</span>
-                `;
+                // XSS-safe: build the highlighted name + email via DOM helpers so
+                // server-supplied contact.full_name and contact.email render as text only.
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'contact-name';
+                window.AIOutput.safeBuildHighlightedText(nameSpan, contact.full_name, query);
+                item.appendChild(nameSpan);
+                item.appendChild(document.createTextNode(' '));
+                const emailSpan = document.createElement('span');
+                emailSpan.className = 'contact-email';
+                emailSpan.appendChild(document.createTextNode(contact.email || ''));
+                item.appendChild(emailSpan);
                 item.addEventListener('click', () => selectContact(contact));
                 item.addEventListener('mouseenter', () => {
                     activeIndex = idx;
@@ -833,17 +855,15 @@
 
         function showAlert(message, type) {
             const alertContainer = document.getElementById('alertContainer');
-            const alertDiv = document.createElement('div');
-            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
-            alertDiv.innerHTML = `
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            `;
-            alertContainer.innerHTML = '';
-            alertContainer.appendChild(alertDiv);
+            // XSS-safe: route message through AIOutput.safeRenderDismissibleAlert.
+            window.AIOutput.safeRenderDismissibleAlert(alertContainer, {
+                variant: type,
+                text: message
+            });
+            const alertDiv = alertContainer.firstElementChild;
 
             setTimeout(() => {
-                alertDiv.remove();
+                if (alertDiv) alertDiv.remove();
             }, 5000);
         }
     </script>

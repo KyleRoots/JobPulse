@@ -709,18 +709,17 @@
 
         function showAlert(message, type) {
             const alertContainer = document.getElementById('alertContainer');
-            const alertDiv = document.createElement('div');
-            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
-            alertDiv.innerHTML = `
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            `;
-            alertContainer.innerHTML = '';
-            alertContainer.appendChild(alertDiv);
+            // XSS-safe: route message through AIOutput.safeRenderDismissibleAlert which
+            // text-nodes the message and builds the close button via createElement.
+            window.AIOutput.safeRenderDismissibleAlert(alertContainer, {
+                variant: type,
+                text: message
+            });
+            const alertDiv = alertContainer.firstElementChild;
 
             // Auto-dismiss after 5 seconds
             setTimeout(() => {
-                alertDiv.remove();
+                if (alertDiv) alertDiv.remove();
             }, 5000);
         }
     </script>

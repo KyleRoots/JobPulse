@@ -423,20 +423,39 @@
 
         function displaySelectedFile(file) {
             const fileSize = (file.size / 1024).toFixed(2) + ' KB';
-            selectedResume.innerHTML = `
-                <div class="selected-file">
-                    <div class="selected-file-info">
-                        <i class="fas fa-file-pdf fa-2x" style="color: #00B5B5;"></i>
-                        <div>
-                            <div style="font-weight: 500;">${file.name}</div>
-                            <div style="font-size: 0.9rem; color: #6c757d;">${fileSize}</div>
-                        </div>
-                    </div>
-                    <button type="button" class="btn btn-remove" onclick="removeFile()">
-                        <i class="fas fa-times"></i> Remove
-                    </button>
-                </div>
-            `;
+            // XSS-safe: build the file preview via createElement so applicant-supplied
+            // file.name (which can contain HTML chars) is text-only.
+            window.AIOutput.clear(selectedResume);
+            const wrap = document.createElement('div');
+            wrap.className = 'selected-file';
+            const info = document.createElement('div');
+            info.className = 'selected-file-info';
+            const icon = document.createElement('i');
+            icon.className = 'fas fa-file-pdf fa-2x';
+            icon.style.color = '#00B5B5';
+            info.appendChild(icon);
+            const meta = document.createElement('div');
+            const nameDiv = document.createElement('div');
+            nameDiv.style.fontWeight = '500';
+            nameDiv.appendChild(document.createTextNode(file.name));
+            const sizeDiv = document.createElement('div');
+            sizeDiv.style.fontSize = '0.9rem';
+            sizeDiv.style.color = '#6c757d';
+            sizeDiv.appendChild(document.createTextNode(fileSize));
+            meta.appendChild(nameDiv);
+            meta.appendChild(sizeDiv);
+            info.appendChild(meta);
+            wrap.appendChild(info);
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'btn btn-remove';
+            removeBtn.setAttribute('onclick', 'removeFile()');
+            const removeIcon = document.createElement('i');
+            removeIcon.className = 'fas fa-times';
+            removeBtn.appendChild(removeIcon);
+            removeBtn.appendChild(document.createTextNode(' Remove'));
+            wrap.appendChild(removeBtn);
+            selectedResume.appendChild(wrap);
             selectedResume.style.display = 'block';
             resumeDropZone.style.display = 'none';
         }
@@ -551,18 +570,16 @@
 
         function showAlert(message, type) {
             const alertContainer = document.getElementById('alertContainer');
-            const alertDiv = document.createElement('div');
-            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
-            alertDiv.innerHTML = `
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            `;
-            alertContainer.innerHTML = '';
-            alertContainer.appendChild(alertDiv);
+            // XSS-safe: route message through AIOutput.safeRenderDismissibleAlert.
+            window.AIOutput.safeRenderDismissibleAlert(alertContainer, {
+                variant: type,
+                text: message
+            });
+            const alertDiv = alertContainer.firstElementChild;
 
             // Auto-dismiss after 5 seconds
             setTimeout(() => {
-                alertDiv.remove();
+                if (alertDiv) alertDiv.remove();
             }, 5000);
         }
 
