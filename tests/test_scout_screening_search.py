@@ -591,23 +591,101 @@ class TestFilterChips:
             "Every result row in pending mode must carry is_pending=True"
         )
 
-    def test_pending_count_in_group_counts_for_match_search(self, app, monkeypatch):
-        # When search is in match mode (status='' or any non-pending), the
-        # group_counts.pending tile must STILL reflect the count of pending
-        # logs matching q — so the dashboard's Pending tile stays honest
-        # while the recruiter is browsing matched results.
+    def test_pending_count_in_group_counts_for_unscoped_search(self, app, monkeypatch):
+        # When search has no status chip active, the group_counts.pending
+        # tile MUST reflect the count of pending logs matching q so the
+        # recruiter can see "X candidates awaiting screening" alongside
+        # match results.
         _ensure_admin(app)
         _seed_search_data(app, monkeypatch)
         c = _login(app)
         resp = c.get('/scout-screening/search?q=Smith').get_json()
         assert resp['group_counts'].get('pending') == 1, (
-            "group_counts.pending must always reflect pending logs "
-            "matching q (Eve 70005), got "
+            "group_counts.pending must reflect pending logs matching q "
+            "(Eve 70005) when status is unset, got "
             f"{resp['group_counts'].get('pending')}"
         )
-        # Same parity invariant when a status chip is active
-        resp = c.get('/scout-screening/search?q=Smith&status=qualified').get_json()
-        assert resp['group_counts'].get('pending') == 1
+
+    def test_pending_count_zero_when_status_chip_scopes_to_match_bucket(
+        self, app, monkeypatch
+    ):
+        # Architect contract (counts and rows agree): when the recruiter
+        # actively scopes to a match-side bucket (qualified /
+        # not_recommended / location_barrier), the rows are bucket-only
+        # and the pending tile must show 0 — pending candidates are NOT
+        # in the displayed result set, so surfacing them in tiles would
+        # mislead the user.
+        _ensure_admin(app)
+        _seed_search_data(app, monkeypatch)
+        c = _login(app)
+
+        for chip in ('qualified', 'not_recommended', 'location_barrier'):
+            resp = c.get(
+                f'/scout-screening/search?q=Smith&status={chip}'
+            ).get_json()
+            assert resp['group_counts'].get('pending') == 0, (
+                f"group_counts.pending must be 0 when status={chip} "
+                f"is active (Eve is pending, not in {chip} bucket), "
+                f"got {resp['group_counts'].get('pending')}"
+            )
+
+    def test_this_week_filter_applied_in_sql_for_match_query(
+        self, app, monkeypatch
+    ):
+        # Architect-flagged: this_week must be a SQL WHERE on the match
+        # query so the SAFETY_CAP truncation honours the filter. Locked
+        # by an end-to-end check: a match older than 7 days must NOT
+        # appear in the result set when this_week=1.
+        from extensions import db
+        from models import CandidateJobMatch, CandidateVettingLog
+
+        _ensure_admin(app)
+        _seed_search_data(app, monkeypatch)
+        c = _login(app)
+
+        with app.app_context():
+            old_ts = datetime.utcnow() - timedelta(days=30)
+            log_old = CandidateVettingLog(
+                bullhorn_candidate_id=70020,
+                candidate_name='Henry Hotel',
+                candidate_email='henry.hotel@example.com',
+                applied_job_id=JOB_A,
+                status='completed',
+                is_qualified=True,
+                highest_match_score=92.0,
+                created_at=old_ts,
+                updated_at=old_ts,
+            )
+            db.session.add(log_old)
+            db.session.flush()
+            db.session.add(CandidateJobMatch(
+                vetting_log_id=log_old.id,
+                bullhorn_job_id=JOB_A,
+                job_title='Tenured Role',
+                match_score=92.0,
+                technical_score=92.0,
+                is_qualified=True,
+                is_applied_job=True,
+                match_summary='Old hire',
+                gaps_identified='',
+                created_at=old_ts,
+            ))
+            db.session.commit()
+
+        # No this_week filter → Henry should appear
+        resp = c.get('/scout-screening/search?q=Henry').get_json()
+        cand_ids = {r['candidate_id'] for r in resp['results']}
+        assert 70020 in cand_ids, (
+            f"Without this_week filter Henry should appear, got {cand_ids}"
+        )
+
+        # this_week=1 → Henry MUST be filtered out at the SQL layer
+        resp = c.get('/scout-screening/search?q=Henry&this_week=1').get_json()
+        cand_ids = {r['candidate_id'] for r in resp['results']}
+        assert 70020 not in cand_ids, (
+            f"With this_week=1 Henry (30 days old) must be filtered out "
+            f"in SQL, got {cand_ids}"
+        )
 
     def test_phone_search_documented_as_parsed_email_only(self, app, monkeypatch):
         # The phone-search join is intentionally limited to ParsedEmail.

@@ -704,7 +704,14 @@ def candidate_search():
         })
 
     # ------------------------------------------------------------------
-    # Pull matching CandidateJobMatch IDs (capped) for in-memory grouping
+    # Pull matching CandidateJobMatch IDs (capped) for in-memory grouping.
+    # Push this_week into SQL so the SAFETY_CAP truncation honours the
+    # active week filter (architect-flagged: filter parity at cap).
+    # status (qualified/loc_barrier/not_recommended) and min_score remain
+    # in Python because they require group-level aggregation across all
+    # matches for a candidate (best_score, has_loc_barrier exclusion of
+    # has_qualified, etc.) which can't be expressed as a row-level
+    # WHERE without losing groups that have one qualifying row.
     # ------------------------------------------------------------------
     base_q = (
         db.session.query(CandidateJobMatch.id)
@@ -715,14 +722,20 @@ def candidate_search():
             or_(*predicates),
         )
     )
+    if this_week_only:
+        base_q = base_q.filter(CandidateJobMatch.created_at >= week_ago)
     raw_ids = [row[0] for row in base_q.limit(SAFETY_CAP + 1).all()]
     truncated = len(raw_ids) > SAFETY_CAP
     raw_ids = raw_ids[:SAFETY_CAP]
 
     if not raw_ids:
-        # Empty matches but pending may still have hits — return the
-        # pending count so the tile parity invariant holds even when the
-        # match-side query is dry.
+        # Empty matches but pending may still have hits. Pending tile
+        # mirrors the active status chip per architect contract: it only
+        # surfaces when status is unset (showing all) so counts and rows
+        # stay in agreement. Any non-empty status_param other than
+        # 'pending' (handled earlier) means the user has scoped to a
+        # match-side bucket, so pending=0 in tiles.
+        pending_tile = pending_count if status_param == '' else 0
         return jsonify({
             'results': [],
             'total_groups': 0,
@@ -734,7 +747,7 @@ def candidate_search():
                 'not_recommended': 0,
                 'location_barrier': 0,
                 'week': 0,
-                'pending': pending_count,
+                'pending': pending_tile,
             },
             'truncated': False,
         })
@@ -844,10 +857,15 @@ def candidate_search():
     filtered_groups = [g for g in groups.values() if _keep(g)]
     filtered_groups.sort(key=lambda g: g['latest_ts'], reverse=True)
 
-    # Aggregate counts across the FULL filtered set (for tile parity).
-    # `pending` is the count of pending vetting logs matching q (and
-    # this_week if set) — not affected by the status/min_score filters
-    # because they don't apply to logs with no scores yet.
+    # Aggregate counts across the active filtered set so tiles agree
+    # with displayed rows (architect contract: counts and rows agree).
+    # When status='qualified', filtered_groups holds only qualified
+    # groups, so qualified=N and the other status tiles are 0 — the
+    # tiles reflect "what's currently on screen" not "what could be on
+    # screen if you switched chips". Pending follows the same rule:
+    # it surfaces only when status is unset, otherwise the user has
+    # scoped to a match-side bucket and pending=0.
+    pending_tile = pending_count if status_param == '' else 0
     group_counts = {
         'qualified': sum(1 for g in filtered_groups if g['has_qualified']),
         'location_barrier': sum(1 for g in filtered_groups
@@ -855,7 +873,7 @@ def candidate_search():
         'not_recommended': sum(1 for g in filtered_groups
                                if not g['has_qualified'] and not g['has_loc_barrier']),
         'week': sum(1 for g in filtered_groups if g['is_week']),
-        'pending': pending_count,
+        'pending': pending_tile,
     }
 
     total_groups = len(filtered_groups)
