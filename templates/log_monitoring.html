@@ -620,7 +620,8 @@
                 if (data.success) {
                     const issue = data.issue;
 
-                    document.getElementById('modalPatternName').innerHTML = `<strong>${issue.pattern_name}</strong>`;
+                    // XSS-safe: pattern_name is server-supplied (regex pattern label) and escaped before HTML injection.
+                    document.getElementById('modalPatternName').innerHTML = `<strong>${window.AIOutput.escapeHtml(issue.pattern_name)}</strong>`;
                     document.getElementById('modalSeverity').innerHTML = getSeverityBadge(issue.severity);
                     document.getElementById('modalStatus').innerHTML = getStatusBadge(issue.status);
                     document.getElementById('modalDetectedAt').textContent = formatTime(issue.detected_at);

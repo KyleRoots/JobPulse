@@ -645,18 +645,20 @@
         })
             .then(response => response.json())
             .then(data => {
+                // XSS-safe: server-supplied data.message and error.message are escaped.
+                const _esc = window.AIOutput.escapeHtml;
                 if (data.success) {
                     resultDiv.innerHTML = `
                     <div class="alert alert-success">
                         <i class="fas fa-check-circle me-2"></i>
-                        ${data.message}
+                        ${_esc(data.message)}
                     </div>
                 `;
                 } else {
                     resultDiv.innerHTML = `
                     <div class="alert alert-danger">
                         <i class="fas fa-exclamation-triangle me-2"></i>
-                        ${data.message}
+                        ${_esc(data.message)}
                     </div>
                 `;
                 }
@@ -665,7 +667,7 @@
                 resultDiv.innerHTML = `
                 <div class="alert alert-danger">
                     <i class="fas fa-exclamation-triangle me-2"></i>
-                    Error testing monitor: ${error.message}
+                    Error testing monitor: ${window.AIOutput.escapeHtml(error.message)}
                 </div>
             `;
             });
@@ -988,33 +990,36 @@
             return;
         }
 
+        // XSS-safe: every Bullhorn-supplied job field is escaped before HTML injection.
+        // Status branch (Open vs other) is a fixed CSS class chosen by ===, not interpolated.
+        const _esc = window.AIOutput.escapeHtml;
         jobs.forEach(job => {
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>
-                    <span class="badge bg-secondary">${job.id}</span>
+                    <span class="badge bg-secondary">${_esc(job.id)}</span>
                 </td>
                 <td>
-                    <strong>${job.title || 'No Title'}</strong>
-                    ${job.id ? `<br><small class="text-muted">Job ID: ${job.id}</small>` : ''}
+                    <strong>${_esc(job.title || 'No Title')}</strong>
+                    ${job.id ? `<br><small class="text-muted">Job ID: ${_esc(job.id)}</small>` : ''}
                 </td>
                 <td>
-                    ${job.city || ''} ${job.state ? ', ' + job.state : ''}
-                    ${job.country && job.country !== 'United States' ? '<br>' + job.country : ''}
+                    ${_esc(job.city || '')} ${job.state ? ', ' + _esc(job.state) : ''}
+                    ${job.country && job.country !== 'United States' ? '<br>' + _esc(job.country) : ''}
                 </td>
                 <td>
-                    <span class="badge bg-info">${job.employmentType || 'N/A'}</span>
-                    ${job.onSite ? `<br><small class="text-muted">${job.onSite}</small>` : ''}
+                    <span class="badge bg-info">${_esc(job.employmentType || 'N/A')}</span>
+                    ${job.onSite ? `<br><small class="text-muted">${_esc(job.onSite)}</small>` : ''}
                 </td>
                 <td>
                     <span class="badge bg-${job.status === 'Open' ? 'success' : 'secondary'}">
-                        ${job.status || 'Unknown'}
+                        ${_esc(job.status || 'Unknown')}
                     </span>
                     ${job.isPublic ? '<br><span class="badge bg-primary">Public</span>' : ''}
                 </td>
                 <td>
                     <small class="text-muted">
-                        ${job.dateLastModified ? new Date(job.dateLastModified).toLocaleDateString() + '<br>' + new Date(job.dateLastModified).toLocaleTimeString() : 'N/A'}
+                        ${job.dateLastModified ? _esc(new Date(job.dateLastModified).toLocaleDateString()) + '<br>' + _esc(new Date(job.dateLastModified).toLocaleTimeString()) : 'N/A'}
                     </small>
                 </td>
             `;
@@ -1208,9 +1213,11 @@
         const notification = document.createElement('div');
         notification.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show position-fixed`;
         notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; max-width: 400px;';
+        // XSS-safe: message comes from server responses (e.g. data.error) and AI-generated
+        // counts; ternary on `type` resolves to fixed CSS class names only.
         notification.innerHTML = `
             <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>
-            ${message}
+            ${window.AIOutput.escapeHtml(message)}
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         `;
 

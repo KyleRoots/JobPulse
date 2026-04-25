@@ -294,18 +294,20 @@
             })
                 .then(response => response.json())
                 .then(data => {
+                    // XSS-safe: server-supplied data.message is escaped before HTML injection.
+                    const _esc = window.AIOutput.escapeHtml;
                     if (data.success) {
                         resultDiv.innerHTML = `
                         <div class="alert alert-success">
                             <i class="fas fa-check-circle me-2"></i>
-                            ${data.message}
+                            ${_esc(data.message)}
                         </div>
                     `;
                     } else {
                         resultDiv.innerHTML = `
                         <div class="alert alert-danger">
                             <i class="fas fa-exclamation-triangle me-2"></i>
-                            ${data.message}
+                            ${_esc(data.message)}
                         </div>
                     `;
                     }
@@ -314,7 +316,7 @@
                     resultDiv.innerHTML = `
                     <div class="alert alert-danger">
                         <i class="fas fa-exclamation-triangle me-2"></i>
-                        Error testing monitor: ${error.message}
+                        Error testing monitor: ${window.AIOutput.escapeHtml(error.message)}
                     </div>
                 `;
                 });
@@ -340,13 +342,15 @@
             })
                 .then(response => response.json())
                 .then(data => {
+                    // XSS-safe: server-supplied data.message is escaped before HTML injection.
+                    const _esc = window.AIOutput.escapeHtml;
                     if (data.success) {
                         // Show success message
                         const alert = document.createElement('div');
                         alert.className = 'alert alert-success alert-dismissible fade show';
                         alert.innerHTML = `
                         <i class="fas fa-check-circle me-2"></i>
-                        ${data.message}
+                        ${_esc(data.message)}
                         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     `;
                         document.querySelector('.container').insertBefore(alert, document.querySelector('.container').firstChild);
@@ -356,7 +360,7 @@
                         alert.className = 'alert alert-danger alert-dismissible fade show';
                         alert.innerHTML = `
                         <i class="fas fa-exclamation-triangle me-2"></i>
-                        ${data.message}
+                        ${_esc(data.message)}
                         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     `;
                         document.querySelector('.container').insertBefore(alert, document.querySelector('.container').firstChild);
@@ -368,7 +372,7 @@
                     alert.className = 'alert alert-danger alert-dismissible fade show';
                     alert.innerHTML = `
                     <i class="fas fa-exclamation-triangle me-2"></i>
-                    Error sending test email: ${error.message}
+                    Error sending test email: ${window.AIOutput.escapeHtml(error.message)}
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 `;
                     document.querySelector('.container').insertBefore(alert, document.querySelector('.container').firstChild);

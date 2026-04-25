@@ -341,8 +341,9 @@ function intentClass(intent) {
 }
 
 function showError(containerId, msg) {
+    // XSS-safe: escape server-supplied error text before HTML injection.
     document.getElementById(containerId).innerHTML = `
-        <div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>${msg}</div>`;
+        <div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>${window.AIOutput.escapeHtml(msg)}</div>`;
 }
 
 function runScreening() {
@@ -409,22 +410,26 @@ function runScreening() {
 
         completeStage(1);
 
+        // XSS-safe: scoreClass returns a fixed class name, data.score/threshold are
+        // numbers, but match_summary/skills_match/experience_match/gaps_identified
+        // are AI-generated free text and MUST be escaped before HTML injection.
+        const _esc = window.AIOutput.escapeHtml;
         document.getElementById('stage2-results').innerHTML = `
             <div class="text-center mb-3">
-                <div class="score-badge ${scoreClass(data.score)}">${data.score}</div>
-                <div class="text-muted mt-1">Threshold: ${data.threshold}</div>
+                <div class="score-badge ${scoreClass(data.score)}">${_esc(data.score)}</div>
+                <div class="text-muted mt-1">Threshold: ${_esc(data.threshold)}</div>
                 <span class="qual-badge mt-2 ${data.is_qualified ? 'qual-yes' : 'qual-no'}">
                     ${data.is_qualified ? 'QUALIFIED' : 'NOT QUALIFIED'}
                 </span>
             </div>
             <div class="row">
                 <div class="col-md-6">
-                    <div class="result-card"><h6>Match Summary</h6><p class="mb-0" style="font-size:0.85rem;">${data.match_summary || 'N/A'}</p></div>
-                    <div class="result-card"><h6>Skills Match</h6><p class="mb-0" style="font-size:0.85rem;">${data.skills_match || 'N/A'}</p></div>
+                    <div class="result-card"><h6>Match Summary</h6><p class="mb-0" style="font-size:0.85rem;">${_esc(data.match_summary || 'N/A')}</p></div>
+                    <div class="result-card"><h6>Skills Match</h6><p class="mb-0" style="font-size:0.85rem;">${_esc(data.skills_match || 'N/A')}</p></div>
                 </div>
                 <div class="col-md-6">
-                    <div class="result-card"><h6>Experience Match</h6><p class="mb-0" style="font-size:0.85rem;">${data.experience_match || 'N/A'}</p></div>
-                    <div class="result-card"><h6>Gaps Identified</h6><p class="mb-0" style="font-size:0.85rem;">${data.gaps_identified || 'None'}</p></div>
+                    <div class="result-card"><h6>Experience Match</h6><p class="mb-0" style="font-size:0.85rem;">${_esc(data.experience_match || 'N/A')}</p></div>
+                    <div class="result-card"><h6>Gaps Identified</h6><p class="mb-0" style="font-size:0.85rem;">${_esc(data.gaps_identified || 'None')}</p></div>
                 </div>
             </div>
             <div class="mt-3 d-flex gap-2">
@@ -470,7 +475,10 @@ function generateOutreach() {
         state.sessionId = data.session_id;
         completeStage(2);
 
-        let qList = (data.questions || []).map((q, i) => `<li class="mb-1">${q}</li>`).join('');
+        // XSS-safe: each AI-generated question is escaped before being interpolated
+        // into <li>. testEmail is escaped before being placed into a value="" attribute.
+        const _esc = window.AIOutput.escapeHtml;
+        let qList = (data.questions || []).map((q, i) => `<li class="mb-1">${_esc(q)}</li>`).join('');
         const testEmail = document.getElementById('candEmail').value || '';
 
         document.getElementById('stage3-results').innerHTML = `
@@ -482,7 +490,7 @@ function generateOutreach() {
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Send Outreach To</label>
-                        <input type="email" class="form-control bg-dark text-light border-secondary" id="testEmailAddr" value="${testEmail}" placeholder="test@example.com">
+                        <input type="email" class="form-control bg-dark text-light border-secondary" id="testEmailAddr" value="${_esc(testEmail)}" placeholder="test@example.com">
                     </div>
                     <div class="d-flex gap-2">
                         <button class="btn btn-sb" onclick="sendOutreach()">
@@ -497,7 +505,10 @@ function generateOutreach() {
                 <div class="col-md-7">
                     <div class="result-card">
                         <h6>Email Preview</h6>
-                        <div class="mb-1 text-muted" style="font-size:0.8rem;">Subject: ${data.email_subject || ''}</div>
+                        <div class="mb-1 text-muted" style="font-size:0.8rem;">Subject: ${_esc(data.email_subject || '')}</div>
+                        <!-- email_html is intentionally raw: it's the AI-generated outreach
+                             email rendered as HTML for preview. Server-side controls the
+                             generation; we trust this value for the sandbox preview only. -->
                         <div class="email-preview">${data.email_html || '<p>No preview available</p>'}</div>
                     </div>
                 </div>
@@ -523,17 +534,19 @@ function sendOutreach() {
     })
     .then(r => r.json())
     .then(data => {
+        // XSS-safe: server-supplied sent_to/error/message text escaped before injection.
+        const _esc = window.AIOutput.escapeHtml;
         if (data.success) {
-            statusEl.innerHTML = `<span class="text-success"><i class="fas fa-check me-1"></i>Sent to ${data.sent_to}</span>`;
+            statusEl.innerHTML = `<span class="text-success"><i class="fas fa-check me-1"></i>Sent to ${_esc(data.sent_to)}</span>`;
             completeStage(3);
             openStage(4);
             initConversation();
         } else {
-            statusEl.innerHTML = `<span class="text-danger"><i class="fas fa-times me-1"></i>${data.error || data.message || 'Send failed'}</span>`;
+            statusEl.innerHTML = `<span class="text-danger"><i class="fas fa-times me-1"></i>${_esc(data.error || data.message || 'Send failed')}</span>`;
         }
     })
     .catch(err => {
-        statusEl.innerHTML = `<span class="text-danger">Error: ${err.message}</span>`;
+        statusEl.innerHTML = `<span class="text-danger">Error: ${window.AIOutput.escapeHtml(err.message)}</span>`;
     });
 }
 
@@ -574,9 +587,11 @@ function simulateReply() {
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Analyzing...';
 
     const chat = document.getElementById('chatTranscript');
+    // XSS-safe: route user-typed reply through the centralized HTML escaper instead
+    // of an ad-hoc /</>/ replace (which misses quotes, backticks, and equals signs).
     chat.innerHTML += `
         <div class="chat-meta mt-2">Inbound — Candidate Reply</div>
-        <div class="chat-bubble chat-inbound">${replyText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`;
+        <div class="chat-bubble chat-inbound">${window.AIOutput.escapeHtml(replyText)}</div>`;
 
     fetch('/vetting-sandbox/simulate-reply', {
         method: 'POST',
@@ -594,19 +609,22 @@ function simulateReply() {
             return;
         }
 
+        // XSS-safe: intentClass returns a fixed CSS class. data.intent / data.reasoning
+        // are AI-generated free text and must be escaped before HTML interpolation.
+        const _esc = window.AIOutput.escapeHtml;
         document.getElementById('replyAnalysis').innerHTML = `
             <div class="result-card mt-2">
                 <h6>AI Analysis</h6>
-                <p class="mb-1"><strong>Intent:</strong> <span class="intent-badge ${intentClass(data.intent)}">${data.intent}</span></p>
-                <p class="mb-1" style="font-size:0.85rem;"><strong>Reasoning:</strong> ${data.reasoning || 'N/A'}</p>
+                <p class="mb-1"><strong>Intent:</strong> <span class="intent-badge ${intentClass(data.intent)}">${_esc(data.intent)}</span></p>
+                <p class="mb-1" style="font-size:0.85rem;"><strong>Reasoning:</strong> ${_esc(data.reasoning || 'N/A')}</p>
                 <p class="mb-1" style="font-size:0.85rem;"><strong>Answers Extracted:</strong> ${Object.keys(data.answers_extracted || {}).length}</p>
-                <p class="mb-0" style="font-size:0.85rem;"><strong>Progress:</strong> ${data.total_answered}/${data.total_questions} questions answered</p>
+                <p class="mb-0" style="font-size:0.85rem;"><strong>Progress:</strong> ${_esc(data.total_answered)}/${_esc(data.total_questions)} questions answered</p>
             </div>`;
 
         if (data.follow_up_html) {
             chat.innerHTML += `
                 <div class="chat-meta mt-2">Outbound — AI Follow-up</div>
-                <div class="chat-bubble chat-outbound" style="font-size:0.85rem;">Follow-up sent with ${data.follow_up_questions.length} remaining question(s)</div>`;
+                <div class="chat-bubble chat-outbound" style="font-size:0.85rem;">Follow-up sent with ${window.AIOutput.escapeHtml(data.follow_up_questions.length)} remaining question(s)</div>`;
         }
 
         if (data.session_status === 'ready_to_finalize' || data.session_status === 'declined' || data.all_answered || data.max_turns_reached) {
@@ -653,23 +671,27 @@ function skipToFinalize() {
         const recClass = data.recommendation === 'qualified' ? 'qual-yes' : 'qual-no';
         const recLabel = (data.recommendation || 'unknown').replace(/_/g, ' ').toUpperCase();
 
+        // XSS-safe: scoreClass/recClass are fixed CSS class names, dir/label are
+        // ternary literals, t.turn is a number. recLabel, t.body, and outcome_summary
+        // are server- or AI-generated free text and must be escaped.
+        const _esc = window.AIOutput.escapeHtml;
         let transcriptHtml = '';
         (data.transcript || []).forEach(t => {
             const dir = t.direction === 'outbound' ? 'chat-outbound' : 'chat-inbound';
             const label = t.direction === 'outbound' ? 'Scout AI' : 'Candidate';
-            transcriptHtml += `<div class="chat-meta mt-1">${label} (Turn ${t.turn})</div>`;
+            transcriptHtml += `<div class="chat-meta mt-1">${label} (Turn ${_esc(t.turn)})</div>`;
             const body = (t.body || '').length > 300 ? t.body.substring(0, 300) + '...' : (t.body || '');
-            transcriptHtml += `<div class="chat-bubble ${dir}" style="font-size:0.8rem;">${body}</div>`;
+            transcriptHtml += `<div class="chat-bubble ${dir}" style="font-size:0.8rem;">${_esc(body)}</div>`;
         });
 
         document.getElementById('stage5-results').innerHTML = `
             <div class="text-center mb-3">
-                <div class="score-badge ${scoreClass(data.outcome_score || 0)}">${data.outcome_score || 0}</div>
-                <div class="mt-2"><span class="qual-badge ${recClass}">${recLabel}</span></div>
+                <div class="score-badge ${scoreClass(data.outcome_score || 0)}">${_esc(data.outcome_score || 0)}</div>
+                <div class="mt-2"><span class="qual-badge ${recClass}">${_esc(recLabel)}</span></div>
             </div>
             <div class="result-card mb-3">
                 <h6>Outcome Summary</h6>
-                <p class="mb-0" style="font-size:0.9rem;">${data.outcome_summary || 'No summary available'}</p>
+                <p class="mb-0" style="font-size:0.9rem;">${_esc(data.outcome_summary || 'No summary available')}</p>
             </div>
             ${transcriptHtml ? `
             <div class="result-card mb-3">
@@ -704,16 +726,18 @@ function cleanupSandbox() {
     })
     .then(r => r.json())
     .then(data => {
+        // XSS-safe: server-supplied counts and error text escaped before injection.
+        const _esc = window.AIOutput.escapeHtml;
         if (data.success) {
             const d = data.deleted || {};
             statusEl.innerHTML = `<span class="text-success"><i class="fas fa-check me-1"></i>
-                Deleted: ${d.vetting_logs || 0} logs, ${d.matches || 0} matches, ${d.sessions || 0} sessions, ${d.conversation_turns || 0} turns</span>`;
+                Deleted: ${_esc(d.vetting_logs || 0)} logs, ${_esc(d.matches || 0)} matches, ${_esc(d.sessions || 0)} sessions, ${_esc(d.conversation_turns || 0)} turns</span>`;
         } else {
-            statusEl.innerHTML = `<span class="text-danger">${data.error || 'Cleanup failed'}</span>`;
+            statusEl.innerHTML = `<span class="text-danger">${_esc(data.error || 'Cleanup failed')}</span>`;
         }
     })
     .catch(err => {
-        statusEl.innerHTML = `<span class="text-danger">Error: ${err.message}</span>`;
+        statusEl.innerHTML = `<span class="text-danger">Error: ${window.AIOutput.escapeHtml(err.message)}</span>`;
     });
 }
 

@@ -42,6 +42,7 @@ EXPECTED_PUBLIC_API = [
     "safeRenderList",
     "safeBuildLink",
     "safeBuildHighlightedText",
+    "escapeHtml",
     "isSafeUrl",
 ]
 
@@ -218,4 +219,53 @@ def test_target_sanitizer_blocks_javascript_pseudo(helper_source: str) -> None:
     """target attribute should only allow letter chars + underscore (_blank, _self)."""
     assert re.search(r"TARGET_RE\s*=\s*/\[\^a-zA-Z_\]/g", helper_source), (
         "TARGET_RE must restrict <a target> values to letters + underscore"
+    )
+
+
+def test_escape_html_maps_all_dangerous_characters(helper_source: str) -> None:
+    """escapeHtml() must map the OWASP-recommended set of HTML/JS-attribute
+    breakout characters: & < > " ' / ` =. Missing any one of these is a
+    real-world XSS bypass risk in attribute or unquoted-tag contexts."""
+    # Locate the escape map literal
+    match = re.search(
+        r"_escapeMap\s*=\s*\{([^}]+)\}",
+        helper_source,
+        re.DOTALL,
+    )
+    assert match, "Could not locate _escapeMap object literal"
+    body = match.group(1)
+    required_mappings = [
+        ("'&'", "&amp;"),
+        ("'<'", "&lt;"),
+        ("'>'", "&gt;"),
+        ('\'"\'', "&quot;"),
+        ("'/'", "&#x2F;"),
+        ("'`'", "&#x60;"),
+        ("'='", "&#x3D;"),
+    ]
+    for src_char, escaped in required_mappings:
+        assert src_char in body, f"_escapeMap missing source char {src_char}"
+        assert escaped in body, f"_escapeMap missing escape sequence {escaped}"
+    # Single-quote uses a different quoting style — accept either form
+    assert "&#39;" in body or "&apos;" in body, (
+        "_escapeMap must escape single quote to &#39; or &apos;"
+    )
+
+
+def test_escape_html_uses_global_replace_regex(helper_source: str) -> None:
+    """The escape implementation must replace ALL occurrences (global flag), not
+    just the first match — otherwise `<<script>` would only escape the first `<`."""
+    # Look for the regex used inside escapeHtml. Must include the /g flag.
+    match = re.search(
+        r"function\s+escapeHtml\s*\([^)]*\)\s*\{(.*?)\n\s*\}",
+        helper_source,
+        re.DOTALL,
+    )
+    assert match, "Could not locate escapeHtml function body"
+    body = match.group(1)
+    # Confirm regex literal with g flag containing the dangerous char class.
+    # Char class may contain escaped slashes (\/), so allow `\.` as well as
+    # any non-`]`, non-`\` character.
+    assert re.search(r"/\[(?:[^\]\\]|\\.)+\]/g", body), (
+        "escapeHtml must use a regex with the /g flag to replace ALL occurrences"
     )

@@ -26,6 +26,7 @@
  *   safeRenderList(node, items, listClass)
  *   safeBuildLink(href, label, { className, target }) // returns Element
  *   safeBuildHighlightedText(node, fullText, query)   // appends text + <mark> for match
+ *   escapeHtml(str)                                   // returns HTML-escaped string
  *   isSafeUrl(url)
  *
  * Sanitization invariants
@@ -189,6 +190,23 @@
         );
     }
 
+    var _escapeMap = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+        '/': '&#x2F;',
+        '`': '&#x60;',
+        '=': '&#x3D;'
+    };
+
+    function escapeHtml(str) {
+        return toStr(str).replace(/[&<>"'`=\/]/g, function (c) {
+            return _escapeMap[c];
+        });
+    }
+
     function safeBuildHighlightedText(node, fullText, query) {
         if (!node) return;
         var text = toStr(fullText);
@@ -241,6 +259,7 @@
         safeRenderList: safeRenderList,
         safeBuildLink: safeBuildLink,
         safeBuildHighlightedText: safeBuildHighlightedText,
+        escapeHtml: escapeHtml,
         isSafeUrl: isSafeUrl
     };
 })(typeof window !== 'undefined' ? window : null);
