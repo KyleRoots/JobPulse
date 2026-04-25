@@ -280,30 +280,36 @@ def run_health_check_now():
 @vetting_bp.route('/screening/run', methods=['POST'])
 @login_required
 def run_vetting_now():
-    """Manually trigger a vetting cycle"""
+    """Manually trigger a vetting cycle (M3: pushed onto background scheduler).
+
+    Previously ran the cycle inline on the request thread, which could exceed
+    gunicorn's 300s --timeout for moderate batches and SIGKILL the worker
+    mid-screening. Now hands off to the existing APScheduler job so the
+    request returns immediately and screening progress shows on the System
+    Health dashboard.
+    """
     try:
-        from candidate_vetting_service import CandidateVettingService
-        
-        vetting_service = CandidateVettingService()
-        summary = vetting_service.run_vetting_cycle()
-        
-        if summary.get('status') == 'disabled':
+        from models import VettingConfig
+        from utils.screening_dispatch import enqueue_vetting_now
+
+        config = VettingConfig.query.filter_by(setting_key='vetting_enabled').first()
+        if not config or (config.setting_value or '').lower() != 'true':
             flash('Vetting is disabled. Enable it first to run a cycle.', 'warning')
+            return redirect(url_for('vetting.vetting_settings'))
+
+        result = enqueue_vetting_now(reason='manual_run_now')
+        if result['enqueued']:
+            flash(
+                f"{result['reason']} Watch the System Health dashboard for progress.",
+                'success',
+            )
         else:
-            processed = summary.get('candidates_processed', 0)
-            qualified = summary.get('candidates_qualified', 0)
-            notified = summary.get('notifications_sent', 0)
-            
-            if processed > 0:
-                flash(f'Vetting cycle complete: {processed} candidates processed, '
-                      f'{qualified} qualified, {notified} notifications sent.', 'success')
-            else:
-                flash('Vetting cycle complete: No new candidates to process.', 'info')
-                
+            flash(result['reason'], 'warning')
+
     except Exception as e:
-        current_app.logger.error(f"Error running vetting cycle: {str(e)}")
-        flash(f'Error running vetting cycle: {str(e)}', 'error')
-    
+        current_app.logger.error(f"Error enqueuing vetting cycle: {str(e)}")
+        flash(f'Error starting vetting cycle: {str(e)}', 'error')
+
     return redirect(url_for('vetting.vetting_settings'))
 
 
@@ -393,12 +399,12 @@ def rescreen_recent():
         if total > 0:
             flash(f'Re-screening {total} candidates from the last {hours}h ({reset_count} reset + {zero_count} zero-score). Processing will begin shortly.', 'success')
             current_app.logger.info(f"Re-screen: reset {reset_count} vetted_at + {zero_count} zero-score logs from last {hours}h")
-            
-            # Trigger immediate vetting cycle
+
+            # M3: hand off to background scheduler instead of running inline.
+            # See utils/screening_dispatch.py for rationale.
             try:
-                from candidate_vetting_service import CandidateVettingService
-                vetting_service = CandidateVettingService()
-                vetting_service.run_vetting_cycle()
+                from utils.screening_dispatch import enqueue_vetting_now
+                enqueue_vetting_now(reason='rescreen_recent')
             except Exception as e:
                 current_app.logger.warning(f"Auto-trigger after rescreen failed: {e}")
         else:
@@ -559,14 +565,24 @@ def start_fresh():
         
         db.session.commit()
         current_app.logger.info(f"Start Fresh: set vetting_cutoff_date to {now_utc}")
-        
-        # Trigger immediate vetting cycle
+
+        # M3: hand off to background scheduler instead of running inline.
         try:
-            from candidate_vetting_service import CandidateVettingService
-            vetting_service = CandidateVettingService()
-            summary = vetting_service.run_vetting_cycle()
-            processed = summary.get('candidates_processed', 0)
-            flash(f'Started fresh at {now_utc} UTC. Cutoff set — only new candidates will be screened. {processed} candidates processed.', 'success')
+            from utils.screening_dispatch import enqueue_vetting_now
+            result = enqueue_vetting_now(reason='start_fresh')
+            if result['enqueued']:
+                flash(
+                    f'Started fresh at {now_utc} UTC. Cutoff set — only new candidates '
+                    'will be screened. Screening started in the background; watch the '
+                    'System Health dashboard for progress.',
+                    'success',
+                )
+            else:
+                flash(
+                    f'Cutoff set to {now_utc} UTC. Vetting cycle will begin on the '
+                    f'next scheduled run. ({result["reason"]})',
+                    'success',
+                )
         except Exception as e:
             current_app.logger.warning(f"Auto-trigger after start fresh failed: {e}")
             flash(f'Cutoff set to {now_utc} UTC. Vetting cycle will begin on the next scheduled run.', 'success')
@@ -1066,30 +1082,30 @@ def process_backlog():
         except (ValueError, TypeError):
             batch_size = 50
         
-        # Run the vetting cycle in the current request context
-        from candidate_vetting_service import CandidateVettingService
-        vetting_service = CandidateVettingService()
-        
-        # Override batch size for this run
-        summary = vetting_service.run_vetting_cycle()
-        
-        processed = summary.get('candidates_processed', 0)
-        qualified = summary.get('candidates_qualified', 0)
-        notes = summary.get('notes_created', 0)
-        detected = summary.get('candidates_detected', 0)
-        errors = summary.get('errors', [])
-        status = summary.get('status', 'unknown')
-        
-        if status == 'disabled':
+        # M3: push backlog cycle onto background scheduler instead of
+        # running inline on the request thread. The previous inline call
+        # could exceed gunicorn's 300s timeout for large backlogs and
+        # SIGKILL the worker mid-batch.
+        enabled_config = VettingConfig.query.filter_by(setting_key='vetting_enabled').first()
+        if not enabled_config or (enabled_config.setting_value or '').lower() != 'true':
             flash('Vetting is disabled. Enable it first.', 'warning')
-        elif processed > 0:
-            flash(f'Backlog processing complete: {detected} detected, {processed} processed, {qualified} qualified, {notes} notes created.', 'success')
-        elif detected > 0:
-            flash(f'Detected {detected} candidates but processed 0. Check Bullhorn connection. Errors: {errors}', 'warning')
+            return redirect(url_for('vetting.vetting_settings'))
+
+        from utils.screening_dispatch import enqueue_vetting_now
+        result = enqueue_vetting_now(reason=f'process_backlog_batch_{batch_size}')
+        if result['enqueued']:
+            flash(
+                f'Backlog processing started in the background (batch size {batch_size}). '
+                'Watch the System Health dashboard for progress.',
+                'success',
+            )
         else:
-            flash(f'No candidates to process. Status: {status}', 'info')
-        
-        current_app.logger.info(f"Manual backlog processing: {summary}")
+            flash(
+                f'Could not start backlog processing: {result["reason"]}',
+                'warning',
+            )
+
+        current_app.logger.info(f"Manual backlog processing enqueued: {result}")
         
     except Exception as e:
         db.session.rollback()
