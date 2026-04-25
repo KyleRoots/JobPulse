@@ -401,6 +401,16 @@ class TestAdminHealthService:
             assert tile.status == 'red'
             assert tile.value == 'Disconnected'
 
+    def test_onedrive_service_exposes_public_get_access_token(self):
+        """Regression: the health check calls svc.get_access_token() (public).
+        OneDriveService used to expose only _get_access_token (private), so the
+        check raised AttributeError and the dashboard reported "Disconnected"
+        regardless of the real connection state. Lock the public method in.
+        """
+        from onedrive_service import OneDriveService
+        assert callable(getattr(OneDriveService, 'get_access_token', None)), \
+            'OneDriveService.get_access_token must exist as a public method'
+
     def test_onedrive_tile_green_when_connected_with_long_expiry(self, app):
         with app.app_context():
             mock_svc = MagicMock()

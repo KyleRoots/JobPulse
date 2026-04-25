@@ -123,6 +123,17 @@ class OneDriveService:
         resp.raise_for_status()
         return resp.content
 
+    def get_access_token(self) -> str:
+        """Public accessor for the cached OneDrive access token.
+
+        Thin wrapper around the internal `_get_access_token`. Exists so callers
+        outside this module (e.g. health checks) can request a token without
+        reaching into a name-mangled private method. Raises the same exceptions
+        as `_get_access_token` so callers can surface the underlying failure
+        (missing connector, expired token, network error, etc.).
+        """
+        return self._get_access_token()
+
     def is_connected(self) -> bool:
         try:
             self._get_access_token()
