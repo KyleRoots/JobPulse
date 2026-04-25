@@ -572,8 +572,16 @@ def candidate_search():
     # Phone is not stored on the vetting log — resolve via ParsedEmail when the
     # query carries enough digits to disambiguate (≥ 7 digits keeps the branch
     # off for pure-name searches, which would otherwise force a wide scan).
+    #
+    # Critical: skip the phone branch when q is PURELY numeric. Bullhorn
+    # candidate IDs are commonly 7-8 digits, so an all-digit query is treated
+    # as an exact-ID lookup and must NOT spill into phone substring matches
+    # (which would surface every candidate whose phone happens to contain
+    # those digits). Phone search activates only when the query has at least
+    # one non-digit character (separator, space, or '+') AND normalises to
+    # 7+ digits — i.e. recognisable phone formatting like "555-234-9876".
     digits = re.sub(r'\D', '', q)
-    if len(digits) >= 7:
+    if len(digits) >= 7 and not q.isdigit():
         try:
             dialect_name = db.engine.dialect.name
         except Exception:

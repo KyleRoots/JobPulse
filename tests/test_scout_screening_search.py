@@ -390,6 +390,106 @@ class TestSearchPredicates:
         cand_ids = {r['candidate_id'] for r in data['results']}
         assert cand_ids == {70001}
 
+    def test_long_numeric_id_does_not_spill_into_phone_search(self, app, monkeypatch):
+        # Architect-flagged regression: Bullhorn IDs are commonly 7-8 digits.
+        # An all-digit query of that length must NOT also fire the phone
+        # substring predicate (which would surface every candidate whose
+        # phone happens to contain those digits). Phone search is reserved
+        # for queries with non-digit characters (separators / formatting).
+        from extensions import db
+        from models import CandidateJobMatch, CandidateVettingLog, ParsedEmail
+
+        _ensure_admin(app)
+        _seed_search_data(app, monkeypatch)
+        c = _login(app)
+
+        with app.app_context():
+            # Seed a candidate (70010) whose Bullhorn ID is a realistic
+            # 7-digit number. Their phone is something else entirely.
+            now = datetime.utcnow()
+            log = CandidateVettingLog(
+                bullhorn_candidate_id=1234567,
+                candidate_name='Frank Foxtrot',
+                candidate_email='frank.foxtrot@example.com',
+                applied_job_id=JOB_A,
+                status='completed',
+                is_qualified=True,
+                highest_match_score=88.0,
+                created_at=now,
+                updated_at=now,
+            )
+            db.session.add(log)
+            db.session.flush()
+            db.session.add(CandidateJobMatch(
+                vetting_log_id=log.id,
+                bullhorn_job_id=JOB_A,
+                job_title='Senior Engineer',
+                match_score=88.0,
+                technical_score=88.0,
+                is_qualified=True,
+                is_applied_job=True,
+                match_summary='Good fit',
+                gaps_identified='',
+                created_at=now,
+            ))
+            # Seed a DIFFERENT candidate (70011) whose phone contains the
+            # digits "1234567". If the phone branch incorrectly fires for
+            # the all-digit ID query, this candidate would appear too.
+            log2 = CandidateVettingLog(
+                bullhorn_candidate_id=70011,
+                candidate_name='Grace Golf',
+                candidate_email='grace.golf@example.com',
+                applied_job_id=JOB_A,
+                status='completed',
+                is_qualified=False,
+                highest_match_score=55.0,
+                created_at=now,
+                updated_at=now,
+            )
+            db.session.add(log2)
+            db.session.flush()
+            db.session.add(CandidateJobMatch(
+                vetting_log_id=log2.id,
+                bullhorn_job_id=JOB_A,
+                job_title='QA Engineer',
+                match_score=55.0,
+                technical_score=55.0,
+                is_qualified=False,
+                is_applied_job=True,
+                match_summary='Mid fit',
+                gaps_identified='',
+                created_at=now,
+            ))
+            db.session.add(ParsedEmail(
+                message_id='test-msg-70011@example.com',
+                sender_email='grace.golf@example.com',
+                recipient_email='applications@scoutgenius.test',
+                bullhorn_candidate_id=70011,
+                candidate_name='Grace Golf',
+                candidate_email='grace.golf@example.com',
+                candidate_phone='5551234567',  # contains "1234567"
+                status='completed',
+                received_at=now,
+            ))
+            db.session.commit()
+
+        # All-digit 7-char query → exact ID lookup ONLY
+        resp = c.get('/scout-screening/search?q=1234567').get_json()
+        cand_ids = {r['candidate_id'] for r in resp['results']}
+        assert cand_ids == {1234567}, (
+            f"All-digit query 1234567 must match exactly one candidate "
+            f"(Bullhorn ID), not spill into phone substring matches. "
+            f"Got {cand_ids}"
+        )
+
+        # But formatted phone query (with non-digit chars) → still works
+        resp = c.get('/scout-screening/search?q=555-123-4567').get_json()
+        cand_ids = {r['candidate_id'] for r in resp['results']}
+        assert 70011 in cand_ids, (
+            f"Formatted phone query 555-123-4567 should still find Grace "
+            f"via phone search. Got {cand_ids}"
+        )
+
 
 # ---------------------------------------------------------------------------
 # Filter chips
