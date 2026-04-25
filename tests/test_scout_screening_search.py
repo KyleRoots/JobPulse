@@ -177,6 +177,22 @@ def _seed_search_data(app, monkeypatch):
             received_at=now,
         ))
 
+        # Candidate 70005 — Eve Smith Echo — PENDING (no matches yet, in scope).
+        # Used for pending-parity coverage: status='pending' search must return
+        # this row, and group_counts.pending must always reflect its presence.
+        log5 = CandidateVettingLog(
+            bullhorn_candidate_id=70005,
+            candidate_name='Eve Smith Echo',
+            candidate_email='eve.echo@example.com',
+            applied_job_id=JOB_A,
+            status='pending',
+            is_qualified=False,
+            highest_match_score=0.0,
+            created_at=now,
+            updated_at=now,
+        )
+        db.session.add(log5)
+
         # Candidate 70004 — outside scope (job not in {JOB_A, JOB_B})
         log4 = CandidateVettingLog(
             bullhorn_candidate_id=70004,
@@ -433,16 +449,65 @@ class TestFilterChips:
         assert 70001 in cand_ids
         assert 70003 in cand_ids
 
-    def test_pending_status_silently_ignored(self, app, monkeypatch):
-        # 'pending' is not a valid server status; route should treat it as
-        # "no status filter" rather than returning empty.
+    def test_pending_status_returns_pending_logs(self, app, monkeypatch):
+        # status='pending' must surface in-scope CandidateVettingLog rows
+        # whose status is 'pending' (no matches yet). Architect-flagged
+        # parity requirement — was previously silently ignored.
         _ensure_admin(app)
         _seed_search_data(app, monkeypatch)
         c = _login(app)
         resp = c.get('/scout-screening/search?q=Smith&status=pending')
         data = resp.get_json()
-        # Same as no-status search → all 3 in-scope candidates
-        assert data['total_groups'] == 3
+        # Eve (70005) is the only pending Smith in scope.
+        cand_ids = {r['candidate_id'] for r in data['results']}
+        assert cand_ids == {70005}, (
+            f"status=pending should return only the pending candidate, "
+            f"got {cand_ids}"
+        )
+        assert data['total_groups'] == 1
+        # Pending pseudo-rows expose is_pending=True so the frontend can
+        # render them with the Pending badge instead of a score badge.
+        assert all(r.get('is_pending') is True for r in data['results']), (
+            "Every result row in pending mode must carry is_pending=True"
+        )
+
+    def test_pending_count_in_group_counts_for_match_search(self, app, monkeypatch):
+        # When search is in match mode (status='' or any non-pending), the
+        # group_counts.pending tile must STILL reflect the count of pending
+        # logs matching q — so the dashboard's Pending tile stays honest
+        # while the recruiter is browsing matched results.
+        _ensure_admin(app)
+        _seed_search_data(app, monkeypatch)
+        c = _login(app)
+        resp = c.get('/scout-screening/search?q=Smith').get_json()
+        assert resp['group_counts'].get('pending') == 1, (
+            "group_counts.pending must always reflect pending logs "
+            "matching q (Eve 70005), got "
+            f"{resp['group_counts'].get('pending')}"
+        )
+        # Same parity invariant when a status chip is active
+        resp = c.get('/scout-screening/search?q=Smith&status=qualified').get_json()
+        assert resp['group_counts'].get('pending') == 1
+
+    def test_phone_search_documented_as_parsed_email_only(self, app, monkeypatch):
+        # The phone-search join is intentionally limited to ParsedEmail.
+        # There is no `Candidate` table in the schema (Bullhorn is the
+        # source of truth and we don't replicate it locally), so a
+        # candidate whose phone exists only in Bullhorn cannot be reached
+        # via this search. This test locks the documented constraint:
+        # candidate 70001 has NO ParsedEmail row, so phone-search can't
+        # find them by phone even though they're in scope.
+        _ensure_admin(app)
+        _seed_search_data(app, monkeypatch)
+        c = _login(app)
+        # 70001 (Alice) has no ParsedEmail row; search by an arbitrary
+        # phone that doesn't match Carol's 5552349876 must return empty.
+        resp = c.get('/scout-screening/search?q=555-111-2222').get_json()
+        cand_ids = {r['candidate_id'] for r in resp['results']}
+        assert 70001 not in cand_ids, (
+            "Candidates without a ParsedEmail row are unreachable via "
+            "phone search by design — see route docstring for rationale"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -601,7 +666,8 @@ class TestRobustness:
         for key in ('results', 'total_groups', 'page', 'page_size',
                     'total_pages', 'group_counts', 'truncated'):
             assert key in data, f"Missing key '{key}' in search response"
-        for key in ('qualified', 'not_recommended', 'location_barrier', 'week'):
+        for key in ('qualified', 'not_recommended', 'location_barrier',
+                    'week', 'pending'):
             assert key in data['group_counts'], (
                 f"Missing key '{key}' in group_counts"
             )

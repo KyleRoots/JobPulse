@@ -462,25 +462,43 @@ def candidate_search():
                    trigram-indexed), candidate email (substring), Bullhorn ID
                    (exact when fully numeric), and phone (when the query
                    normalises to 7+ digits, looked up via ParsedEmail).
-      status     — qualified | not_recommended | location_barrier (optional;
-                   'pending' is silently ignored — pending logs have no match
-                   rows yet, the dashboard surfaces them in a separate section).
+      status     — qualified | not_recommended | location_barrier | pending
+                   (optional). When 'pending', the result set switches from
+                   CandidateJobMatch rows to CandidateVettingLog rows that are
+                   still queued (no match scores yet) — preserving filter
+                   parity for the recruiter dashboard's Pending chip.
       min_score  — int 0-100; candidate's best score must meet this floor.
+                   Ignored when status='pending' (pending logs have no scores
+                   yet — applying min_score would always return empty).
       this_week  — '1'/'true' to limit to candidates active in last 7 days.
       page       — 1-based page number, default 1.
       page_size  — 10-200, default 100.
 
     Response shape:
       results        — CandidateJobMatch rows for the candidates on the
-                       requested page (multiple rows per candidate group).
+                       requested page (multiple rows per candidate group),
+                       OR pseudo-rows synthesised from pending vetting logs
+                       when status='pending'.
       total_groups   — total candidate groups across the filtered set.
       page, page_size, total_pages — pagination meta (clamped server-side).
-      group_counts   — { qualified, not_recommended, location_barrier, week }
-                       totals across the entire filtered set, used to keep the
-                       dashboard's metric tiles honest while search is active.
+      group_counts   — { qualified, not_recommended, location_barrier, week,
+                       pending } totals across the entire filtered set.
+                       `pending` is always populated (count of pending logs
+                       matching q + this_week) so the dashboard's Pending
+                       tile stays honest across status switches.
       truncated      — true when the underlying scan hit the safety cap;
                        results past the cap are not visible until the query
                        narrows.
+
+    Phone-search data source: phone numbers are only stored locally on
+    `ParsedEmail.candidate_phone` (populated when applicants reach us via
+    the inbound-email pipeline). There is no `Candidate` table in the
+    schema — Bullhorn is the source of truth for candidate records and we
+    do not replicate them. So phone search is necessarily limited to
+    candidates with at least one ParsedEmail row; candidates whose phone
+    exists only in Bullhorn are unreachable until they arrive via the
+    inbound-email path. Documented so future readers don't try to "fix"
+    the join against a table that doesn't exist.
 
     Scoped to the current user's assigned jobs via `_get_user_job_ids()`.
     """
@@ -495,7 +513,7 @@ def candidate_search():
     q = (request.args.get('q', '') or '').strip()
 
     status_param = (request.args.get('status', '') or '').strip().lower()
-    if status_param not in {'qualified', 'not_recommended', 'location_barrier'}:
+    if status_param not in {'qualified', 'not_recommended', 'location_barrier', 'pending'}:
         status_param = ''
 
     raw_min = request.args.get('min_score', '')
@@ -525,7 +543,8 @@ def candidate_search():
             'page_size': page_size,
             'total_pages': 0,
             'group_counts': {'qualified': 0, 'not_recommended': 0,
-                             'location_barrier': 0, 'week': 0},
+                             'location_barrier': 0, 'week': 0,
+                             'pending': 0},
             'truncated': False,
         })
 
@@ -537,7 +556,10 @@ def candidate_search():
         return _empty()
 
     # ------------------------------------------------------------------
-    # Build OR-search predicates over CandidateVettingLog
+    # Build OR-search predicates over CandidateVettingLog. The same
+    # predicate set is reused for both the matched-candidates path and the
+    # pending-logs path so search semantics stay identical across the
+    # status chip toggle (architect-flagged: pending parity).
     # ------------------------------------------------------------------
     like = f'%{q}%'
     predicates = [
@@ -575,6 +597,104 @@ def candidate_search():
             )
         )
 
+    week_ago = datetime.utcnow() - timedelta(days=7)
+
+    # ------------------------------------------------------------------
+    # Always compute the pending-log set first. We need it regardless of
+    # the status filter:
+    #   - When status='pending', it IS the result set.
+    #   - Otherwise, its size is reported in group_counts.pending so the
+    #     dashboard's Pending tile stays honest while search is active
+    #     (architect-flagged: pending parity).
+    # ------------------------------------------------------------------
+    pending_log_q = (
+        db.session.query(CandidateVettingLog)
+        .filter(
+            CandidateVettingLog.applied_job_id.in_(job_ids),
+            CandidateVettingLog.status == 'pending',
+            CandidateVettingLog.is_sandbox != True,
+            or_(*predicates),
+        )
+    )
+    if this_week_only:
+        pending_log_q = pending_log_q.filter(CandidateVettingLog.created_at >= week_ago)
+
+    pending_logs_matching = (
+        pending_log_q
+        .order_by(CandidateVettingLog.created_at.desc())
+        .limit(SAFETY_CAP + 1)
+        .all()
+    )
+    pending_truncated = len(pending_logs_matching) > SAFETY_CAP
+    pending_logs_matching = pending_logs_matching[:SAFETY_CAP]
+
+    # Dedupe by candidate (keep most recent log per candidate).
+    seen_pending = set()
+    pending_dedup = []
+    for log in pending_logs_matching:
+        cid = log.bullhorn_candidate_id
+        key = cid if cid is not None else f'unk_log_{log.id}'
+        if key in seen_pending:
+            continue
+        seen_pending.add(key)
+        pending_dedup.append(log)
+    pending_count = len(pending_dedup)
+
+    # ------------------------------------------------------------------
+    # status='pending' branch — return synthesised pseudo-match rows from
+    # the pending vetting logs. Pending logs have no scores, no jobs, and
+    # no per-job grouping yet, so we render one row per candidate. This
+    # matches the dashboard's existing Pending section visually.
+    # ------------------------------------------------------------------
+    if status_param == 'pending':
+        # min_score is intentionally ignored here — pending has no score
+        # yet, so applying min_score > 0 would always return empty.
+        total_pending = pending_count
+        total_pages_p = (total_pending + page_size - 1) // page_size if total_pending else 0
+        if total_pages_p and page > total_pages_p:
+            page = total_pages_p
+        start_p = (page - 1) * page_size
+        page_pending = pending_dedup[start_p:start_p + page_size]
+
+        results = []
+        for log in page_pending:
+            results.append({
+                'id': f'pending_{log.id}',
+                'created_at_display': log.created_at.strftime('%b %d, %Y') if log.created_at else '—',
+                'created_ts': log.created_at.strftime('%Y%m%d%H%M%S') if log.created_at else '0',
+                'is_week': bool(log.created_at and log.created_at >= week_ago),
+                'candidate_id': log.bullhorn_candidate_id,
+                'candidate_name': log.candidate_name or 'Unknown',
+                'job_id': log.applied_job_id,
+                'job_title': f'Awaiting screening',
+                'match_score': 0,
+                'technical_score': None,
+                'is_qualified': False,
+                'is_loc_barrier': False,
+                'is_pending': True,
+                'match_summary': '',
+                'gaps_identified': '',
+                'is_applied_job': True,
+                'vetting_log_id': log.id,
+            })
+
+        return jsonify({
+            'results': results,
+            'total_groups': total_pending,
+            'page': page,
+            'page_size': page_size,
+            'total_pages': total_pages_p,
+            'group_counts': {
+                'qualified': 0,
+                'not_recommended': 0,
+                'location_barrier': 0,
+                'week': sum(1 for log in pending_dedup
+                            if log.created_at and log.created_at >= week_ago),
+                'pending': pending_count,
+            },
+            'truncated': pending_truncated,
+        })
+
     # ------------------------------------------------------------------
     # Pull matching CandidateJobMatch IDs (capped) for in-memory grouping
     # ------------------------------------------------------------------
@@ -592,7 +712,24 @@ def candidate_search():
     raw_ids = raw_ids[:SAFETY_CAP]
 
     if not raw_ids:
-        return _empty()
+        # Empty matches but pending may still have hits — return the
+        # pending count so the tile parity invariant holds even when the
+        # match-side query is dry.
+        return jsonify({
+            'results': [],
+            'total_groups': 0,
+            'page': 1,
+            'page_size': page_size,
+            'total_pages': 0,
+            'group_counts': {
+                'qualified': 0,
+                'not_recommended': 0,
+                'location_barrier': 0,
+                'week': 0,
+                'pending': pending_count,
+            },
+            'truncated': False,
+        })
 
     matches = (
         CandidateJobMatch.query
@@ -617,7 +754,7 @@ def candidate_search():
     matches = deduped
 
     threshold = int(VettingConfig.get_value('match_threshold', '80') or 80)
-    week_ago = datetime.utcnow() - timedelta(days=7)
+    # week_ago already computed above for the pending branch.
 
     # ------------------------------------------------------------------
     # Aggregate matches into candidate groups
@@ -699,7 +836,10 @@ def candidate_search():
     filtered_groups = [g for g in groups.values() if _keep(g)]
     filtered_groups.sort(key=lambda g: g['latest_ts'], reverse=True)
 
-    # Aggregate counts across the FULL filtered set (for tile parity)
+    # Aggregate counts across the FULL filtered set (for tile parity).
+    # `pending` is the count of pending vetting logs matching q (and
+    # this_week if set) — not affected by the status/min_score filters
+    # because they don't apply to logs with no scores yet.
     group_counts = {
         'qualified': sum(1 for g in filtered_groups if g['has_qualified']),
         'location_barrier': sum(1 for g in filtered_groups
@@ -707,6 +847,7 @@ def candidate_search():
         'not_recommended': sum(1 for g in filtered_groups
                                if not g['has_qualified'] and not g['has_loc_barrier']),
         'week': sum(1 for g in filtered_groups if g['is_week']),
+        'pending': pending_count,
     }
 
     total_groups = len(filtered_groups)

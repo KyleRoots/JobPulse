@@ -980,12 +980,14 @@ function _exitSearchMode() {
 }
 
 function _statusForServer() {
-    // Map UI filter state to the server's status query param. 'pending' and
-    // 'week' are NOT status values on the server; week becomes ?this_week=1
-    // and pending is silently dropped (pending logs aren't searchable yet).
+    // Map UI filter state to the server's status query param. 'week' is NOT
+    // a status value — it becomes ?this_week=1 alongside any active status.
+    // 'pending' IS a real server-side status that returns the matching
+    // pending vetting logs (no scores yet) — preserves chip parity.
     if (activeFilter === 'qualified') return 'qualified';
     if (activeFilter === 'not_recommended') return 'not_recommended';
     if (activeFilter === 'location_barrier') return 'location_barrier';
+    if (activeFilter === 'pending') return 'pending';
     return '';
 }
 
@@ -1015,16 +1017,9 @@ function _doServerSearch(q, page) {
     if (spinner) spinner.style.display = '';
     _lastSearchQuery = q;
     _searchPage = page || 1;
-    // The server search has no concept of a "pending" status filter (pending
-    // logs have no match rows yet — they live in a separate dashboard
-    // section). If the recruiter had the Pending chip active when they began
-    // typing, drop it so the visible chip state matches what the server
-    // actually returns. Otherwise the chip looks active but silently does
-    // nothing.
-    if (activeFilter === 'pending') {
-        activeFilter = null;
-        document.querySelectorAll('.metric-card.active').forEach(c => c.classList.remove('active'));
-    }
+    // The Pending chip is now first-class on the server: status='pending'
+    // returns matching pending vetting logs as pseudo-rows. No need to
+    // force-clear the chip when search starts — the server honors it.
     fetch(_buildSearchUrl(q, _searchPage))
         .then(r => r.json())
         .then(data => {
@@ -1101,17 +1096,27 @@ function _renderSearchResults(data) {
 
     groupOrder.forEach(key => {
         const g = groups[key];
-        const status = g.has_qualified ? 'qualified' : (g.has_loc_barrier ? 'location_barrier' : 'not_recommended');
+        // Pending pseudo-rows arrive with is_pending=true on every match.
+        // They have no scores or qualification yet, so render them with
+        // the dashboard's existing Pending badge style.
+        const isPendingGroup = g.matches.length > 0 && g.matches.every(m => m.is_pending);
+        const status = isPendingGroup
+            ? 'pending'
+            : (g.has_qualified ? 'qualified' : (g.has_loc_barrier ? 'location_barrier' : 'not_recommended'));
         const score = g.best_score;
-        const scoreBadge = score >= 80 ? `<span class="score-badge score-high">${score}%</span>`
+        const scoreBadge = isPendingGroup
+            ? `<span class="score-badge score-zero">\u2014</span>`
+            : score >= 80 ? `<span class="score-badge score-high">${score}%</span>`
             : score >= 60 ? `<span class="score-badge score-mid">${score}%</span>`
             : score > 0 ? `<span class="score-badge score-low">${score}%</span>`
             : `<span class="score-badge score-zero">\u2014</span>`;
-        const statusBadge = g.has_qualified
-            ? `<span class="badge rounded-pill st-qualified">Qualified</span>`
-            : g.has_loc_barrier
-                ? `<span class="badge rounded-pill st-loc-barrier">\uD83D\uDCCD Location Barrier</span>`
-                : `<span class="badge rounded-pill st-not-rec">Not Recommended</span>`;
+        const statusBadge = isPendingGroup
+            ? `<span class="badge rounded-pill st-pending">Pending</span>`
+            : g.has_qualified
+                ? `<span class="badge rounded-pill st-qualified">Qualified</span>`
+                : g.has_loc_barrier
+                    ? `<span class="badge rounded-pill st-loc-barrier">\uD83D\uDCCD Location Barrier</span>`
+                    : `<span class="badge rounded-pill st-not-rec">Not Recommended</span>`;
         const candLink = g.candidate_id
             ? `<a class="cand-link" href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id=${g.candidate_id}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${_esc(g.candidate_name || 'Unknown')}<i class="fas fa-external-link-alt ext-icon"></i></a>`
             : `<span style="color:rgba(255,255,255,0.6);">${_esc(g.candidate_name || 'Unknown')}</span>`;
@@ -1132,15 +1137,25 @@ function _renderSearchResults(data) {
         parentTr.setAttribute('data-candidatename', (g.candidate_name || '').toLowerCase());
         parentTr.setAttribute('data-group-key', key);
         parentTr.setAttribute('onclick', 'toggleCandidateRow(this)');
+        // Pending pseudo-rows have no scored jobs — render the job-count
+        // cell as a static "Awaiting screening" indicator without expand,
+        // matching the existing dashboard's Pending section behavior.
+        const jobCountCell = isPendingGroup
+            ? `<td onclick="event.stopPropagation()" style="color:rgba(255,255,255,0.45); font-size:0.78rem; font-style:italic;"><i class="fas fa-clock me-1"></i>Awaiting screening</td>`
+            : `<td onclick="event.stopPropagation()"><span class="job-count-chip" onclick="toggleCandidateRow(this.closest('.candidate-parent'))"><i class="fas fa-chevron-right expand-icon"></i>${g.matches.length} job${g.matches.length !== 1 ? 's' : ''}</span></td>`;
         parentTr.innerHTML = `
             <td style="text-align:center;" onclick="event.stopPropagation()"><input type="checkbox" class="candidate-select" data-candidate-id="${g.candidate_id || ''}" data-candidate-name="${_esc(g.candidate_name || 'Unknown')}" data-best-score="${score}" data-status="${status}" onchange="updateBulkSelection()" style="cursor:pointer; accent-color:#9b7fd4;"></td>
             <td style="color:rgba(255,255,255,0.38); font-size:0.78rem; white-space:nowrap;">${_esc(g.latest_display)}</td>
             <td>${candLink}</td>
             <td style="text-align:center;">${scoreBadge}</td>
             <td>${statusBadge}</td>
-            <td onclick="event.stopPropagation()"><span class="job-count-chip" onclick="toggleCandidateRow(this.closest('.candidate-parent'))"><i class="fas fa-chevron-right expand-icon"></i>${g.matches.length} job${g.matches.length !== 1 ? 's' : ''}</span></td>
+            ${jobCountCell}
             ${rescreenCell}`;
         tbody.appendChild(parentTr);
+
+        // Skip child-row rendering for pending groups — there are no
+        // matched jobs to expand into.
+        if (isPendingGroup) return;
 
         g.matches.forEach(m => {
             const childTr = document.createElement('tr');
@@ -1269,13 +1284,13 @@ function _restoreMetricCards() {
 }
 function _updateSearchMetricsFromServer(groupCounts, totalGroups) {
     // Use server-supplied aggregates so the metric tiles reflect the FULL
-    // filtered search universe (not just the current page). Pending tile is
-    // forced to 0 in search mode because pending logs aren't part of the
-    // searchable result set.
+    // filtered search universe (not just the current page). The server
+    // always returns `pending` count (count of pending vetting logs
+    // matching q) so the Pending tile stays honest across status switches.
     const set = (id, v) => { const el = _metricEl(id); if (el) el.textContent = v; };
     if (groupCounts && typeof groupCounts === 'object') {
         set('card-qualified', groupCounts.qualified || 0);
-        set('card-pending', 0);
+        set('card-pending', groupCounts.pending || 0);
         set('card-not-rec', groupCounts.not_recommended || 0);
         set('card-loc-barrier', groupCounts.location_barrier || 0);
         set('card-week', groupCounts.week || 0);
