@@ -456,61 +456,177 @@ def optimize_job_requirements(job_id):
 @login_required
 def candidate_search():
     """Server-side candidate search across all historical screening records.
-    
-    Returns the most recent match record per (candidate, job) pair for any
-    candidate matching the query — not limited to the 200-record default view.
-    Scoped to the current user's assigned jobs.
+
+    Query params:
+      q          — search string (3+ chars). Matches candidate name (substring,
+                   trigram-indexed), candidate email (substring), Bullhorn ID
+                   (exact when fully numeric), and phone (when the query
+                   normalises to 7+ digits, looked up via ParsedEmail).
+      status     — qualified | not_recommended | location_barrier (optional;
+                   'pending' is silently ignored — pending logs have no match
+                   rows yet, the dashboard surfaces them in a separate section).
+      min_score  — int 0-100; candidate's best score must meet this floor.
+      this_week  — '1'/'true' to limit to candidates active in last 7 days.
+      page       — 1-based page number, default 1.
+      page_size  — 10-200, default 100.
+
+    Response shape:
+      results        — CandidateJobMatch rows for the candidates on the
+                       requested page (multiple rows per candidate group).
+      total_groups   — total candidate groups across the filtered set.
+      page, page_size, total_pages — pagination meta (clamped server-side).
+      group_counts   — { qualified, not_recommended, location_barrier, week }
+                       totals across the entire filtered set, used to keep the
+                       dashboard's metric tiles honest while search is active.
+      truncated      — true when the underlying scan hit the safety cap;
+                       results past the cap are not visible until the query
+                       narrows.
+
+    Scoped to the current user's assigned jobs via `_get_user_job_ids()`.
     """
+    import re
+
     from extensions import db
-    from models import CandidateJobMatch, CandidateVettingLog, VettingConfig
+    from models import CandidateJobMatch, CandidateVettingLog, ParsedEmail, VettingConfig
     from sqlalchemy import func, or_
 
-    q = request.args.get('q', '').strip()
+    SAFETY_CAP = 5000
+
+    q = (request.args.get('q', '') or '').strip()
+
+    status_param = (request.args.get('status', '') or '').strip().lower()
+    if status_param not in {'qualified', 'not_recommended', 'location_barrier'}:
+        status_param = ''
+
+    raw_min = request.args.get('min_score', '')
+    try:
+        min_score = int(raw_min) if raw_min not in (None, '') else 0
+    except (TypeError, ValueError):
+        min_score = 0
+    min_score = max(0, min(100, min_score))
+
+    this_week_only = (request.args.get('this_week', '') or '').strip().lower() in {'1', 'true', 'yes'}
+
+    try:
+        page = max(1, int(request.args.get('page', '1') or 1))
+    except (TypeError, ValueError):
+        page = 1
+    try:
+        page_size = int(request.args.get('page_size', '100') or 100)
+    except (TypeError, ValueError):
+        page_size = 100
+    page_size = max(10, min(200, page_size))
+
+    def _empty():
+        return jsonify({
+            'results': [],
+            'total_groups': 0,
+            'page': 1,
+            'page_size': page_size,
+            'total_pages': 0,
+            'group_counts': {'qualified': 0, 'not_recommended': 0,
+                             'location_barrier': 0, 'week': 0},
+            'truncated': False,
+        })
+
     if len(q) < 3:
-        return jsonify({'results': [], 'total': 0, 'truncated': False})
+        return _empty()
 
     job_ids = _get_user_job_ids()
     if not job_ids:
-        return jsonify({'results': [], 'total': 0, 'truncated': False})
+        return _empty()
 
-    # Build search filter — name partial match or exact ID match
-    name_filter = CandidateVettingLog.candidate_name.ilike(f'%{q}%')
+    # ------------------------------------------------------------------
+    # Build OR-search predicates over CandidateVettingLog
+    # ------------------------------------------------------------------
+    like = f'%{q}%'
+    predicates = [
+        CandidateVettingLog.candidate_name.ilike(like),
+        CandidateVettingLog.candidate_email.ilike(like),
+    ]
     if q.isdigit():
-        search_filter = or_(name_filter, CandidateVettingLog.bullhorn_candidate_id == int(q))
-    else:
-        search_filter = name_filter
+        predicates.append(CandidateVettingLog.bullhorn_candidate_id == int(q))
 
-    # Subquery: one row per (bullhorn_candidate_id, bullhorn_job_id) — the latest match only
-    latest_subq = (
-        db.session.query(func.max(CandidateJobMatch.id).label('max_id'))
+    # Phone is not stored on the vetting log — resolve via ParsedEmail when the
+    # query carries enough digits to disambiguate (≥ 7 digits keeps the branch
+    # off for pure-name searches, which would otherwise force a wide scan).
+    digits = re.sub(r'\D', '', q)
+    if len(digits) >= 7:
+        try:
+            dialect_name = db.engine.dialect.name
+        except Exception:
+            dialect_name = ''
+        if dialect_name == 'postgresql':
+            phone_norm = func.regexp_replace(ParsedEmail.candidate_phone, '[^0-9]', '', 'g')
+        else:
+            # SQLite (used by tests) — fall back to a direct ilike. Tests don't
+            # exercise normalised phone matching.
+            phone_norm = ParsedEmail.candidate_phone
+        phone_cid_subq = (
+            db.session.query(ParsedEmail.bullhorn_candidate_id)
+            .filter(ParsedEmail.bullhorn_candidate_id.isnot(None))
+            .filter(phone_norm.ilike(f'%{digits}%'))
+            .distinct()
+            .subquery()
+        )
+        predicates.append(
+            CandidateVettingLog.bullhorn_candidate_id.in_(
+                db.session.query(phone_cid_subq)
+            )
+        )
+
+    # ------------------------------------------------------------------
+    # Pull matching CandidateJobMatch IDs (capped) for in-memory grouping
+    # ------------------------------------------------------------------
+    base_q = (
+        db.session.query(CandidateJobMatch.id)
         .join(CandidateVettingLog, CandidateJobMatch.vetting_log_id == CandidateVettingLog.id)
         .filter(
             CandidateJobMatch.bullhorn_job_id.in_(job_ids),
             CandidateVettingLog.is_sandbox != True,
-            search_filter
+            or_(*predicates),
         )
-        .group_by(CandidateVettingLog.bullhorn_candidate_id, CandidateJobMatch.bullhorn_job_id)
-        .subquery()
     )
+    raw_ids = [row[0] for row in base_q.limit(SAFETY_CAP + 1).all()]
+    truncated = len(raw_ids) > SAFETY_CAP
+    raw_ids = raw_ids[:SAFETY_CAP]
+
+    if not raw_ids:
+        return _empty()
 
     matches = (
         CandidateJobMatch.query
-        .join(CandidateVettingLog)
-        .filter(CandidateJobMatch.id.in_(db.session.query(latest_subq.c.max_id)))
+        .options(joinedload(CandidateJobMatch.vetting_log))
+        .filter(CandidateJobMatch.id.in_(raw_ids))
         .order_by(CandidateJobMatch.created_at.desc())
-        .limit(501)
         .all()
     )
 
-    truncated = len(matches) > 500
-    matches = matches[:500]
+    # Dedupe to one (candidate, job) pair, keeping the latest match (rows
+    # are already ordered created_at desc, so the first occurrence wins).
+    seen_pairs = set()
+    deduped = []
+    for m in matches:
+        log = m.vetting_log
+        cand_id = log.bullhorn_candidate_id if log else None
+        key = (cand_id, m.bullhorn_job_id)
+        if key in seen_pairs:
+            continue
+        seen_pairs.add(key)
+        deduped.append(m)
+    matches = deduped
 
     threshold = int(VettingConfig.get_value('match_threshold', '80') or 80)
     week_ago = datetime.utcnow() - timedelta(days=7)
 
-    results = []
+    # ------------------------------------------------------------------
+    # Aggregate matches into candidate groups
+    # ------------------------------------------------------------------
+    groups = OrderedDict()
     for m in matches:
         log = m.vetting_log
+        cand_id = log.bullhorn_candidate_id if log else None
+        cand_name = (log.candidate_name if log else None) or 'Unknown'
         gaps = (m.gaps_identified or '').lower()
         tech = m.technical_score
         is_loc_barrier = (
@@ -519,16 +635,31 @@ def candidate_search():
             and not m.is_qualified
         )
         is_week = bool(m.created_at and m.created_at >= week_ago)
-        results.append({
+        score = int(round(m.match_score or 0))
+
+        gkey = cand_id if cand_id is not None else f'unk_{m.id}'
+        if gkey not in groups:
+            groups[gkey] = {
+                'candidate_id': cand_id,
+                'candidate_name': cand_name,
+                'best_score': 0,
+                'has_qualified': False,
+                'has_loc_barrier': False,
+                'is_week': False,
+                'latest_ts': '0',
+                'matches': [],
+            }
+        g = groups[gkey]
+        g['matches'].append({
             'id': m.id,
             'created_at_display': m.created_at.strftime('%b %d, %Y') if m.created_at else '—',
             'created_ts': m.created_at.strftime('%Y%m%d%H%M%S') if m.created_at else '0',
             'is_week': is_week,
-            'candidate_id': log.bullhorn_candidate_id if log else None,
-            'candidate_name': log.candidate_name if log else 'Unknown',
+            'candidate_id': cand_id,
+            'candidate_name': cand_name,
             'job_id': m.bullhorn_job_id,
             'job_title': m.job_title or f'Job #{m.bullhorn_job_id}',
-            'match_score': int(round(m.match_score or 0)),
+            'match_score': score,
             'technical_score': int(round(tech)) if tech is not None else None,
             'is_qualified': m.is_qualified,
             'is_loc_barrier': is_loc_barrier,
@@ -537,8 +668,69 @@ def candidate_search():
             'is_applied_job': m.is_applied_job,
             'vetting_log_id': m.vetting_log_id,
         })
+        if score > g['best_score']:
+            g['best_score'] = score
+        if m.is_qualified:
+            g['has_qualified'] = True
+        if is_loc_barrier:
+            g['has_loc_barrier'] = True
+        if is_week:
+            g['is_week'] = True
+        ts = m.created_at.strftime('%Y%m%d%H%M%S') if m.created_at else '0'
+        if ts > g['latest_ts']:
+            g['latest_ts'] = ts
 
-    return jsonify({'results': results, 'total': len(results), 'truncated': truncated})
+    # ------------------------------------------------------------------
+    # Apply group-level filter chips (status / min_score / this_week)
+    # ------------------------------------------------------------------
+    def _keep(g):
+        if status_param == 'qualified' and not g['has_qualified']:
+            return False
+        if status_param == 'location_barrier' and not (g['has_loc_barrier'] and not g['has_qualified']):
+            return False
+        if status_param == 'not_recommended' and (g['has_qualified'] or g['has_loc_barrier']):
+            return False
+        if min_score and g['best_score'] < min_score:
+            return False
+        if this_week_only and not g['is_week']:
+            return False
+        return True
+
+    filtered_groups = [g for g in groups.values() if _keep(g)]
+    filtered_groups.sort(key=lambda g: g['latest_ts'], reverse=True)
+
+    # Aggregate counts across the FULL filtered set (for tile parity)
+    group_counts = {
+        'qualified': sum(1 for g in filtered_groups if g['has_qualified']),
+        'location_barrier': sum(1 for g in filtered_groups
+                                if g['has_loc_barrier'] and not g['has_qualified']),
+        'not_recommended': sum(1 for g in filtered_groups
+                               if not g['has_qualified'] and not g['has_loc_barrier']),
+        'week': sum(1 for g in filtered_groups if g['is_week']),
+    }
+
+    total_groups = len(filtered_groups)
+    total_pages = (total_groups + page_size - 1) // page_size if total_groups else 0
+    if total_pages and page > total_pages:
+        page = total_pages
+
+    start = (page - 1) * page_size
+    page_groups = filtered_groups[start:start + page_size]
+
+    results = []
+    for g in page_groups:
+        g['matches'].sort(key=lambda x: x['created_ts'], reverse=True)
+        results.extend(g['matches'])
+
+    return jsonify({
+        'results': results,
+        'total_groups': total_groups,
+        'page': page,
+        'page_size': page_size,
+        'total_pages': total_pages,
+        'group_counts': group_counts,
+        'truncated': truncated,
+    })
 
 
 @scout_screening_bp.route('/api/scout-screening/stats')

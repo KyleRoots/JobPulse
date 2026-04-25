@@ -933,6 +933,9 @@ let activeMinScore = null;
 let activeCandidateSearch = '';
 let searchModeActive = false;
 let searchDebounceTimer = null;
+let _lastSearchQuery = '';
+let _searchPage = 1;
+const SEARCH_PAGE_SIZE = 100;
 
 function applyCandidateSearch() {
     const raw = (document.getElementById('candidateSearchInput').value || '').trim();
@@ -942,16 +945,18 @@ function applyCandidateSearch() {
     if (raw.length === 0) {
         if (searchModeActive) _exitSearchMode();
         activeCandidateSearch = '';
+        _lastSearchQuery = '';
         rebuildVisibleRows();
         return;
     }
     if (raw.length < 3) {
         if (searchModeActive) _exitSearchMode();
         activeCandidateSearch = raw.toLowerCase();
+        _lastSearchQuery = '';
         rebuildVisibleRows();
         return;
     }
-    searchDebounceTimer = setTimeout(() => _doServerSearch(raw), 300);
+    searchDebounceTimer = setTimeout(() => _doServerSearch(raw, 1), 300);
 }
 
 function clearCandidateSearch() {
@@ -961,26 +966,72 @@ function clearCandidateSearch() {
     if (clearBtn) clearBtn.style.display = 'none';
     if (searchModeActive) _exitSearchMode();
     activeCandidateSearch = '';
+    _lastSearchQuery = '';
     rebuildVisibleRows();
 }
 
 function _exitSearchMode() {
     searchModeActive = false;
+    _searchPage = 1;
     document.querySelectorAll('#tableBody tr[data-search-result]').forEach(r => r.remove());
     document.querySelectorAll('#tableBody tr.candidate-parent[data-original]').forEach(r => r.style.display = '');
     document.querySelectorAll('#tableBody tr.candidate-child').forEach(r => r.style.display = 'none');
     _restoreMetricCards();
 }
 
-function _doServerSearch(q) {
+function _statusForServer() {
+    // Map UI filter state to the server's status query param. 'pending' and
+    // 'week' are NOT status values on the server; week becomes ?this_week=1
+    // and pending is silently dropped (pending logs aren't searchable yet).
+    if (activeFilter === 'qualified') return 'qualified';
+    if (activeFilter === 'not_recommended') return 'not_recommended';
+    if (activeFilter === 'location_barrier') return 'location_barrier';
+    return '';
+}
+
+function _buildSearchUrl(q, page) {
+    const params = new URLSearchParams();
+    params.set('q', q);
+    const status = _statusForServer();
+    if (status) params.set('status', status);
+    if (activeFilter === 'week') params.set('this_week', '1');
+    if (activeMinScore !== null && !isNaN(activeMinScore)) params.set('min_score', String(activeMinScore));
+    params.set('page', String(page || 1));
+    params.set('page_size', String(SEARCH_PAGE_SIZE));
+    return '/scout-screening/search?' + params.toString();
+}
+
+function _refreshServerSearch() {
+    // Re-fire the search whenever filter state changes while search mode is
+    // active. Resets to page 1 because the filtered universe has changed.
+    if (!searchModeActive) return;
+    const q = (_lastSearchQuery || '').trim();
+    if (q.length < 3) return;
+    _doServerSearch(q, 1);
+}
+
+function _doServerSearch(q, page) {
     const spinner = document.getElementById('candidateSearchSpinner');
     if (spinner) spinner.style.display = '';
-    fetch('/scout-screening/search?q=' + encodeURIComponent(q))
+    _lastSearchQuery = q;
+    _searchPage = page || 1;
+    // The server search has no concept of a "pending" status filter (pending
+    // logs have no match rows yet — they live in a separate dashboard
+    // section). If the recruiter had the Pending chip active when they began
+    // typing, drop it so the visible chip state matches what the server
+    // actually returns. Otherwise the chip looks active but silently does
+    // nothing.
+    if (activeFilter === 'pending') {
+        activeFilter = null;
+        document.querySelectorAll('.metric-card.active').forEach(c => c.classList.remove('active'));
+    }
+    fetch(_buildSearchUrl(q, _searchPage))
         .then(r => r.json())
         .then(data => {
             searchModeActive = true;
             activeCandidateSearch = '';
-            _renderSearchResults(data.results, data.truncated);
+            _searchPage = data.page || _searchPage;
+            _renderSearchResults(data);
         })
         .catch(() => {
             searchModeActive = false;
@@ -990,7 +1041,18 @@ function _doServerSearch(q) {
         .finally(() => { if (spinner) spinner.style.display = 'none'; });
 }
 
-function _renderSearchResults(results, truncated) {
+function _renderSearchResults(data) {
+    // Accept the full search response. Server has already paginated by
+    // candidate group, so the flat `results` array belongs entirely to the
+    // current page's groups; we just regroup client-side for rendering.
+    const results = (data && data.results) || [];
+    const truncated = !!(data && data.truncated);
+    const totalGroups = (data && typeof data.total_groups === 'number') ? data.total_groups : results.length;
+    const totalPages = (data && typeof data.total_pages === 'number') ? data.total_pages : 1;
+    const page = (data && typeof data.page === 'number') ? data.page : 1;
+    const pageSize = (data && typeof data.page_size === 'number') ? data.page_size : SEARCH_PAGE_SIZE;
+    const groupCounts = (data && data.group_counts) || null;
+
     const tbody = document.getElementById('tableBody');
     if (!tbody) return;
     const THRESHOLD = parseInt(tbody.dataset.threshold || '80', 10);
@@ -1006,7 +1068,7 @@ function _renderSearchResults(results, truncated) {
         empty.setAttribute('data-search-result', '');
         empty.innerHTML = `<td colspan="${COLSPAN}" style="text-align:center; color:rgba(255,255,255,0.3); padding:2rem;">No candidates found matching your search.</td>`;
         tbody.appendChild(empty);
-        _updateSearchMetrics([]);
+        _updateSearchMetricsFromServer(groupCounts, 0);
         return;
     }
 
@@ -1112,20 +1174,65 @@ function _renderSearchResults(results, truncated) {
         });
     });
 
-    if (truncated) {
-        const note = document.createElement('tr');
-        note.setAttribute('data-search-result', '');
-        note.innerHTML = `<td colspan="${COLSPAN}" style="text-align:center; color:rgba(255,255,255,0.3); font-size:0.78rem; padding:0.5rem;">Showing top 500 results \u2014 refine your search for more specific results.</td>`;
-        tbody.appendChild(note);
+    // Pagination / status footer (renders even on a single page when group
+    // counts > 0, so recruiters always see "Showing X-Y of N candidates").
+    if (totalGroups > 0) {
+        const groupsOnThisPage = groupOrder.length;
+        const startIdx = (page - 1) * pageSize + 1;
+        const endIdx = startIdx + groupsOnThisPage - 1;
+        const footer = document.createElement('tr');
+        footer.setAttribute('data-search-result', '');
+        const truncNotice = truncated
+            ? ` <span style="color:rgba(255,180,80,0.65); margin-left:0.5rem;" title="The underlying scan hit its safety cap. Narrow your search to surface candidates beyond this point.">(scan capped — refine to see more)</span>`
+            : '';
+        const prevDisabled = page <= 1 ? 'disabled' : '';
+        const nextDisabled = page >= totalPages ? 'disabled' : '';
+        const showPager = totalPages > 1;
+        const pagerHtml = showPager
+            ? `<div style="display:flex; justify-content:center; align-items:center; gap:0.75rem; padding:0.6rem;">
+                 <button type="button" class="btn btn-sm btn-outline-light search-pager-btn" data-action="prev" ${prevDisabled}
+                         style="border-color:rgba(155,127,212,0.4); color:rgba(255,255,255,0.75); padding:0.15rem 0.6rem; font-size:0.75rem;">
+                   <i class="fas fa-chevron-left"></i> Prev
+                 </button>
+                 <span style="color:rgba(255,255,255,0.55); font-size:0.78rem;">
+                   Showing ${startIdx}\u2013${endIdx} of ${totalGroups} candidate${totalGroups !== 1 ? 's' : ''} \u2014 page ${page} of ${totalPages}${truncNotice}
+                 </span>
+                 <button type="button" class="btn btn-sm btn-outline-light search-pager-btn" data-action="next" ${nextDisabled}
+                         style="border-color:rgba(155,127,212,0.4); color:rgba(255,255,255,0.75); padding:0.15rem 0.6rem; font-size:0.75rem;">
+                   Next <i class="fas fa-chevron-right"></i>
+                 </button>
+               </div>`
+            : `<div style="text-align:center; color:rgba(255,255,255,0.5); font-size:0.78rem; padding:0.5rem;">
+                 Showing ${startIdx}\u2013${endIdx} of ${totalGroups} candidate${totalGroups !== 1 ? 's' : ''}${truncNotice}
+               </div>`;
+        footer.innerHTML = `<td colspan="${COLSPAN}" style="background:rgba(0,0,0,0.15);">${pagerHtml}</td>`;
+        tbody.appendChild(footer);
     }
 
-    const groupsList = groupOrder.map(k => groups[k]);
-    _updateSearchMetrics(groupsList);
+    _updateSearchMetricsFromServer(groupCounts, totalGroups);
 
+    // In search mode the server has already paginated by candidate group, so
+    // we must NOT run the legacy client-side pager (PAGE_SIZE=10) on top of
+    // it — that would hide most of the server page and surface a second,
+    // conflicting pagination control. Force-hide the legacy bar instead.
     visibleRows = Array.from(tbody.querySelectorAll('tr.candidate-parent[data-search-result]'));
     currentPage = 1;
-    renderPage();
+    const legacyBar = document.getElementById('paginationBar');
+    if (legacyBar) legacyBar.style.setProperty('display', 'none', 'important');
 }
+
+// Pager click handler — re-fires the search at the requested page.
+document.addEventListener('click', function (e) {
+    const btn = e.target.closest('.search-pager-btn');
+    if (!btn || btn.disabled) return;
+    if (!searchModeActive || !_lastSearchQuery) return;
+    const action = btn.dataset.action;
+    if (action === 'prev' && _searchPage > 1) {
+        _doServerSearch(_lastSearchQuery, _searchPage - 1);
+    } else if (action === 'next') {
+        _doServerSearch(_lastSearchQuery, _searchPage + 1);
+    }
+});
 
 function _esc(str) {
     return String(str || '')
@@ -1160,20 +1267,26 @@ function _restoreMetricCards() {
     set('card-loc-barrier', _originalMetrics.location_barrier);
     set('card-week', _originalMetrics.week);
 }
-function _updateSearchMetrics(groupsList) {
-    let q = 0, nr = 0, lb = 0, w = 0;
-    groupsList.forEach(g => {
-        if (g.has_qualified) q++;
-        else if (g.has_loc_barrier) lb++;
-        else nr++;
-        if (g.is_week) w++;
-    });
+function _updateSearchMetricsFromServer(groupCounts, totalGroups) {
+    // Use server-supplied aggregates so the metric tiles reflect the FULL
+    // filtered search universe (not just the current page). Pending tile is
+    // forced to 0 in search mode because pending logs aren't part of the
+    // searchable result set.
     const set = (id, v) => { const el = _metricEl(id); if (el) el.textContent = v; };
-    set('card-qualified', q);
-    set('card-pending', 0);
-    set('card-not-rec', nr);
-    set('card-loc-barrier', lb);
-    set('card-week', w);
+    if (groupCounts && typeof groupCounts === 'object') {
+        set('card-qualified', groupCounts.qualified || 0);
+        set('card-pending', 0);
+        set('card-not-rec', groupCounts.not_recommended || 0);
+        set('card-loc-barrier', groupCounts.location_barrier || 0);
+        set('card-week', groupCounts.week || 0);
+    } else {
+        // Defensive fallback (older payload shape) — show only the page total.
+        set('card-qualified', 0);
+        set('card-pending', 0);
+        set('card-not-rec', totalGroups || 0);
+        set('card-loc-barrier', 0);
+        set('card-week', 0);
+    }
 }
 
 function applyMinScore() {
@@ -1182,7 +1295,11 @@ function applyMinScore() {
     const val = input ? input.value.trim() : '';
     activeMinScore = val !== '' ? parseInt(val, 10) : null;
     if (clearBtn) clearBtn.style.display = activeMinScore !== null ? '' : 'none';
-    rebuildVisibleRows();
+    if (searchModeActive) {
+        _refreshServerSearch();
+    } else {
+        rebuildVisibleRows();
+    }
 }
 
 function clearMinScore() {
@@ -1191,7 +1308,11 @@ function clearMinScore() {
     if (input) input.value = '';
     if (clearBtn) clearBtn.style.display = 'none';
     activeMinScore = null;
-    rebuildVisibleRows();
+    if (searchModeActive) {
+        _refreshServerSearch();
+    } else {
+        rebuildVisibleRows();
+    }
 }
 
 function rebuildVisibleRows() {
@@ -1251,7 +1372,11 @@ function filterMatches(filter) {
         Object.values(cards).forEach(c => c && c.classList.remove('active'));
         if (cards[filter]) cards[filter].classList.add('active');
     }
-    rebuildVisibleRows();
+    if (searchModeActive) {
+        _refreshServerSearch();
+    } else {
+        rebuildVisibleRows();
+    }
 }
 
 document.addEventListener('click', function (e) {
