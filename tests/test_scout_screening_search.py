@@ -691,6 +691,52 @@ class TestFilterChips:
         )
 
 
+class TestTemplateJsIntegrity:
+    """Static lint of the scout_screening.html JS to catch undefined-helper
+    regressions in the search-mode render path. The previous bug — a call
+    to non-existent `_renderSearchPager(...)` in the empty-results branch
+    of `_renderSearchResults` — threw a ReferenceError that dropped the
+    user out of search mode silently. This test locks the invariant."""
+
+    def test_render_search_results_calls_only_defined_functions(self):
+        import re
+        from pathlib import Path
+        tpl = Path('templates/scout_screening.html').read_text()
+
+        m = re.search(r'function\s+_renderSearchResults\s*\([^)]*\)\s*\{',
+                      tpl)
+        assert m, '_renderSearchResults function not found in template'
+        depth = 0
+        i = m.end() - 1
+        body_start = i + 1
+        while i < len(tpl):
+            ch = tpl[i]
+            if ch == '{':
+                depth += 1
+            elif ch == '}':
+                depth -= 1
+                if depth == 0:
+                    body_end = i
+                    break
+            i += 1
+        else:
+            assert False, 'Could not find end of _renderSearchResults body'
+        body = tpl[body_start:body_end]
+
+        called = set(re.findall(r'\b(_[A-Za-z][A-Za-z0-9_]*)\s*\(', body))
+        defined = set(re.findall(
+            r'function\s+(_[A-Za-z][A-Za-z0-9_]*)\s*\(', tpl))
+        defined |= set(re.findall(
+            r'\b(_[A-Za-z][A-Za-z0-9_]*)\s*=\s*function\b', tpl))
+
+        missing = called - defined
+        assert not missing, (
+            f'_renderSearchResults calls undefined helpers: {missing}. '
+            f'Define them or remove the calls — this caused a prior '
+            f'silent search-mode dropout regression.'
+        )
+
+
 # ---------------------------------------------------------------------------
 # Pagination
 # ---------------------------------------------------------------------------

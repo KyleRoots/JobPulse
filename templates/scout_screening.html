@@ -1059,14 +1059,14 @@ function _renderSearchResults(data) {
     document.querySelectorAll('#tableBody tr[data-search-result]').forEach(r => r.remove());
 
     if (results.length === 0) {
+        // Any prior pager footer is already removed by the
+        // tr[data-search-result] sweep above; just hide the legacy
+        // client-side bar so the empty state has no stale UI.
         const empty = document.createElement('tr');
         empty.setAttribute('data-search-result', '');
         empty.innerHTML = `<td colspan="${COLSPAN}" style="text-align:center; color:rgba(255,255,255,0.3); padding:2rem;">No candidates found matching your search.</td>`;
         tbody.appendChild(empty);
         _updateSearchMetricsFromServer(groupCounts, 0);
-        // Hide both the server-side pager and the legacy client pager
-        // so an empty search state never shows stale pagination UI.
-        _renderSearchPager(0, 1, 1);
         const legacyBar = document.getElementById('paginationBar');
         if (legacyBar) legacyBar.style.setProperty('display', 'none', 'important');
         return;
