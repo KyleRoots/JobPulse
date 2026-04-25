@@ -555,47 +555,59 @@ def candidate_search():
     if not job_ids:
         return _empty()
 
-    # OR predicates over CandidateVettingLog, reused by both the match
-    # query and the pending query so search semantics are identical
-    # across the status chip toggle.
+    # Search predicates. Exact-ID lookup short-circuits — if q is purely
+    # numeric AND a candidate with that Bullhorn ID exists in the user's
+    # job scope, we return only that candidate (preserves the prior
+    # "ID search is exact" contract). Otherwise we OR name + email +
+    # (when q has 7+ digits) phone substring, so digits-only phone
+    # pastes like "5552349876" still resolve via ParsedEmail.
     like = f'%{q}%'
-    predicates = [
-        CandidateVettingLog.candidate_name.ilike(like),
-        CandidateVettingLog.candidate_email.ilike(like),
-    ]
-    if q.isdigit():
-        predicates.append(CandidateVettingLog.bullhorn_candidate_id == int(q))
+    predicates = None
 
-    # Phone lives on ParsedEmail (no Candidate table — Bullhorn is the
-    # source of truth and we don't replicate it locally). Activate the
-    # phone branch when the query has 7+ digits after stripping
-    # separators. Pure-numeric input also fires the exact-ID predicate
-    # above, so an all-digit query returns both the ID hit (if any) and
-    # any phone-substring matches.
-    digits = re.sub(r'\D', '', q)
-    if len(digits) >= 7:
-        try:
-            dialect_name = db.engine.dialect.name
-        except Exception:
-            dialect_name = ''
-        if dialect_name == 'postgresql':
-            phone_norm = func.regexp_replace(ParsedEmail.candidate_phone, '[^0-9]', '', 'g')
-        else:
-            # SQLite (used by tests) — fall back to a direct ilike. Tests don't
-            # exercise normalised phone matching.
-            phone_norm = ParsedEmail.candidate_phone
-        phone_cid_subq = (
-            db.session.query(ParsedEmail.bullhorn_candidate_id)
-            .filter(ParsedEmail.bullhorn_candidate_id.isnot(None))
-            .filter(phone_norm.ilike(f'%{digits}%'))
-            .distinct()
-            .subquery()
-        )
-        predicates.append(
-            CandidateVettingLog.bullhorn_candidate_id.in_(
-                db.session.query(phone_cid_subq)
+    if q.isdigit():
+        id_hit = (
+            db.session.query(CandidateVettingLog.id)
+            .filter(
+                CandidateVettingLog.applied_job_id.in_(job_ids),
+                CandidateVettingLog.bullhorn_candidate_id == int(q),
             )
+            .first()
         )
+        if id_hit:
+            predicates = [
+                CandidateVettingLog.bullhorn_candidate_id == int(q),
+            ]
+
+    if predicates is None:
+        predicates = [
+            CandidateVettingLog.candidate_name.ilike(like),
+            CandidateVettingLog.candidate_email.ilike(like),
+        ]
+        if q.isdigit():
+            predicates.append(CandidateVettingLog.bullhorn_candidate_id == int(q))
+
+        digits = re.sub(r'\D', '', q)
+        if len(digits) >= 7:
+            dialect_name = db.engine.dialect.name
+            if dialect_name == 'postgresql':
+                phone_norm = func.regexp_replace(
+                    ParsedEmail.candidate_phone, '[^0-9]', '', 'g'
+                )
+            else:
+                # SQLite (tests) — direct ilike fallback.
+                phone_norm = ParsedEmail.candidate_phone
+            phone_cid_subq = (
+                db.session.query(ParsedEmail.bullhorn_candidate_id)
+                .filter(ParsedEmail.bullhorn_candidate_id.isnot(None))
+                .filter(phone_norm.ilike(f'%{digits}%'))
+                .distinct()
+                .subquery()
+            )
+            predicates.append(
+                CandidateVettingLog.bullhorn_candidate_id.in_(
+                    db.session.query(phone_cid_subq)
+                )
+            )
 
     week_ago = datetime.utcnow() - timedelta(days=7)
 

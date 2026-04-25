@@ -403,11 +403,11 @@ class TestSearchPredicates:
             f"via the phone branch. Got {cand_ids}"
         )
 
-    def test_all_digit_id_query_returns_id_match_plus_phone_match(
+    def test_exact_id_query_returns_only_that_candidate(
         self, app, monkeypatch
     ):
-        # All-digit query 7+ chars fires both ID and phone predicates;
-        # exact ID hit must always be in the result set.
+        # Preserve prior contract: typing an existing Bullhorn ID
+        # returns only that candidate, never a phone-spillover row.
         from extensions import db
         from models import CandidateJobMatch, CandidateVettingLog, ParsedEmail
 
@@ -417,7 +417,6 @@ class TestSearchPredicates:
 
         with app.app_context():
             now = datetime.utcnow()
-            # Candidate whose ID happens to be 7 digits.
             log = CandidateVettingLog(
                 bullhorn_candidate_id=1234567,
                 candidate_name='Frank Foxtrot',
@@ -443,7 +442,8 @@ class TestSearchPredicates:
                 gaps_identified='',
                 created_at=now,
             ))
-            # Different candidate whose phone happens to contain "1234567".
+            # Decoy candidate whose phone happens to contain "1234567".
+            # Must NOT appear when the exact ID 1234567 is found.
             log2 = CandidateVettingLog(
                 bullhorn_candidate_id=70011,
                 candidate_name='Grace Golf',
@@ -476,7 +476,7 @@ class TestSearchPredicates:
                 bullhorn_candidate_id=70011,
                 candidate_name='Grace Golf',
                 candidate_email='grace.golf@example.com',
-                candidate_phone='5551234567',  # contains "1234567"
+                candidate_phone='5551234567',
                 status='completed',
                 received_at=now,
             ))
@@ -484,19 +484,21 @@ class TestSearchPredicates:
 
         resp = c.get('/scout-screening/search?q=1234567').get_json()
         cand_ids = {r['candidate_id'] for r in resp['results']}
-        # Exact-ID hit MUST be present — that's the non-negotiable
-        # invariant the previous architect rightly flagged.
-        assert 1234567 in cand_ids, (
-            f"Exact ID 1234567 must always appear in the result set "
-            f"for the all-digit query — got {cand_ids}"
-        )
-        # And the phone-spillover candidate is also included, by design.
-        assert 70011 in cand_ids, (
-            f"All-digit query 1234567 should also surface candidates "
-            f"with that digit substring in their phone — got {cand_ids}"
+        assert cand_ids == {1234567}, (
+            f"Exact ID lookup must return only that candidate, "
+            f"never phone-spillover. Got {cand_ids}"
         )
 
-        # Formatted phone query continues to work for the spillover case.
+        # When the digit string does NOT match an ID, fall through to
+        # phone search so digits-only phone pastes still resolve.
+        resp = c.get('/scout-screening/search?q=5551234567').get_json()
+        cand_ids = {r['candidate_id'] for r in resp['results']}
+        assert 70011 in cand_ids, (
+            f"Digits-only phone (no matching ID) must reach phone "
+            f"branch. Got {cand_ids}"
+        )
+
+        # Formatted phone always works (never an ID match).
         resp = c.get('/scout-screening/search?q=555-123-4567').get_json()
         cand_ids = {r['candidate_id'] for r in resp['results']}
         assert 70011 in cand_ids
