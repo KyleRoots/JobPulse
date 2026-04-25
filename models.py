@@ -4,6 +4,7 @@ import os
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from extensions import db
+from utils.sqlalchemy_types import SafeString, SafeText
 
 AVAILABLE_MODULES = ['scout_inbound', 'scout_screening', 'scout_vetting', 'scout_support', 'scout_prospector']
 
@@ -621,14 +622,14 @@ class CandidateVettingLog(db.Model):
     """Tracks candidates that have been analyzed by the AI vetting system"""
     id = db.Column(db.Integer, primary_key=True)
     bullhorn_candidate_id = db.Column(db.Integer, nullable=False, index=True)  # Not unique: multiple logs per candidate (one per application)
-    candidate_name = db.Column(db.String(255), nullable=True)
-    candidate_email = db.Column(db.String(255), nullable=True, index=True)
+    candidate_name = db.Column(SafeString(255), nullable=True)
+    candidate_email = db.Column(SafeString(255), nullable=True, index=True)
     applied_job_id = db.Column(db.Integer, nullable=True)  # Job they originally applied to
-    applied_job_title = db.Column(db.String(500), nullable=True)
+    applied_job_title = db.Column(SafeString(500), nullable=True)
     parsed_email_id = db.Column(db.Integer, nullable=True, index=True)  # Links to specific ParsedEmail that triggered vetting
     
     # Resume data
-    resume_text = db.Column(db.Text, nullable=True)  # Extracted resume content
+    resume_text = db.Column(SafeText, nullable=True)  # Extracted resume content
     resume_file_id = db.Column(db.Integer, nullable=True)  # Bullhorn file ID
     
     # Analysis status
@@ -646,7 +647,7 @@ class CandidateVettingLog(db.Model):
     notification_count = db.Column(db.Integer, default=0)  # Number of recruiters notified
     
     # Error handling
-    error_message = db.Column(db.Text, nullable=True)
+    error_message = db.Column(SafeText, nullable=True)
     retry_count = db.Column(db.Integer, default=0)
     retry_blocked = db.Column(db.Boolean, default=False, server_default='false')
     retry_block_reason = db.Column(db.String(500), nullable=True)
@@ -679,14 +680,14 @@ class CandidateJobMatch(db.Model):
     
     # Job details
     bullhorn_job_id = db.Column(db.Integer, nullable=False, index=True)
-    job_title = db.Column(db.String(500), nullable=True)
-    job_location = db.Column(db.String(255), nullable=True)
+    job_title = db.Column(SafeString(500), nullable=True)
+    job_location = db.Column(SafeString(255), nullable=True)
     tearsheet_id = db.Column(db.Integer, nullable=True)
-    tearsheet_name = db.Column(db.String(255), nullable=True)
+    tearsheet_name = db.Column(SafeString(255), nullable=True)
     
     # Recruiter info for notifications
-    recruiter_name = db.Column(db.String(255), nullable=True)
-    recruiter_email = db.Column(db.String(255), nullable=True)
+    recruiter_name = db.Column(SafeString(255), nullable=True)
+    recruiter_email = db.Column(SafeString(255), nullable=True)
     recruiter_bullhorn_id = db.Column(db.Integer, nullable=True)
     
     # Match analysis
@@ -696,14 +697,14 @@ class CandidateJobMatch(db.Model):
     is_applied_job = db.Column(db.Boolean, default=False)  # True if this is the job they applied to
     
     # AI-generated explanations
-    match_summary = db.Column(db.Text, nullable=True)  # Brief summary of why they match
-    skills_match = db.Column(db.Text, nullable=True)  # Skills alignment details
-    experience_match = db.Column(db.Text, nullable=True)  # Experience alignment details
-    gaps_identified = db.Column(db.Text, nullable=True)  # What's missing
-    years_analysis_json = db.Column(db.Text, nullable=True)  # GPT's years-of-experience calculation (JSON for auditing)
+    match_summary = db.Column(SafeText, nullable=True)  # Brief summary of why they match
+    skills_match = db.Column(SafeText, nullable=True)  # Skills alignment details
+    experience_match = db.Column(SafeText, nullable=True)  # Experience alignment details
+    gaps_identified = db.Column(SafeText, nullable=True)  # What's missing
+    years_analysis_json = db.Column(SafeText, nullable=True)  # GPT's years-of-experience calculation (JSON for auditing)
     
     # Employer prestige tracking
-    prestige_employer = db.Column(db.String(255), nullable=True)
+    prestige_employer = db.Column(SafeString(255), nullable=True)
     prestige_boost_applied = db.Column(db.Boolean, default=False)
     
     # Notification tracking
