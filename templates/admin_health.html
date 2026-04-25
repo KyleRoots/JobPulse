@@ -1,0 +1,274 @@
+{% extends "base_layout.html" %}
+
+{% block title %}System Health - Scout Genius™{% endblock %}
+
+{% block page_title %}System Health{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Holistic super-admin view of platform operational status</p>{% endblock %}
+
+{% block extra_styles %}
+<style>
+    /* Scout Genius parent brand — health tiles. Reuses metric-card sizing
+       from base_layout.html and overlays a status-color treatment. */
+    .health-banner {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 16px 20px;
+        border-radius: 10px;
+        margin-bottom: 24px;
+        font-weight: 600;
+    }
+    .health-banner.banner-green {
+        background: rgba(34, 197, 94, 0.12);
+        color: #4ade80;
+        border: 1px solid rgba(34, 197, 94, 0.35);
+    }
+    .health-banner.banner-amber {
+        background: rgba(245, 158, 11, 0.12);
+        color: #fbbf24;
+        border: 1px solid rgba(245, 158, 11, 0.35);
+    }
+    .health-banner.banner-red {
+        background: rgba(239, 68, 68, 0.12);
+        color: #f87171;
+        border: 1px solid rgba(239, 68, 68, 0.35);
+    }
+    .health-banner i { font-size: 22px; }
+    .health-banner .banner-meta {
+        margin-left: auto;
+        font-weight: 400;
+        font-size: 13px;
+        opacity: 0.85;
+    }
+
+    .health-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 16px;
+    }
+
+    .health-tile {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 10px;
+        padding: 18px 20px;
+        position: relative;
+        overflow: hidden;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .health-tile:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+    }
+    .health-tile::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; bottom: 0;
+        width: 4px;
+    }
+    .health-tile.tile-green::before  { background: #22c55e; }
+    .health-tile.tile-amber::before  { background: #f59e0b; }
+    .health-tile.tile-red::before    { background: #ef4444; }
+    .health-tile.tile-unknown::before { background: #6b7280; }
+
+    .tile-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+    .tile-icon {
+        width: 36px; height: 36px;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+    }
+    .health-tile.tile-green .tile-icon  { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+    .health-tile.tile-amber .tile-icon  { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+    .health-tile.tile-red .tile-icon    { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+    .health-tile.tile-unknown .tile-icon { background: rgba(107, 114, 128, 0.18); color: #9ca3af; }
+
+    .tile-label {
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: rgba(255, 255, 255, 0.65);
+        font-weight: 600;
+    }
+    .tile-value {
+        font-size: 22px;
+        font-weight: 700;
+        color: #fff;
+        margin-bottom: 4px;
+        word-break: break-word;
+    }
+    .tile-subtext {
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.55);
+        margin-bottom: 8px;
+        word-break: break-word;
+    }
+    .tile-remediation {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.7);
+        background: rgba(0, 0, 0, 0.25);
+        border-left: 2px solid rgba(255, 255, 255, 0.15);
+        padding: 8px 10px;
+        border-radius: 0 4px 4px 0;
+        margin-top: 10px;
+    }
+    .tile-status-pill {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 999px;
+        margin-left: auto;
+    }
+    .health-tile.tile-green .tile-status-pill   { background: rgba(34, 197, 94, 0.18); color: #4ade80; }
+    .health-tile.tile-amber .tile-status-pill   { background: rgba(245, 158, 11, 0.18); color: #fbbf24; }
+    .health-tile.tile-red .tile-status-pill     { background: rgba(239, 68, 68, 0.18); color: #f87171; }
+    .health-tile.tile-unknown .tile-status-pill { background: rgba(107, 114, 128, 0.18); color: #9ca3af; }
+
+    .refresh-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+    .refresh-row .btn-refresh {
+        background: rgba(74, 150, 120, 0.15);
+        color: #4a9678;
+        border: 1px solid rgba(74, 150, 120, 0.3);
+        padding: 6px 14px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s ease;
+    }
+    .refresh-row .btn-refresh:hover { background: rgba(74, 150, 120, 0.25); }
+    .refresh-row .last-checked {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.5);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% set status_label = {'green': 'All systems operational', 'amber': 'Degraded — review tiles below', 'red': 'Action required'}.get(overall_status, 'Status unknown') %}
+{% set banner_icon = {'green': 'fa-check-circle', 'amber': 'fa-exclamation-circle', 'red': 'fa-times-circle'}.get(overall_status, 'fa-question-circle') %}
+
+<div class="health-banner banner-{{ overall_status }}" id="health-banner">
+    <i class="fas {{ banner_icon }}"></i>
+    <span id="banner-label">{{ status_label }}</span>
+    <span class="banner-meta">Last checked <span id="banner-last-checked">{{ last_checked }}</span></span>
+</div>
+
+<div class="refresh-row">
+    <button type="button" class="btn-refresh" id="btn-refresh-health">
+        <i class="fas fa-sync-alt me-1"></i>Refresh now
+    </button>
+    <span class="last-checked">Auto-refreshes every 60s</span>
+</div>
+
+<div class="health-grid" id="health-grid">
+    {% for tile in tiles %}
+    <div class="health-tile tile-{{ tile.status }}" data-tile-key="{{ tile.key }}">
+        <div class="tile-header">
+            <span class="tile-icon"><i class="fas {{ tile.icon }}"></i></span>
+            <span class="tile-label">{{ tile.label }}</span>
+            <span class="tile-status-pill">{{ tile.status }}</span>
+        </div>
+        <div class="tile-value">{{ tile.value }}</div>
+        {% if tile.subtext %}<div class="tile-subtext">{{ tile.subtext }}</div>{% endif %}
+        {% if tile.remediation %}
+        <div class="tile-remediation">
+            <i class="fas fa-lightbulb me-1"></i>{{ tile.remediation }}
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+    // Auto-refresh tile data every 60s. Uses textContent and class swaps only —
+    // no innerHTML interpolation of server data, in line with platform-wide
+    // AI-Output XSS hardening conventions even though this data is internal.
+    (function() {
+        const grid = document.getElementById('health-grid');
+        const banner = document.getElementById('health-banner');
+        const bannerLabel = document.getElementById('banner-label');
+        const bannerLastChecked = document.getElementById('banner-last-checked');
+        const refreshBtn = document.getElementById('btn-refresh-health');
+
+        const STATUS_LABELS = {
+            green: 'All systems operational',
+            amber: 'Degraded — review tiles below',
+            red: 'Action required',
+            unknown: 'Status unknown'
+        };
+
+        async function refresh() {
+            try {
+                const resp = await fetch('{{ url_for("admin_health.health_data") }}', {
+                    credentials: 'same-origin',
+                    headers: { 'Accept': 'application/json' }
+                });
+                if (!resp.ok) return;
+                const data = await resp.json();
+
+                banner.classList.remove('banner-green', 'banner-amber', 'banner-red');
+                banner.classList.add('banner-' + (data.overall_status || 'unknown'));
+                bannerLabel.textContent = STATUS_LABELS[data.overall_status] || STATUS_LABELS.unknown;
+                bannerLastChecked.textContent = data.last_checked || '';
+
+                (data.tiles || []).forEach(function(tile) {
+                    const el = grid.querySelector('[data-tile-key="' + tile.key + '"]');
+                    if (!el) return;
+                    el.classList.remove('tile-green', 'tile-amber', 'tile-red', 'tile-unknown');
+                    el.classList.add('tile-' + tile.status);
+
+                    const valueEl = el.querySelector('.tile-value');
+                    if (valueEl) valueEl.textContent = tile.value || '';
+
+                    let subtextEl = el.querySelector('.tile-subtext');
+                    if (tile.subtext) {
+                        if (!subtextEl) {
+                            subtextEl = document.createElement('div');
+                            subtextEl.className = 'tile-subtext';
+                            el.appendChild(subtextEl);
+                        }
+                        subtextEl.textContent = tile.subtext;
+                    } else if (subtextEl) {
+                        subtextEl.remove();
+                    }
+
+                    let remEl = el.querySelector('.tile-remediation');
+                    if (tile.remediation) {
+                        if (!remEl) {
+                            remEl = document.createElement('div');
+                            remEl.className = 'tile-remediation';
+                            el.appendChild(remEl);
+                        }
+                        remEl.textContent = '\u00A0' + tile.remediation;
+                    } else if (remEl) {
+                        remEl.remove();
+                    }
+
+                    const pillEl = el.querySelector('.tile-status-pill');
+                    if (pillEl) pillEl.textContent = tile.status || 'unknown';
+                });
+            } catch (err) {
+                console.warn('admin_health refresh failed', err);
+            }
+        }
+
+        refreshBtn.addEventListener('click', refresh);
+        setInterval(refresh, 60000);
+    })();
+</script>
+{% endblock %}

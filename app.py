@@ -166,6 +166,7 @@ from routes.support_request import support_request_bp
 from routes.support_auth import support_auth_bp
 from routes.scout_support import scout_support_bp
 from routes.knowledge_hub import knowledge_hub_bp
+from routes.admin_health import admin_health_bp
 app.register_blueprint(auth_bp)
 app.register_blueprint(health_bp)
 app.register_blueprint(settings_bp)
@@ -188,6 +189,7 @@ app.register_blueprint(support_request_bp)
 app.register_blueprint(support_auth_bp)
 app.register_blueprint(scout_support_bp)
 app.register_blueprint(knowledge_hub_bp)
+app.register_blueprint(admin_health_bp)
 
 from routes.scout_prospector import scout_prospector_bp
 app.register_blueprint(scout_prospector_bp)
