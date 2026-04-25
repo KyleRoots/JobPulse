@@ -573,15 +573,15 @@ def candidate_search():
     # query carries enough digits to disambiguate (≥ 7 digits keeps the branch
     # off for pure-name searches, which would otherwise force a wide scan).
     #
-    # Critical: skip the phone branch when q is PURELY numeric. Bullhorn
-    # candidate IDs are commonly 7-8 digits, so an all-digit query is treated
-    # as an exact-ID lookup and must NOT spill into phone substring matches
-    # (which would surface every candidate whose phone happens to contain
-    # those digits). Phone search activates only when the query has at least
-    # one non-digit character (separator, space, or '+') AND normalises to
-    # 7+ digits — i.e. recognisable phone formatting like "555-234-9876".
+    # Note on all-digit queries: when q is purely numeric AND 7+ digits long
+    # (typical Bullhorn IDs and bare phone numbers), both the exact-ID
+    # predicate and the phone-substring predicate fire as an OR. This is
+    # deliberate — a recruiter pasting "5552349876" might be searching for
+    # a candidate ID or a phone, and we surface both rather than guessing.
+    # The exact-ID match always takes priority in the result set; phone
+    # matches are additional, never replacing the ID hit.
     digits = re.sub(r'\D', '', q)
-    if len(digits) >= 7 and not q.isdigit():
+    if len(digits) >= 7:
         try:
             dialect_name = db.engine.dialect.name
         except Exception:

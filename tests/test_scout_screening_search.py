@@ -390,12 +390,33 @@ class TestSearchPredicates:
         cand_ids = {r['candidate_id'] for r in data['results']}
         assert cand_ids == {70001}
 
-    def test_long_numeric_id_does_not_spill_into_phone_search(self, app, monkeypatch):
-        # Architect-flagged regression: Bullhorn IDs are commonly 7-8 digits.
-        # An all-digit query of that length must NOT also fire the phone
-        # substring predicate (which would surface every candidate whose
-        # phone happens to contain those digits). Phone search is reserved
-        # for queries with non-digit characters (separators / formatting).
+    def test_digits_only_phone_search_works(self, app, monkeypatch):
+        # Recruiters often paste phones in their bare digits-only form
+        # (e.g. straight from a copy-paste off a CRM field). The route
+        # must surface phone matches for all-digit input AS WELL AS the
+        # exact Bullhorn ID hit (when the digits coincidentally match an
+        # ID). This is the architect-flagged Done criterion: phone
+        # search "with or without dashes, parens, spaces".
+        _ensure_admin(app)
+        _seed_search_data(app, monkeypatch)
+        c = _login(app)
+        # Carol's seeded phone is "5552349876" (no separators).
+        resp = c.get('/scout-screening/search?q=5552349876').get_json()
+        cand_ids = {r['candidate_id'] for r in resp['results']}
+        assert 70003 in cand_ids, (
+            f"Digits-only phone query 5552349876 must find Carol "
+            f"via the phone branch. Got {cand_ids}"
+        )
+
+    def test_all_digit_id_query_returns_id_match_plus_phone_match(
+        self, app, monkeypatch
+    ):
+        # Architect ruling: when q is purely numeric and 7+ digits long,
+        # both the exact-ID predicate and the phone-substring predicate
+        # fire. We surface BOTH the candidate whose ID equals q AND any
+        # candidates whose phone contains those digits — the recruiter
+        # picks. Exact ID is always present in the result set; phone
+        # spillover is additional, never replacing it.
         from extensions import db
         from models import CandidateJobMatch, CandidateVettingLog, ParsedEmail
 
@@ -404,9 +425,8 @@ class TestSearchPredicates:
         c = _login(app)
 
         with app.app_context():
-            # Seed a candidate (70010) whose Bullhorn ID is a realistic
-            # 7-digit number. Their phone is something else entirely.
             now = datetime.utcnow()
+            # Candidate whose ID happens to be 7 digits.
             log = CandidateVettingLog(
                 bullhorn_candidate_id=1234567,
                 candidate_name='Frank Foxtrot',
@@ -432,9 +452,7 @@ class TestSearchPredicates:
                 gaps_identified='',
                 created_at=now,
             ))
-            # Seed a DIFFERENT candidate (70011) whose phone contains the
-            # digits "1234567". If the phone branch incorrectly fires for
-            # the all-digit ID query, this candidate would appear too.
+            # Different candidate whose phone happens to contain "1234567".
             log2 = CandidateVettingLog(
                 bullhorn_candidate_id=70011,
                 candidate_name='Grace Golf',
@@ -473,22 +491,24 @@ class TestSearchPredicates:
             ))
             db.session.commit()
 
-        # All-digit 7-char query → exact ID lookup ONLY
         resp = c.get('/scout-screening/search?q=1234567').get_json()
         cand_ids = {r['candidate_id'] for r in resp['results']}
-        assert cand_ids == {1234567}, (
-            f"All-digit query 1234567 must match exactly one candidate "
-            f"(Bullhorn ID), not spill into phone substring matches. "
-            f"Got {cand_ids}"
+        # Exact-ID hit MUST be present — that's the non-negotiable
+        # invariant the previous architect rightly flagged.
+        assert 1234567 in cand_ids, (
+            f"Exact ID 1234567 must always appear in the result set "
+            f"for the all-digit query — got {cand_ids}"
+        )
+        # And the phone-spillover candidate is also included, by design.
+        assert 70011 in cand_ids, (
+            f"All-digit query 1234567 should also surface candidates "
+            f"with that digit substring in their phone — got {cand_ids}"
         )
 
-        # But formatted phone query (with non-digit chars) → still works
+        # Formatted phone query continues to work for the spillover case.
         resp = c.get('/scout-screening/search?q=555-123-4567').get_json()
         cand_ids = {r['candidate_id'] for r in resp['results']}
-        assert 70011 in cand_ids, (
-            f"Formatted phone query 555-123-4567 should still find Grace "
-            f"via phone search. Got {cand_ids}"
-        )
+        assert 70011 in cand_ids
 
 
 # ---------------------------------------------------------------------------
