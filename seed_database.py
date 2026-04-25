@@ -472,6 +472,22 @@ def seed_bullhorn_monitors(db, BullhornMonitor):
         raise
 
 
+def _default_platform_age_ceilings_json():
+    """Return the JSON-encoded default PLATFORM_AGE_CEILINGS dict.
+
+    Sourced from vetting_audit_service.DEFAULT_PLATFORM_AGE_CEILINGS so the
+    seed default and the service default never drift apart. Falls back to an
+    empty JSON object if the import fails (extremely unlikely in practice but
+    keeps seed startup robust).
+    """
+    try:
+        from vetting_audit_service import DEFAULT_PLATFORM_AGE_CEILINGS
+        return json.dumps(DEFAULT_PLATFORM_AGE_CEILINGS)
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to load default platform ceilings: {e!r}")
+        return '{}'
+
+
 def _load_global_screening_prompt():
     """
     Load the global screening prompt from the version-controlled config file.
@@ -537,6 +553,19 @@ def seed_vetting_config(db, VettingConfig):
             'vetting_cutoff_date': '',             # Empty by default; user sets via UI
             # Screening quality audit
             'screening_audit_enabled': 'false',    # Off by default; user enables via UI
+            # Quality auditor model — separately configurable from layer2_model
+            # so an admin can run the auditor on a stronger/cheaper model
+            # without affecting primary screening.
+            'quality_auditor_model': 'gpt-5.4',
+            # Platform-age ceilings (years) used by the heuristic pre-checks
+            # to detect impossible "X years required" requirements when the
+            # platform itself is younger than X. JSON-encoded dict of
+            # platform_name (lowercase) -> max_years_float.
+            'platform_age_ceilings': _default_platform_age_ceilings_json(),
+            # Sample rate (percent, 0-100) for the new Qualified false-positive
+            # audit phase. 0 disables it; 10 means 10% of recent Qualified
+            # results are sampled per cycle.
+            'qualified_audit_sample_rate': '10',
             # Recruiter-activity gate (Task D) — pause auto-vet when a human
             # recruiter has touched the candidate within the lookback window.
             # Killswitch and tunable window so admins can adjust without a deploy.

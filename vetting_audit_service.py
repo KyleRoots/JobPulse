@@ -1,12 +1,13 @@
 import logging
 import json
 import os
+import random
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
 import requests
 
-PLATFORM_AGE_CEILINGS = {
+DEFAULT_PLATFORM_AGE_CEILINGS = {
     'databricks': 8.0,
     'delta lake': 7.0,
     'azure synapse': 6.0,
@@ -21,6 +22,83 @@ PLATFORM_AGE_CEILINGS = {
     'terraform': 10.0,
     'docker': 12.0,
 }
+
+DEFAULT_AUDITOR_MODEL = 'gpt-5.4'
+DEFAULT_QUALIFIED_SAMPLE_RATE = 10
+
+
+def get_platform_age_ceilings() -> Dict[str, float]:
+    """Load PLATFORM_AGE_CEILINGS from VettingConfig with safe fallback.
+
+    Looks up the `platform_age_ceilings` key (JSON-encoded dict of
+    platform_name -> max_years_float). Returns the in-file defaults if
+    the row is missing, the value is empty, or the JSON is malformed.
+    """
+    try:
+        from models import VettingConfig
+        raw = VettingConfig.get_value('platform_age_ceilings', None)
+        if not raw or not isinstance(raw, str) or not raw.strip():
+            return DEFAULT_PLATFORM_AGE_CEILINGS
+        parsed = json.loads(raw)
+        if not isinstance(parsed, dict) or not parsed:
+            return DEFAULT_PLATFORM_AGE_CEILINGS
+        cleaned: Dict[str, float] = {}
+        for k, v in parsed.items():
+            try:
+                f = float(v)
+            except (ValueError, TypeError):
+                continue
+            if f != f or f <= 0 or f > 100:
+                logging.warning(
+                    f"⚠️ platform_age_ceilings: dropping out-of-range value "
+                    f"{k!r}={v!r} (must be > 0 and <= 100 years)"
+                )
+                continue
+            cleaned[str(k).lower()] = f
+        return cleaned if cleaned else DEFAULT_PLATFORM_AGE_CEILINGS
+    except Exception as e:
+        logging.warning(
+            f"⚠️ platform_age_ceilings load failed ({e!r}) — using in-file defaults"
+        )
+        return DEFAULT_PLATFORM_AGE_CEILINGS
+
+
+def get_auditor_model() -> str:
+    """Load the auditor model name from VettingConfig with safe fallback."""
+    try:
+        from models import VettingConfig
+        raw = VettingConfig.get_value('quality_auditor_model', None)
+        if isinstance(raw, str) and raw.strip():
+            return raw.strip()
+    except Exception as e:
+        logging.warning(
+            f"⚠️ quality_auditor_model load failed ({e!r}) — using default"
+        )
+    return DEFAULT_AUDITOR_MODEL
+
+
+def get_qualified_sample_rate() -> int:
+    """Load the Qualified false-positive sample rate (percent, 0-100).
+
+    Returns the configured percentage of Qualified results to audit per
+    cycle. 0 disables the Qualified audit branch entirely. Defaults to
+    DEFAULT_QUALIFIED_SAMPLE_RATE (10%) if missing or malformed.
+    """
+    try:
+        from models import VettingConfig
+        raw = VettingConfig.get_value('qualified_audit_sample_rate', None)
+        if raw is not None:
+            value = int(str(raw).strip())
+            if 0 <= value <= 100:
+                return value
+    except (ValueError, TypeError, Exception) as e:
+        logging.warning(
+            f"⚠️ qualified_audit_sample_rate load failed ({e!r}) — using default"
+        )
+    return DEFAULT_QUALIFIED_SAMPLE_RATE
+
+
+PLATFORM_AGE_CEILINGS = DEFAULT_PLATFORM_AGE_CEILINGS
 
 DOMAIN_KEYWORDS = [
     'data engineer', 'azure data', 'databricks', 'spark', 'etl', 'pipeline',
@@ -45,6 +123,18 @@ class VettingAuditService:
         self.openai_api_key = os.environ.get('OPENAI_API_KEY')
 
     def run_audit_cycle(self, batch_size=20):
+        """Run an audit cycle covering both false-negative and false-positive cases.
+
+        Phase 1 (existing): reviews recent Not-Qualified results and re-vets
+        confirmed misfires (recency, location, gap, authorization, etc.).
+
+        Phase 2 (new): samples a configurable percentage of Qualified results
+        and reviews them for false positives — candidates who scored above the
+        threshold but the resume actually fails mandatory requirements. Uses
+        the same Tier-1 heuristic + Tier-2 AI confirmation pattern. Sample
+        rate is read from VettingConfig.qualified_audit_sample_rate (default
+        10%, 0 disables Phase 2 entirely).
+        """
         from app import db
         from models import (
             CandidateVettingLog, CandidateJobMatch, VettingAuditLog,
@@ -56,15 +146,15 @@ class VettingAuditService:
             'total_audited': 0,
             'issues_found': 0,
             'revets_triggered': 0,
+            'qualified_audited': 0,
+            'qualified_issues_found': 0,
             'details': []
         }
 
         try:
-            from sqlalchemy import and_
-
             already_audited = db.session.query(VettingAuditLog.candidate_vetting_log_id).subquery()
 
-            candidates = CandidateVettingLog.query.filter(
+            not_qualified = CandidateVettingLog.query.filter(
                 CandidateVettingLog.status == 'completed',
                 CandidateVettingLog.is_qualified == False,
                 CandidateVettingLog.is_sandbox == False,
@@ -75,144 +165,42 @@ class VettingAuditService:
                 CandidateVettingLog.analyzed_at.desc()
             ).limit(batch_size).all()
 
-            if not candidates:
-                logging.info("🔍 Screening audit: no new unaudited results to review")
-                return summary
+            if not_qualified:
+                logging.info(
+                    f"🔍 Screening audit (Not Qualified phase): reviewing "
+                    f"{len(not_qualified)} unaudited results"
+                )
+                for vetting_log in not_qualified:
+                    self._process_candidate_audit(
+                        vetting_log, mode='not_qualified', summary=summary
+                    )
+            else:
+                logging.info("🔍 Screening audit: no new unaudited Not-Qualified results")
 
-            logging.info(f"🔍 Screening audit: reviewing {len(candidates)} unaudited results")
-
-            for vetting_log in candidates:
-                try:
-                    applied_match = CandidateJobMatch.query.filter_by(
-                        vetting_log_id=vetting_log.id,
-                        is_applied_job=True
-                    ).first()
-
-                    if not applied_match:
-                        applied_match = CandidateJobMatch.query.filter_by(
-                            vetting_log_id=vetting_log.id
-                        ).order_by(CandidateJobMatch.match_score.desc()).first()
-
-                    if not applied_match:
-                        audit_log = VettingAuditLog(
-                            candidate_vetting_log_id=vetting_log.id,
-                            bullhorn_candidate_id=vetting_log.bullhorn_candidate_id,
-                            candidate_name=vetting_log.candidate_name,
-                            job_id=vetting_log.applied_job_id,
-                            job_title=vetting_log.applied_job_title,
-                            original_score=vetting_log.highest_match_score,
-                            finding_type='no_issue',
-                            action_taken='no_action',
-                            audit_finding='No job match records found to audit'
-                        )
-                        db.session.add(audit_log)
-                        db.session.commit()
-                        summary['total_audited'] += 1
-                        continue
-
-                    suspected_issues = self._run_heuristic_checks(vetting_log, applied_match)
-
-                    if not suspected_issues:
-                        audit_log = VettingAuditLog(
-                            candidate_vetting_log_id=vetting_log.id,
-                            bullhorn_candidate_id=vetting_log.bullhorn_candidate_id,
-                            candidate_name=vetting_log.candidate_name,
-                            job_id=applied_match.bullhorn_job_id,
-                            job_title=applied_match.job_title,
-                            original_score=applied_match.match_score,
-                            finding_type='no_issue',
-                            confidence='high',
-                            action_taken='no_action',
-                            audit_finding='Heuristic checks passed — no issues detected'
-                        )
-                        db.session.add(audit_log)
-                        db.session.commit()
-                        summary['total_audited'] += 1
-                        continue
-
+            sample_rate = get_qualified_sample_rate()
+            if sample_rate > 0:
+                qualified_sample = self._fetch_qualified_audit_sample(
+                    batch_size, sample_rate
+                )
+                if qualified_sample:
                     logging.info(
-                        f"⚠️ Screening audit: {len(suspected_issues)} suspected issue(s) "
-                        f"for candidate {vetting_log.bullhorn_candidate_id} "
-                        f"({vetting_log.candidate_name}) on job {applied_match.bullhorn_job_id}"
+                        f"🔍 Screening audit (Qualified false-positive phase): "
+                        f"sampling {len(qualified_sample)} of recent Qualified results "
+                        f"(sample rate: {sample_rate}%)"
                     )
-
-                    ai_finding = self._run_ai_audit(
-                        applied_match,
-                        vetting_log.resume_text or '',
-                        applied_match.job_title or vetting_log.applied_job_title or '',
-                        suspected_issues
-                    )
-
-                    finding_type = ai_finding.get('finding_type', 'no_issue')
-                    confidence = ai_finding.get('confidence', 'low')
-                    action_taken = 'no_action'
-                    revet_new_score = None
-
-                    if confidence == 'high' and finding_type != 'no_issue':
-                        action_taken = 'revet_triggered'
-                        revet_new_score = self._trigger_revet(
-                            vetting_log.bullhorn_candidate_id,
-                            vetting_log.id
+                    for vetting_log in qualified_sample:
+                        self._process_candidate_audit(
+                            vetting_log, mode='qualified_false_positive', summary=summary
                         )
-                        summary['revets_triggered'] += 1
-                        logging.info(
-                            f"✅ Screening audit: re-vet triggered for candidate "
-                            f"{vetting_log.bullhorn_candidate_id} ({vetting_log.candidate_name}). "
-                            f"Original score: {applied_match.match_score}%, "
-                            f"New score: {revet_new_score}%"
-                        )
-                    elif confidence == 'medium' and finding_type != 'no_issue':
-                        action_taken = 'flagged_for_review'
-
-                    summary['total_audited'] += 1
-                    if finding_type != 'no_issue':
-                        summary['issues_found'] += 1
-                        summary['details'].append({
-                            'candidate_id': vetting_log.bullhorn_candidate_id,
-                            'candidate_name': vetting_log.candidate_name,
-                            'job_title': applied_match.job_title,
-                            'original_score': applied_match.match_score,
-                            'finding_type': finding_type,
-                            'confidence': confidence,
-                            'action_taken': action_taken,
-                            'new_score': revet_new_score
-                        })
-
-                    audit_log = VettingAuditLog(
-                        candidate_vetting_log_id=vetting_log.id,
-                        bullhorn_candidate_id=vetting_log.bullhorn_candidate_id,
-                        candidate_name=vetting_log.candidate_name,
-                        job_id=applied_match.bullhorn_job_id,
-                        job_title=applied_match.job_title,
-                        original_score=applied_match.match_score,
-                        audit_finding=ai_finding.get('reasoning', ''),
-                        finding_type=finding_type,
-                        confidence=confidence,
-                        action_taken=action_taken,
-                        revet_new_score=revet_new_score
+                else:
+                    logging.info(
+                        "🔍 Screening audit: no new Qualified results to sample"
                     )
-                    db.session.add(audit_log)
-                    db.session.commit()
-
-                except Exception as e:
-                    logging.error(
-                        f"❌ Screening audit error for candidate "
-                        f"{vetting_log.bullhorn_candidate_id}: {str(e)}"
-                    )
-                    try:
-                        audit_log = VettingAuditLog(
-                            candidate_vetting_log_id=vetting_log.id,
-                            bullhorn_candidate_id=vetting_log.bullhorn_candidate_id,
-                            candidate_name=vetting_log.candidate_name,
-                            finding_type='no_issue',
-                            action_taken='no_action',
-                            audit_finding=f'Audit error: {str(e)}'
-                        )
-                        db.session.add(audit_log)
-                        db.session.commit()
-                    except Exception:
-                        db.session.rollback()
-                    summary['total_audited'] += 1
+            else:
+                logging.info(
+                    "🔍 Screening audit: Qualified-sample phase disabled "
+                    "(qualified_audit_sample_rate=0)"
+                )
 
             if summary['issues_found'] > 0 or summary['revets_triggered'] > 0:
                 try:
@@ -224,7 +212,8 @@ class VettingAuditService:
 
             logging.info(
                 f"✅ Screening audit cycle complete: "
-                f"{summary['total_audited']} audited, "
+                f"{summary['total_audited']} total audited "
+                f"({summary['qualified_audited']} were Qualified samples), "
                 f"{summary['issues_found']} issues found, "
                 f"{summary['revets_triggered']} re-vets triggered"
             )
@@ -233,6 +222,202 @@ class VettingAuditService:
             logging.error(f"❌ Screening audit cycle failed: {str(e)}")
 
         return summary
+
+    def _fetch_qualified_audit_sample(self, batch_size: int, sample_rate: int):
+        """Fetch a sampled batch of recent Qualified results that haven't been audited.
+
+        Pulls a candidate pool ~10x batch_size deep, filters to unaudited rows,
+        then randomly samples (sample_rate%). Returns at most batch_size rows.
+        """
+        from app import db
+        from models import CandidateVettingLog, VettingAuditLog
+
+        already_audited = db.session.query(VettingAuditLog.candidate_vetting_log_id).subquery()
+
+        pool_size = max(batch_size * 10, 50)
+        pool = CandidateVettingLog.query.filter(
+            CandidateVettingLog.status == 'completed',
+            CandidateVettingLog.is_qualified == True,
+            CandidateVettingLog.is_sandbox == False,
+            ~CandidateVettingLog.id.in_(
+                db.session.query(already_audited)
+            )
+        ).order_by(
+            CandidateVettingLog.analyzed_at.desc()
+        ).limit(pool_size).all()
+
+        if not pool:
+            return []
+
+        sampled = [
+            vl for vl in pool
+            if random.randint(1, 100) <= sample_rate
+        ]
+        return sampled[:batch_size]
+
+    def _process_candidate_audit(self, vetting_log, mode: str, summary: Dict):
+        """Audit a single candidate. Handles applied_match lookup, heuristic
+        checks, AI confirmation, action decision, and audit log persistence.
+
+        mode='not_qualified' uses the existing _run_heuristic_checks (false
+        negatives). mode='qualified_false_positive' uses the new
+        _run_false_positive_checks (false positives).
+        """
+        from app import db
+        from models import CandidateJobMatch, VettingAuditLog
+
+        is_qualified_audit = (mode == 'qualified_false_positive')
+        try:
+            applied_match = CandidateJobMatch.query.filter_by(
+                vetting_log_id=vetting_log.id,
+                is_applied_job=True
+            ).first()
+
+            if not applied_match:
+                applied_match = CandidateJobMatch.query.filter_by(
+                    vetting_log_id=vetting_log.id
+                ).order_by(CandidateJobMatch.match_score.desc()).first()
+
+            if not applied_match:
+                audit_log = VettingAuditLog(
+                    candidate_vetting_log_id=vetting_log.id,
+                    bullhorn_candidate_id=vetting_log.bullhorn_candidate_id,
+                    candidate_name=vetting_log.candidate_name,
+                    job_id=vetting_log.applied_job_id,
+                    job_title=vetting_log.applied_job_title,
+                    original_score=vetting_log.highest_match_score,
+                    finding_type='no_issue',
+                    action_taken='no_action',
+                    audit_finding='No job match records found to audit'
+                )
+                db.session.add(audit_log)
+                db.session.commit()
+                summary['total_audited'] += 1
+                if is_qualified_audit:
+                    summary['qualified_audited'] += 1
+                return
+
+            if is_qualified_audit:
+                suspected_issues = self._run_false_positive_checks(vetting_log, applied_match)
+            else:
+                suspected_issues = self._run_heuristic_checks(vetting_log, applied_match)
+
+            if not suspected_issues:
+                clean_finding = (
+                    'Qualified false-positive checks passed — no issues detected'
+                    if is_qualified_audit
+                    else 'Heuristic checks passed — no issues detected'
+                )
+                audit_log = VettingAuditLog(
+                    candidate_vetting_log_id=vetting_log.id,
+                    bullhorn_candidate_id=vetting_log.bullhorn_candidate_id,
+                    candidate_name=vetting_log.candidate_name,
+                    job_id=applied_match.bullhorn_job_id,
+                    job_title=applied_match.job_title,
+                    original_score=applied_match.match_score,
+                    finding_type='no_issue',
+                    confidence='high',
+                    action_taken='no_action',
+                    audit_finding=clean_finding
+                )
+                db.session.add(audit_log)
+                db.session.commit()
+                summary['total_audited'] += 1
+                if is_qualified_audit:
+                    summary['qualified_audited'] += 1
+                return
+
+            logging.info(
+                f"⚠️ Screening audit ({mode}): {len(suspected_issues)} suspected issue(s) "
+                f"for candidate {vetting_log.bullhorn_candidate_id} "
+                f"({vetting_log.candidate_name}) on job {applied_match.bullhorn_job_id}"
+            )
+
+            ai_finding = self._run_ai_audit(
+                applied_match,
+                vetting_log.resume_text or '',
+                applied_match.job_title or vetting_log.applied_job_title or '',
+                suspected_issues,
+                mode=mode
+            )
+
+            finding_type = ai_finding.get('finding_type', 'no_issue')
+            confidence = ai_finding.get('confidence', 'low')
+            action_taken = 'no_action'
+            revet_new_score = None
+
+            if confidence == 'high' and finding_type != 'no_issue':
+                action_taken = 'revet_triggered'
+                revet_new_score = self._trigger_revet(
+                    vetting_log.bullhorn_candidate_id,
+                    vetting_log.id
+                )
+                summary['revets_triggered'] += 1
+                logging.info(
+                    f"✅ Screening audit ({mode}): re-vet triggered for candidate "
+                    f"{vetting_log.bullhorn_candidate_id} ({vetting_log.candidate_name}). "
+                    f"Original score: {applied_match.match_score}%, "
+                    f"New score: {revet_new_score}%"
+                )
+            elif confidence == 'medium' and finding_type != 'no_issue':
+                action_taken = 'flagged_for_review'
+
+            summary['total_audited'] += 1
+            if is_qualified_audit:
+                summary['qualified_audited'] += 1
+            if finding_type != 'no_issue':
+                summary['issues_found'] += 1
+                if is_qualified_audit:
+                    summary['qualified_issues_found'] += 1
+                summary['details'].append({
+                    'candidate_id': vetting_log.bullhorn_candidate_id,
+                    'candidate_name': vetting_log.candidate_name,
+                    'job_title': applied_match.job_title,
+                    'original_score': applied_match.match_score,
+                    'finding_type': finding_type,
+                    'confidence': confidence,
+                    'action_taken': action_taken,
+                    'new_score': revet_new_score,
+                    'mode': mode
+                })
+
+            audit_log = VettingAuditLog(
+                candidate_vetting_log_id=vetting_log.id,
+                bullhorn_candidate_id=vetting_log.bullhorn_candidate_id,
+                candidate_name=vetting_log.candidate_name,
+                job_id=applied_match.bullhorn_job_id,
+                job_title=applied_match.job_title,
+                original_score=applied_match.match_score,
+                audit_finding=ai_finding.get('reasoning', ''),
+                finding_type=finding_type,
+                confidence=confidence,
+                action_taken=action_taken,
+                revet_new_score=revet_new_score
+            )
+            db.session.add(audit_log)
+            db.session.commit()
+
+        except Exception as e:
+            logging.error(
+                f"❌ Screening audit error ({mode}) for candidate "
+                f"{vetting_log.bullhorn_candidate_id}: {str(e)}"
+            )
+            try:
+                audit_log = VettingAuditLog(
+                    candidate_vetting_log_id=vetting_log.id,
+                    bullhorn_candidate_id=vetting_log.bullhorn_candidate_id,
+                    candidate_name=vetting_log.candidate_name,
+                    finding_type='no_issue',
+                    action_taken='no_action',
+                    audit_finding=f'Audit error ({mode}): {str(e)}'
+                )
+                db.session.add(audit_log)
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+            summary['total_audited'] += 1
+            if is_qualified_audit:
+                summary['qualified_audited'] += 1
 
     def _run_heuristic_checks(self, vetting_log, job_match) -> List[Dict]:
         issues = []
@@ -312,7 +497,7 @@ class VettingAuditService:
                         if required <= 0:
                             continue
                         skill_lower = skill.lower()
-                        for platform_key, ceiling in PLATFORM_AGE_CEILINGS.items():
+                        for platform_key, ceiling in get_platform_age_ceilings().items():
                             if platform_key in skill_lower and required > ceiling:
                                 issues.append({
                                     'check_type': 'platform_age_violation',
@@ -509,8 +694,110 @@ class VettingAuditService:
 
         return issues
 
+    def _run_false_positive_checks(self, vetting_log, job_match) -> List[Dict]:
+        """Tier-1 heuristics for Qualified false-positive detection.
+
+        Looks for cases where a candidate scored above the threshold but the
+        AI's own outputs contain signals suggesting the score is too high
+        (e.g., gaps mention 2+ mandatory skills missing, or summary uses
+        negative qualifiers, or years_analysis shows experience well below
+        what was required).
+
+        Returns a list of suspected issues. An empty list means the candidate
+        looks like a genuine Qualified result and the AI confirmation step
+        will be skipped.
+        """
+        issues: List[Dict] = []
+
+        if not job_match:
+            return issues
+
+        gaps = (job_match.gaps_identified or '').lower()
+        match_summary = (job_match.match_summary or '').lower()
+        score = job_match.match_score or 0
+
+        if score < 50:
+            return issues
+
+        mandatory_indicator_phrases = [
+            'mandatory skill', 'required skill', 'critical requirement',
+            'core requirement', 'must have', 'must-have',
+            'no experience with', 'no evidence of', 'lacks experience',
+            'missing required',
+        ]
+        mandatory_gap_count = sum(
+            1 for phrase in mandatory_indicator_phrases if phrase in gaps
+        )
+        if mandatory_gap_count >= 2:
+            issues.append({
+                'check_type': 'false_positive_skill_gap',
+                'description': (
+                    f"Score is {score}% (Qualified) but gaps_identified flags "
+                    f"{mandatory_gap_count} mandatory-skill concerns: "
+                    f"'{(job_match.gaps_identified or '')[:200]}'. "
+                    f"Possible false positive — recruiter may receive a candidate who "
+                    f"is actually missing required skills."
+                )
+            })
+
+        negative_qualifiers = [
+            'limited experience', 'lacks', 'no evidence',
+            'minimal experience', 'minimal exposure', 'shallow experience',
+            'brief exposure', 'no demonstrated', 'no proof of',
+            'has not demonstrated',
+        ]
+        negative_hits = [phrase for phrase in negative_qualifiers if phrase in match_summary]
+        if negative_hits and score >= 70:
+            issues.append({
+                'check_type': 'false_positive_negative_summary',
+                'description': (
+                    f"Score is {score}% (Qualified) but match_summary contains "
+                    f"negative qualifier(s): {negative_hits}. "
+                    f"Summary text: '{(job_match.match_summary or '')[:200]}'. "
+                    f"Possible inflated score — summary describes a weaker fit than "
+                    f"the score implies."
+                )
+            })
+
+        years_json_str = job_match.years_analysis_json
+        if years_json_str:
+            try:
+                years_data = json.loads(years_json_str) if isinstance(years_json_str, str) else years_json_str
+                if isinstance(years_data, dict):
+                    shortfalls = []
+                    for skill, data in years_data.items():
+                        if not isinstance(data, dict):
+                            continue
+                        try:
+                            required = float(data.get('required_years', 0) or 0)
+                            estimated = float(
+                                data.get('estimated_years', data.get('actual_years', 0)) or 0
+                            )
+                        except (ValueError, TypeError):
+                            continue
+                        meets = data.get('meets_requirement', True)
+                        if required >= 3 and meets is True and estimated < (required * 0.5):
+                            shortfalls.append(
+                                f"{skill}: {estimated:.1f}yr vs {required:.1f}yr required"
+                            )
+                    if shortfalls:
+                        issues.append({
+                            'check_type': 'false_positive_experience_short',
+                            'description': (
+                                f"Score is {score}% (Qualified) but years_analysis shows "
+                                f"the candidate has less than half the required experience "
+                                f"on at least one mandatory skill while still marked "
+                                f"meets_requirement=true: {'; '.join(shortfalls[:3])}. "
+                                f"AI may have over-credited transferable experience."
+                            )
+                        })
+            except (json.JSONDecodeError, TypeError, ValueError):
+                pass
+
+        return issues
+
     def _run_ai_audit(self, job_match, resume_text: str, job_title: str,
-                      suspected_issues: List[Dict]) -> Dict:
+                      suspected_issues: List[Dict], mode: str = 'not_qualified') -> Dict:
         if not self.openai_api_key:
             logging.error("OpenAI API key not available for screening audit")
             return {'finding_type': 'no_issue', 'confidence': 'low', 'reasoning': 'No API key'}
@@ -525,7 +812,46 @@ class VettingAuditService:
         score = job_match.match_score or 0
         summary = job_match.match_summary or 'No summary'
 
-        prompt = f"""You are a quality auditor for an AI-powered candidate screening system.
+        if mode == 'qualified_false_positive':
+            prompt = f"""You are a quality auditor for an AI-powered candidate screening system.
+A candidate was scored {score}% (Qualified — recommended to a recruiter) for the job: "{job_title}".
+
+ORIGINAL AI ASSESSMENT:
+- Match Summary: {summary}
+- Gaps Identified: {gaps}
+
+SUSPECTED FALSE-POSITIVE SIGNALS (flagged by heuristic pre-checks):
+{issues_text}
+
+CANDIDATE RESUME (first 4000 chars):
+{resume_snippet}
+
+YOUR TASK:
+Review each suspected signal and determine if the candidate was OVER-SCORED — i.e.,
+the original AI assessment looks favorable but the resume actually fails one or more
+mandatory requirements.
+
+For each suspected signal, consider:
+1. If gaps mention multiple mandatory skills missing, are those skills genuinely absent from the resume? (If absent, the score should NOT be Qualified.)
+2. If the summary uses negative language ("lacks", "limited experience", "no evidence"), does that contradict a score of {score}%?
+3. If years_analysis shows large experience shortfalls (less than half required years), did the AI under-weight the requirement?
+4. Is there a clear mandatory requirement (e.g., active security clearance, specific certification, location/work-authorization compliance) that the resume cannot satisfy?
+
+Respond in JSON format:
+{{
+    "finding_type": "<false_positive_skill_gap | false_positive_experience_short | false_positive_negative_summary | false_positive_compliance | no_issue>",
+    "confidence": "<high | medium | low>",
+    "reasoning": "<2-3 sentence explanation of your finding>",
+    "recommended_action": "<revet | flag_for_review | no_action>"
+}}
+
+IMPORTANT:
+- Only return "high" confidence if the over-scoring is clear and unambiguous
+- If multiple issues are confirmed, pick the MOST impactful one as finding_type
+- "no_issue" means the Qualified score was correct despite the heuristic flag
+- Be conservative: false alarms cost recruiters trust, so prefer "medium" / "low" over "high" when in doubt"""
+        else:
+            prompt = f"""You are a quality auditor for an AI-powered candidate screening system.
 A candidate was scored {score}% (Not Qualified) for the job: "{job_title}".
 
 ORIGINAL AI ASSESSMENT:
@@ -572,7 +898,7 @@ IMPORTANT:
                     'Content-Type': 'application/json'
                 },
                 json={
-                    'model': 'gpt-5.4',
+                    'model': get_auditor_model(),
                     'messages': [
                         {'role': 'system', 'content': 'You are a quality auditor. Respond only in valid JSON.'},
                         {'role': 'user', 'content': prompt}

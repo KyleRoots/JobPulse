@@ -44,6 +44,10 @@ def vetting_settings():
         # Recruiter-activity gate (Task D)
         'recruiter_activity_check_enabled': True,
         'recruiter_activity_lookback_minutes': 60,
+        # Quality auditor controls (Task #11 rescope)
+        'quality_auditor_model': 'gpt-5.4',
+        'platform_age_ceilings': '',
+        'qualified_audit_sample_rate': 10,
     }
 
     all_configs = VettingConfig.query.filter(
@@ -58,14 +62,16 @@ def vetting_settings():
                        'screening_audit_enabled', 'recruiter_activity_check_enabled'):
                 settings[key] = value.lower() == 'true'
             elif key in ('match_threshold', 'batch_size',
-                         'recruiter_activity_lookback_minutes'):
+                         'recruiter_activity_lookback_minutes',
+                         'qualified_audit_sample_rate'):
                 try:
                     settings[key] = int(value)
                 except (ValueError, TypeError):
                     settings[key] = (
                         80 if key == 'match_threshold'
                         else 25 if key == 'batch_size'
-                        else 60
+                        else 60 if key == 'recruiter_activity_lookback_minutes'
+                        else 10
                     )
             elif key == 'embedding_similarity_threshold':
                 try:
@@ -170,6 +176,10 @@ def save_vetting_settings():
         # Recruiter-activity gate (Task D)
         recruiter_gate_enabled = 'recruiter_activity_check_enabled' in request.form
         recruiter_lookback_raw = request.form.get('recruiter_activity_lookback_minutes', '60')
+        # Quality auditor controls (Task #11 rescope)
+        quality_auditor_model = request.form.get('quality_auditor_model', 'gpt-5.4').strip() or 'gpt-5.4'
+        platform_age_ceilings_raw = request.form.get('platform_age_ceilings', '').strip()
+        qualified_audit_sample_rate_raw = request.form.get('qualified_audit_sample_rate', '10')
         
         # Validate threshold
         try:
@@ -213,6 +223,44 @@ def save_vetting_settings():
         except (ValueError, TypeError):
             recruiter_lookback = 60
 
+        # Validate qualified_audit_sample_rate (0-100; 0 disables Phase 2)
+        try:
+            qualified_sample_rate = int(str(qualified_audit_sample_rate_raw).strip())
+            if qualified_sample_rate < 0 or qualified_sample_rate > 100:
+                qualified_sample_rate = 10
+        except (ValueError, TypeError):
+            qualified_sample_rate = 10
+
+        # Validate platform_age_ceilings JSON.
+        # Empty string is allowed and means "use built-in defaults"; otherwise
+        # must parse as a JSON object of platform_name -> positive number.
+        # On parse failure we reject the save so the admin sees the error
+        # instead of silently swallowing bad JSON and shipping defaults.
+        platform_age_ceilings_value = ''
+        if platform_age_ceilings_raw:
+            try:
+                import json as _json
+                parsed = _json.loads(platform_age_ceilings_raw)
+                if not isinstance(parsed, dict) or not parsed:
+                    raise ValueError('Must be a non-empty JSON object')
+                cleaned = {}
+                for k, v in parsed.items():
+                    f = float(v)
+                    if f <= 0 or f > 100:
+                        raise ValueError(
+                            f"Ceiling for '{k}' must be between 0 and 100 years"
+                        )
+                    cleaned[str(k).lower()] = f
+                platform_age_ceilings_value = _json.dumps(cleaned)
+            except (ValueError, TypeError, _json.JSONDecodeError) as je:
+                flash(
+                    f'Invalid Platform Age Ceilings JSON: {str(je)}. '
+                    f'Settings NOT saved. Expected format: '
+                    f'{{"databricks": 8.0, "snowflake": 10.0, ...}}',
+                    'error'
+                )
+                return redirect(url_for('vetting.vetting_settings'))
+
         # Update settings
         settings_to_save = [
             ('vetting_enabled', 'true' if vetting_enabled else 'false'),
@@ -228,6 +276,9 @@ def save_vetting_settings():
             ('recruiter_activity_check_enabled',
              'true' if recruiter_gate_enabled else 'false'),
             ('recruiter_activity_lookback_minutes', str(recruiter_lookback)),
+            ('quality_auditor_model', quality_auditor_model),
+            ('platform_age_ceilings', platform_age_ceilings_value),
+            ('qualified_audit_sample_rate', str(qualified_sample_rate)),
         ]
         
         for key, value in settings_to_save:

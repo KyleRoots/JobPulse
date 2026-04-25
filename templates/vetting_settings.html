@@ -382,16 +382,70 @@
                         </div>
                     </div>
 
-                    <div class="mb-4">
-                        <div class="d-flex justify-content-between align-items-center gap-3">
+                    <div class="mb-4 p-3 border rounded" style="border-color: rgba(255,255,255,0.08) !important;">
+                        <div class="d-flex justify-content-between align-items-center gap-3 mb-2">
                             <div>
-                                <h6 class="mb-1">Screening Quality Audit</h6>
-                                <small class="text-muted">Auto-reviews Not Qualified results every 15 min and re-screens misfires</small>
+                                <h6 class="mb-1">
+                                    <i class="fas fa-magnifying-glass-chart me-1 text-info"></i>Screening Quality Audit
+                                </h6>
+                                <small class="text-muted">
+                                    Auto-reviews Not Qualified results every 15 min and re-screens misfires.
+                                    Also samples Qualified results to catch over-scored candidates before
+                                    they reach a recruiter.
+                                </small>
                             </div>
                             <label class="toggle-switch">
                                 <input type="checkbox" name="screening_audit_enabled" {% if settings.screening_audit_enabled %}checked{% endif %}>
                                 <span class="toggle-slider"></span>
                             </label>
+                        </div>
+
+                        <div class="row g-3 mt-2">
+                            <div class="col-md-6">
+                                <label class="form-label mb-1">Auditor Model</label>
+                                <input type="text" class="form-control"
+                                       name="quality_auditor_model"
+                                       value="{{ settings.quality_auditor_model }}"
+                                       placeholder="gpt-5.4"
+                                       {% if not settings.screening_audit_enabled %}disabled{% endif %}>
+                                <small class="text-muted">
+                                    Model used for the AI confirmation step. Defaults to <strong>gpt-5.4</strong>.
+                                    Independent of the primary screening model.
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label mb-1">Qualified Sample Rate (%)</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control"
+                                           name="qualified_audit_sample_rate"
+                                           value="{{ settings.qualified_audit_sample_rate }}"
+                                           min="0" max="100" step="1"
+                                           {% if not settings.screening_audit_enabled %}disabled{% endif %}>
+                                    <span class="input-group-text">%</span>
+                                </div>
+                                <small class="text-muted">
+                                    Percent of recent Qualified results audited per cycle for false positives.
+                                    <strong>0</strong> disables; <strong>10</strong> is the default;
+                                    <strong>25</strong> is aggressive.
+                                </small>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label mb-1">
+                                    Platform Age Ceilings (JSON)
+                                    <small class="text-muted ms-2">— optional, blank uses built-in defaults</small>
+                                </label>
+                                <textarea class="form-control font-monospace"
+                                          name="platform_age_ceilings"
+                                          rows="3"
+                                          placeholder='{"databricks": 8.0, "snowflake": 10.0, "microsoft fabric": 3.0}'
+                                          {% if not settings.screening_audit_enabled %}disabled{% endif %}>{{ settings.platform_age_ceilings }}</textarea>
+                                <small class="text-muted">
+                                    Maximum years of experience that can reasonably be required for each
+                                    platform. Used to flag impossible job requirements (e.g., "10 years
+                                    Microsoft Fabric" when Fabric is only 3 years old). Keys are
+                                    case-insensitive. Leave blank to use the in-code defaults.
+                                </small>
+                            </div>
                         </div>
                     </div>
 

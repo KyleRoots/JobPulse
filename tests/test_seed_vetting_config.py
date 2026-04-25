@@ -35,12 +35,15 @@ def clean_vetting_config(app):
 
 
 # All keys that seed_vetting_config should create.
-# Updated 2026-04-25 to include three feature-flag keys added since this set
-# was last revised:
+# Updated 2026-04-25 (Task #11 rescope) to include three quality-auditor keys:
+#   - quality_auditor_model           (auditor model name, separately tunable)
+#   - platform_age_ceilings           (JSON dict of platform -> max-years)
+#   - qualified_audit_sample_rate     (% of Qualified results audited per cycle)
+# Plus three feature-flag keys added in earlier work:
 #   - screening_audit_enabled         (Scout Screening Quality Auditor)
 #   - recruiter_activity_check_enabled  (Recruiter-Activity Pause Gate)
 #   - recruiter_activity_lookback_minutes (lookback window for the pause gate)
-# Both features are documented in replit.md and seeded by seed_vetting_config.
+# All features are documented in replit.md and seeded by seed_vetting_config.
 EXPECTED_KEYS = {
     'vetting_enabled',
     'match_threshold',
@@ -56,6 +59,9 @@ EXPECTED_KEYS = {
     'vetting_cutoff_date',
     'global_custom_requirements',
     'screening_audit_enabled',
+    'quality_auditor_model',
+    'platform_age_ceilings',
+    'qualified_audit_sample_rate',
     'recruiter_activity_check_enabled',
     'recruiter_activity_lookback_minutes',
 }
