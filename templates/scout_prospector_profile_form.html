@@ -317,23 +317,29 @@ function refineCriteria() {
             var notes = data.suggestions.refinement_notes || 'Based on your description, here are suggested criteria:';
             document.getElementById('refineNotes').textContent = notes;
 
-            var html = '';
-            if (data.suggestions.suggested_industries && data.suggestions.suggested_industries.length) {
-                html += '<div class="mb-1"><strong class="small">Industries:</strong> ' + data.suggestions.suggested_industries.join(', ') + '</div>';
+            function buildSuggestionRow(label, items) {
+                if (!items || !items.length) return null;
+                var row = document.createElement('div');
+                row.className = 'mb-1';
+                var strong = document.createElement('strong');
+                strong.className = 'small';
+                strong.textContent = label + ':';
+                row.appendChild(strong);
+                row.appendChild(document.createTextNode(' ' + items.join(', ')));
+                return row;
             }
-            if (data.suggestions.suggested_sizes && data.suggestions.suggested_sizes.length) {
-                html += '<div class="mb-1"><strong class="small">Sizes:</strong> ' + data.suggestions.suggested_sizes.join(', ') + '</div>';
-            }
-            if (data.suggestions.suggested_geographies && data.suggestions.suggested_geographies.length) {
-                html += '<div class="mb-1"><strong class="small">Geographies:</strong> ' + data.suggestions.suggested_geographies.join(', ') + '</div>';
-            }
-            if (data.suggestions.suggested_job_types && data.suggestions.suggested_job_types.length) {
-                html += '<div class="mb-1"><strong class="small">Job Types:</strong> ' + data.suggestions.suggested_job_types.join(', ') + '</div>';
-            }
-            if (data.suggestions.suggested_signals && data.suggestions.suggested_signals.length) {
-                html += '<div class="mb-1"><strong class="small">Signals:</strong> ' + data.suggestions.suggested_signals.join(', ') + '</div>';
-            }
-            document.getElementById('refineSuggestions').innerHTML = html;
+
+            var container = document.getElementById('refineSuggestions');
+            var fragment = document.createDocumentFragment();
+            var rows = [
+                buildSuggestionRow('Industries', data.suggestions.suggested_industries),
+                buildSuggestionRow('Sizes', data.suggestions.suggested_sizes),
+                buildSuggestionRow('Geographies', data.suggestions.suggested_geographies),
+                buildSuggestionRow('Job Types', data.suggestions.suggested_job_types),
+                buildSuggestionRow('Signals', data.suggestions.suggested_signals)
+            ];
+            rows.forEach(function(row) { if (row) fragment.appendChild(row); });
+            container.replaceChildren(fragment);
             document.getElementById('refineResult').classList.remove('d-none');
         } else {
             alert(data.error || 'Could not generate suggestions.');
@@ -396,10 +402,20 @@ function applyRefinements() {
     var alertDiv = document.createElement('div');
     alertDiv.className = 'alert alert-success alert-dismissible fade show mt-3';
     alertDiv.setAttribute('role', 'alert');
-    alertDiv.innerHTML = '<i class="fas fa-check-circle me-2"></i><strong>AI suggestions applied!</strong> ' +
-        (applied.length ? 'Updated: ' + applied.join(', ') + '. ' : '') +
-        'Continue through the steps to review and adjust.' +
-        '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
+    var checkIcon = document.createElement('i');
+    checkIcon.className = 'fas fa-check-circle me-2';
+    var strongLabel = document.createElement('strong');
+    strongLabel.textContent = 'AI suggestions applied!';
+    var updatedSuffix = applied.length ? ' Updated: ' + applied.join(', ') + '. ' : ' ';
+    var continueText = document.createTextNode(updatedSuffix + 'Continue through the steps to review and adjust.');
+    var closeBtn = document.createElement('button');
+    closeBtn.setAttribute('type', 'button');
+    closeBtn.className = 'btn-close';
+    closeBtn.setAttribute('data-bs-dismiss', 'alert');
+    alertDiv.appendChild(checkIcon);
+    alertDiv.appendChild(strongLabel);
+    alertDiv.appendChild(continueText);
+    alertDiv.appendChild(closeBtn);
     document.getElementById('step1').querySelector('.card-body').appendChild(alertDiv);
     setTimeout(function() { if (alertDiv.parentNode) alertDiv.remove(); }, 8000);
 }

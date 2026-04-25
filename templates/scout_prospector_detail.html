@@ -215,16 +215,55 @@
 (function() {
     var el = document.getElementById('hiringActivityText');
     if (!el) return;
-    var text = el.innerHTML;
-    text = text.replace(/\(\[([^\]]*)\]\((https?:\/\/[^\s\)]+)\)\)/g, function(match, label, url) {
-        return ' <a href="' + url + '" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-info ms-1" style="font-size: 0.78rem;"><i class="fas fa-external-link-alt me-1"></i>View Source</a>';
-    });
-    text = text.replace(/\(?(https?:\/\/[^\s\)<>]+)\)?/g, function(match, url) {
-        if (match.indexOf('btn-outline-info') !== -1) return match;
-        var cleanUrl = url.replace(/\)$/, '');
-        return ' <a href="' + cleanUrl + '" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-info ms-1" style="font-size: 0.78rem;"><i class="fas fa-external-link-alt me-1"></i>View Source</a>';
-    });
-    el.innerHTML = text;
+
+    var rawText = el.textContent || '';
+
+    function isSafeHttpUrl(candidate) {
+        if (!candidate) return false;
+        try {
+            var parsed = new URL(candidate, window.location.origin);
+            return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function buildSourceLink(href) {
+        var a = document.createElement('a');
+        a.setAttribute('href', href);
+        a.setAttribute('target', '_blank');
+        a.setAttribute('rel', 'noopener noreferrer');
+        a.className = 'btn btn-sm btn-outline-info ms-1';
+        a.style.fontSize = '0.78rem';
+        var icon = document.createElement('i');
+        icon.className = 'fas fa-external-link-alt me-1';
+        a.appendChild(icon);
+        a.appendChild(document.createTextNode('View Source'));
+        return a;
+    }
+
+    var pattern = /\(\[([^\]]*)\]\((https?:\/\/[^\s\)]+)\)\)|\(?(https?:\/\/[^\s\)<>]+)\)?/g;
+    var fragment = document.createDocumentFragment();
+    var lastIndex = 0;
+    var match;
+    while ((match = pattern.exec(rawText)) !== null) {
+        if (match.index > lastIndex) {
+            fragment.appendChild(document.createTextNode(rawText.slice(lastIndex, match.index)));
+        }
+        var url = match[2] || match[3] || '';
+        url = url.replace(/\)$/, '');
+        if (isSafeHttpUrl(url)) {
+            fragment.appendChild(document.createTextNode(' '));
+            fragment.appendChild(buildSourceLink(url));
+        } else {
+            fragment.appendChild(document.createTextNode(match[0]));
+        }
+        lastIndex = pattern.lastIndex;
+    }
+    if (lastIndex < rawText.length) {
+        fragment.appendChild(document.createTextNode(rawText.slice(lastIndex)));
+    }
+    el.replaceChildren(fragment);
 })();
 </script>
 {% endblock %}
