@@ -58,12 +58,15 @@ class TestComputeSimilarity:
         assert EmbeddingService.compute_similarity(None, [1.0]) == 0.0
         assert EmbeddingService.compute_similarity([1.0], None) == 0.0
     
-    def test_dimension_mismatch_returns_zero(self):
-        """Vectors with different dimensions should return 0.0."""
+    def test_dimension_mismatch_truncates_and_computes(self):
+        """Vectors with different dimensions are truncated to the shorter length
+        and similarity is computed against the common prefix (graceful behavior;
+        previously returned 0.0)."""
         from embedding_service import EmbeddingService
-        
+
+        # [1.0, 2.0] vs [1.0, 2.0, 3.0] — both truncate to [1.0, 2.0] → identical
         result = EmbeddingService.compute_similarity([1.0, 2.0], [1.0, 2.0, 3.0])
-        assert result == 0.0
+        assert result == pytest.approx(1.0, abs=1e-9)
     
     def test_zero_magnitude_returns_zero(self):
         """Zero-magnitude vector should return 0.0."""
@@ -157,7 +160,7 @@ class TestGenerateEmbedding:
         assert result == [0.1] * 1536
         mock_client.embeddings.create.assert_called_once()
         call_kwargs = mock_client.embeddings.create.call_args
-        assert call_kwargs[1]['model'] == 'text-embedding-3-small'
+        assert call_kwargs[1]['model'] == 'text-embedding-3-large'
     
     def test_generate_embedding_returns_none_on_error(self):
         """Should return None if OpenAI call fails."""

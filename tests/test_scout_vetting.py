@@ -356,22 +356,29 @@ class TestInitiateVetting:
 class TestClassifyReply:
     """Test _classify_reply with mocked AI service."""
 
+    def _build_mock_completion(self, payload):
+        """Build a mock OpenAI ChatCompletion response with the given JSON payload."""
+        mock_completion = Mock()
+        mock_completion.choices = [Mock()]
+        mock_completion.choices[0].message.content = json.dumps(payload)
+        return mock_completion
+
     def test_classify_answer_reply(self, app):
         with app.app_context():
             from scout_vetting_service import ScoutVettingService
             from models import VettingConversationTurn
 
             svc = ScoutVettingService(email_service=None)
-            mock_llm = Mock()
-            mock_llm.invoke.return_value.content = json.dumps({
+            mock_client = Mock()
+            mock_client.chat.completions.create.return_value = self._build_mock_completion({
                 'intent': 'answer',
                 'reasoning': 'Candidate answered questions directly',
                 'answers_extracted': {'What is your experience with Python?': '5 years experience'},
                 'candidate_questions': []
             })
+            svc._openai_client = mock_client  # Bypass lazy-loader property
 
-            with patch.object(type(svc), 'llm', new_callable=PropertyMock, return_value=mock_llm), \
-                 patch.object(VettingConversationTurn, 'query') as mock_query:
+            with patch.object(VettingConversationTurn, 'query') as mock_query:
                 mock_query.filter_by.return_value.order_by.return_value.all.return_value = []
                 result = svc._classify_reply(_make_session(), 'I have 5 years experience.')
                 assert result['intent'] == 'answer'
@@ -382,16 +389,16 @@ class TestClassifyReply:
             from models import VettingConversationTurn
 
             svc = ScoutVettingService(email_service=None)
-            mock_llm = Mock()
-            mock_llm.invoke.return_value.content = json.dumps({
+            mock_client = Mock()
+            mock_client.chat.completions.create.return_value = self._build_mock_completion({
                 'intent': 'decline',
                 'reasoning': 'Candidate explicitly declined',
                 'answers_extracted': {},
                 'candidate_questions': []
             })
+            svc._openai_client = mock_client  # Bypass lazy-loader property
 
-            with patch.object(type(svc), 'llm', new_callable=PropertyMock, return_value=mock_llm), \
-                 patch.object(VettingConversationTurn, 'query') as mock_query:
+            with patch.object(VettingConversationTurn, 'query') as mock_query:
                 mock_query.filter_by.return_value.order_by.return_value.all.return_value = []
                 result = svc._classify_reply(_make_session(), 'I am not interested.')
                 assert result['intent'] == 'decline'
@@ -402,14 +409,14 @@ class TestClassifyReply:
             from models import VettingConversationTurn
 
             svc = ScoutVettingService(email_service=None)
-            mock_llm = Mock()
-            mock_llm.invoke.side_effect = Exception('LLM timeout')
+            mock_client = Mock()
+            mock_client.chat.completions.create.side_effect = Exception('OpenAI API timeout')
+            svc._openai_client = mock_client  # Bypass lazy-loader property
 
-            with patch.object(type(svc), 'llm', new_callable=PropertyMock, return_value=mock_llm), \
-                 patch.object(VettingConversationTurn, 'query') as mock_query:
+            with patch.object(VettingConversationTurn, 'query') as mock_query:
                 mock_query.filter_by.return_value.order_by.return_value.all.return_value = []
                 result = svc._classify_reply(_make_session(), 'Some reply.')
-                # Falls back to safe default
+                # _classify_reply catches exceptions and falls back to a safe default intent
                 assert result['intent'] in ('answer', 'unrelated', 'error')
 
 
