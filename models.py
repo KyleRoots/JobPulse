@@ -1275,7 +1275,7 @@ class SupportContact(db.Model):
 class VettingAuditLog(db.Model):
     """Tracks AI quality audit findings for Scout Screening results"""
     id = db.Column(db.Integer, primary_key=True)
-    candidate_vetting_log_id = db.Column(db.Integer, index=True, nullable=False)
+    candidate_vetting_log_id = db.Column(db.Integer, nullable=False)
     bullhorn_candidate_id = db.Column(db.Integer, index=True, nullable=False)
     candidate_name = db.Column(db.String(255), nullable=True)
     job_id = db.Column(db.Integer, nullable=True)
@@ -1289,7 +1289,10 @@ class VettingAuditLog(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     __table_args__ = (
-        db.Index('idx_audit_log_vetting_id', 'candidate_vetting_log_id'),
+        db.UniqueConstraint(
+            'candidate_vetting_log_id',
+            name='uq_audit_log_vetting_id',
+        ),
     )
 
     def __repr__(self):

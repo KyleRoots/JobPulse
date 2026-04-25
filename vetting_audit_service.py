@@ -255,6 +255,64 @@ class VettingAuditService:
         ]
         return sampled[:batch_size]
 
+    def _commit_audit_log(self, audit_log) -> bool:
+        """Persist a VettingAuditLog row with race-safe duplicate handling.
+
+        The unique constraint on `candidate_vetting_log_id` (added in migration
+        i3d4e5f6g7h8) guarantees that two overlapping audit cycles cannot both
+        write a row for the same candidate. If a concurrent cycle has already
+        inserted one, this method rolls back and returns False so the caller
+        can treat it as "already audited, skip" instead of crashing the cycle.
+
+        Only the duplicate-key violation on our specific unique constraint is
+        swallowed — any other IntegrityError (e.g. NOT NULL, foreign key)
+        is re-raised so genuine bugs aren't masked as "already audited."
+
+        Returns True on successful commit, False on duplicate (already audited).
+        """
+        from app import db
+        from sqlalchemy.exc import IntegrityError
+
+        db.session.add(audit_log)
+        try:
+            db.session.commit()
+            return True
+        except IntegrityError as exc:
+            db.session.rollback()
+            if not self._is_duplicate_audit_log_error(exc):
+                raise
+            logging.info(
+                f"🔁 Screening audit: candidate_vetting_log_id "
+                f"{audit_log.candidate_vetting_log_id} already audited by a "
+                f"concurrent cycle — skipping duplicate insert."
+            )
+            return False
+
+    @staticmethod
+    def _is_duplicate_audit_log_error(exc) -> bool:
+        """Return True if `exc` is a duplicate-key violation on the
+        VettingAuditLog unique constraint (Postgres or SQLite)."""
+        candidate_strings = []
+        orig = getattr(exc, 'orig', None)
+        if orig is not None:
+            diag = getattr(orig, 'diag', None)
+            if diag is not None:
+                cname = getattr(diag, 'constraint_name', None)
+                if cname:
+                    candidate_strings.append(cname)
+            candidate_strings.append(str(orig))
+        candidate_strings.append(str(exc))
+
+        haystack = ' '.join(s for s in candidate_strings if s).lower()
+        if 'uq_audit_log_vetting_id' in haystack:
+            return True
+        if (
+            'unique constraint failed' in haystack
+            and 'vetting_audit_log.candidate_vetting_log_id' in haystack
+        ):
+            return True
+        return False
+
     def _process_candidate_audit(self, vetting_log, mode: str, summary: Dict):
         """Audit a single candidate. Handles applied_match lookup, heuristic
         checks, AI confirmation, action decision, and audit log persistence.
@@ -290,11 +348,10 @@ class VettingAuditService:
                     action_taken='no_action',
                     audit_finding='No job match records found to audit'
                 )
-                db.session.add(audit_log)
-                db.session.commit()
-                summary['total_audited'] += 1
-                if is_qualified_audit:
-                    summary['qualified_audited'] += 1
+                if self._commit_audit_log(audit_log):
+                    summary['total_audited'] += 1
+                    if is_qualified_audit:
+                        summary['qualified_audited'] += 1
                 return
 
             if is_qualified_audit:
@@ -320,11 +377,10 @@ class VettingAuditService:
                     action_taken='no_action',
                     audit_finding=clean_finding
                 )
-                db.session.add(audit_log)
-                db.session.commit()
-                summary['total_audited'] += 1
-                if is_qualified_audit:
-                    summary['qualified_audited'] += 1
+                if self._commit_audit_log(audit_log):
+                    summary['total_audited'] += 1
+                    if is_qualified_audit:
+                        summary['qualified_audited'] += 1
                 return
 
             logging.info(
@@ -348,10 +404,39 @@ class VettingAuditService:
 
             if confidence == 'high' and finding_type != 'no_issue':
                 action_taken = 'revet_triggered'
+            elif confidence == 'medium' and finding_type != 'no_issue':
+                action_taken = 'flagged_for_review'
+
+            audit_log = VettingAuditLog(
+                candidate_vetting_log_id=vetting_log.id,
+                bullhorn_candidate_id=vetting_log.bullhorn_candidate_id,
+                candidate_name=vetting_log.candidate_name,
+                job_id=applied_match.bullhorn_job_id,
+                job_title=applied_match.job_title,
+                original_score=applied_match.match_score,
+                audit_finding=ai_finding.get('reasoning', ''),
+                finding_type=finding_type,
+                confidence=confidence,
+                action_taken=action_taken,
+                revet_new_score=revet_new_score
+            )
+            if not self._commit_audit_log(audit_log):
+                return
+
+            if action_taken == 'revet_triggered':
                 revet_new_score = self._trigger_revet(
                     vetting_log.bullhorn_candidate_id,
                     vetting_log.id
                 )
+                try:
+                    audit_log.revet_new_score = revet_new_score
+                    db.session.commit()
+                except Exception as e:
+                    logging.warning(
+                        f"⚠️ Screening audit: failed to update revet_new_score "
+                        f"on audit log {audit_log.id}: {e!r}"
+                    )
+                    db.session.rollback()
                 summary['revets_triggered'] += 1
                 logging.info(
                     f"✅ Screening audit ({mode}): re-vet triggered for candidate "
@@ -359,8 +444,6 @@ class VettingAuditService:
                     f"Original score: {applied_match.match_score}%, "
                     f"New score: {revet_new_score}%"
                 )
-            elif confidence == 'medium' and finding_type != 'no_issue':
-                action_taken = 'flagged_for_review'
 
             summary['total_audited'] += 1
             if is_qualified_audit:
@@ -381,22 +464,6 @@ class VettingAuditService:
                     'mode': mode
                 })
 
-            audit_log = VettingAuditLog(
-                candidate_vetting_log_id=vetting_log.id,
-                bullhorn_candidate_id=vetting_log.bullhorn_candidate_id,
-                candidate_name=vetting_log.candidate_name,
-                job_id=applied_match.bullhorn_job_id,
-                job_title=applied_match.job_title,
-                original_score=applied_match.match_score,
-                audit_finding=ai_finding.get('reasoning', ''),
-                finding_type=finding_type,
-                confidence=confidence,
-                action_taken=action_taken,
-                revet_new_score=revet_new_score
-            )
-            db.session.add(audit_log)
-            db.session.commit()
-
         except Exception as e:
             logging.error(
                 f"❌ Screening audit error ({mode}) for candidate "
@@ -411,13 +478,12 @@ class VettingAuditService:
                     action_taken='no_action',
                     audit_finding=f'Audit error ({mode}): {str(e)}'
                 )
-                db.session.add(audit_log)
-                db.session.commit()
+                if self._commit_audit_log(audit_log):
+                    summary['total_audited'] += 1
+                    if is_qualified_audit:
+                        summary['qualified_audited'] += 1
             except Exception:
                 db.session.rollback()
-            summary['total_audited'] += 1
-            if is_qualified_audit:
-                summary['qualified_audited'] += 1
 
     def _run_heuristic_checks(self, vetting_log, job_match) -> List[Dict]:
         issues = []

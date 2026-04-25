@@ -7,11 +7,17 @@ Covers three changes:
   T003 - Qualified results are sampled and audited for false positives via
          _run_false_positive_checks + _fetch_qualified_audit_sample.
 
+Plus Task #41:
+  T004 - Concurrent audit cycles cannot write duplicate VettingAuditLog rows
+         for the same candidate (DB-level unique constraint + graceful
+         IntegrityError handling).
+
 The tests do NOT call OpenAI; the AI confirmation step is mocked.
 """
 
 import json
 import pytest
+from datetime import datetime
 from unittest.mock import patch, MagicMock
 
 
@@ -345,3 +351,203 @@ class TestQualifiedAuditCycleIntegration:
                 args, kwargs = mock_fetch.call_args
                 assert args[0] == 5
                 assert args[1] == 25
+
+
+# ---------------------------------------------------------------------------
+# T004 — Task #41: concurrent-audit safeguard
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def clean_audit_tables(app):
+    """Wipe vetting log + audit log rows before/after each concurrency test."""
+    from app import db
+    from models import VettingAuditLog, CandidateVettingLog, CandidateJobMatch
+    with app.app_context():
+        CandidateJobMatch.query.delete()
+        VettingAuditLog.query.delete()
+        CandidateVettingLog.query.delete()
+        db.session.commit()
+        yield
+        CandidateJobMatch.query.delete()
+        VettingAuditLog.query.delete()
+        CandidateVettingLog.query.delete()
+        db.session.commit()
+
+
+class TestConcurrentAuditSafeguard:
+    """Two overlapping cycles cannot create duplicate VettingAuditLog rows.
+
+    The Quality Auditor pre-filters already-audited candidates at the start of
+    each cycle, but if two cycles overlap (manual trigger races a scheduled
+    run, or a long cycle is still running when the next 15-minute tick fires)
+    both can pick up the same candidate before either has committed. The
+    DB-level unique constraint on `candidate_vetting_log_id` makes the
+    duplicate insert impossible regardless of timing, and
+    `_commit_audit_log` catches the resulting IntegrityError so the cycle
+    keeps running.
+    """
+
+    def _make_vetting_log(self, db, bullhorn_candidate_id=99001):
+        from models import CandidateVettingLog
+        vl = CandidateVettingLog(
+            bullhorn_candidate_id=bullhorn_candidate_id,
+            candidate_name='Race Condition Candidate',
+            applied_job_id=8888,
+            applied_job_title='Senior Data Engineer',
+            status='completed',
+            is_qualified=False,
+            highest_match_score=42.0,
+            is_sandbox=False,
+            analyzed_at=datetime.utcnow(),
+        )
+        db.session.add(vl)
+        db.session.commit()
+        return vl
+
+    def test_unique_constraint_blocks_direct_duplicate_insert(
+        self, app, clean_audit_tables
+    ):
+        """Inserting two VettingAuditLog rows for the same candidate raises IntegrityError."""
+        from app import db
+        from models import VettingAuditLog
+        from sqlalchemy.exc import IntegrityError
+
+        with app.app_context():
+            vl = self._make_vetting_log(db)
+
+            db.session.add(VettingAuditLog(
+                candidate_vetting_log_id=vl.id,
+                bullhorn_candidate_id=vl.bullhorn_candidate_id,
+                candidate_name=vl.candidate_name,
+                finding_type='no_issue',
+                action_taken='no_action',
+                audit_finding='first audit'
+            ))
+            db.session.commit()
+
+            db.session.add(VettingAuditLog(
+                candidate_vetting_log_id=vl.id,
+                bullhorn_candidate_id=vl.bullhorn_candidate_id,
+                candidate_name=vl.candidate_name,
+                finding_type='no_issue',
+                action_taken='no_action',
+                audit_finding='second audit (race)'
+            ))
+            with pytest.raises(IntegrityError):
+                db.session.commit()
+            db.session.rollback()
+
+            rows = VettingAuditLog.query.filter_by(
+                candidate_vetting_log_id=vl.id
+            ).all()
+            assert len(rows) == 1
+
+    def test_commit_audit_log_helper_returns_false_on_duplicate(
+        self, app, clean_audit_tables
+    ):
+        """_commit_audit_log catches IntegrityError, rolls back, returns False."""
+        from app import db
+        from models import VettingAuditLog
+        from vetting_audit_service import VettingAuditService
+
+        with app.app_context():
+            vl = self._make_vetting_log(db, bullhorn_candidate_id=99002)
+
+            svc = VettingAuditService()
+
+            first = VettingAuditLog(
+                candidate_vetting_log_id=vl.id,
+                bullhorn_candidate_id=vl.bullhorn_candidate_id,
+                candidate_name=vl.candidate_name,
+                finding_type='no_issue',
+                action_taken='no_action',
+                audit_finding='first cycle'
+            )
+            assert svc._commit_audit_log(first) is True
+
+            duplicate = VettingAuditLog(
+                candidate_vetting_log_id=vl.id,
+                bullhorn_candidate_id=vl.bullhorn_candidate_id,
+                candidate_name=vl.candidate_name,
+                finding_type='no_issue',
+                action_taken='no_action',
+                audit_finding='second cycle (race)'
+            )
+            assert svc._commit_audit_log(duplicate) is False
+
+            rows = VettingAuditLog.query.filter_by(
+                candidate_vetting_log_id=vl.id
+            ).all()
+            assert len(rows) == 1
+            assert rows[0].audit_finding == 'first cycle'
+
+    def test_unrelated_integrity_error_is_not_swallowed(
+        self, app, clean_audit_tables
+    ):
+        """Non-duplicate IntegrityErrors (e.g. NOT NULL violations) must
+        propagate so genuine bugs aren't masked as 'already audited'."""
+        from app import db
+        from models import VettingAuditLog
+        from vetting_audit_service import VettingAuditService
+        from sqlalchemy.exc import IntegrityError
+
+        with app.app_context():
+            vl = self._make_vetting_log(db, bullhorn_candidate_id=99004)
+
+            svc = VettingAuditService()
+
+            bad = VettingAuditLog(
+                candidate_vetting_log_id=vl.id,
+                bullhorn_candidate_id=None,
+                candidate_name='missing required candidate id',
+                finding_type='no_issue',
+                action_taken='no_action',
+                audit_finding='intentional NOT NULL violation'
+            )
+            with pytest.raises(IntegrityError):
+                svc._commit_audit_log(bad)
+
+    def test_two_overlapping_cycles_produce_one_audit_row(
+        self, app, clean_audit_tables
+    ):
+        """Simulate two overlapping audit cycles auditing the same candidate.
+
+        Both cycles call _process_candidate_audit on the same vetting log
+        (this is the exact race the task safeguards against). Only one
+        VettingAuditLog row should result, and the second call must not
+        raise.
+        """
+        from app import db
+        from models import VettingAuditLog
+        from vetting_audit_service import VettingAuditService
+
+        with app.app_context():
+            vl = self._make_vetting_log(db, bullhorn_candidate_id=99003)
+
+            svc = VettingAuditService()
+            summary_a = {
+                'total_audited': 0, 'issues_found': 0, 'revets_triggered': 0,
+                'qualified_audited': 0, 'qualified_issues_found': 0,
+                'details': []
+            }
+            summary_b = {
+                'total_audited': 0, 'issues_found': 0, 'revets_triggered': 0,
+                'qualified_audited': 0, 'qualified_issues_found': 0,
+                'details': []
+            }
+
+            svc._process_candidate_audit(vl, mode='not_qualified', summary=summary_a)
+            svc._process_candidate_audit(vl, mode='not_qualified', summary=summary_b)
+
+            rows = VettingAuditLog.query.filter_by(
+                candidate_vetting_log_id=vl.id
+            ).all()
+            assert len(rows) == 1, (
+                f"Expected exactly one audit row after two overlapping cycles, "
+                f"got {len(rows)}"
+            )
+
+            assert summary_a['total_audited'] == 1
+            assert summary_b['total_audited'] == 0, (
+                "The losing cycle must not double-count the candidate as audited"
+            )
