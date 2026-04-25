@@ -679,11 +679,25 @@ def vetting_diagnostic():
     """Temporary diagnostic endpoint to investigate vetting backlog"""
     from models import ParsedEmail, CandidateVettingLog, VettingConfig
     from sqlalchemy import func, case
-    
+    from screening.detection import _resolve_vetting_cutoff
+
     db = get_db()
     min_bh_id = request.args.get('min_bh_id', 4586546, type=int)
-    
-    # Overall ParsedEmail stats
+
+    # Overall ParsedEmail stats — split unvetted into "actionable" (post-cutoff)
+    # vs "pre_cutoff_excluded" so operators don't keep mistaking the historical
+    # backlog of pre-cutoff records for an actual processing queue.
+    cutoff_dt = _resolve_vetting_cutoff()
+    unvetted_predicate = (
+        (ParsedEmail.status == 'completed')
+        & (ParsedEmail.bullhorn_candidate_id.isnot(None))
+        & (ParsedEmail.vetted_at.is_(None))
+    )
+    if cutoff_dt is not None:
+        pending_eligible_predicate = unvetted_predicate & (ParsedEmail.received_at >= cutoff_dt)
+    else:
+        pending_eligible_predicate = unvetted_predicate
+
     stats = db.session.query(
         func.count(ParsedEmail.id).label('total'),
         func.count(case((ParsedEmail.status == 'completed', 1))).label('completed'),
@@ -691,10 +705,8 @@ def vetting_diagnostic():
             (ParsedEmail.status == 'completed') & (ParsedEmail.bullhorn_candidate_id.isnot(None)),
             1
         ))).label('with_bh_id'),
-        func.count(case((
-            (ParsedEmail.status == 'completed') & (ParsedEmail.bullhorn_candidate_id.isnot(None)) & (ParsedEmail.vetted_at.is_(None)),
-            1
-        ))).label('unvetted_eligible'),
+        func.count(case((unvetted_predicate, 1))).label('unvetted_eligible'),
+        func.count(case((pending_eligible_predicate, 1))).label('pending_eligible'),
         func.count(case((
             (ParsedEmail.status == 'completed') & (ParsedEmail.bullhorn_candidate_id.isnot(None)) & (ParsedEmail.vetted_at.isnot(None)),
             1
@@ -741,7 +753,13 @@ def vetting_diagnostic():
             'total_parsed_emails': stats.total,
             'completed': stats.completed,
             'with_bullhorn_id': stats.with_bh_id,
+            # `unvetted_eligible` retained for backward-compat with prior
+            # consumers; semantically equals `total_unvetted` (pre + post cutoff).
             'unvetted_eligible': stats.unvetted_eligible,
+            'total_unvetted': stats.unvetted_eligible,
+            'pending_eligible': stats.pending_eligible,
+            'pre_cutoff_excluded': stats.unvetted_eligible - stats.pending_eligible,
+            'cutoff_active': cutoff_dt.isoformat() if cutoff_dt else None,
             'already_vetted': stats.already_vetted,
         },
         'vetting_config': {

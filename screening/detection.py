@@ -33,6 +33,30 @@ from vetting.resume_utils import (
 )
 
 
+def _resolve_vetting_cutoff() -> Optional[datetime]:
+    """
+    Resolve the configured vetting cutoff datetime from VettingConfig.
+
+    Returns the parsed datetime if configured + valid, else None.
+    Logs a warning if the configured value is malformed (cutoff disabled).
+    Accepts both 'YYYY-MM-DD HH:MM:SS' and ISO 'YYYY-MM-DDTHH:MM:SS' formats.
+    """
+    cutoff_raw = VettingConfig.get_value('vetting_cutoff_date')
+    if not cutoff_raw:
+        return None
+    for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S'):
+        try:
+            return datetime.strptime(cutoff_raw.strip(), fmt)
+        except ValueError:
+            continue
+    logging.error(
+        f"❌ Invalid vetting_cutoff_date format: '{cutoff_raw}' — expected "
+        f"'YYYY-MM-DD HH:MM:SS' or ISO format. Cutoff DISABLED — entire "
+        f"backlog will be processed!"
+    )
+    return None
+
+
 class CandidateDetectionMixin:
     """Candidate discovery from Bullhorn and ParsedEmail."""
 
@@ -686,6 +710,30 @@ class CandidateDetectionMixin:
         try:
             # ── Step 1: Query local database FIRST (no API call needed) ──
             from sqlalchemy import func, case
+
+            # Resolve cutoff up-front so the stats query can report the
+            # truly-actionable backlog (post-cutoff) separately from the
+            # historical pre-cutoff records that will never be processed.
+            cutoff_dt = _resolve_vetting_cutoff()
+
+            unvetted_predicate = (
+                (ParsedEmail.status == 'completed')
+                & (ParsedEmail.bullhorn_candidate_id.isnot(None))
+                & (ParsedEmail.vetted_at.is_(None))
+            )
+            if cutoff_dt is not None:
+                # Explicitly exclude NULL received_at — matches the actual
+                # WHERE-clause filter behavior below, and protects the stat
+                # against SQL backends that may evaluate CASE differently for
+                # 3-valued logic.
+                pending_eligible_predicate = (
+                    unvetted_predicate
+                    & ParsedEmail.received_at.isnot(None)
+                    & (ParsedEmail.received_at >= cutoff_dt)
+                )
+            else:
+                pending_eligible_predicate = unvetted_predicate
+
             stats = db.session.query(
                 func.count(ParsedEmail.id).label('total'),
                 func.count(case((ParsedEmail.status == 'completed', 1))).label('completed'),
@@ -697,12 +745,20 @@ class CandidateDetectionMixin:
                     (ParsedEmail.status == 'completed') & (ParsedEmail.bullhorn_candidate_id.isnot(None)) & (ParsedEmail.vetted_at.isnot(None)),
                     1
                 ))).label('already_vetted'),
+                func.count(case((pending_eligible_predicate, 1))).label('pending_eligible'),
             ).first()
-            
-            logging.info(f"📊 ParsedEmail stats: total={stats.total}, completed={stats.completed}, "
-                        f"with_candidate_id={stats.with_candidate}, already_vetted={stats.already_vetted}, "
-                        f"pending_vetting={stats.with_candidate - stats.already_vetted}")
-            
+
+            total_unvetted = stats.with_candidate - stats.already_vetted
+            pre_cutoff_excluded = total_unvetted - stats.pending_eligible
+
+            logging.info(
+                f"📊 ParsedEmail stats: total={stats.total}, completed={stats.completed}, "
+                f"with_candidate_id={stats.with_candidate}, already_vetted={stats.already_vetted}, "
+                f"pending_eligible={stats.pending_eligible} (actionable), "
+                f"pre_cutoff_excluded={pre_cutoff_excluded} (skipped by cutoff), "
+                f"total_unvetted={total_unvetted}"
+            )
+
             # DEBUG: Show most recent 5 ParsedEmail records (only at DEBUG level)
             if logging.getLogger().isEnabledFor(logging.DEBUG):
                 recent_emails = ParsedEmail.query.order_by(ParsedEmail.received_at.desc()).limit(5).all()
@@ -710,24 +766,12 @@ class CandidateDetectionMixin:
                     logging.debug(f"  📧 Recent ParsedEmail id={pe.id}: candidate='{pe.candidate_name}', "
                                 f"status={pe.status}, bh_id={pe.bullhorn_candidate_id}, "
                                 f"vetted_at={'SET' if pe.vetted_at else 'NULL'}, received={pe.received_at}")
-            
+
             # Query ParsedEmail for completed applications that haven't been vetted
             # Apply cutoff date if configured (skip historical backlog)
-            cutoff_dt = None
-            cutoff_raw = VettingConfig.get_value('vetting_cutoff_date')
-            if cutoff_raw:
-                # Accept both 'YYYY-MM-DD HH:MM:SS' and ISO 'YYYY-MM-DDTHH:MM:SS'
-                for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S'):
-                    try:
-                        cutoff_dt = datetime.strptime(cutoff_raw.strip(), fmt)
-                        break
-                    except ValueError:
-                        continue
-                if cutoff_dt:
-                    logging.info(f"📅 Vetting cutoff active: only processing applicants received after {cutoff_dt} UTC")
-                else:
-                    logging.error(f"❌ Invalid vetting_cutoff_date format: '{cutoff_raw}' — expected 'YYYY-MM-DD HH:MM:SS' or ISO format. Cutoff DISABLED — entire backlog will be processed!")
-            
+            if cutoff_dt is not None:
+                logging.info(f"📅 Vetting cutoff active: only processing applicants received after {cutoff_dt} UTC")
+
             filters = [
                 ParsedEmail.status == 'completed',
                 ParsedEmail.vetted_at.is_(None),
