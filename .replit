@@ -42,3 +42,7 @@ externalPort = 3000
 
 [agent]
 integrations = ["python_openai:1.0.0", "onedrive:1.0.0"]
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 180000
