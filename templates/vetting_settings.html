@@ -1345,6 +1345,26 @@
             }
         })();
 
+        // Screening Quality Audit toggle — live-enable/disable the three auditor
+        // fields when the master toggle changes. Matches the recruiter-gate pattern
+        // above so admins can edit the fields immediately after enabling, without
+        // needing to save first and re-open the page.
+        (function () {
+            var auditToggle = document.querySelector('input[name="screening_audit_enabled"]');
+            var auditFields = [
+                document.querySelector('input[name="quality_auditor_model"]'),
+                document.querySelector('input[name="qualified_audit_sample_rate"]'),
+                document.querySelector('textarea[name="platform_age_ceilings"]'),
+            ].filter(function (el) { return el !== null; });
+            if (auditToggle && auditFields.length) {
+                auditToggle.addEventListener('change', function () {
+                    auditFields.forEach(function (el) {
+                        el.disabled = !auditToggle.checked;
+                    });
+                });
+            }
+        })();
+
         // Show loading indicator when saving settings
         function showSavingIndicator() {
             var saveBtn = document.getElementById('saveBtn');
