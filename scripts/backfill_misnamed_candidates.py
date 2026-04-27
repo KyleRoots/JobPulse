@@ -239,14 +239,24 @@ def _find_misnamed_candidates(bh_service, candidate_id: Optional[int]) -> List[D
     return matches
 
 
-def _pull_latest_resume_text(bh_service, candidate_id: int) -> Tuple[Optional[str], Optional[str]]:
+def _pull_latest_resume_text(bh_service, candidate_id: int) -> Tuple[Optional[Tuple[str, Dict]], Optional[str]]:
     """Fetch the most recent resume file from a Bullhorn candidate and
-    return (resume_text, filename). Returns (None, None) on failure.
+    return ((raw_text, parsed_data), filename). Returns (None, None) on
+    failure with a structured per-step skip-reason logged.
 
-    Uses the same authenticated-session + BhRestToken pattern as
-    BullhornService for consistency.
+    Mirrors the proven pattern in screening/detection.py:
+      * Bullhorn returns the file list under the ``EntityFiles`` key
+        (capital E). Some tenants/versions also use ``entityFiles`` —
+        we check both. Earlier versions of this script used only the
+        lowercase form, which silently produced an empty list and
+        skipped every candidate.
+      * The file-download endpoint may return raw bytes OR a JSON
+        envelope ``{"File": {"fileContent": "<base64>"}}`` — sniff the
+        first byte to decide.
     """
     if not _ensure_authenticated(bh_service):
+        log.info("  -> SKIP REASON: bullhorn auth failed for candidate %s",
+                 candidate_id)
         return None, None
 
     base = bh_service.base_url
@@ -260,31 +270,46 @@ def _pull_latest_resume_text(bh_service, candidate_id: int) -> Tuple[Optional[st
             timeout=30,
         )
     except Exception as exc:
-        log.warning("Could not list files for candidate %s: %s",
+        log.warning("  -> SKIP REASON: list files failed for candidate %s: %s",
                     candidate_id, exc)
         return None, None
 
     if resp.status_code != 200:
-        log.warning("Could not list files for candidate %s (%s)",
-                    candidate_id, resp.status_code)
+        log.warning("  -> SKIP REASON: list files returned HTTP %s for candidate %s",
+                    resp.status_code, candidate_id)
         return None, None
 
-    files = (resp.json() or {}).get("entityFiles", []) or []
+    payload = resp.json() or {}
+    files = payload.get("EntityFiles") or payload.get("entityFiles") or []
     if not files:
+        log.info("  -> SKIP REASON: no files attached in Bullhorn for candidate %s",
+                 candidate_id)
         return None, None
 
-    # Prefer the newest file whose name looks like a resume.
+    # File priority — prefer files explicitly tagged or named "resume",
+    # then fall back to the newest .pdf/.docx/.doc, then to the newest
+    # file regardless of extension (Bullhorn doesn't always include an
+    # extension on the name field).
     files.sort(key=lambda f: f.get("dateAdded") or 0, reverse=True)
     chosen = None
     for f in files:
-        name = (f.get("name") or "").lower()
-        if any(k in name for k in (".pdf", ".docx", ".doc")):
+        ftype = (f.get("type") or "").lower()
+        fname = (f.get("name") or "").lower()
+        if "resume" in ftype or "resume" in fname:
             chosen = f
             break
     if not chosen:
-        return None, None
+        for f in files:
+            fname = (f.get("name") or "").lower()
+            if any(k in fname for k in (".pdf", ".docx", ".doc")):
+                chosen = f
+                break
+    if not chosen:
+        chosen = files[0]
 
+    chosen_name = chosen.get("name") or f"resume_{candidate_id}"
     file_id = chosen.get("id")
+
     try:
         file_resp = bh_service.session.get(
             f"{base}file/Candidate/{candidate_id}/{file_id}",
@@ -292,24 +317,44 @@ def _pull_latest_resume_text(bh_service, candidate_id: int) -> Tuple[Optional[st
             timeout=60,
         )
     except Exception as exc:
-        log.warning("Could not fetch file %s for candidate %s: %s",
-                    file_id, candidate_id, exc)
-        return None, chosen.get("name")
+        log.warning("  -> SKIP REASON: file download failed for %s/%s: %s",
+                    candidate_id, file_id, exc)
+        return None, chosen_name
 
     if file_resp.status_code != 200:
-        log.warning("File fetch returned %s for candidate %s/%s",
+        log.warning("  -> SKIP REASON: file download returned HTTP %s for %s/%s",
                     file_resp.status_code, candidate_id, file_id)
-        return None, chosen.get("name")
+        return None, chosen_name
 
-    file_payload = file_resp.json() or {}
-    file_content_b64 = (file_payload.get("File") or {}).get("fileContent")
-    if not file_content_b64:
-        return None, chosen.get("name")
+    # Bullhorn returns either raw file bytes OR a JSON envelope.
+    raw_content = file_resp.content or b""
+    raw_bytes: bytes
+    if raw_content.lstrip()[:1] == b"{" and b'"File"' in raw_content[:200]:
+        try:
+            import base64 as _b64
+            import json as _json
+            envelope = _json.loads(raw_content)
+            file_obj = envelope.get("File") or {}
+            b64_content = file_obj.get("fileContent") or ""
+            if not b64_content:
+                log.warning("  -> SKIP REASON: JSON envelope has empty fileContent for %s/%s",
+                            candidate_id, file_id)
+                return None, chosen_name
+            raw_bytes = _b64.b64decode(b64_content)
+        except Exception as exc:
+            log.warning("  -> SKIP REASON: failed to unwrap JSON envelope for %s/%s: %s",
+                        candidate_id, file_id, exc)
+            return None, chosen_name
+    else:
+        raw_bytes = raw_content
 
-    import base64
+    if not raw_bytes:
+        log.warning("  -> SKIP REASON: empty file body for %s/%s",
+                    candidate_id, file_id)
+        return None, chosen_name
+
     import os
     import tempfile
-    raw_bytes = base64.b64decode(file_content_b64)
 
     # ResumeParser.parse_resume(file) accepts Union[FileStorage, str].
     # Passing a BytesIO does NOT work — the parser reads ``file.filename``
@@ -318,14 +363,24 @@ def _pull_latest_resume_text(bh_service, candidate_id: int) -> Tuple[Optional[st
     # bytes to a real temp file with the correct extension and pass the
     # path. This also enables the AI Vision OCR fallback (default-on
     # when quick_mode=False) for image-based / scanned PDF resumes.
-    chosen_name = chosen.get("name") or "resume.pdf"
     suffix = ""
     for ext in (".pdf", ".docx", ".doc"):
         if chosen_name.lower().endswith(ext):
             suffix = ext
             break
     if not suffix:
-        suffix = ".pdf"
+        # Try to sniff from magic bytes — Bullhorn sometimes omits the
+        # extension on the name field even though the file IS a PDF.
+        head = raw_bytes[:4]
+        if head.startswith(b"%PDF"):
+            suffix = ".pdf"
+        elif head.startswith(b"PK"):
+            suffix = ".docx"
+        else:
+            suffix = ".pdf"
+
+    log.info("  -> Downloaded %d bytes for %s (%s); parsing...",
+             len(raw_bytes), chosen_name, suffix)
 
     tmp_path = None
     try:
@@ -338,19 +393,23 @@ def _pull_latest_resume_text(bh_service, candidate_id: int) -> Tuple[Optional[st
         try:
             parsed = parser.parse_resume(tmp_path)
         except Exception as exc:  # pragma: no cover - defensive
-            log.warning("Failed to parse resume for candidate %s: %s",
+            log.warning("  -> SKIP REASON: parse_resume raised for %s: %s",
                         candidate_id, exc)
             return None, chosen_name
 
         if not parsed or not parsed.get("success"):
+            err = (parsed or {}).get("error") if parsed else "no result"
+            log.warning("  -> SKIP REASON: parse_resume success=False for %s: %s",
+                        candidate_id, err)
             return None, chosen_name
 
-        # Stash the already-extracted parsed_data on the returned text via
-        # a tuple-of-tuple sentinel so _propose_correction can reuse the
-        # full-pipeline name (heuristic + OCR fallback) without re-running
-        # _parse_text and losing the OCR pass.
         raw_text = parsed.get("raw_text") or ""
-        return (raw_text, parsed.get("parsed_data") or {}), chosen_name
+        parsed_data = parsed.get("parsed_data") or {}
+        log.info("  -> Parsed %d chars; pipeline name = %r %r",
+                 len(raw_text),
+                 parsed_data.get("first_name"),
+                 parsed_data.get("last_name"))
+        return (raw_text, parsed_data), chosen_name
     finally:
         if tmp_path and os.path.exists(tmp_path):
             try:
@@ -380,6 +439,9 @@ def _propose_correction(bh_service, candidate: Dict) -> Optional[Tuple[str, str]
     pipe_last = (parsed_data or {}).get("last_name")
     if is_valid_name(pipe_first, pipe_last):
         return pipe_first, pipe_last
+    if pipe_first or pipe_last:
+        log.info("  -> Pipeline name %r %r failed is_valid_name; trying heuristic fallback",
+                 pipe_first, pipe_last)
 
     # Fallback: re-run _parse_text on raw_text in case the cached
     # parsed_data is stale (e.g. cached pre-fix result). This will use
