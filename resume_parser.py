@@ -752,23 +752,67 @@ OUTPUT: Return ONLY the formatted HTML, nothing else. No explanation, no markdow
                 name_found = True
         
         if not name_found:
+            # Hardened heuristic — fixes the "Canadian Citizen" production
+            # bug (Bullhorn ID 4648428, Akhil Reddy resume, Mar 2026).
+            #
+            # The previous version rejected the actual name line because
+            # ``"Akhil Reddy, CTMP, MBA, ODCP, CBAP®"`` failed
+            # ``word.isalpha()`` (commas + ®). It then accepted the
+            # next clean two-word line — ``"Canadian Citizen"`` — and
+            # shipped that to Bullhorn as the candidate's name.
+            #
+            # This rewrite:
+            #   1. Strips credentials/suffixes after the first comma and
+            #      removes ®/™/© symbols, so ``"Akhil Reddy, CTMP, ..."``
+            #      becomes ``"Akhil Reddy"`` and matches.
+            #   2. Walks the first 8 lines (was 5) so credentialed-name
+            #      resumes that wrap headers across more lines still work.
+            #   3. Validates every candidate match against
+            #      ``is_valid_name`` (which knows the work-authorization
+            #      blocklist), so even if a "Canadian Citizen" line
+            #      survives the strip, it cannot be accepted.
+            from utils.candidate_name_extraction import is_valid_name
+
             lines = original_text.split('\n')
-            for line in lines[:5]:
+            skip_words = ['resume', 'cv', 'curriculum', 'vitae', 'profile',
+                          'contact', 'phone', 'email', 'address']
+
+            for line in lines[:8]:
                 line = line.strip()
-                if len(line) > 50 or len(line) < 3:
+                if not line or len(line) > 80:
                     continue
-                
-                skip_words = ['resume', 'cv', 'curriculum', 'vitae', 'profile', 'contact', 'phone', 'email', 'address']
+
                 if any(skip_word in line.lower() for skip_word in skip_words):
                     continue
-                
-                words = line.split()
-                if 2 <= len(words) <= 3:
-                    if all(word[0].isupper() and word.replace('-', '').replace("'", "").isalpha() for word in words):
-                        parsed_data['first_name'] = words[0]
-                        parsed_data['last_name'] = words[-1]
-                        name_found = True
-                        break
+
+                # Strip credentials and trademark symbols before matching.
+                candidate_line = line.split(',', 1)[0]
+                candidate_line = re.sub(r'[®™©]', '', candidate_line).strip()
+                if len(candidate_line) < 3:
+                    continue
+
+                words = candidate_line.split()
+                if not (2 <= len(words) <= 4):
+                    continue
+
+                if not all(
+                    word[0].isupper()
+                    and word.replace('-', '').replace("'", "").isalpha()
+                    for word in words
+                ):
+                    continue
+
+                first = words[0]
+                last = ' '.join(words[1:])
+
+                # Reject work-authorization phrases like "Canadian Citizen".
+                if not is_valid_name(first, last):
+                    continue
+
+                parsed_data['first_name'] = first
+                parsed_data['last_name'] = last
+                name_found = True
+                break
         
         if not name_found and parsed_data.get('email'):
             email_part = parsed_data['email'].split('@')[0]

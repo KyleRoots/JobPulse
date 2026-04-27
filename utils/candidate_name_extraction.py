@@ -38,6 +38,51 @@ INVALID_NAME_TOKENS = GENERIC_FILENAME_TOKENS | {
     "candidate", "applicant",
 }
 
+# Tokens that, when present in a (first, last) pair, indicate a
+# work-authorization or citizenship phrase rather than a real candidate
+# name. Production failure: "Canadian Citizen" was extracted from a
+# resume header line below the actual name and shipped to Bullhorn as
+# firstName="Canadian" / lastName="Citizen". Any name containing one of
+# these tokens (case-insensitive, exact whitespace/hyphen-split match)
+# is rejected by ``is_valid_name``.
+#
+# Tokens here MUST be unambiguously work-authorization vocabulary —
+# words that are essentially zero-probability as a person's legal name
+# token. Ambiguous words like "Green" (a real surname — Eva Green, John
+# Green) and "Permanent" are intentionally NOT in this set; they are
+# only rejected when they appear in a known work-auth phrase, see
+# :data:`WORK_AUTH_PHRASES` below.
+WORK_AUTH_TOKENS = {
+    "citizen", "citizens", "citizenship",
+    "resident", "residency", "residents",
+    "naturalized",
+    "visa", "visas",
+    "h1b", "h-1b", "h1-b",
+    "ead", "opt", "cpt",
+    "asylee", "asylum", "refugee",
+}
+
+# Multi-word work-authorization phrases. Matched as a substring inside
+# the lowercased, whitespace-normalized "first last" string so that
+# ambiguous single tokens like "green" and "permanent" still trigger
+# rejection in their work-auth form ("green card", "permanent resident")
+# without rejecting legitimate surnames like "Green" or "Permanent".
+WORK_AUTH_PHRASES = {
+    "green card",
+    "green card holder",
+    "permanent resident",
+    "permanent residency",
+    "permanent residents",
+    "work permit",
+    "work authorization",
+    "work authorized",
+    "work eligible",
+    "authorized to work",
+    "eligible to work",
+    "right to work",
+    "lawful permanent",
+}
+
 NAME_TOKEN_RE = r"[A-Za-z][A-Za-z'\-]*"
 # Non-greedy multi-token name capture so trailing suffix anchors match
 # correctly. Allows 1-5 additional tokens after the first.
@@ -60,20 +105,71 @@ def is_valid_name_token(token: str) -> bool:
     return True
 
 
+def is_work_auth_phrase(text: Optional[str]) -> bool:
+    """Return True if ``text`` is a work-authorization / citizenship phrase.
+
+    Two-layer match:
+
+    1. **Single-token rule** — tokenises on whitespace and hyphens
+       (case-insensitive) and rejects if any token appears in
+       :data:`WORK_AUTH_TOKENS`. These tokens are unambiguously
+       work-auth vocabulary (``"citizen"``, ``"visa"``, ``"h1b"`` …)
+       so an exact match is safe.
+
+    2. **Phrase rule** — also checks if any phrase in
+       :data:`WORK_AUTH_PHRASES` appears as a substring in the
+       lowercased, whitespace-normalised text. This catches phrases
+       built from ambiguous tokens (``"green card"``,
+       ``"permanent resident"``) without rejecting the bare surname
+       form (``"Eva Green"``, ``"John Permanent"``).
+
+    Used as a blocklist by :func:`is_valid_name` and by upstream
+    extractors so a line like ``"Canadian Citizen"`` or
+    ``"Permanent Resident"`` can never be committed as a candidate's
+    first/last name.
+    """
+    if not text:
+        return False
+    cleaned = text.strip().lower()
+    if not cleaned:
+        return False
+    # Single-token rule: split on whitespace AND hyphens so "h-1b" and
+    # "green-card" both decompose correctly.
+    tokens = re.split(r"[\s\-]+", cleaned)
+    if any(tok.strip(".,") in WORK_AUTH_TOKENS for tok in tokens):
+        return True
+    # Phrase rule: substring match after collapsing whitespace.
+    normalised = " ".join(cleaned.split())
+    for phrase in WORK_AUTH_PHRASES:
+        if phrase in normalised:
+            return True
+    return False
+
+
 def is_valid_name(first_name: Optional[str], last_name: Optional[str]) -> bool:
     """Return True if the (first, last) pair looks like a real person name.
 
     Rejects: empty/None, generic placeholders ("None None", "Resume Doc"),
-    or anything containing digits/symbols other than hyphens and
-    apostrophes. Multi-word last names are supported by validating each
-    whitespace-separated token individually (e.g. "El Fared",
-    "van der Berg") — name particles count as valid tokens.
+    work-authorization / citizenship phrases ("Canadian Citizen",
+    "Permanent Resident", "H1B Visa"), or anything containing
+    digits/symbols other than hyphens and apostrophes. Multi-word last
+    names are supported by validating each whitespace-separated token
+    individually (e.g. "El Fared", "van der Berg") — name particles
+    count as valid tokens.
     """
     if not first_name or not last_name:
         return False
     first = first_name.strip()
     last = last_name.strip()
     if not first or not last:
+        return False
+
+    # Reject work-authorization / citizenship phrases anywhere in the
+    # combined name. This blocks the production failure mode where a
+    # parser picked up a "Canadian Citizen" header line below the actual
+    # name and shipped it to Bullhorn as the candidate's name.
+    combined = f"{first} {last}"
+    if is_work_auth_phrase(combined):
         return False
 
     # Validate first name: must be a single valid token

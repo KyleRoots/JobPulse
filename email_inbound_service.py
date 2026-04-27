@@ -447,6 +447,17 @@ Return a JSON object with the following fields (use null for missing data):
     "summary": "2-3 sentence professional summary"
 }}
 
+CRITICAL — Name extraction rules (first_name / last_name):
+- Return ONLY the candidate's actual personal name. Names typically appear on the first non-empty line and are often followed by post-nominal credentials such as "MBA", "PMP", "CTMP", "CFA", "CBAP", "PhD", "®", "™".
+- If the name line includes credentials (example: "Akhil Reddy, CTMP, MBA, ODCP, CBAP®"), strip the credentials and return only the personal name parts: first_name="Akhil", last_name="Reddy".
+- DO NOT use any of the following as the candidate's name:
+    * Citizenship status: "Canadian Citizen", "US Citizen", "American Citizen", "British Citizen", "Indian Citizen", "Permanent Resident".
+    * Work authorization: "Green Card", "H1B Visa", "Work Permit", "EAD", "OPT", "Authorized to Work".
+    * Locations or addresses: "Toronto, ON", "New York, NY".
+    * Job titles or company names.
+    * Generic words: "Resume", "CV", "Curriculum Vitae", "Candidate", "Applicant".
+- If the resume has no clear personal name, return null for both first_name and last_name. Returning null is preferred over guessing.
+
 Resume text:
 {resume_text[:20000]}
 """
@@ -471,6 +482,29 @@ Resume text:
                 content = content[:-3]
             
             parsed = json.loads(content)
+
+            # Defense in depth — validate the AI's name extraction against
+            # the work-authorization / citizenship blocklist. If the model
+            # mistakenly returned something like "Canadian Citizen" or
+            # "Permanent Resident" as the candidate's name, null both
+            # fields so the downstream fallback chain (filename parsing,
+            # email local-part, last-resort AI) still gets a chance to
+            # recover a real name. Closes the production failure mode
+            # that put firstName="Canadian" / lastName="Citizen" on
+            # Bullhorn record 4648428.
+            from utils.candidate_name_extraction import is_valid_name
+            ai_first = parsed.get('first_name')
+            ai_last = parsed.get('last_name')
+            if (ai_first or ai_last) and not is_valid_name(ai_first, ai_last):
+                self.logger.warning(
+                    f"AI parser returned invalid candidate name "
+                    f"'{ai_first} {ai_last}' (matches blocklist or "
+                    f"failed validation). Nulling so deterministic "
+                    f"fallback chain runs."
+                )
+                parsed['first_name'] = None
+                parsed['last_name'] = None
+
             self.logger.info(f"AI parsed resume successfully: {parsed.get('first_name')} {parsed.get('last_name')}")
             return parsed
             
@@ -1129,6 +1163,24 @@ Consider: name spelling variations, nicknames, contact info matches.
             # Recompute final eligibility after the fallback chain
             has_name = bool(first_name or last_name)
             has_contact = bool(candidate_email or candidate_phone)
+
+            # Write the (possibly fallback-recovered) name back into the
+            # source dicts so `map_to_bullhorn_fields` picks them up.
+            # Without this, layers 3/3b/5 update only the local vars and
+            # `parsed_email.candidate_name`, but the Bullhorn payload
+            # constructed at the bottom of this method pulls firstName
+            # / lastName from `email_candidate` and `resume_data` —
+            # which still hold the original (or AI-nulled) values.
+            # This is essential for the AI-name post-validation in
+            # `parse_resume_with_ai`: when we null an invalid AI name
+            # like "Canadian Citizen", the fallback chain recovers a
+            # real name and we must propagate it to the payload source.
+            if first_name:
+                email_candidate['first_name'] = first_name
+                resume_data['first_name'] = first_name
+            if last_name:
+                email_candidate['last_name'] = last_name
+                resume_data['last_name'] = last_name
 
             # Layer 6 extraction summary used for richer admin notifications
             extraction_summary = build_extraction_summary(
