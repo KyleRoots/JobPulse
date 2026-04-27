@@ -2,11 +2,42 @@ modules = ["python-3.11", "python3", "nodejs-20", "postgresql-16"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["antiword", "cacert", "cargo", "freetype", "glibcLocales", "gumbo", "harfbuzz", "jbig2dec", "libffi", "libiconv", "libjpeg_turbo", "libxcrypt", "mupdf", "openjpeg", "openssl", "pkg-config", "postgresql", "rustc", "swig", "xcbuild", "xcodebuild", "zlib"]
+packages = [
+  "antiword",
+  "cacert",
+  "cargo",
+  "freetype",
+  "glibcLocales",
+  "gumbo",
+  "harfbuzz",
+  "jbig2dec",
+  "libffi",
+  "libiconv",
+  "libjpeg_turbo",
+  "libxcrypt",
+  "mupdf",
+  "openjpeg",
+  "openssl",
+  "pkg-config",
+  "postgresql",
+  "rustc",
+  "swig",
+  "xcbuild",
+  "xcodebuild",
+  "zlib",
+]
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["gunicorn", "--bind=0.0.0.0:5000", "--reuse-port", "--workers=4", "--timeout=300", "--preload", "main:app"]
+run = [
+  "gunicorn",
+  "--bind=0.0.0.0:5000",
+  "--reuse-port",
+  "--workers=4",
+  "--timeout=300",
+  "--preload",
+  "main:app",
+]
 
 [workflows]
 runButton = "Project"
@@ -44,5 +75,5 @@ externalPort = 3000
 integrations = ["python_openai:1.0.0", "onedrive:1.0.0"]
 
 [postMerge]
-path = "scripts/post-merge.sh"
+scriptPath = "scripts/post-merge.sh"
 timeoutMs = 180000
