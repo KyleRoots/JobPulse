@@ -25,6 +25,8 @@ DEFAULT_PLATFORM_AGE_CEILINGS = {
 
 DEFAULT_AUDITOR_MODEL = 'gpt-5.4'
 DEFAULT_QUALIFIED_SAMPLE_RATE = 10
+DEFAULT_REVET_CAP_PER_24H = 2
+DEFAULT_REVET_SCORE_TOLERANCE = 5.0
 
 
 def get_platform_age_ceilings() -> Dict[str, float]:
@@ -202,6 +204,54 @@ def get_qualified_sample_rate() -> int:
     return DEFAULT_QUALIFIED_SAMPLE_RATE
 
 
+def get_revet_cap_per_24h() -> int:
+    """Maximum number of re-vets the auditor may trigger for the same
+    (candidate, job) pair within any rolling 24-hour window.
+
+    Reads ``auditor_revet_cap_per_24h`` from VettingConfig. Falls back to
+    ``DEFAULT_REVET_CAP_PER_24H`` when the row is missing or malformed.
+    Values < 1 are clamped to 1 (a value of 0 would disable the auditor's
+    re-vet action entirely, which is what existing config flags are for).
+    """
+    try:
+        from models import VettingConfig
+        raw = VettingConfig.get_value('auditor_revet_cap_per_24h', None)
+        if raw is not None:
+            value = int(str(raw).strip())
+            if value >= 1:
+                return value
+            return 1
+    except (ValueError, TypeError, Exception) as e:
+        logging.warning(
+            f"⚠️ auditor_revet_cap_per_24h load failed ({e!r}) — using default"
+        )
+    return DEFAULT_REVET_CAP_PER_24H
+
+
+def get_revet_score_tolerance() -> float:
+    """Score-stability tolerance (in match-score points) used by the auditor
+    to decide that a re-vet's new result is "close enough" to the original
+    score that further re-vets are unlikely to change the verdict.
+
+    Reads ``auditor_revet_score_tolerance`` from VettingConfig. Falls back
+    to ``DEFAULT_REVET_SCORE_TOLERANCE`` (5.0) when missing or malformed.
+    Negative values are clamped to 0.0.
+    """
+    try:
+        from models import VettingConfig
+        raw = VettingConfig.get_value('auditor_revet_score_tolerance', None)
+        if raw is not None:
+            value = float(str(raw).strip())
+            if value >= 0:
+                return value
+            return 0.0
+    except (ValueError, TypeError, Exception) as e:
+        logging.warning(
+            f"⚠️ auditor_revet_score_tolerance load failed ({e!r}) — using default"
+        )
+    return DEFAULT_REVET_SCORE_TOLERANCE
+
+
 PLATFORM_AGE_CEILINGS = DEFAULT_PLATFORM_AGE_CEILINGS
 
 DOMAIN_KEYWORDS = [
@@ -250,6 +300,8 @@ class VettingAuditService:
             'total_audited': 0,
             'issues_found': 0,
             'revets_triggered': 0,
+            'revets_skipped_capped': 0,
+            'revets_skipped_stable': 0,
             'qualified_audited': 0,
             'qualified_issues_found': 0,
             'details': []
@@ -319,7 +371,9 @@ class VettingAuditService:
                 f"{summary['total_audited']} total audited "
                 f"({summary['qualified_audited']} were Qualified samples), "
                 f"{summary['issues_found']} issues found, "
-                f"{summary['revets_triggered']} re-vets triggered"
+                f"{summary['revets_triggered']} re-vets triggered, "
+                f"{summary['revets_skipped_capped']} re-vet(s) skipped (24h cap), "
+                f"{summary['revets_skipped_stable']} re-vet(s) skipped (score stable)"
             )
 
         except Exception as e:
@@ -505,11 +559,32 @@ class VettingAuditService:
             confidence = ai_finding.get('confidence', 'low')
             action_taken = 'no_action'
             revet_new_score = None
+            audit_finding_text = ai_finding.get('reasoning', '')
 
             if confidence == 'high' and finding_type != 'no_issue':
                 action_taken = 'revet_triggered'
             elif confidence == 'medium' and finding_type != 'no_issue':
                 action_taken = 'flagged_for_review'
+
+            # Re-vet suppression: cap repeated re-vets per (candidate, job)
+            # and accept results that are already score-stable. Runs before
+            # the audit row is written so the persisted action_taken
+            # reflects what actually happened, not what we wanted to do.
+            if action_taken == 'revet_triggered':
+                skip_outcome = self._check_revet_caps_and_stability(
+                    vetting_log.bullhorn_candidate_id,
+                    applied_match.bullhorn_job_id,
+                )
+                if skip_outcome is not None:
+                    skip_action, skip_reason = skip_outcome
+                    action_taken = skip_action
+                    audit_finding_text = (
+                        f"{audit_finding_text}\n\n[Auditor] {skip_reason}"
+                    ).strip()
+                    if skip_action == 'revet_skipped_capped':
+                        summary['revets_skipped_capped'] += 1
+                    elif skip_action == 'revet_skipped_stable':
+                        summary['revets_skipped_stable'] += 1
 
             audit_log = VettingAuditLog(
                 candidate_vetting_log_id=vetting_log.id,
@@ -518,7 +593,7 @@ class VettingAuditService:
                 job_id=applied_match.bullhorn_job_id,
                 job_title=applied_match.job_title,
                 original_score=applied_match.match_score,
-                audit_finding=ai_finding.get('reasoning', ''),
+                audit_finding=audit_finding_text,
                 finding_type=finding_type,
                 confidence=confidence,
                 action_taken=action_taken,
@@ -590,6 +665,105 @@ class VettingAuditService:
                         summary['qualified_audited'] += 1
             except Exception:
                 db.session.rollback()
+
+    def _check_revet_caps_and_stability(
+        self,
+        candidate_id: int,
+        job_id: Optional[int],
+    ) -> Optional[tuple]:
+        """Decide whether a freshly-flagged re-vet should actually fire.
+
+        Two suppression rules — both keyed on the (candidate, job) pair so
+        a candidate flagged on multiple jobs is still re-vetted per-job:
+
+        1. **24h cap** — if there are already ``get_revet_cap_per_24h()``
+           prior ``revet_triggered`` audit rows for the same candidate &
+           job in the last 24 hours, suppress this re-vet. This is the
+           direct fix for the Beatriz Vieitos thrash where 8 re-vets
+           landed in a single 7-hour window.
+        2. **Score stability** — if the most recent prior re-vet for the
+           same (candidate, job) produced a ``revet_new_score`` within
+           ``get_revet_score_tolerance()`` of its ``original_score``,
+           accept the result and stop re-vetting. The previous attempt
+           proved that re-screening doesn't materially move the score.
+
+        When ``job_id`` is None the helper degrades to the candidate-only
+        cap (a candidate without an applied-job binding can still be
+        re-vet-thrashed; we still want to limit blast radius).
+
+        Returns
+        -------
+        None
+            Re-vet may proceed.
+        tuple[str, str]
+            ``(action_taken, human_reason)`` describing why the re-vet was
+            suppressed. The caller writes ``action_taken`` to the audit
+            log and prepends ``human_reason`` to the audit finding.
+        """
+        from models import VettingAuditLog
+        from datetime import datetime, timedelta
+
+        cap = get_revet_cap_per_24h()
+        tolerance = get_revet_score_tolerance()
+        cutoff = datetime.utcnow() - timedelta(hours=24)
+
+        try:
+            base_q = VettingAuditLog.query.filter(
+                VettingAuditLog.bullhorn_candidate_id == candidate_id,
+                VettingAuditLog.action_taken == 'revet_triggered',
+                VettingAuditLog.created_at >= cutoff,
+            )
+            if job_id is not None:
+                base_q = base_q.filter(VettingAuditLog.job_id == job_id)
+
+            prior = base_q.order_by(VettingAuditLog.created_at.desc()).all()
+        except Exception as e:
+            # Never let an audit-history lookup error mask a genuine re-vet
+            # decision — fail open and let the re-vet proceed.
+            logging.warning(
+                f"⚠️ Auditor revet-cap lookup failed for candidate "
+                f"{candidate_id} job {job_id}: {e!r} — proceeding with re-vet"
+            )
+            return None
+
+        if len(prior) >= cap:
+            reason = (
+                f"Suppressed re-vet — already re-vetted "
+                f"{len(prior)} time(s) in the last 24h "
+                f"(cap={cap}). Latest re-vet at "
+                f"{prior[0].created_at.isoformat() if prior[0].created_at else '?'}; "
+                f"flag for human review instead of looping."
+            )
+            logging.info(
+                f"🛑 Auditor revet-cap: candidate {candidate_id} job {job_id} "
+                f"hit 24h cap (count={len(prior)}, cap={cap}) — skipping re-vet"
+            )
+            return ('revet_skipped_capped', reason)
+
+        if prior:
+            latest = prior[0]
+            prior_original = latest.original_score
+            prior_new = latest.revet_new_score
+            if (
+                prior_original is not None
+                and prior_new is not None
+                and abs(float(prior_new) - float(prior_original)) <= tolerance
+            ):
+                reason = (
+                    f"Suppressed re-vet — last re-vet moved the score from "
+                    f"{float(prior_original):.0f}% to {float(prior_new):.0f}% "
+                    f"(within ±{tolerance:.0f}-point tolerance). "
+                    f"Result is score-stable; further re-vets unlikely to help."
+                )
+                logging.info(
+                    f"🛑 Auditor revet-stability: candidate {candidate_id} "
+                    f"job {job_id} prior re-vet stable "
+                    f"({float(prior_original):.0f}%→{float(prior_new):.0f}%, "
+                    f"tol=±{tolerance:.0f}) — skipping re-vet"
+                )
+                return ('revet_skipped_stable', reason)
+
+        return None
 
     def _run_heuristic_checks(self, vetting_log, job_match) -> List[Dict]:
         issues = []
@@ -1180,6 +1354,8 @@ IMPORTANT:
                 action_badge = {
                     'revet_triggered': '<span style="color: #22c55e;">✅ Re-vetted</span>',
                     'flagged_for_review': '<span style="color: #f59e0b;">⚠️ Flagged</span>',
+                    'revet_skipped_capped': '<span style="color: #f59e0b;">⛔ Re-vet capped (24h)</span>',
+                    'revet_skipped_stable': '<span style="color: #6b7280;">⏸ Re-vet skipped (stable)</span>',
                     'no_action': '<span style="color: #6b7280;">—</span>'
                 }.get(d.get('action_taken', ''), '—')
 

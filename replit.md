@@ -40,7 +40,7 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 - **Inline-Editable AI Requirements**: Recruiters can directly edit AI-extracted job requirements.
 - **Vetting System Health Monitoring**: Automated checks for Bullhorn, OpenAI, database, and scheduler status.
 - **Scout Screening Portal**: Recruiter dashboard displaying AI match results, scores, and qualification status.
-- **Scout Screening Quality Auditor**: Background AI audit of both Not-Qualified and Qualified results, with auto-trigger re-vets.
+- **Scout Screening Quality Auditor**: Background AI audit of both Not-Qualified and Qualified results, with auto-trigger re-vets. Per-(candidate, job) re-vet cap (default 2 in any rolling 24h window, configurable via `auditor_revet_cap_per_24h`) and a score-stability acceptance rule (skip further re-vets when the prior re-vet's new score landed within ±5 points of its original; tolerance configurable via `auditor_revet_score_tolerance`) prevent the auditor from thrashing the same candidate. Each cycle logs how many re-vets were skipped by each rule.
 - **NUL-Byte Sanitization**: Shared helper `utils/text_sanitization.sanitize_text()` strips PostgreSQL-incompatible NUL bytes from all text/varchar fields sourced from Bullhorn and OpenAI before persistence.
 - **Zero-Score Verification**: Automated re-verification of 0% scores for top 3 jobs using GPT-4.1-mini.
 - **AI-Output XSS Hardening**: Platform-wide XSS hardening using `window.AIOutput.escapeHtml` and other safe-render primitives for dynamically generated AI content.

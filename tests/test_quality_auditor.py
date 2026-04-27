@@ -2134,3 +2134,624 @@ class TestAuditSummaryEmailUsesBackfilledScore:
             VettingAuditLog.query.filter_by(id=audit_id).delete()
             VettingConfig.query.delete()
             db.session.commit()
+
+
+# ---------------------------------------------------------------------------
+# Task #56 — Re-vet cap + score-stability suppression.
+#
+# These tests cover the new `_check_revet_caps_and_stability` helper and the
+# integration in `_process_candidate_audit` that prevents the auditor from
+# repeatedly re-vetting the same (candidate, job) pair (which was burning
+# OpenAI tokens and polluting Bullhorn notes).
+# ---------------------------------------------------------------------------
+
+
+class TestRevetCapAndStabilityConfig:
+    """get_revet_cap_per_24h() and get_revet_score_tolerance() are
+    config-driven with safe fallbacks."""
+
+    def test_cap_default_when_unset(self, app):
+        from vetting_audit_service import (
+            get_revet_cap_per_24h, DEFAULT_REVET_CAP_PER_24H
+        )
+        with app.app_context():
+            assert get_revet_cap_per_24h() == DEFAULT_REVET_CAP_PER_24H
+
+    def test_cap_reads_config(self, app):
+        from app import db
+        from models import VettingConfig
+        from vetting_audit_service import get_revet_cap_per_24h
+        with app.app_context():
+            _set_config(VettingConfig, db, 'auditor_revet_cap_per_24h', '4')
+            assert get_revet_cap_per_24h() == 4
+
+    def test_cap_clamps_below_one_to_one(self, app):
+        from app import db
+        from models import VettingConfig
+        from vetting_audit_service import get_revet_cap_per_24h
+        with app.app_context():
+            _set_config(VettingConfig, db, 'auditor_revet_cap_per_24h', '0')
+            assert get_revet_cap_per_24h() == 1
+
+    def test_cap_falls_back_on_garbage(self, app):
+        from app import db
+        from models import VettingConfig
+        from vetting_audit_service import (
+            get_revet_cap_per_24h, DEFAULT_REVET_CAP_PER_24H
+        )
+        with app.app_context():
+            _set_config(VettingConfig, db, 'auditor_revet_cap_per_24h', 'abc')
+            assert get_revet_cap_per_24h() == DEFAULT_REVET_CAP_PER_24H
+
+    def test_tolerance_default_when_unset(self, app):
+        from vetting_audit_service import (
+            get_revet_score_tolerance, DEFAULT_REVET_SCORE_TOLERANCE
+        )
+        with app.app_context():
+            assert get_revet_score_tolerance() == DEFAULT_REVET_SCORE_TOLERANCE
+
+    def test_tolerance_reads_config(self, app):
+        from app import db
+        from models import VettingConfig
+        from vetting_audit_service import get_revet_score_tolerance
+        with app.app_context():
+            _set_config(VettingConfig, db, 'auditor_revet_score_tolerance', '8.5')
+            assert get_revet_score_tolerance() == 8.5
+
+    def test_tolerance_clamps_negative_to_zero(self, app):
+        from app import db
+        from models import VettingConfig
+        from vetting_audit_service import get_revet_score_tolerance
+        with app.app_context():
+            _set_config(VettingConfig, db, 'auditor_revet_score_tolerance', '-3')
+            assert get_revet_score_tolerance() == 0.0
+
+
+class TestRevetCapAndStabilitySuppression:
+    """`_check_revet_caps_and_stability` returns the right outcome for the
+    cap-exceeded, score-stable, and pass-through cases — and is wired into
+    `_process_candidate_audit` so suppressed re-vets never call
+    `_trigger_revet`, never bump `revets_triggered`, and DO bump the new
+    `revets_skipped_capped` / `revets_skipped_stable` counters."""
+
+    def _empty_summary(self):
+        return {
+            'total_audited': 0,
+            'issues_found': 0,
+            'revets_triggered': 0,
+            'revets_skipped_capped': 0,
+            'revets_skipped_stable': 0,
+            'qualified_audited': 0,
+            'qualified_issues_found': 0,
+            'details': [],
+        }
+
+    def _seed_revet_audit(
+        self,
+        app,
+        *,
+        candidate_id,
+        job_id,
+        original_score,
+        revet_new_score,
+        candidate_vetting_log_id,
+        created_at=None,
+    ):
+        from app import db
+        from models import VettingAuditLog
+        with app.app_context():
+            row = VettingAuditLog(
+                candidate_vetting_log_id=candidate_vetting_log_id,
+                bullhorn_candidate_id=candidate_id,
+                candidate_name='Prior Re-vet',
+                job_id=job_id,
+                job_title='Senior Data Engineer',
+                original_score=original_score,
+                finding_type='recency_misfire',
+                confidence='high',
+                action_taken='revet_triggered',
+                revet_new_score=revet_new_score,
+                audit_finding='Prior re-vet seeded for cap test.',
+            )
+            if created_at is not None:
+                row.created_at = created_at
+            db.session.add(row)
+            db.session.commit()
+            return row.id
+
+    def test_helper_returns_none_when_no_prior_revets(self, app, clean_audit_tables):
+        from vetting_audit_service import VettingAuditService
+        with app.app_context():
+            svc = VettingAuditService()
+            assert svc._check_revet_caps_and_stability(
+                candidate_id=400001, job_id=500001
+            ) is None
+
+    def test_helper_caps_after_two_recent_revets(self, app, clean_audit_tables):
+        from vetting_audit_service import VettingAuditService
+        from models import CandidateVettingLog
+        from app import db
+        with app.app_context():
+            # Need real CandidateVettingLog rows because audit log has FK-like
+            # uniqueness on candidate_vetting_log_id.
+            vl_ids = []
+            for i in range(2):
+                vl = CandidateVettingLog(
+                    bullhorn_candidate_id=400002,
+                    candidate_name='Cap Test',
+                    applied_job_id=500002,
+                    applied_job_title='Senior Data Engineer',
+                    status='completed',
+                    is_qualified=False,
+                    highest_match_score=14.0 - i,
+                    is_sandbox=False,
+                    analyzed_at=datetime.utcnow(),
+                )
+                db.session.add(vl)
+                db.session.commit()
+                vl_ids.append(vl.id)
+
+        for vl_id in vl_ids:
+            self._seed_revet_audit(
+                app,
+                candidate_id=400002,
+                job_id=500002,
+                original_score=14.0,
+                revet_new_score=6.0,
+                candidate_vetting_log_id=vl_id,
+            )
+
+        with app.app_context():
+            svc = VettingAuditService()
+            outcome = svc._check_revet_caps_and_stability(
+                candidate_id=400002, job_id=500002
+            )
+            assert outcome is not None
+            action, reason = outcome
+            assert action == 'revet_skipped_capped'
+            assert '24h' in reason
+
+    def test_helper_does_not_count_other_jobs(self, app, clean_audit_tables):
+        """A candidate re-vetted twice on job A is still eligible for a
+        first re-vet on job B (cap is per (candidate, job) pair)."""
+        from vetting_audit_service import VettingAuditService
+        from models import CandidateVettingLog
+        from app import db
+        with app.app_context():
+            for i in range(2):
+                vl = CandidateVettingLog(
+                    bullhorn_candidate_id=400003,
+                    candidate_name='Cross-Job Test',
+                    applied_job_id=500003,
+                    applied_job_title='Data Engineer',
+                    status='completed',
+                    is_qualified=False,
+                    highest_match_score=14.0,
+                    is_sandbox=False,
+                    analyzed_at=datetime.utcnow(),
+                )
+                db.session.add(vl)
+                db.session.commit()
+                self._seed_revet_audit(
+                    app,
+                    candidate_id=400003,
+                    job_id=500003,  # same job A
+                    original_score=14.0,
+                    revet_new_score=6.0,
+                    candidate_vetting_log_id=vl.id,
+                )
+
+        with app.app_context():
+            svc = VettingAuditService()
+            # Different job (B) — should pass through.
+            assert svc._check_revet_caps_and_stability(
+                candidate_id=400003, job_id=999999
+            ) is None
+            # Same job A — should be capped.
+            outcome = svc._check_revet_caps_and_stability(
+                candidate_id=400003, job_id=500003
+            )
+            assert outcome is not None and outcome[0] == 'revet_skipped_capped'
+
+    def test_helper_ignores_stale_revets_outside_24h(
+        self, app, clean_audit_tables
+    ):
+        from datetime import timedelta
+        from vetting_audit_service import VettingAuditService
+        from models import CandidateVettingLog
+        from app import db
+        with app.app_context():
+            for i in range(3):
+                vl = CandidateVettingLog(
+                    bullhorn_candidate_id=400004,
+                    candidate_name='Stale Re-vet Test',
+                    applied_job_id=500004,
+                    applied_job_title='Data Engineer',
+                    status='completed',
+                    is_qualified=False,
+                    highest_match_score=14.0,
+                    is_sandbox=False,
+                    analyzed_at=datetime.utcnow(),
+                )
+                db.session.add(vl)
+                db.session.commit()
+                self._seed_revet_audit(
+                    app,
+                    candidate_id=400004,
+                    job_id=500004,
+                    original_score=14.0,
+                    revet_new_score=14.0 - i,  # large delta to avoid stable
+                    candidate_vetting_log_id=vl.id,
+                    created_at=datetime.utcnow() - timedelta(hours=30),
+                )
+
+        with app.app_context():
+            svc = VettingAuditService()
+            # All prior re-vets are >24h old, so the cap should not trip and
+            # the score-stability check should also be skipped (no recent
+            # prior to compare against).
+            assert svc._check_revet_caps_and_stability(
+                candidate_id=400004, job_id=500004
+            ) is None
+
+    def test_helper_skips_when_score_stable(self, app, clean_audit_tables):
+        """A single prior re-vet that landed within ±tolerance of its own
+        original_score proves the score is stable — suppress further
+        re-vets even if the cap hasn't been hit yet."""
+        from vetting_audit_service import VettingAuditService
+        from models import CandidateVettingLog
+        from app import db
+        with app.app_context():
+            vl = CandidateVettingLog(
+                bullhorn_candidate_id=400005,
+                candidate_name='Stable Score',
+                applied_job_id=500005,
+                applied_job_title='Data Engineer',
+                status='completed',
+                is_qualified=False,
+                highest_match_score=42.0,
+                is_sandbox=False,
+                analyzed_at=datetime.utcnow(),
+            )
+            db.session.add(vl)
+            db.session.commit()
+            vl_id = vl.id
+
+        # Prior re-vet moved score 42 -> 44 (delta=2, within default ±5).
+        self._seed_revet_audit(
+            app,
+            candidate_id=400005,
+            job_id=500005,
+            original_score=42.0,
+            revet_new_score=44.0,
+            candidate_vetting_log_id=vl_id,
+        )
+
+        with app.app_context():
+            svc = VettingAuditService()
+            outcome = svc._check_revet_caps_and_stability(
+                candidate_id=400005, job_id=500005
+            )
+            assert outcome is not None
+            action, reason = outcome
+            assert action == 'revet_skipped_stable'
+            assert 'stable' in reason.lower()
+
+    def test_helper_does_not_skip_when_score_jumped(self, app, clean_audit_tables):
+        """The Beatriz Vieitos case: score swung 14% -> 6% (delta=8, outside
+        ±5 tolerance). Stability check must NOT suppress; only the cap
+        rule should eventually catch this."""
+        from vetting_audit_service import VettingAuditService
+        from models import CandidateVettingLog
+        from app import db
+        with app.app_context():
+            vl = CandidateVettingLog(
+                bullhorn_candidate_id=400006,
+                candidate_name='Beatriz-style swing',
+                applied_job_id=500006,
+                applied_job_title='Data Engineer',
+                status='completed',
+                is_qualified=False,
+                highest_match_score=6.0,
+                is_sandbox=False,
+                analyzed_at=datetime.utcnow(),
+            )
+            db.session.add(vl)
+            db.session.commit()
+            vl_id = vl.id
+
+        self._seed_revet_audit(
+            app,
+            candidate_id=400006,
+            job_id=500006,
+            original_score=14.0,
+            revet_new_score=6.0,  # delta=8, outside ±5 tolerance
+            candidate_vetting_log_id=vl_id,
+        )
+
+        with app.app_context():
+            svc = VettingAuditService()
+            # Only ONE prior re-vet (cap=2 default), score is NOT stable —
+            # the helper should let this re-vet proceed.
+            assert svc._check_revet_caps_and_stability(
+                candidate_id=400006, job_id=500006
+            ) is None
+
+    def test_process_candidate_audit_capped_does_not_call_trigger_revet(
+        self, app, clean_audit_tables
+    ):
+        """End-to-end: with 2 prior re-vets in the last 24h, the auditor's
+        decision to re-vet a 3rd time is downgraded — `_trigger_revet`
+        is never called and the summary records the skip."""
+        from vetting_audit_service import VettingAuditService
+        from models import CandidateVettingLog, VettingAuditLog
+
+        # Seed 2 prior 'revet_triggered' rows for (cand=400007, job=500007).
+        with app.app_context():
+            from app import db
+            for i in range(2):
+                vl = CandidateVettingLog(
+                    bullhorn_candidate_id=400007,
+                    candidate_name='Cap E2E',
+                    applied_job_id=500007,
+                    applied_job_title='Data Engineer',
+                    status='completed',
+                    is_qualified=False,
+                    highest_match_score=14.0,
+                    is_sandbox=False,
+                    analyzed_at=datetime.utcnow(),
+                )
+                db.session.add(vl)
+                db.session.commit()
+                self._seed_revet_audit(
+                    app,
+                    candidate_id=400007,
+                    job_id=500007,
+                    original_score=14.0,
+                    revet_new_score=6.0,
+                    candidate_vetting_log_id=vl.id,
+                )
+
+        # Now create a brand-new vetting log + applied match and run audit.
+        vlog_id, _ = _build_not_qualified_fixtures(
+            app,
+            bullhorn_candidate_id=400007,
+            job_id=500007,
+            candidate_name='Cap E2E',
+            match_score=8.0,
+        )
+
+        try:
+            svc = VettingAuditService()
+            summary = self._empty_summary()
+            with app.app_context():
+                vlog = CandidateVettingLog.query.get(vlog_id)
+                with patch.object(
+                    svc, '_run_heuristic_checks',
+                    return_value=[{
+                        'check_type': 'recency_misfire',
+                        'description': 'Synthetic.',
+                    }]
+                ), patch.object(
+                    svc, '_run_ai_audit',
+                    return_value={
+                        'finding_type': 'recency_misfire',
+                        'confidence': 'high',
+                        'reasoning': 'AI confirms misfire.',
+                    }
+                ), patch.object(
+                    svc, '_trigger_revet'
+                ) as mock_revet:
+                    svc._process_candidate_audit(
+                        vlog, mode='not_qualified', summary=summary
+                    )
+                    assert mock_revet.call_count == 0, (
+                        'Re-vet must be suppressed when 24h cap is hit'
+                    )
+
+                audit = VettingAuditLog.query.filter_by(
+                    candidate_vetting_log_id=vlog_id
+                ).order_by(VettingAuditLog.id.desc()).first()
+                assert audit is not None
+                assert audit.action_taken == 'revet_skipped_capped'
+                assert audit.finding_type == 'recency_misfire'
+                assert audit.confidence == 'high'
+                assert '24h' in (audit.audit_finding or '')
+
+            assert summary['revets_triggered'] == 0
+            assert summary['revets_skipped_capped'] == 1
+            assert summary['revets_skipped_stable'] == 0
+            assert summary['issues_found'] == 1  # we still recorded the issue
+            assert summary['details'][0]['action_taken'] == 'revet_skipped_capped'
+        finally:
+            _delete_audit_rows(app, vlog_id)
+            with app.app_context():
+                from app import db
+                VettingAuditLog.query.filter_by(
+                    bullhorn_candidate_id=400007
+                ).delete()
+                CandidateVettingLog.query.filter_by(
+                    bullhorn_candidate_id=400007
+                ).delete()
+                db.session.commit()
+
+    def test_process_candidate_audit_stable_does_not_call_trigger_revet(
+        self, app, clean_audit_tables
+    ):
+        """End-to-end: with one prior re-vet that proved score-stable
+        (delta within ±5), the auditor's next re-vet is suppressed."""
+        from vetting_audit_service import VettingAuditService
+        from models import CandidateVettingLog, VettingAuditLog
+        from app import db
+
+        with app.app_context():
+            vl_prior = CandidateVettingLog(
+                bullhorn_candidate_id=400008,
+                candidate_name='Stable E2E',
+                applied_job_id=500008,
+                applied_job_title='Data Engineer',
+                status='completed',
+                is_qualified=False,
+                highest_match_score=44.0,
+                is_sandbox=False,
+                analyzed_at=datetime.utcnow(),
+            )
+            db.session.add(vl_prior)
+            db.session.commit()
+            self._seed_revet_audit(
+                app,
+                candidate_id=400008,
+                job_id=500008,
+                original_score=42.0,
+                revet_new_score=44.0,  # delta=2, stable
+                candidate_vetting_log_id=vl_prior.id,
+            )
+
+        vlog_id, _ = _build_not_qualified_fixtures(
+            app,
+            bullhorn_candidate_id=400008,
+            job_id=500008,
+            candidate_name='Stable E2E',
+            match_score=44.0,
+        )
+
+        try:
+            svc = VettingAuditService()
+            summary = self._empty_summary()
+            with app.app_context():
+                vlog = CandidateVettingLog.query.get(vlog_id)
+                with patch.object(
+                    svc, '_run_heuristic_checks',
+                    return_value=[{
+                        'check_type': 'recency_misfire',
+                        'description': 'Synthetic.',
+                    }]
+                ), patch.object(
+                    svc, '_run_ai_audit',
+                    return_value={
+                        'finding_type': 'recency_misfire',
+                        'confidence': 'high',
+                        'reasoning': 'AI confirms misfire.',
+                    }
+                ), patch.object(
+                    svc, '_trigger_revet'
+                ) as mock_revet:
+                    svc._process_candidate_audit(
+                        vlog, mode='not_qualified', summary=summary
+                    )
+                    assert mock_revet.call_count == 0, (
+                        'Re-vet must be suppressed when prior re-vet was stable'
+                    )
+
+                audit = VettingAuditLog.query.filter_by(
+                    candidate_vetting_log_id=vlog_id
+                ).order_by(VettingAuditLog.id.desc()).first()
+                assert audit is not None
+                assert audit.action_taken == 'revet_skipped_stable'
+                assert 'stable' in (audit.audit_finding or '').lower()
+
+            assert summary['revets_triggered'] == 0
+            assert summary['revets_skipped_stable'] == 1
+            assert summary['revets_skipped_capped'] == 0
+            assert summary['details'][0]['action_taken'] == 'revet_skipped_stable'
+        finally:
+            _delete_audit_rows(app, vlog_id)
+            with app.app_context():
+                VettingAuditLog.query.filter_by(
+                    bullhorn_candidate_id=400008
+                ).delete()
+                CandidateVettingLog.query.filter_by(
+                    bullhorn_candidate_id=400008
+                ).delete()
+                db.session.commit()
+
+    def test_process_candidate_audit_proceeds_when_no_prior(
+        self, app, clean_audit_tables
+    ):
+        """Sanity: with no prior re-vets in the last 24h, the auditor
+        still triggers re-vet normally — caps must not fire spuriously."""
+        from vetting_audit_service import VettingAuditService
+        from models import CandidateVettingLog, VettingAuditLog
+
+        vlog_id, _ = _build_not_qualified_fixtures(
+            app,
+            bullhorn_candidate_id=400009,
+            job_id=500009,
+            candidate_name='No Prior',
+            match_score=14.0,
+        )
+        try:
+            svc = VettingAuditService()
+            summary = self._empty_summary()
+            with app.app_context():
+                vlog = CandidateVettingLog.query.get(vlog_id)
+                with patch.object(
+                    svc, '_run_heuristic_checks',
+                    return_value=[{
+                        'check_type': 'recency_misfire',
+                        'description': 'Synthetic.',
+                    }]
+                ), patch.object(
+                    svc, '_run_ai_audit',
+                    return_value={
+                        'finding_type': 'recency_misfire',
+                        'confidence': 'high',
+                        'reasoning': 'AI confirms misfire.',
+                    }
+                ), patch.object(
+                    svc, '_trigger_revet', return_value=22.0
+                ) as mock_revet:
+                    svc._process_candidate_audit(
+                        vlog, mode='not_qualified', summary=summary
+                    )
+                    assert mock_revet.call_count == 1
+
+                audit = VettingAuditLog.query.filter_by(
+                    candidate_vetting_log_id=vlog_id
+                ).order_by(VettingAuditLog.id.desc()).first()
+                assert audit is not None
+                assert audit.action_taken == 'revet_triggered'
+
+            assert summary['revets_triggered'] == 1
+            assert summary['revets_skipped_capped'] == 0
+            assert summary['revets_skipped_stable'] == 0
+        finally:
+            _delete_audit_rows(app, vlog_id)
+
+
+class TestAuditCycleSummaryDiagnostics:
+    """`run_audit_cycle` initializes the new skip counters and emits a
+    diagnostic log line that reports them."""
+
+    def test_summary_initializes_skip_counters(self, app, clean_audit_tables):
+        """run_audit_cycle returns a summary that includes the new
+        revets_skipped_capped / revets_skipped_stable keys, even when
+        no candidates need auditing this cycle."""
+        from vetting_audit_service import VettingAuditService
+
+        with app.app_context():
+            svc = VettingAuditService()
+            # No CandidateVettingLog rows at all → cycle is a no-op but
+            # must still return a properly-shaped summary.
+            summary = svc.run_audit_cycle(batch_size=5)
+
+        assert 'revets_skipped_capped' in summary
+        assert 'revets_skipped_stable' in summary
+        assert summary['revets_skipped_capped'] == 0
+        assert summary['revets_skipped_stable'] == 0
+
+    def test_cycle_logs_skip_counters(self, app, clean_audit_tables, caplog):
+        """The diagnostic log line at the end of run_audit_cycle reports
+        how many re-vets were suppressed by each rule."""
+        import logging as _logging
+        from vetting_audit_service import VettingAuditService
+
+        with app.app_context():
+            svc = VettingAuditService()
+            with caplog.at_level(_logging.INFO):
+                svc.run_audit_cycle(batch_size=5)
+
+        joined = '\n'.join(r.getMessage() for r in caplog.records)
+        assert 'cycle complete' in joined.lower()
+        assert 'skipped (24h cap)' in joined
+        assert 'skipped (score stable)' in joined
