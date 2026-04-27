@@ -82,6 +82,48 @@ _PHRASE_SEARCH_STOPWORDS = {
     "to", "the", "of", "for", "a", "an", "at", "in", "on", "with",
 }
 
+# Words that often appear at the very top of a resume (or in cover-
+# letter / email-body fragments stored as PDFs) and that
+# ``ResumeParser._parse_text`` will sometimes mistake for a candidate
+# name. ``is_valid_name`` accepts them because they're capitalized
+# alphabetic tokens — so we add this script-local guard to PREVENT the
+# backfill from "fixing" a misnamed candidate by replacing it with
+# another piece of garbage.
+#
+# Tokens are stored uppercase. The guard rejects the proposal if EITHER
+# the first or last name (uppercased) appears in this set.
+_SECTION_HEADING_BLOCKLIST = {
+    # Resume section headings
+    "PROFESSIONAL", "SUMMARY", "OBJECTIVE", "EXPERIENCE", "EDUCATION",
+    "SKILLS", "QUALIFICATIONS", "PROFILE", "CONTACT", "RESUME",
+    "CURRICULUM", "VITAE", "CV", "TECHNICAL", "CAREER", "EMPLOYMENT",
+    "REFERENCES", "ACHIEVEMENTS", "ACCOMPLISHMENTS", "CERTIFICATIONS",
+    "AWARDS", "LANGUAGES", "INTERESTS", "HOBBIES", "PROJECTS",
+    "ABOUT", "OVERVIEW", "HIGHLIGHTS", "EXPERTISE", "COMPETENCIES",
+    # Cover-letter / email-body openers and closers
+    "GOOD", "WISHES", "GREETINGS", "REGARDS", "HELLO", "DEAR",
+    "THANKS", "THANK", "BEST", "KIND", "SINCERELY", "COVER",
+    "LETTER", "ATTACHED", "ATTACHMENT", "SUBJECT", "FROM", "SENT",
+}
+
+
+def _is_section_heading_name(first: Optional[str], last: Optional[str]) -> bool:
+    """Return True if the proposed name looks like a resume section
+    heading or cover-letter opener rather than an actual person's
+    name. Used as a script-local safety net on top of ``is_valid_name``
+    to prevent false-positive auto-corrections in the backfill flow.
+    """
+    for value in (first, last):
+        if not value:
+            continue
+        # Each value can be one or more whitespace-separated tokens
+        # (e.g. last_name = "Dzifa Denoo"). Reject if ANY token is in
+        # the blocklist.
+        for tok in str(value).split():
+            if tok.strip(".,;:").upper() in _SECTION_HEADING_BLOCKLIST:
+                return True
+    return False
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
@@ -438,8 +480,16 @@ def _propose_correction(bh_service, candidate: Dict) -> Optional[Tuple[str, str]
     pipe_first = (parsed_data or {}).get("first_name")
     pipe_last = (parsed_data or {}).get("last_name")
     if is_valid_name(pipe_first, pipe_last):
-        return pipe_first, pipe_last
-    if pipe_first or pipe_last:
+        if _is_section_heading_name(pipe_first, pipe_last):
+            log.warning(
+                "  -> SKIP REASON: pipeline name %r %r looks like a resume "
+                "section heading or cover-letter opener — refusing to "
+                "auto-replace with another piece of garbage",
+                pipe_first, pipe_last,
+            )
+        else:
+            return pipe_first, pipe_last
+    elif pipe_first or pipe_last:
         log.info("  -> Pipeline name %r %r failed is_valid_name; trying heuristic fallback",
                  pipe_first, pipe_last)
 
@@ -453,7 +503,14 @@ def _propose_correction(bh_service, candidate: Dict) -> Optional[Tuple[str, str]
         new_first = parsed.get("first_name")
         new_last = parsed.get("last_name")
         if is_valid_name(new_first, new_last):
-            return new_first, new_last
+            if _is_section_heading_name(new_first, new_last):
+                log.warning(
+                    "  -> SKIP REASON: fallback name %r %r looks like a "
+                    "resume section heading — refusing to auto-replace",
+                    new_first, new_last,
+                )
+            else:
+                return new_first, new_last
 
     return None
 
