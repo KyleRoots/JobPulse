@@ -13,6 +13,7 @@ from typing import List
 from app import db
 from models import CandidateJobMatch, CandidateVettingLog, VettingConfig
 from vetting.name_utils import parse_names, parse_emails
+from screening.location_review import is_location_review_match, resolve_match_threshold
 
 
 class NotificationMixin:
@@ -44,6 +45,12 @@ class NotificationMixin:
         logging.info(f"📧 Notification check for {vetting_log.candidate_name} (ID: {vetting_log.bullhorn_candidate_id})")
         
         if not vetting_log.is_qualified:
+            # Try Location Review first — most specific signal (tech-qualified candidate
+            # knocked just below threshold by a small location penalty)
+            location_sent = self._send_location_review_notification(vetting_log)
+            if location_sent:
+                return location_sent
+            # Fall back to prestige review (Tier-1 firm employer, below threshold)
             prestige_sent = self._send_prestige_review_notification(vetting_log)
             if not prestige_sent:
                 logging.info(f"  ⏭️ Skipping - not qualified (is_qualified={vetting_log.is_qualified})")
@@ -471,5 +478,267 @@ class NotificationMixin:
             return 0
         except Exception as e:
             logging.error(f"Prestige notification send error: {str(e)}")
+            return 0
+
+    def _send_location_review_notification(self, vetting_log: CandidateVettingLog) -> int:
+        """
+        Send a recruiter notification for the LOCATION REVIEW tier.
+
+        Fires when a candidate is not_qualified (final score below threshold)
+        but their technical fit met or exceeded the threshold and only a small
+        location penalty (≤ 10 pts) — or a legacy AI-flagged hard barrier within
+        the 15-pt buffer — knocked them under. The recruiter should make the
+        call rather than the system silently rejecting.
+
+        Honors the same `send_recruiter_emails` kill-switch and
+        `admin_notification_email` fallback as the qualified-candidate path,
+        with a distinct subject line so recruiters can filter or sort.
+        """
+        threshold = self.get_threshold()
+
+        candidate_matches = CandidateJobMatch.query.filter_by(
+            vetting_log_id=vetting_log.id,
+            notification_sent=False,
+            is_qualified=False,
+        ).all()
+
+        # Build per-job threshold map so location-review eligibility is evaluated
+        # against the same threshold that determined each match's is_qualified
+        # status (keeps the new tier consistent with per-job custom thresholds).
+        job_threshold_map = {}
+        job_ids = [m.bullhorn_job_id for m in candidate_matches if m.bullhorn_job_id]
+        if job_ids:
+            try:
+                from models import JobVettingRequirements
+                custom_reqs = JobVettingRequirements.query.filter(
+                    JobVettingRequirements.bullhorn_job_id.in_(job_ids),
+                    JobVettingRequirements.vetting_threshold.isnot(None),
+                ).all()
+                for req in custom_reqs:
+                    job_threshold_map[req.bullhorn_job_id] = float(req.vetting_threshold)
+            except Exception as e:
+                logging.warning(f"Could not fetch per-job thresholds for location review: {str(e)}")
+
+        location_matches = [
+            m for m in candidate_matches
+            if is_location_review_match(
+                m, resolve_match_threshold(m, job_threshold_map, threshold)
+            )
+        ]
+
+        if not location_matches:
+            return 0
+
+        logging.info(
+            f"  📍 Found {len(location_matches)} location-review match(es) for "
+            f"not-qualified candidate {vetting_log.candidate_name}"
+        )
+
+        # ── Recruiter resolution (mirrors qualified-candidate flow) ──
+        primary_recruiter_email = None
+        primary_recruiter_name = None
+        cc_recruiter_emails = []
+
+        for match in location_matches:
+            if match.is_applied_job and match.recruiter_email:
+                emails = parse_emails(match.recruiter_email)
+                names = parse_names(match.recruiter_name)
+                if emails:
+                    primary_recruiter_email = emails[0]
+                    primary_recruiter_name = names[0] if names else ''
+                break
+
+        seen_emails = set()
+        for match in location_matches:
+            emails = parse_emails(match.recruiter_email)
+            names = parse_names(match.recruiter_name)
+            for i, email in enumerate(emails):
+                if email and email not in seen_emails:
+                    seen_emails.add(email)
+                    name = names[i] if i < len(names) else ''
+                    if not primary_recruiter_email:
+                        primary_recruiter_email = email
+                        primary_recruiter_name = name
+                    elif email != primary_recruiter_email:
+                        cc_recruiter_emails.append(email)
+
+        # ── Kill-switch + admin fallback (same as Qualified path) ──
+        send_setting = VettingConfig.query.filter_by(setting_key='send_recruiter_emails').first()
+        send_to_recruiters = bool(send_setting) and send_setting.setting_value.lower() == 'true'
+
+        admin_setting = VettingConfig.query.filter_by(setting_key='admin_notification_email').first()
+        admin_email = admin_setting.setting_value if admin_setting and admin_setting.setting_value else ''
+
+        if not send_to_recruiters:
+            if not admin_email:
+                logging.warning(
+                    f"❌ Location-review notification blocked — recruiter emails disabled "
+                    f"and no admin email configured for {vetting_log.candidate_name}"
+                )
+                return 0
+            primary_recruiter_email = admin_email
+            primary_recruiter_name = 'Admin'
+            cc_recruiter_emails = []
+        elif not primary_recruiter_email:
+            if admin_email:
+                logging.warning(
+                    f"⚠️ No recruiter emails on location-review matches for {vetting_log.candidate_name} "
+                    f"— falling back to admin: {admin_email}"
+                )
+                primary_recruiter_email = admin_email
+                primary_recruiter_name = 'Admin'
+                cc_recruiter_emails = []
+            else:
+                return 0
+
+        # ── Build email content ──
+        candidate_name = vetting_log.candidate_name
+        candidate_id = vetting_log.bullhorn_candidate_id
+        candidate_url = (
+            f"https://cls45.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm"
+            f"?Entity=Candidate&id={candidate_id}"
+        )
+
+        # Pick the strongest technical fit among the location-review matches for the subject
+        top_match = max(
+            location_matches,
+            key=lambda m: (m.technical_score or m.match_score or 0),
+        )
+        top_tech = top_match.technical_score or top_match.match_score or 0
+        top_final = top_match.match_score or 0
+
+        subject = (
+            f"📍 Location Review: {candidate_name} — "
+            f"{top_tech:.0f}% Technical Fit (knocked to {top_final:.0f}% by location)"
+        )
+
+        transparency_note = ""
+        if cc_recruiter_emails:
+            transparency_note = f"""
+                <div style="background: #e3f2fd; border: 1px solid #90caf9; border-radius: 6px; padding: 12px; margin-bottom: 15px;">
+                    <p style="margin: 0; color: #1565c0; font-size: 13px;">
+                        <strong>📢 Team Thread:</strong> CC'd on this email:
+                        <em>{', '.join(cc_recruiter_emails)}</em>
+                    </p>
+                </div>
+            """
+
+        html_content = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #2c5364 0%, #203a43 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+                <h1 style="margin: 0; font-size: 22px;">📍 Location Review — Recruiter Judgment Needed</h1>
+            </div>
+
+            <div style="background: #fff8e1; padding: 15px 20px; border-left: 4px solid #f9a825; border-right: 1px solid #e9ecef;">
+                <p style="margin: 0; color: #5d4037; font-size: 14px;">
+                    <strong>⚠️ Strong Technical Fit — Below Threshold Due to Location</strong><br>
+                    This candidate's <strong>technical fit ({top_tech:.0f}%)</strong> meets or exceeds
+                    the {threshold:.0f}% qualifying threshold. A location penalty brought their
+                    final score to <strong>{top_final:.0f}%</strong>. They are being surfaced for
+                    your review rather than auto-rejected — please weigh commute, relocation, or
+                    hybrid logistics before deciding.
+                </p>
+            </div>
+
+            <div style="background: #f8f9fa; padding: 20px; border: 1px solid #e9ecef; border-top: none;">
+                <p style="margin: 0 0 15px 0;">Hi {primary_recruiter_name or 'there'},</p>
+
+                {transparency_note}
+
+                <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6; margin: 15px 0;">
+                    <h2 style="margin: 0 0 10px 0; color: #495057; font-size: 18px;">
+                        👤 {candidate_name}
+                    </h2>
+                    <a href="{candidate_url}"
+                       style="display: inline-block; background: #2c5364; color: white;
+                              padding: 10px 20px; border-radius: 5px; text-decoration: none;">
+                        View Candidate Profile →
+                    </a>
+                </div>
+
+                <h3 style="color: #495057; margin: 20px 0 10px 0;">Position(s) Affected:</h3>
+        """
+
+        for match in location_matches:
+            job_url = (
+                f"https://cls45.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm"
+                f"?Entity=JobOrder&id={match.bullhorn_job_id}"
+            )
+            applied_badge = (
+                '<span style="background: #ffc107; color: #000; padding: 2px 8px; '
+                'border-radius: 3px; font-size: 11px; margin-left: 8px;">APPLIED</span>'
+                if match.is_applied_job else ''
+            )
+            tech = match.technical_score or match.match_score or 0
+            final = match.match_score or 0
+            score_block = (
+                f"<strong>Technical Fit:</strong> {tech:.0f}% &nbsp;→&nbsp; "
+                f"<strong>Final (after location):</strong> {final:.0f}%"
+                if tech and tech != final
+                else f"<strong>Match Score:</strong> {final:.0f}%"
+            )
+            html_content += f"""
+                <div style="background: white; padding: 15px; border-radius: 8px;
+                            border-left: 4px solid #2c5364; margin: 10px 0;">
+                    <h4 style="margin: 0 0 8px 0; color: #2c5364;">
+                        <a href="{job_url}" style="color: #2c5364; text-decoration: none;">{match.job_title} (Job ID: {match.bullhorn_job_id})</a>{applied_badge}
+                    </h4>
+                    <div style="color: #6c757d; margin-bottom: 8px;">
+                        {score_block}
+                    </div>
+                    <p style="margin: 0; color: #495057;">{match.match_summary}</p>
+                    {f'<p style="margin: 10px 0 0 0; color: #495057;"><strong>Key Skills:</strong> {match.skills_match}</p>' if match.skills_match else ''}
+                </div>
+            """
+
+        html_content += f"""
+                <div style="margin-top: 25px; padding-top: 15px; border-top: 1px solid #dee2e6;">
+                    <p style="color: #6c757d; font-size: 14px; margin: 0;">
+                        <strong>Why this alert?</strong> The screening engine treats a candidate
+                        whose technical fit is at or above threshold but whose final score was
+                        reduced by a small location penalty (≤ {top_tech - top_final:.0f} pts here)
+                        as a recruiter judgment call rather than an automatic rejection.
+                    </p>
+                </div>
+            </div>
+
+            <div style="background: #343a40; color: #adb5bd; padding: 15px;
+                        border-radius: 0 0 8px 8px; font-size: 12px; text-align: center;">
+                Powered by Scout Screening™ • Myticas Consulting
+            </div>
+        </div>
+        """
+
+        # ── Send ──
+        try:
+            admin_bcc_email = 'kroots@myticas.com'
+            job_titles = ', '.join(set(m.job_title for m in location_matches if m.job_title)) or 'unknown'
+            changes_summary = (
+                f"Location review alert — {candidate_name}: "
+                f"{top_tech:.0f}% technical fit on {job_titles}, "
+                f"final {top_final:.0f}% after location penalty"
+            )
+            result = self.email_service.send_html_email(
+                to_email=primary_recruiter_email,
+                subject=subject,
+                html_content=html_content,
+                notification_type='vetting_location_review_notification',
+                cc_emails=cc_recruiter_emails,
+                bcc_emails=[admin_bcc_email],
+                changes_summary=changes_summary,
+            )
+            if result is True or (isinstance(result, dict) and result.get('success', False)):
+                for match in location_matches:
+                    match.notification_sent = True
+                    match.notification_sent_at = datetime.utcnow()
+                db.session.commit()
+                logging.info(
+                    f"  📍 Location review notification sent to {primary_recruiter_email} "
+                    f"for {candidate_name} ({len(location_matches)} match(es))"
+                )
+                return 1
+            return 0
+        except Exception as e:
+            logging.error(f"Location review notification send error: {str(e)}")
             return 0
 

@@ -1250,9 +1250,13 @@ class CandidateVettingService(
                         else:
                             logging.info(f"⏭️ Skipping note creation - already exists for candidate {vetting_log.bullhorn_candidate_id}")
                         
-                        if vetting_log.is_qualified:
-                            notif_count = self.send_recruiter_notifications(vetting_log)
-                            summary['notifications_sent'] += notif_count
+                        # Always invoke notifications: the dispatcher has internal
+                        # branching for qualified candidates, location-review near-misses
+                        # (tech-fit-qualified, knocked below by ≤10pt location penalty),
+                        # and prestige-employer review cases. Each branch early-returns
+                        # 0 if no eligible matches exist, so this is safe to always call.
+                        notif_count = self.send_recruiter_notifications(vetting_log)
+                        summary['notifications_sent'] += notif_count
                     
                     parsed_email_id = candidate.get('_parsed_email_id')
                     if parsed_email_id:

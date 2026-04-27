@@ -13,6 +13,7 @@ import json
 from datetime import datetime, timedelta
 from app import db
 from models import CandidateJobMatch, CandidateVettingLog, JobVettingRequirements
+from screening.location_review import is_location_review_match, resolve_match_threshold
 
 
 class NoteBuilderMixin:
@@ -118,6 +119,7 @@ class NoteBuilderMixin:
                     "Scout Screen - Incomplete",
                     "Scout Screen - Loc Barrier",
                     "Scout Screen - Location Barrier",
+                    "Scout Screen - Location Review",
                     "Scout Screening - Qualified",
                     "Scout Screening - Not Recommended",
                     "Scout Screening - Incomplete",
@@ -231,41 +233,58 @@ class NoteBuilderMixin:
                 logging.error(f"Failed to create incomplete vetting note for candidate {vetting_log.bullhorn_candidate_id}")
                 return False
         
-        # ── LOCATION BARRIER DETECTION ──
-        # Candidate scored above the technical threshold but was overridden out of
-        # qualified status because the role is on-site/hybrid and they're non-local.
-        location_barrier_matches = [
+        # ── LOCATION REVIEW DETECTION ──
+        # Candidates who are technically at or above threshold but were knocked
+        # below it by either (a) a small location penalty (≤ 10 pts) or
+        # (b) a hard AI-flagged location barrier on an on-site/hybrid role.
+        # In both cases the technical fit is real and the recruiter should make
+        # the judgment call rather than the system silently rejecting them.
+        # Use per-job threshold (matches the per-job qualification logic
+        # in candidate_vetting_service.py); falls back to the global threshold
+        # for jobs without a custom override.
+        location_review_matches = [
             m for m in matches
-            if not m.is_qualified
-            and 'location mismatch' in (m.gaps_identified or '').lower()
-            and (m.technical_score or m.match_score) >= (threshold - 15)
+            if is_location_review_match(
+                m, resolve_match_threshold(m, job_threshold_map, threshold)
+            )
         ]
-        is_location_barrier_candidate = (
-            len(qualified_matches) == 0 and len(location_barrier_matches) > 0
+        is_location_review_candidate = (
+            len(qualified_matches) == 0 and len(location_review_matches) > 0
         )
 
-        if is_location_barrier_candidate:
-            # Strong fit / location barrier note
-            top_lb = sorted(location_barrier_matches, key=lambda m: (m.technical_score or m.match_score), reverse=True)
-            top_tech = top_lb[0].technical_score or top_lb[0].match_score if top_lb else 0
-            top_final = top_lb[0].match_score if top_lb else 0
+        if is_location_review_candidate:
+            # Location-review note: tech-fit-qualified candidate flagged for recruiter judgment
+            top_lr = sorted(
+                location_review_matches,
+                key=lambda m: (m.technical_score or m.match_score or 0),
+                reverse=True,
+            )
+            top_tech = (top_lr[0].technical_score or top_lr[0].match_score) if top_lr else 0
+            top_final = top_lr[0].match_score if top_lr else 0
+            # Use per-job threshold of the top match for the header summary
+            # (avoids stating a global threshold that may not apply to this
+            # candidate's actual matched position).
+            top_match_threshold = resolve_match_threshold(top_lr[0], job_threshold_map, threshold) if top_lr else threshold
             note_lines = [
-                f"📍 SCOUT SCREENING - STRONG FIT / LOCATION BARRIER",
+                f"📍 SCOUT SCREENING - LOCATION REVIEW REQUIRED",
                 f"",
                 f"Analysis Date: {vetting_log.analyzed_at.strftime('%Y-%m-%d %H:%M UTC') if vetting_log.analyzed_at else 'N/A'}",
-                f"Threshold: {threshold}%",
+                f"Match Threshold: {top_match_threshold:.0f}% (see per-position thresholds below)",
                 f"Technical Fit: {top_tech:.0f}% (skills & experience, before location penalty)",
                 f"Final Score: {top_final:.0f}% (after location penalty)",
                 f"",
-                f"This candidate is a strong technical fit but has a location barrier",
-                f"for an on-site/hybrid position. Recruiter review is recommended.",
+                f"This candidate's technical fit meets or exceeds the configured match",
+                f"threshold for one or more positions below. A location penalty brought",
+                f"the final score below threshold. The candidate is being surfaced for",
+                f"recruiter judgment rather than auto-rejected — please review commute,",
+                f"relocation, or hybrid logistics before deciding.",
                 f"",
                 f"POSITION(S) AFFECTED:",
             ]
-            for m in top_lb:
+            for m in top_lr:
                 tech = m.technical_score or m.match_score
                 match_custom = job_threshold_map.get(m.bullhorn_job_id)
-                if tech != m.match_score:
+                if tech and tech != m.match_score:
                     score_line = f"  Technical Fit: {tech:.0f}% → Location Penalty → Final: {m.match_score:.0f}%"
                 else:
                     score_line = f"  Score: {m.match_score:.0f}%"
@@ -274,18 +293,18 @@ class NoteBuilderMixin:
                 gaps_full = m.gaps_identified or ''
                 loc_gap_parts = [
                     part.strip() for part in gaps_full.replace(' | ', '|').split('|')
-                    if 'location mismatch' in part.lower()
+                    if 'location' in part.lower()
                 ]
                 non_loc_parts = [
                     part.strip() for part in gaps_full.replace(' | ', '|').split('|')
-                    if 'location mismatch' not in part.lower() and part.strip()
+                    if 'location' not in part.lower() and part.strip()
                 ]
                 loc_gap_text = ' | '.join(loc_gap_parts) if loc_gap_parts else ''
                 note_lines += [
                     f"",
                     f"• Job ID: {m.bullhorn_job_id} - {m.job_title}",
                     score_line,
-                    f"  ⚠️  LOCATION BARRIER",
+                    f"  ⚠️  LOCATION REVIEW",
                     f"  Summary: {m.match_summary}",
                     f"  Skills: {m.skills_match}",
                 ]
@@ -294,7 +313,7 @@ class NoteBuilderMixin:
                 if loc_gap_text:
                     note_lines.append(f"  Location: {loc_gap_text}")
             note_text = "\n".join(note_lines)
-            action = "Scout Screen - Loc Barrier"
+            action = "Scout Screen - Location Review"
 
             note_id = bullhorn.create_candidate_note(
                 vetting_log.bullhorn_candidate_id,
@@ -306,12 +325,12 @@ class NoteBuilderMixin:
                 vetting_log.bullhorn_note_id = note_id
                 db.session.commit()
                 logging.info(
-                    f"📍 Created location barrier note for candidate {vetting_log.bullhorn_candidate_id} "
+                    f"📍 Created location review note for candidate {vetting_log.bullhorn_candidate_id} "
                     f"(tech fit: {top_tech:.0f}%, final: {top_final:.0f}%)"
                 )
                 return True
             else:
-                logging.error(f"Failed to create location barrier note for candidate {vetting_log.bullhorn_candidate_id}")
+                logging.error(f"Failed to create location review note for candidate {vetting_log.bullhorn_candidate_id}")
                 return False
 
         elif vetting_log.is_qualified:
