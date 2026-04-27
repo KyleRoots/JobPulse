@@ -307,35 +307,92 @@ def _pull_latest_resume_text(bh_service, candidate_id: int) -> Tuple[Optional[st
         return None, chosen.get("name")
 
     import base64
+    import os
+    import tempfile
     raw_bytes = base64.b64decode(file_content_b64)
 
-    from resume_parser import ResumeParser
-    parser = ResumeParser()
-    bio = io.BytesIO(raw_bytes)
-    bio.name = chosen.get("name") or "resume.pdf"
+    # ResumeParser.parse_resume(file) accepts Union[FileStorage, str].
+    # Passing a BytesIO does NOT work — the parser reads ``file.filename``
+    # (the FileStorage attribute), which BytesIO does not have, and the
+    # AttributeError is swallowed into an empty raw_text. So write the
+    # bytes to a real temp file with the correct extension and pass the
+    # path. This also enables the AI Vision OCR fallback (default-on
+    # when quick_mode=False) for image-based / scanned PDF resumes.
+    chosen_name = chosen.get("name") or "resume.pdf"
+    suffix = ""
+    for ext in (".pdf", ".docx", ".doc"):
+        if chosen_name.lower().endswith(ext):
+            suffix = ext
+            break
+    if not suffix:
+        suffix = ".pdf"
+
+    tmp_path = None
     try:
-        parsed = parser.parse_resume(bio)
-        return parsed.get("raw_text"), chosen.get("name")
-    except Exception as exc:  # pragma: no cover - defensive
-        log.warning("Failed to parse resume for candidate %s: %s",
-                    candidate_id, exc)
-        return None, chosen.get("name")
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(raw_bytes)
+            tmp_path = tmp.name
+
+        from resume_parser import ResumeParser
+        parser = ResumeParser()
+        try:
+            parsed = parser.parse_resume(tmp_path)
+        except Exception as exc:  # pragma: no cover - defensive
+            log.warning("Failed to parse resume for candidate %s: %s",
+                        candidate_id, exc)
+            return None, chosen_name
+
+        if not parsed or not parsed.get("success"):
+            return None, chosen_name
+
+        # Stash the already-extracted parsed_data on the returned text via
+        # a tuple-of-tuple sentinel so _propose_correction can reuse the
+        # full-pipeline name (heuristic + OCR fallback) without re-running
+        # _parse_text and losing the OCR pass.
+        raw_text = parsed.get("raw_text") or ""
+        return (raw_text, parsed.get("parsed_data") or {}), chosen_name
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
 
 def _propose_correction(bh_service, candidate: Dict) -> Optional[Tuple[str, str]]:
-    """Return (proposed_first, proposed_last) by re-parsing the resume."""
+    """Return (proposed_first, proposed_last) by re-parsing the resume.
+
+    Prefers the full-pipeline result from ``ResumeParser.parse_resume``
+    (which includes AI Vision OCR for scanned PDFs). Falls back to a
+    direct ``_parse_text`` call on the raw text if the full pipeline
+    didn't yield a valid name.
+    """
     cand_id = candidate.get("id")
-    raw_text, _filename = _pull_latest_resume_text(bh_service, cand_id)
-    if not raw_text:
+    payload, _filename = _pull_latest_resume_text(bh_service, cand_id)
+    if not payload:
         return None
 
-    from resume_parser import ResumeParser
-    parser = ResumeParser()
-    parsed = parser._parse_text(raw_text)
-    new_first = parsed.get("first_name")
-    new_last = parsed.get("last_name")
-    if is_valid_name(new_first, new_last):
-        return new_first, new_last
+    raw_text, parsed_data = payload
+
+    # First choice: the full-pipeline parsed_data (already validated
+    # against the hardened heuristic + OCR fallback).
+    pipe_first = (parsed_data or {}).get("first_name")
+    pipe_last = (parsed_data or {}).get("last_name")
+    if is_valid_name(pipe_first, pipe_last):
+        return pipe_first, pipe_last
+
+    # Fallback: re-run _parse_text on raw_text in case the cached
+    # parsed_data is stale (e.g. cached pre-fix result). This will use
+    # the freshly-loaded hardened heuristic.
+    if raw_text:
+        from resume_parser import ResumeParser
+        parser = ResumeParser()
+        parsed = parser._parse_text(raw_text)
+        new_first = parsed.get("first_name")
+        new_last = parsed.get("last_name")
+        if is_valid_name(new_first, new_last):
+            return new_first, new_last
+
     return None
 
 
