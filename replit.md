@@ -54,6 +54,7 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 - **Manual Screening Dispatch**: Helper `utils/screening_dispatch.enqueue_vetting_now(reason)` enqueues vetting tasks to run immediately in the background, preventing gunicorn timeouts for large batches.
 - **Post-Merge Setup Hook**: `scripts/post-merge.sh` automatically runs `pip install -r requirements.txt` and `alembic upgrade head` after every background task-agent merge to keep the environment in sync.
 - **Phone-Search Trigram Index**: Functional GIN trigram index on normalized phone numbers for efficient recruiter phone substring lookups.
+- **Dedup Match Discovery — Parallel Email/Phone Search**: `duplicate_merge_service._find_matches_for_candidate` runs the email-search and phone-search paths independently (no longer gated behind "email returned nothing"), with a shared `seen_ids` set deduplicating combined results. The phone search now includes both `phone` and `mobile` numbers as separate query terms when both are ≥10 digits. Closes the historical gap where a duplicate that shared a phone but had a different email was never surfaced.
 
 ### Bullhorn Note Creation — Critical Requirements
 - **`personReference`**: Must point to a Person entity (Candidate or ClientContact).

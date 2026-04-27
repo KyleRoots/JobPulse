@@ -565,6 +565,20 @@ class DuplicateMergeService:
         mobile_digits = ''.join(filter(str.isdigit, candidate.get('mobile') or ''))
 
         matches = []
+        seen_ids = {candidate.get('id')}
+
+        def _add_unique(results):
+            added = 0
+            for r in results:
+                rid = r.get('id')
+                if rid in seen_ids:
+                    continue
+                if (r.get('status') or '').lower() == 'archive':
+                    continue
+                matches.append(r)
+                seen_ids.add(rid)
+                added += 1
+            return added
 
         if email:
             search_query = f'(email:"{email}" OR email2:"{email}" OR email3:"{email}")'
@@ -578,16 +592,26 @@ class DuplicateMergeService:
                 }
                 resp = self.bullhorn.session.get(url, params=params, timeout=30)
                 if resp.status_code == 200:
-                    results = resp.json().get('data', [])
-                    for r in results:
-                        if r.get('id') != candidate.get('id') and (r.get('status') or '').lower() != 'archive':
-                            matches.append(r)
+                    added = _add_unique(resp.json().get('data', []))
+                    logger.debug(
+                        f"  email-search for candidate {candidate.get('id')}: "
+                        f"added {added} candidate(s)"
+                    )
             except Exception as e:
                 logger.warning(f"Error searching by email for candidate {candidate.get('id')}: {e}")
 
-        if not matches and (len(phone_digits) >= 10 or len(mobile_digits) >= 10):
-            search_phone = phone_digits if len(phone_digits) >= 10 else mobile_digits
-            search_query = f'(phone:"{search_phone}" OR mobile:"{search_phone}")'
+        phone_terms = []
+        if len(phone_digits) >= 10:
+            phone_terms.append(phone_digits)
+        if len(mobile_digits) >= 10 and mobile_digits not in phone_terms:
+            phone_terms.append(mobile_digits)
+
+        if phone_terms:
+            clauses = []
+            for p in phone_terms:
+                clauses.append(f'phone:"{p}"')
+                clauses.append(f'mobile:"{p}"')
+            search_query = '(' + ' OR '.join(clauses) + ')'
             try:
                 url = f"{self.bullhorn.base_url}search/Candidate"
                 params = {
@@ -598,12 +622,11 @@ class DuplicateMergeService:
                 }
                 resp = self.bullhorn.session.get(url, params=params, timeout=30)
                 if resp.status_code == 200:
-                    results = resp.json().get('data', [])
-                    for r in results:
-                        if r.get('id') != candidate.get('id') and (r.get('status') or '').lower() != 'archive':
-                            already_found = {m.get('id') for m in matches}
-                            if r.get('id') not in already_found:
-                                matches.append(r)
+                    added = _add_unique(resp.json().get('data', []))
+                    logger.debug(
+                        f"  phone-search for candidate {candidate.get('id')} "
+                        f"({len(phone_terms)} number(s)): added {added} new candidate(s)"
+                    )
             except Exception as e:
                 logger.warning(f"Error searching by phone for candidate {candidate.get('id')}: {e}")
 
