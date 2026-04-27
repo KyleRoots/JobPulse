@@ -57,19 +57,16 @@ def is_location_review_match(match, threshold: float) -> bool:
     """
     Return True if a CandidateJobMatch qualifies for the Location Review tier.
 
-    Two qualifying paths (either is sufficient):
-
-    Path A - small soft location penalty (the new common case):
+    A match qualifies only when ALL of the following are true:
         - match.is_qualified is False
         - match.technical_score is set and >= threshold
         - 0 < (technical_score - match_score) <= LOCATION_NEAR_MISS_PENALTY_CAP
         - match.gaps_identified mentions "location"
 
-    Path B - legacy AI-flagged hard barrier (preserved for backwards
-    compatibility with the previous "STRONG FIT / LOCATION BARRIER" path):
-        - match.is_qualified is False
-        - match.gaps_identified contains the literal phrase "location mismatch"
-        - technical_score (or match_score as a fallback) >= (threshold - 15)
+    The technical-fit gate is intentionally strict: a candidate whose technical
+    score is below the qualifying threshold is not "tech-qualified" in the
+    first place, so a small location penalty doesn't make them a recruiter
+    judgment call — they're a genuine Not-Recommended result.
 
     Args:
         match: a CandidateJobMatch instance (or any object with the
@@ -87,20 +84,13 @@ def is_location_review_match(match, threshold: float) -> bool:
         return False
 
     tech = getattr(match, 'technical_score', None)
+    if tech is None or tech < threshold:
+        return False
+
     final = getattr(match, 'match_score', None) or 0
+    penalty = tech - final
+    if not (0 < penalty <= LOCATION_NEAR_MISS_PENALTY_CAP):
+        return False
+
     gaps_lower = (getattr(match, 'gaps_identified', '') or '').lower()
-
-    # Path A: small soft location penalty knocked a tech-qualified candidate below threshold
-    if tech is not None and tech >= threshold:
-        penalty = tech - final
-        if 0 < penalty <= LOCATION_NEAR_MISS_PENALTY_CAP and 'location' in gaps_lower:
-            return True
-
-    # Path B: legacy "location mismatch" literal-string path (AI-flagged hard barrier
-    # that still leaves the candidate within striking distance of the threshold)
-    if 'location mismatch' in gaps_lower:
-        tech_or_final = tech if tech is not None else final
-        if tech_or_final >= (threshold - 15):
-            return True
-
-    return False
+    return 'location' in gaps_lower

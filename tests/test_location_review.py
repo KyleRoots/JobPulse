@@ -31,7 +31,7 @@ def _make_match(
     )
 
 
-# ── PATH A: small soft location penalty ──────────────────────────────────────
+# ── Qualifying conditions ────────────────────────────────────────────────────
 
 
 def test_lorraine_canonical_case_qualifies():
@@ -134,40 +134,42 @@ def test_none_match_returns_false():
     assert is_location_review_match(None, threshold=80) is False
 
 
-# ── PATH B: legacy "location mismatch" hard barrier (preserved) ─────────────
+# ── Regression: tech-fit below threshold must never qualify ─────────────────
 
 
-def test_legacy_location_mismatch_within_buffer_qualifies():
-    """AI flagged 'location mismatch' (hard barrier) and tech is within
-    threshold-15 buffer — preserves the prior STRONG FIT / LOCATION BARRIER
-    behavior so existing on-site/hybrid hard-barrier cases still surface."""
+def test_sergio_regression_tech_below_threshold_with_location_mismatch_phrase():
+    """Sergio Castanho on job 34806: 74% tech fit under an 80% threshold, with
+    the AI literally writing 'location mismatch' in the gaps. The previous
+    legacy path would have surfaced this as a Location Review (74 >= 80-15);
+    the corrected helper must reject it because tech fit is below threshold."""
     match = _make_match(
-        technical_score=70,
-        match_score=45,
-        gaps_identified="Location mismatch: candidate in NY, role is on-site Toronto.",
-    )
-    assert is_location_review_match(match, threshold=80) is True
-
-
-def test_legacy_location_mismatch_outside_buffer_disqualifies():
-    """If technical fit is more than 15 pts below threshold, the legacy path
-    should NOT trigger — the candidate is genuinely not qualified."""
-    match = _make_match(
-        technical_score=50,
-        match_score=25,
-        gaps_identified="Location mismatch: different country.",
+        technical_score=74,
+        match_score=68,
+        gaps_identified="Location mismatch: candidate not within commuting range.",
     )
     assert is_location_review_match(match, threshold=80) is False
 
 
-def test_legacy_path_uses_match_score_when_tech_missing():
-    """Legacy path falls back to match_score if technical_score is None."""
+def test_tech_below_threshold_with_location_phrase_does_not_qualify():
+    """Even with 'location' in gaps and a small (<=10pt) penalty, a tech score
+    below threshold must NOT trigger the Location Review tier."""
+    match = _make_match(
+        technical_score=78,
+        match_score=72,
+        gaps_identified="Location: short commute, otherwise solid.",
+    )
+    assert is_location_review_match(match, threshold=80) is False
+
+
+def test_missing_technical_score_with_location_mismatch_disqualifies():
+    """Records without a technical_score can no longer ride the legacy fallback;
+    they must be evaluated as Not-Recommended."""
     match = _make_match(
         technical_score=None,
         match_score=68,
         gaps_identified="Location mismatch on hybrid role.",
     )
-    assert is_location_review_match(match, threshold=80) is True
+    assert is_location_review_match(match, threshold=80) is False
 
 
 # ── Per-job threshold resolution ────────────────────────────────────────────
