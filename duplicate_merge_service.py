@@ -11,6 +11,10 @@ CONFIDENCE_THRESHOLD = 0.80
 BATCH_SIZE = 200
 RECENT_WINDOW_HOURS = 2
 
+# AI fuzzy matcher (Task #57): per-cycle budget so the hourly window holds.
+# Long-tail candidates ride to the next cycle.
+FUZZY_MAX_CANDIDATES_PER_CYCLE = 25
+
 
 class DuplicateMergeService:
     def __init__(self):
@@ -330,7 +334,7 @@ class DuplicateMergeService:
         except Exception as e:
             logger.warning(f"  Could not add merge note to {candidate_id}: {e}")
 
-    def merge_candidates(self, primary, duplicate, confidence, match_field, merge_type='scheduled'):
+    def merge_candidates(self, primary, duplicate, confidence, match_field, merge_type='scheduled', match_type='exact'):
         from models import CandidateMergeLog
 
         try:
@@ -399,6 +403,7 @@ class DuplicateMergeService:
             duplicate_name=dup_name,
             confidence_score=confidence,
             match_field=match_field,
+            match_type=match_type,
             merge_type=merge_type,
             items_transferred=json.dumps(transferred),
             merged_by='system',
@@ -410,7 +415,7 @@ class DuplicateMergeService:
         logger.info(f"  ✅ Merge complete: {transferred['submissions']} submissions, {transferred['notes']} notes, {transferred['files']} files transferred")
         return transferred
 
-    def _log_skip(self, candidate_a, candidate_b, confidence, match_field, reason, merge_type='scheduled'):
+    def _log_skip(self, candidate_a, candidate_b, confidence, match_field, reason, merge_type='scheduled', match_type='exact'):
         from models import CandidateMergeLog
 
         merge_log = CandidateMergeLog(
@@ -420,6 +425,7 @@ class DuplicateMergeService:
             duplicate_name=self._candidate_name(candidate_b),
             confidence_score=confidence,
             match_field=match_field,
+            match_type=match_type,
             merge_type=merge_type,
             skipped=True,
             skip_reason=reason,
@@ -705,12 +711,14 @@ class DuplicateMergeService:
                     if primary is None:
                         logger.warning(f"⚠️ SKIP: Both candidates {cid} and {mid} have active placements")
                         self._log_skip(candidate, match, confidence, match_field,
-                                       "Both records have active placements", merge_type='bulk')
+                                       "Both records have active placements", merge_type='bulk',
+                                       match_type='exact')
                         stats['skipped_both_placements'] += 1
                         continue
 
                     try:
-                        self.merge_candidates(primary, duplicate, confidence, match_field, merge_type='bulk')
+                        self.merge_candidates(primary, duplicate, confidence, match_field,
+                                              merge_type='bulk', match_type='exact')
                         dup_id = duplicate.get('id')
                         processed_ids.add(dup_id)
                         already_merged.add(dup_id)
@@ -754,6 +762,14 @@ class DuplicateMergeService:
             'merged': 0,
             'skipped': 0,
             'errors': 0,
+            # Task #57: AI fuzzy matcher path stats (separate from exact path)
+            'fuzzy_candidates_checked': 0,
+            'fuzzy_merged': 0,
+            'fuzzy_skipped': 0,
+            'fuzzy_errors': 0,
+            'fuzzy_backfilled': 0,
+            'fuzzy_queued': 0,    # overflow enqueued for next cycle
+            'fuzzy_drained': 0,   # queued items processed this cycle
         }
 
         already_merged = set()
@@ -768,8 +784,21 @@ class DuplicateMergeService:
         stats['candidates_checked'] = len(recent_candidates)
 
         if not recent_candidates:
-            logger.info("🔍 Scheduled dedup check: no recent candidates found")
-            return stats
+            # IMPORTANT: do NOT early-return here. A quiet hour with zero
+            # fresh recent candidates is exactly when we want to drain the
+            # persistent ``fuzzy_evaluation_queue`` — otherwise overflow
+            # work from prior bursts would sit untouched and could age
+            # out of `RECENT_WINDOW_HOURS`. Falling through with an empty
+            # `recent_candidates` list is a no-op for Pass 1 (the loop
+            # below is skipped) and lets Pass 2 drain queued IDs and run
+            # the bounded backfill.
+            logger.info(
+                "🔍 Scheduled dedup check: no fresh recent candidates — "
+                "running fuzzy queue drain + backfill only"
+            )
+
+        # ── Pass 1: legacy exact-field matcher ────────────────────────────
+        exact_matched_in_this_run = set()
 
         for candidate in recent_candidates:
             cid = candidate.get('id')
@@ -795,17 +824,23 @@ class DuplicateMergeService:
 
                 if primary is None:
                     self._log_skip(candidate, match, confidence, match_field,
-                                   "Both records have active placements", merge_type='scheduled')
+                                   "Both records have active placements",
+                                   merge_type='scheduled', match_type='exact')
                     stats['skipped'] += 1
                     already_merged.add(cid)
                     already_merged.add(mid)
+                    exact_matched_in_this_run.add(cid)
+                    exact_matched_in_this_run.add(mid)
                     continue
 
                 try:
-                    self.merge_candidates(primary, duplicate, confidence, match_field, merge_type='scheduled')
+                    self.merge_candidates(primary, duplicate, confidence, match_field,
+                                          merge_type='scheduled', match_type='exact')
                     dup_id = duplicate.get('id')
                     already_merged.add(dup_id)
                     already_merged.add(primary.get('id'))
+                    exact_matched_in_this_run.add(dup_id)
+                    exact_matched_in_this_run.add(primary.get('id'))
                     stats['merged'] += 1
                 except Exception as e:
                     logger.error(f"Scheduled merge failed for {cid} + {mid}: {e}")
@@ -813,6 +848,326 @@ class DuplicateMergeService:
 
                 time.sleep(0.5)
 
-        logger.info(f"🔍 Scheduled dedup check complete: checked={stats['candidates_checked']}, merged={stats['merged']}, skipped={stats['skipped']}")
+        # ── Pass 2: AI fuzzy matcher (Task #57) ──────────────────────────
+        # Catches duplicates where BOTH email AND phone changed. Runs only
+        # on recent candidates the exact pass did not already merge, and
+        # is bounded by FUZZY_MAX_CANDIDATES_PER_CYCLE so the hourly
+        # window holds. Long-tail candidates ride to the next cycle.
+        try:
+            fuzzy_stats = self._run_fuzzy_matcher_pass(
+                recent_candidates,
+                already_merged=already_merged,
+                exact_matched=exact_matched_in_this_run,
+            )
+            stats['fuzzy_candidates_checked'] = fuzzy_stats['checked']
+            stats['fuzzy_merged'] = fuzzy_stats['merged']
+            stats['fuzzy_skipped'] = fuzzy_stats['skipped']
+            stats['fuzzy_errors'] = fuzzy_stats['errors']
+            stats['fuzzy_backfilled'] = fuzzy_stats.get('backfilled', 0)
+            stats['fuzzy_queued'] = fuzzy_stats.get('queued', 0)
+            stats['fuzzy_drained'] = fuzzy_stats.get('drained', 0)
+        except Exception as e:
+            logger.error(f"AI fuzzy matcher pass failed: {e}", exc_info=True)
+            stats['fuzzy_errors'] += 1
+
+        logger.info(
+            f"🔍 Scheduled dedup check complete: checked={stats['candidates_checked']}, "
+            f"merged={stats['merged']}, skipped={stats['skipped']} | "
+            f"fuzzy_checked={stats['fuzzy_candidates_checked']}, "
+            f"fuzzy_merged={stats['fuzzy_merged']}, fuzzy_skipped={stats['fuzzy_skipped']}, "
+            f"fuzzy_queued={stats['fuzzy_queued']}, fuzzy_drained={stats['fuzzy_drained']}"
+        )
+        # Operational alert: surface fuzzy errors at WARNING level so
+        # ops notices a degraded AI-fuzzy path instead of having to scrape
+        # INFO summaries. (Per-candidate errors are already logged above.)
+        if stats['fuzzy_errors']:
+            logger.warning(
+                f"⚠️ Fuzzy dedup pass had {stats['fuzzy_errors']} error(s) "
+                "this cycle — see preceding logs for per-candidate detail."
+            )
         return stats
 
+    # Hard ceiling on retry attempts before a queue entry is dropped so a
+    # single broken / unfetchable candidate can't permanently block the
+    # queue tail. Calibrated for an hourly cadence (≈ a day of retries).
+    FUZZY_QUEUE_MAX_ATTEMPTS = 24
+
+    # Operational alerting threshold: emit a WARNING log line when the
+    # persistent fuzzy queue grows past this depth. Sustained growth
+    # indicates either incoming volume permanently exceeds the per-cycle
+    # cap or an upstream Bullhorn fetch issue is blocking drain — either
+    # way ops should be paged. Hourly cadence × current cap = ~600/day,
+    # so 250 is roughly a half-day backlog.
+    FUZZY_QUEUE_DEPTH_ALERT_THRESHOLD = 250
+
+    def _run_fuzzy_matcher_pass(self, recent_candidates, already_merged, exact_matched):
+        """Run the AI fuzzy matcher on recent candidates the exact pass missed.
+
+        Returns a dict of {checked, merged, skipped, errors, backfilled,
+        queued, drained}. Bounded by ``FUZZY_MAX_CANDIDATES_PER_CYCLE``
+        so we never blow the hourly scheduled-job window. Critically,
+        overflow candidates are written to the persistent
+        ``fuzzy_evaluation_queue`` table so a sustained burst can never
+        let a candidate age out of ``RECENT_WINDOW_HOURS`` without being
+        evaluated. Each cycle drains queued IDs FIRST, then evaluates
+        fresh recent candidates with whatever capacity remains.
+        """
+        from fuzzy_duplicate_matcher import FuzzyDuplicateMatcher
+        from app import db
+        from models import FuzzyEvaluationQueue
+        from datetime import datetime
+
+        result = {
+            'checked': 0, 'merged': 0, 'skipped': 0, 'errors': 0,
+            'backfilled': 0, 'queued': 0, 'drained': 0,
+        }
+
+        matcher = FuzzyDuplicateMatcher(self.bullhorn)
+
+        # Cold-start coverage: each cycle, opportunistically embed a small
+        # chunk of historical candidates that aren't yet in the cosine cache.
+        try:
+            backfilled = matcher.backfill_uncached_candidates()
+            if backfilled:
+                result['backfilled'] = backfilled
+        except Exception as e:
+            logger.warning(f"Fuzzy matcher backfill skipped due to error: {e}")
+
+        # ── Step A: build the cycle's work-list (queue first, then fresh) ──
+        # Drain the persistent overflow queue ahead of fresh recent
+        # candidates — older deferred work has higher priority because it
+        # is closest to falling out of the recent window.
+        cycle_cap = FUZZY_MAX_CANDIDATES_PER_CYCLE
+        work_items: list = []        # list of (candidate_dict, queue_row_or_None)
+        queued_ids_seen: set = set()
+
+        try:
+            queue_rows = (
+                FuzzyEvaluationQueue.query
+                .order_by(FuzzyEvaluationQueue.enqueued_at.asc())
+                .limit(cycle_cap)
+                .all()
+            )
+        except Exception as e:
+            logger.warning(f"Fuzzy queue drain query failed: {e}")
+            queue_rows = []
+
+        for qrow in queue_rows:
+            qcid = qrow.bullhorn_candidate_id
+            if qcid in already_merged or qcid in exact_matched:
+                # The exact pass / a previous fuzzy round already handled
+                # this candidate — drop it from the queue.
+                try:
+                    db.session.delete(qrow)
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
+                continue
+
+            full = matcher._fetch_full_candidate(qcid)
+            if not full:
+                # Couldn't refetch — bump attempts. Drop after the ceiling
+                # so a single permanently-broken record can't starve the tail.
+                qrow.attempts = (qrow.attempts or 0) + 1
+                qrow.last_attempted_at = datetime.utcnow()
+                qrow.last_error = 'fetch_failed'
+                try:
+                    if qrow.attempts >= self.FUZZY_QUEUE_MAX_ATTEMPTS:
+                        logger.warning(
+                            f"🤖 Fuzzy queue: dropping candidate {qcid} after "
+                            f"{qrow.attempts} failed fetch attempts"
+                        )
+                        db.session.delete(qrow)
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
+                continue
+
+            work_items.append((full, qrow))
+            queued_ids_seen.add(qcid)
+
+        # Now top up with fresh recent candidates the exact pass missed,
+        # skipping anything already pulled from the queue.
+        fresh_pool = [
+            c for c in recent_candidates
+            if c.get('id') not in already_merged
+            and c.get('id') not in exact_matched
+            and c.get('id') not in queued_ids_seen
+        ]
+        remaining_cap = cycle_cap - len(work_items)
+        if remaining_cap > 0:
+            for cand in fresh_pool[:remaining_cap]:
+                work_items.append((cand, None))
+
+        # Anything in fresh_pool past `remaining_cap` is overflow that
+        # wouldn't fit this cycle — enqueue durably so we evaluate it
+        # in a future cycle BEFORE it ages out of the recent window.
+        overflow = fresh_pool[max(0, remaining_cap):]
+        if overflow:
+            enqueued = 0
+            for cand in overflow:
+                ocid = cand.get('id')
+                if not ocid:
+                    continue
+                try:
+                    existing = (
+                        FuzzyEvaluationQueue.query
+                        .filter_by(bullhorn_candidate_id=ocid)
+                        .first()
+                    )
+                    if existing:
+                        # Idempotent: candidate already queued from a prior cycle.
+                        continue
+                    db.session.add(FuzzyEvaluationQueue(
+                        bullhorn_candidate_id=ocid,
+                        enqueued_at=datetime.utcnow(),
+                        attempts=0,
+                    ))
+                    db.session.commit()
+                    enqueued += 1
+                except Exception as e:
+                    db.session.rollback()
+                    logger.warning(f"Fuzzy queue enqueue failed for {ocid}: {e}")
+            result['queued'] = enqueued
+            logger.info(
+                f"🤖 Fuzzy matcher: {enqueued} overflow candidate(s) enqueued "
+                f"to fuzzy_evaluation_queue (cycle cap={cycle_cap})"
+            )
+
+        if not work_items:
+            logger.info("🤖 Fuzzy matcher: no candidates left after exact pass")
+            return result
+
+        # ── Step B: evaluate each work item ────────────────────────────
+        for candidate, qrow in work_items:
+            cid = candidate.get('id')
+            if cid in already_merged:
+                # Already handled mid-cycle (e.g. as the duplicate of an
+                # earlier source) — drop from queue if it came from there.
+                if qrow is not None:
+                    try:
+                        db.session.delete(qrow)
+                        db.session.commit()
+                    except Exception:
+                        db.session.rollback()
+                continue
+
+            result['checked'] += 1
+
+            try:
+                fuzzy_hits = matcher.find_fuzzy_duplicates(
+                    candidate, exclude_ids=already_merged
+                )
+            except Exception as e:
+                logger.error(f"Fuzzy match search failed for candidate {cid}: {e}")
+                result['errors'] += 1
+                # Bump attempts on the queue row so a chronically failing
+                # candidate eventually gets dropped.
+                if qrow is not None:
+                    self._bump_fuzzy_queue_attempt(qrow, str(e))
+                continue
+
+            # Highest-confidence hit first so we make the strongest decision
+            # and then stop processing this candidate.
+            fuzzy_hits = sorted(
+                fuzzy_hits, key=lambda h: h.get('confidence', 0.0), reverse=True
+            )
+
+            evaluated_decision = False
+            for hit in fuzzy_hits:
+                if cid in already_merged:
+                    break
+
+                mid = hit['candidate_id']
+                if mid in already_merged:
+                    continue
+
+                match_full = hit['candidate']
+                confidence = hit['confidence']
+                reasoning = hit.get('reasoning', '')
+                match_field = f"ai_fuzzy:{reasoning[:40]}" if reasoning else 'ai_fuzzy'
+
+                primary, duplicate, _ = self.determine_primary(candidate, match_full)
+                if primary is None:
+                    self._log_skip(candidate, match_full, confidence, match_field,
+                                   "Both records have active placements",
+                                   merge_type='scheduled', match_type='ai_fuzzy')
+                    result['skipped'] += 1
+                    already_merged.add(cid)
+                    already_merged.add(mid)
+                    evaluated_decision = True
+                    break
+
+                try:
+                    self.merge_candidates(primary, duplicate, confidence, match_field,
+                                          merge_type='scheduled', match_type='ai_fuzzy')
+                    dup_id = duplicate.get('id')
+                    already_merged.add(dup_id)
+                    already_merged.add(primary.get('id'))
+                    result['merged'] += 1
+                    evaluated_decision = True
+                    logger.info(
+                        f"🤖 AI-fuzzy MERGED: candidate {dup_id} → {primary.get('id')} "
+                        f"(confidence={confidence:.2f}) — {reasoning[:80]}"
+                    )
+                    time.sleep(0.5)
+                    break
+                except Exception as e:
+                    logger.error(f"Fuzzy merge failed for {cid} + {mid}: {e}")
+                    result['errors'] += 1
+                    if qrow is not None:
+                        self._bump_fuzzy_queue_attempt(qrow, f'merge_failed: {e}')
+                    time.sleep(0.5)
+                    break
+
+            # If we reached this point the candidate was successfully
+            # evaluated this cycle (the fatal-error paths above all
+            # `continue` after bumping attempts). Drop the queue row so
+            # we don't re-evaluate the same candidate forever even when
+            # no merge was found — "evaluated and cleared" is a terminal
+            # state for queued work.
+            if qrow is not None:
+                try:
+                    db.session.delete(qrow)
+                    db.session.commit()
+                    result['drained'] += 1
+                except Exception:
+                    db.session.rollback()
+
+        # Operational alert: warn when the persistent overflow queue
+        # grows past the alert threshold so ops notices sustained
+        # backlog (e.g. cap is too low for incoming volume, or upstream
+        # Bullhorn fetches are blocking drain).
+        try:
+            depth = FuzzyEvaluationQueue.query.count()
+            result['queue_depth'] = depth
+            if depth >= self.FUZZY_QUEUE_DEPTH_ALERT_THRESHOLD:
+                logger.warning(
+                    f"⚠️ Fuzzy queue depth={depth} exceeds alert threshold "
+                    f"{self.FUZZY_QUEUE_DEPTH_ALERT_THRESHOLD} — sustained "
+                    "backlog. Consider raising FUZZY_MAX_CANDIDATES_PER_CYCLE "
+                    "or investigating upstream Bullhorn fetch failures."
+                )
+        except Exception as e:
+            logger.debug(f"Fuzzy queue depth check skipped: {e}")
+
+        return result
+
+    def _bump_fuzzy_queue_attempt(self, qrow, error_msg):
+        """Increment a queue row's attempt counter; drop after the ceiling."""
+        from app import db
+        from datetime import datetime
+        try:
+            qrow.attempts = (qrow.attempts or 0) + 1
+            qrow.last_attempted_at = datetime.utcnow()
+            qrow.last_error = (error_msg or '')[:500]
+            if qrow.attempts >= self.FUZZY_QUEUE_MAX_ATTEMPTS:
+                logger.warning(
+                    f"🤖 Fuzzy queue: dropping candidate "
+                    f"{qrow.bullhorn_candidate_id} after {qrow.attempts} attempts "
+                    f"(last_error={qrow.last_error[:80]})"
+                )
+                db.session.delete(qrow)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()

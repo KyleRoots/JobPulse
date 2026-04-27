@@ -465,9 +465,15 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
                     merged = stats.get('merged', 0)
                     skipped = stats.get('skipped_below_threshold', stats.get('skipped', 0))
                     errors = stats.get('errors', 0)
+                    fuzzy_checked = stats.get('fuzzy_candidates_checked', 0)
+                    fuzzy_merged = stats.get('fuzzy_merged', 0)
+                    fuzzy_skipped = stats.get('fuzzy_skipped', 0)
+                    fuzzy_errors = stats.get('fuzzy_errors', 0)
                     app.logger.info(
                         f"🔀 Scheduled dedup: checked={checked}, "
-                        f"merged={merged}, skipped={skipped}, errors={errors}"
+                        f"merged={merged}, skipped={skipped}, errors={errors} | "
+                        f"AI-fuzzy checked={fuzzy_checked}, merged={fuzzy_merged}, "
+                        f"skipped={fuzzy_skipped}, errors={fuzzy_errors}"
                     )
 
                     try:
@@ -478,16 +484,21 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
                             AutomationTask.config_json.contains('duplicate_merge_scan')
                         ).first()
                         if task:
-                            if merged > 0:
-                                summary = f"Checked {checked} candidate(s) — {merged} merged, {skipped} skipped"
+                            total_merged = merged + fuzzy_merged
+                            if total_merged > 0:
+                                summary = (
+                                    f"Checked {checked} candidate(s) — {merged} merged (exact), "
+                                    f"{fuzzy_merged} merged (AI-fuzzy), {skipped} skipped"
+                                )
                             else:
                                 summary = f"Checked {checked} candidate(s) — no duplicates found"
-                            if errors > 0:
-                                summary += f", {errors} error(s)"
+                            total_errors = errors + fuzzy_errors
+                            if total_errors > 0:
+                                summary += f", {total_errors} error(s)"
 
                             log = AutomationLog(
                                 automation_task_id=task.id,
-                                status='success' if errors == 0 else 'warning',
+                                status='success' if total_errors == 0 else 'warning',
                                 message='Duplicate Merge Check (Scheduled)',
                                 details_json=_json.dumps({
                                     'source': 'scheduled',
@@ -495,6 +506,10 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
                                     'merged': merged,
                                     'skipped': skipped,
                                     'errors': errors,
+                                    'fuzzy_candidates_checked': fuzzy_checked,
+                                    'fuzzy_merged': fuzzy_merged,
+                                    'fuzzy_skipped': fuzzy_skipped,
+                                    'fuzzy_errors': fuzzy_errors,
                                     'summary': summary,
                                 })
                             )
