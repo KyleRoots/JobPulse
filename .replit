@@ -77,3 +77,4 @@ integrations = ["python_openai:1.0.0", "onedrive:1.0.0"]
 [postMerge]
 scriptPath = "scripts/post-merge.sh"
 timeoutMs = 180000
+path = "scripts/post-merge.sh"
