@@ -53,7 +53,7 @@ def _make_bullhorn(note_payload, *, sub_payload=None, user_payload=None):
                 resp.json.return_value = {'data': []}
         elif 'search/JobSubmission' in url:
             resp.json.return_value = sub_payload or {'data': []}
-        elif 'search/CorporateUser' in url:
+        elif 'query/CorporateUser' in url:
             resp.json.return_value = user_payload or {
                 'data': [{'id': 999001, 'name': 'Pandologic API'}]
             }

@@ -716,9 +716,9 @@ class CandidateDetectionMixin:
                     f"re-resolving from Bullhorn"
                 )
 
-        url = f"{bullhorn.base_url}search/CorporateUser"
+        url = f"{bullhorn.base_url}query/CorporateUser"
         params = {
-            'query': 'name:"Pandologic API"',
+            'where': "name='Pandologic API'",
             'fields': 'id,name',
             'count': 1,
             'BhRestToken': bullhorn.rest_token,
@@ -726,9 +726,13 @@ class CandidateDetectionMixin:
         try:
             resp = bullhorn.session.get(url, params=params, timeout=15)
             if resp.status_code != 200:
+                try:
+                    body = resp.json()
+                except Exception:
+                    body = resp.text[:500]
                 logger.warning(
                     f"Pandologic CorporateUser lookup failed: HTTP {resp.status_code} — "
-                    f"note-based detector will no-op this cycle"
+                    f"body: {body} — note-based detector will no-op this cycle"
                 )
                 return None
             users = resp.json().get('data', []) or []
