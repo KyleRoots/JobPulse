@@ -455,32 +455,6 @@ def seed_database(db, User):
         except Exception as e:
             logger.warning(f"⚠️ Failed to check vetting lock: {str(e)}")
 
-        # ONE-TIME: Upgrade layer2_model to gpt-5 (Mar 2026)
-        # Upgraded from GPT-5.4 to GPT-5 for maximum accuracy
-        try:
-            from models import VettingConfig
-            upgrade_flag = VettingConfig.query.filter_by(setting_key='layer2_model_upgraded_to_54').first()
-            if not upgrade_flag or upgrade_flag.setting_value != 'true':
-                model_setting = VettingConfig.query.filter_by(setting_key='layer2_model').first()
-                if model_setting and model_setting.setting_value in ('gpt-4o-mini', 'gpt-4o', 'gpt-5'):
-                    old_model = model_setting.setting_value
-                    model_setting.setting_value = 'gpt-5.4'
-                    model_setting.updated_at = datetime.utcnow()
-                    logger.info(f"🔄 Upgraded layer2_model from {old_model} → gpt-5.4")
-
-                if upgrade_flag:
-                    upgrade_flag.setting_value = 'true'
-                else:
-                    db.session.add(VettingConfig(
-                        setting_key='layer2_model_upgraded_to_54',
-                        setting_value='true',
-                        description='One-time upgrade to GPT-5.4 — previous model API deprecated Mar 2026'
-                    ))
-                db.session.commit()
-        except Exception as e:
-            db.session.rollback()
-            logger.warning(f"⚠️ Failed to upgrade layer2_model: {str(e)}")
-
         seed_builtin_automations(db)
 
         migrate_legacy_custom_requirements(db)
