@@ -73,5 +73,5 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 
 - **Python Libraries**: Flask, Flask-Login, Flask-WTF, Flask-SQLAlchemy, lxml, SQLAlchemy, Alembic, APScheduler, gunicorn, SendGrid, OpenAI, tiktoken, PyMuPDF, PyPDF2, python-docx, Paramiko, Requests, httpx, Sentry SDK, bcrypt, BeautifulSoup4.
 - **Frontend Libraries**: Bootstrap 5, Font Awesome 6.
-- **External Services**: PostgreSQL (Neon-hosted), SendGrid, OpenAI, Bullhorn ATS/CRM, Sentry.
+- **External Services**: PostgreSQL (Replit-hosted, both dev and production — no Neon/Render involvement), SendGrid, OpenAI, Bullhorn ATS/CRM, Sentry.
 - **AI Models**: OpenAI GPT-5.4 (primary), GPT-4.1-mini Vision.
