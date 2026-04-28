@@ -1,88 +1,158 @@
-2026-04-28 12:29:45,010 - main - ERROR - Full traceback: Traceback (most recent call last):
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
-    self.dialect.do_execute(
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
-    cursor.execute(statement, parameters)
-psycopg2.errors.UniqueViolation: duplicate key value violates unique constraint "pg_class_relname_nsp_index"
-DETAIL:  Key (relname, relnamespace)=(user_id_seq, 2200) already exists.
+2026-04-28 19:41:41,611 - seeding.migrations - INFO - ℹ️ Column is_company_admin already exists on user table
+2026-04-28 19:41:41,623 - seeding.migrations - INFO - ℹ️ Column last_active_at already exists on user table
+2026-04-28 19:41:41,627 - seeding.migrations - INFO - ℹ️ Column is_sandbox already exists on candidate_vetting_log table
+2026-04-28 19:41:41,630 - seeding.migrations - INFO - ℹ️ Column is_sandbox already exists on scout_vetting_session table
+2026-04-28 19:41:41,632 - seeding.migrations - INFO - ℹ️ Column thread_message_id already exists on scout_vetting_session table
+2026-04-28 19:41:41,635 - seeding.migrations - INFO - ℹ️ Column resolution_note already exists on support_ticket table
+2026-04-28 19:41:41,642 - seeding.migrations - INFO - ℹ️ Column resolved_by already exists on support_ticket table
+2026-04-28 19:41:41,649 - seeding.migrations - INFO - ℹ️ Column sent_to_build_at already exists on support_ticket table
+2026-04-28 19:41:41,651 - seeding.migrations - INFO - ℹ️ Column sent_to_build_by already exists on support_ticket table
+2026-04-28 19:41:41,653 - seeding.migrations - INFO - ℹ️ Column build_summary already exists on support_ticket table
+2026-04-28 19:41:41,654 - seeding.migrations - INFO - ℹ️ Column deployed_at already exists on support_ticket table
+2026-04-28 19:41:41,656 - seeding.migrations - INFO - ℹ️ Column deployed_by already exists on support_ticket table
+2026-04-28 19:41:41,657 - seeding.migrations - INFO - ℹ️ Column deploy_commit_link already exists on support_ticket table
+2026-04-28 19:41:41,660 - seeding.migrations - INFO - ℹ️ Column onedrive_item_id already exists on knowledge_document table
+2026-04-28 19:41:41,662 - seeding.migrations - INFO - ℹ️ Column onedrive_etag already exists on knowledge_document table
+2026-04-28 19:41:41,665 - seeding.migrations - INFO - ℹ️ Column onedrive_folder_id already exists on knowledge_document table
+2026-04-28 19:41:41,672 - seeding.migrations - INFO - ℹ️ Column vetting_retry_count already exists on parsed_email table
+2026-04-28 19:41:41,676 - seeding.migrations - INFO - ℹ️ Column conversation_id already exists on support_attachment table
+2026-04-28 19:41:41,684 - seeding.migrations - INFO - ℹ️ UNIQUE constraint on candidate_vetting_log.bullhorn_candidate_id already removed
+2026-04-28 19:41:41,699 - seeding.migrations - INFO - ℹ️ pg_trgm extension ensured
+2026-04-28 19:41:41,699 - seeding.migrations - INFO - ℹ️ Trigram GIN index creation skipped in dev workspace (runs on deployed prod only)
+2026-04-28 19:41:41,710 - seeding.migrations - INFO - ℹ️ Composite index idx_match_job_created already exists
+2026-04-28 19:41:41,712 - seeding.migrations - INFO - ℹ️ Prospector table 'prospector_profile' exists
+2026-04-28 19:41:41,714 - seeding.migrations - INFO - ℹ️ Prospector table 'prospector_run' exists
+2026-04-28 19:41:41,715 - seeding.migrations - INFO - ℹ️ Prospector table 'prospect' exists
+2026-04-28 19:41:41,944 - seed_database - INFO - 🌱 Starting database seeding for production environment...
+2026-04-28 19:41:41,949 - seeding.users - INFO - ✅ Admin user already exists: admin (kroots@myticas.com)
+2026-04-28 19:41:42,076 - seeding.users - INFO - 🔄 Updated admin user: password (rotated from env)
+2026-04-28 19:41:42,080 - seeding.settings - INFO - ℹ️ Preserving credential setting: sftp_hostname
+2026-04-28 19:41:42,081 - seeding.settings - INFO - ℹ️ Preserving credential setting: sftp_username
+2026-04-28 19:41:42,082 - seeding.settings - INFO - ℹ️ Preserving credential setting: sftp_password
+2026-04-28 19:41:42,082 - seeding.settings - INFO - ℹ️ Preserving credential setting: sftp_port
+2026-04-28 19:41:42,083 - seeding.settings - INFO - ℹ️ Preserving credential setting: sftp_directory
+2026-04-28 19:41:42,084 - seeding.settings - INFO - ℹ️ Preserving credential setting: bullhorn_client_id
+2026-04-28 19:41:42,085 - seeding.settings - INFO - ℹ️ Preserving credential setting: bullhorn_client_secret
+2026-04-28 19:41:42,085 - seeding.settings - INFO - ℹ️ Preserving credential setting: bullhorn_username
+2026-04-28 19:41:42,086 - seeding.settings - INFO - ℹ️ Preserving credential setting: bullhorn_password
+2026-04-28 19:41:42,088 - seeding.settings - INFO - ℹ️ Preserving user setting: sftp_enabled=false
+2026-04-28 19:41:42,088 - seeding.settings - INFO - ℹ️ Preserving user setting: automated_uploads_enabled=false
+2026-04-28 19:41:42,089 - seeding.settings - INFO - ℹ️ Preserving user setting: candidate_cleanup_enabled=false
+2026-04-28 19:41:42,090 - seeding.settings - INFO - ℹ️ Preserving user setting: candidate_cleanup_batch_size=50
+2026-04-28 19:41:42,090 - seeding.settings - INFO - ✅ Global settings already up to date
+2026-04-28 19:41:42,096 - seeding.settings - INFO - ✅ All 5 Bullhorn monitors already configured correctly
+2026-04-28 19:41:42,099 - seeding.settings - INFO - ✅ Production environment monitoring already configured
+2026-04-28 19:41:42,103 - seeding.settings - INFO - ✅ RefreshLog has 2 entries (most recent: 2026-04-28 15:33:27.697635 UTC) - preserving history
+2026-04-28 19:41:42,130 - seeding.settings - INFO - ✅ All 40 recruiter mappings already up to date
+2026-04-28 19:41:42,131 - seeding.settings - INFO - ✅ Loaded global screening prompt from /home/runner/workspace/config/global_screening_prompt.txt (6946 chars)
+2026-04-28 19:41:42,133 - seeding.settings - INFO - ℹ️ Preserving vetting setting: vetting_enabled=false
+2026-04-28 19:41:42,134 - seeding.settings - INFO - ℹ️ Preserving vetting setting: match_threshold=80
+2026-04-28 19:41:42,135 - seeding.settings - INFO - ℹ️ Preserving vetting setting: batch_size=25
+2026-04-28 19:41:42,135 - seeding.settings - INFO - ℹ️ Preserving vetting setting: admin_notification_email=kroots@myticas.com
+2026-04-28 19:41:42,136 - seeding.settings - INFO - ℹ️ Preserving vetting setting: health_alert_email=kroots@myticas.com
+2026-04-28 19:41:42,137 - seeding.settings - INFO - ℹ️ Preserving vetting setting: send_recruiter_emails=false
+2026-04-28 19:41:42,137 - seeding.settings - INFO - ℹ️ Preserving vetting setting: embedding_filter_enabled=true
+2026-04-28 19:41:42,138 - seeding.settings - INFO - ℹ️ Preserving vetting setting: embedding_similarity_threshold=0.25
+2026-04-28 19:41:42,139 - seeding.settings - INFO - ℹ️ Preserving vetting setting: escalation_low=60
+2026-04-28 19:41:42,140 - seeding.settings - INFO - ℹ️ Preserving vetting setting: escalation_high=85
+2026-04-28 19:41:42,140 - seeding.settings - INFO - ℹ️ Preserving vetting setting: layer2_model=gpt-5.4
+2026-04-28 19:41:42,141 - seeding.settings - INFO - ℹ️ Preserving vetting setting: vetting_cutoff_date=
+2026-04-28 19:41:42,142 - seeding.settings - INFO - ℹ️ Preserving vetting setting: screening_audit_enabled=false
+2026-04-28 19:41:42,142 - seeding.settings - INFO - ℹ️ Preserving vetting setting: quality_auditor_model=gpt-5.4
+2026-04-28 19:41:42,143 - seeding.settings - INFO - ℹ️ Preserving vetting setting: platform_age_ceilings={"databricks": 8.0, "delta lake": 7.0, "azure synapse": 6.0, "azure synapse analytics": 6.0, "microsoft fabric": 3.0, "snowflake": 10.0, "dbt": 8.0, "data build tool": 8.0, "apache flink": 10.0, "kubernetes": 10.0, "apache kafka": 14.0, "terraform": 10.0, "docker": 12.0}
+2026-04-28 19:41:42,144 - seeding.settings - INFO - ℹ️ Preserving vetting setting: qualified_audit_sample_rate=10
+2026-04-28 19:41:42,145 - seeding.settings - INFO - ℹ️ Preserving vetting setting: recruiter_activity_check_enabled=true
+2026-04-28 19:41:42,145 - seeding.settings - INFO - ℹ️ Preserving vetting setting: recruiter_activity_lookback_minutes=60
+2026-04-28 19:41:42,146 - seeding.settings - INFO - ℹ️ Preserving vetting setting: global_custom_requirements=WORK AUTHORIZATION & SECURITY CLEARANCE INFERENCE RULES
 
+These rules supplement — never override — the core scoring guidelines above.
+These rules are purely reactive: they ONLY activate when the job description explicitly contains trigger language. If a job makes no mention of work authorization or clearance, ignore these rules entirely.
 
-The above exception was the direct cause of the following exception:
+=== RULE 0: EXPLICIT AUTHORIZATION STATEMENTS (HIGHEST PRIORITY) ===
+If the resume or candidate profile explicitly states work authorization status — for example: "Green Card", "Permanent Resident", "US Citizen", "Authorized to work in the US", "WA: Green Card", "H-1B", "EAD", "Canadian Citizen", "PR" — this OVERRIDES the inference tiers in Rules 1 and 2 below.
+• Accept the stated authorization at face value with NO score penalty.
+• Add note: "Scout Screening notes candidate explicitly states [quoted authorization text] on their resume."
+• Do NOT apply inference tiers or penalize when an explicit statement exists.
+• This rule takes absolute precedence over Rules 1 and 2.
 
-Traceback (most recent call last):
-  File "/home/runner/workspace/main.py", line 56, in initialize_app
-    from app import app
-  File "/home/runner/workspace/app.py", line 354, in <module>
-    db.create_all()
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask_sqlalchemy/extension.py", line 900, in create_all
-    self._call_for_binds(bind_key, "create_all")
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask_sqlalchemy/extension.py", line 881, in _call_for_binds
-    getattr(metadata, op_name)(bind=engine)
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/sql/schema.py", line 5928, in create_all
-    bind._run_ddl_visitor(
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 3260, in _run_ddl_visitor
-    conn._run_ddl_visitor(visitorcallable, element, **kwargs)
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 2467, in _run_ddl_visitor
-    ).traverse_single(element)
-      ^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/sql/visitors.py", line 661, in traverse_single
-    return meth(obj, **kw)
-           ^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/sql/ddl.py", line 984, in visit_metadata
-    self.traverse_single(
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/sql/visitors.py", line 661, in traverse_single
-    return meth(obj, **kw)
-           ^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/sql/ddl.py", line 1022, in visit_table
-    )._invoke_with(self.connection)
-      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/sql/ddl.py", line 321, in _invoke_with
-    return bind.execute(self)
-           ^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1419, in execute
-    return meth(
-           ^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/sql/ddl.py", line 187, in _execute_on_connection
-    return connection._execute_ddl(
-           ^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1530, in _execute_ddl
-    ret = self._execute_context(
-          ^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1846, in _execute_context
-    return self._exec_single_context(
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1986, in _exec_single_context
-    self._handle_dbapi_exception(
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 2363, in _handle_dbapi_exception
-    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
-    self.dialect.do_execute(
-  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
-    cursor.execute(statement, parameters)
-sqlalchemy.exc.IntegrityError: (psycopg2.errors.UniqueViolation) duplicate key value violates unique constraint "pg_class_relname_nsp_index"
-DETAIL:  Key (relname, relnamespace)=(user_id_seq, 2200) already exists.
+=== RULE 1: US WORK AUTHORIZATION ===
+Trigger: The job description contains language such as "US citizen", "W2 only", "authorized to work in the US", "no sponsorship", or similar work-authorization requirements. The job description language is the primary trigger; job location metadata (if US) is a confirming signal but is NOT required. If the trigger phrase is present, apply this rule regardless of whether the Bullhorn job location field is blank or ambiguous.
+Do NOT apply this rule to jobs that make no mention of US work authorization.
 
-[SQL: 
-CREATE TABLE "user" (
-	id SERIAL NOT NULL, 
-	username VARCHAR(80) NOT NULL, 
-	email VARCHAR(120) NOT NULL, 
-	password_hash VARCHAR(256) NOT NULL, 
-	is_admin BOOLEAN, 
-	is_company_admin BOOLEAN, 
-	role VARCHAR(20), 
-	company VARCHAR(100), 
-	bullhorn_user_id INTEGER, 
-	display_name VARCHAR(255), 
-	subscribed_modules TEXT, 
-	created_at TIMESTAMP WITHOUT TIME ZONE, 
-	last_login TIMESTAMP WITHOUT TIME ZONE, 
-	last_active_at TIMESTAMP WITHOUT TIME ZONE, 
-	PRIMARY KEY (id), 
-	UNIQUE (username), 
-	UNIQUE (email)
-)
+Candidates rarely state citizenship on a resume — NEVER disqualify solely for absence of an explicit citizenship statement.
 
-]
-(Background on this error at: https://sqlalche.me/e/20/gkpj)
+MANDATORY WORK HISTORY ENUMERATION:
+Before applying the inference tiers below, you MUST enumerate ALL full-time professional US roles from the resume and sum their durations. Do NOT count only the most recent role.
 
+Step 1: List every full-time US-based role with start and end dates
+Step 2: Calculate months for each role: (end_year - start_year) × 12 + (end_month - start_month)
+Step 3: Sum total months across ALL US roles
+Step 4: Convert total months to years (total_months / 12)
+Step 5: Apply the appropriate inference tier based on total years
+
+Example:
+- Role 1: Software Engineer at Acme Corp (08/2016 – 02/2023) = (2023-2016)×12 + (2-8) = 78 months
+- Role 2: Senior Engineer at Beta Inc (03/2023 – 02/2026) = (2026-2023)×12 + (2-3) = 35 months
+- Total: 78 + 35 = 113 months = 9.4 years → 5+ tier, no score penalty
+
+CRITICAL: You MUST sum ALL roles, not just the most recent one. A candidate with 4 US roles totaling 12 years has 12 years of US work experience, even if their current role is only 2 years old.
+
+Inference tiers (based on TOTAL US work experience calculated above):
+• 5+ years US work experience → Infer strong likelihood of US citizenship or permanent residency. No score penalty. Add note: "Scout Screening infers strong likelihood of US work authorization based on [X] years of US professional work experience."
+• 3–4 years US work experience → Treat as a soft gap. Apply a minor score reduction (3-5 points). Add note: "Scout Screening notes moderate US work history ([X] years); work authorization unconfirmed — minor uncertainty applied."
+• Under 3 years US work experience → Flag as a gap. Apply standard gap scoring. Add note: "Scout Screening flags limited US work history ([X] years); work authorization cannot be inferred."
+
+=== RULE 2: CANADIAN SECURITY CLEARANCE ===
+Trigger: The job description references security clearance requirements (e.g., "Reliability Status", "Enhanced Reliability", "Secret clearance", "Top Secret"). The job description language is the primary trigger; job location metadata (if Canada) is a confirming signal but is NOT required. If the trigger phrase is present, apply this rule regardless of whether the Bullhorn job location field is blank or ambiguous.
+Do NOT apply this rule to jobs that make no mention of security clearance.
+
+IMPORTANT GEOGRAPHIC GUARD: This rule applies to Canadian clearance eligibility inference only. If a US-based job mentions security clearance requirements (e.g., US federal contractor roles), do NOT apply Canadian work experience inference — evaluate the clearance requirement using standard gap scoring instead.
+
+Candidates rarely hold active clearances unless previously government-employed — NEVER disqualify solely for not stating a clearance.
+
+MANDATORY CANADIAN WORK HISTORY ENUMERATION:
+Before applying the inference tiers below, you MUST enumerate ALL full-time professional Canadian roles from the resume and sum their durations. Do NOT count only the most recent role.
+
+Step 1: List every full-time Canadian-based role with start and end dates
+Step 2: Calculate months for each role: (end_year - start_year) × 12 + (end_month - start_month)
+Step 3: Sum total months across ALL Canadian roles
+Step 4: Convert total months to years (total_months / 12)
+Step 5: Apply the appropriate inference tier based on total years
+
+CRITICAL: You MUST sum ALL Canadian roles, not just the most recent one.
+
+Inference tiers (based on TOTAL Canadian work experience calculated above):
+• Enhanced Reliability / Reliability Status required + candidate has 5+ years Canadian work experience → Eligible to obtain. No score penalty. Add note: "Scout Screening notes candidate is likely eligible to obtain Enhanced Reliability clearance based on [X] years of Canadian professional work experience."
+• Secret-level clearance required + candidate has 10+ years Canadian work experience → Eligible to obtain. No score penalty. Add note: "Scout Screening notes candidate is likely eligible to obtain Secret clearance based on [X] years of Canadian professional work experience."
+• Top Secret clearance required + candidate has 15+ years Canadian work experience → Eligible to obtain. No score penalty. Add note: "Scout Screening notes candidate is likely eligible to obtain Top Secret clearance based on [X] years of Canadian professional work experience."
+• Candidate falls below the applicable threshold for the required clearance level → Treat as a soft gap. Apply a minor score reduction (3-5 points). Add note: "Scout Screening notes candidate has [X] years of Canadian work experience; clearance eligibility is uncertain for [clearance level]."
+
+=== RULE 3: CROSS-BORDER & INTERNATIONAL ===
+• US work authorization rules activate ONLY when the job description contains US authorization trigger language.
+• Canadian clearance rules activate ONLY when the job description contains clearance trigger language AND the job is Canadian-based (not US-based — see geographic guard above).
+• NEVER cross-apply rules (e.g., do not apply US authorization logic when clearance language is present, or vice versa).
+• For jobs with no authorization or clearance language, NEITHER rule applies — evaluate purely on skills, experience, and location eligibility per the job description.
+2026-04-28 19:41:42,147 - seeding.settings - INFO - ✅ Vetting settings already up to date
+2026-04-28 19:41:42,147 - seeding.migrations - INFO - ℹ️ Vetting clean slate already completed - skipping
+2026-04-28 19:41:42,154 - seeding.migrations - INFO - 🔒 STARTUP AUDIT — critical settings: vetting_enabled=false | send_recruiter_emails=false | embedding_filter_enabled=true | embedding_similarity_threshold=0.25 | vetting_cutoff_date= | match_threshold=80 | batch_size=25 | layer2_model=gpt-5.4 | sftp_enabled=false | automated_uploads_enabled=false
+2026-04-28 19:41:42,158 - seeding.settings - INFO - ✅ All 12 built-in automations already exist
+2026-04-28 19:41:42,159 - seeding.migrations - INFO - ℹ️ No legacy custom_requirements rows needed migration
+2026-04-28 19:41:42,161 - seeding.users - INFO - ✅ All 24 Myticas support contacts already up to date
+2026-04-28 19:41:42,162 - seeding.users - INFO - ✅ All 14 STSI support contacts already up to date
+2026-04-28 19:41:42,164 - seeding.users - INFO - ✅ All STSI user accounts already exist
+2026-04-28 19:41:42,166 - seeding.users - INFO - ✅ All Myticas user accounts already exist
+2026-04-28 19:41:42,167 - seeding.users - INFO - ✅ Myticas user restoration verified: all 24 contacts have an account (by email)
+2026-04-28 19:41:42,169 - seeding.users - INFO - ✅ All users already have correct module subscriptions
+2026-04-28 19:41:42,170 - seed_database - INFO - ✅ Database seeding completed successfully for production
+2026-04-28 19:41:42,170 - extensions - INFO - 🌱 Database seeding: Admin user already exists (admin)
+2026-04-28 19:41:42,171 - scheduler_setup - INFO - ⚠️ Process 3562 could not acquire scheduler lock - another scheduler is already running
+2026-04-28 19:41:42,171 - extensions - INFO - 📌 Process Scheduled XML Files job DISABLED - Enhanced 8-Step Monitor handles all XML updates
+2026-04-28 19:41:42,171 - extensions - INFO - ⚠️ Process 3562 skipping scheduler setup - another worker handles scheduling
+2026-04-28 19:41:42,171 - main - INFO - Flask application imported successfully
+2026-04-28 19:41:42,176 - main - INFO - Health check passed during startup
+2026-04-28 19:41:42,176 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-28 19:41:42,176 - extensions - INFO - Background scheduler started/restarted successfully
+2026-04-28 19:41:42,177 - extensions - INFO - 📡 Scheduler job execution listeners registered
+2026-04-28 19:41:42,181 - extensions - INFO - Forced immediate check for 6 monitors after restart
+2026-04-28 19:41:42,181 - main - INFO - Monitoring system auto-started successfully on boot
+2026-04-28 19:42:33,956 - apscheduler.scheduler - INFO - Scheduler has been shut down

@@ -277,3 +277,59 @@ class TestBullhornServiceSafeJsonParse:
         
         with pytest.raises(Exception):
             service._safe_json_parse(mock_response)
+
+
+class TestBullhornPackageSurface:
+    """Lock in the public package contract that consumers and legacy test
+    patches depend on. Regression guard for the bullhorn_service.py monolith
+    → bullhorn_service/ package split (task #66)."""
+
+    def test_bullhornservice_importable_from_package_root(self):
+        """The 30+ consumer files do `from bullhorn_service import BullhornService`.
+        That contract must stay stable."""
+        from bullhorn_service import BullhornService
+        assert BullhornService is not None
+        assert isinstance(BullhornService, type)
+
+    def test_requests_module_reexported_at_package_root(self):
+        """Legacy tests patch via `mock.patch('bullhorn_service.requests.get')`.
+        If this import is dropped from bullhorn_service/__init__.py those
+        patches silently no-op and tests pass against real HTTP. Guard it."""
+        import bullhorn_service
+        assert hasattr(bullhorn_service, 'requests'), (
+            "bullhorn_service must re-export `requests` at the package top "
+            "level so legacy `mock.patch('bullhorn_service.requests.*')` "
+            "patches resolve correctly."
+        )
+        import requests as real_requests
+        assert bullhorn_service.requests is real_requests
+
+    def test_bullhornservice_mro_has_no_duplicate_methods(self):
+        """If two mixins ever define the same method, MRO silently picks one
+        and the other becomes dead code. Catch that early."""
+        from bullhorn_service import BullhornService
+        from bullhorn_service._core import _BullhornCore
+        from bullhorn_service.auth import AuthMixin
+        from bullhorn_service.jobs import JobsMixin
+        from bullhorn_service.tearsheets import TearsheetsMixin
+        from bullhorn_service.candidates import CandidatesMixin
+        from bullhorn_service.notes import NotesMixin
+        from bullhorn_service.entities import EntitiesMixin
+
+        seen = {}
+        collisions = []
+        for mixin in (_BullhornCore, AuthMixin, JobsMixin, TearsheetsMixin,
+                      CandidatesMixin, NotesMixin, EntitiesMixin):
+            for name, val in vars(mixin).items():
+                if name.startswith('__') or not callable(val):
+                    continue
+                if name in seen:
+                    collisions.append(f"{name}: {seen[name].__name__} vs {mixin.__name__}")
+                else:
+                    seen[name] = mixin
+
+        assert collisions == [], (
+            "Mixin method-name collisions detected (one shadows the other):\n  "
+            + "\n  ".join(collisions)
+        )
+        assert BullhornService.__mro__[-1] is object
