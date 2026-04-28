@@ -2761,9 +2761,14 @@ class TestAuditCycleSummaryDiagnostics:
 # #54 — per-check heuristic unit tests for _run_false_positive_checks
 # ---------------------------------------------------------------------------
 
-class TestFalsePositiveHeuristics:
+class TestFalsePositiveHeuristicsExtended:
     """Unit tests for _run_false_positive_checks — each check's trigger
     conditions are verified directly.
+
+    NOTE: Renamed from TestFalsePositiveHeuristics (the original class lives
+    earlier in this file, around line 258, with 5 different tests). Python
+    silently overwrites duplicate class names within the same module, so the
+    earlier class would be shadowed if both used the same name.
 
     Existing TestQualifiedAuditParity tests always patch
     _run_false_positive_checks away, so no test previously called the real
