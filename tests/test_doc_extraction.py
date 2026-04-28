@@ -24,9 +24,6 @@ What we verify:
 from __future__ import annotations
 
 import io
-from unittest.mock import MagicMock, patch
-
-import pytest
 
 from utils.doc_extraction import _detect_format, extract_doc_text
 
@@ -97,25 +94,19 @@ def test_rtf_bytes_extracted_without_network_call():
         b"{\\rtf1\\ansi\\deff0 {\\fonttbl {\\f0 Times;}}"
         b"\\f0 The candidate has 10 years of Python experience.}"
     )
-    with patch("utils.doc_extraction._try_vision_ocr") as mock_ocr:
-        text = extract_doc_text(rtf, "resume.doc")
-        mock_ocr.assert_not_called()
+    text = extract_doc_text(rtf, "resume.doc")
 
     assert text is not None
     assert "candidate" in text.lower()
     assert "python" in text.lower()
 
 
-def test_genuine_ole2_doc_returns_none_without_vision_ocr():
-    """A real .doc (OLE2 magic) must return None cleanly — vision OCR must
-    NOT be called because the OpenAI vision API rejects application/msword
+def test_genuine_ole2_doc_returns_none_cleanly():
+    """A real .doc (OLE2 magic) must return None cleanly.
+    Vision OCR was removed — the OpenAI vision API rejects application/msword
     with HTTP 400 ('Invalid MIME type. Only image types are supported.')."""
     ole2_bytes = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 200
-
-    with patch("utils.doc_extraction._try_vision_ocr") as mock_ocr:
-        text = extract_doc_text(ole2_bytes, "resume.doc")
-        mock_ocr.assert_not_called()
-
+    text = extract_doc_text(ole2_bytes, "resume.doc")
     assert text is None
 
 
@@ -125,25 +116,17 @@ def test_empty_bytes_return_none():
 
 
 def test_ole2_doc_returns_none_without_network_call():
-    """Genuine OLE2 .doc must return None without touching the network.
-    Vision OCR is disabled for this format — verify no OpenAI call is made."""
+    """Genuine OLE2 .doc must return None — vision OCR has been removed
+    because the OpenAI vision API rejects application/msword with HTTP 400."""
     ole2_bytes = b"\xd0\xcf\x11\xe0" + b"\x00" * 100
-
-    with patch("utils.doc_extraction._try_vision_ocr") as mock_ocr:
-        text = extract_doc_text(ole2_bytes, "resume.doc")
-        mock_ocr.assert_not_called()
-
+    text = extract_doc_text(ole2_bytes, "resume.doc")
     assert text is None
 
 
 def test_unknown_binary_returns_none_without_network_call():
-    """Unrecognised binary format must return None without touching the network."""
+    """Unrecognised binary format must return None — vision OCR removed."""
     unknown_bytes = b"\x00\x01\x02\x03" + b"\xff" * 100
-
-    with patch("utils.doc_extraction._try_vision_ocr") as mock_ocr:
-        text = extract_doc_text(unknown_bytes, "mystery.doc")
-        mock_ocr.assert_not_called()
-
+    text = extract_doc_text(unknown_bytes, "mystery.doc")
     assert text is None
 
 

@@ -2,7 +2,7 @@ import os
 import logging
 import threading
 
-from flask import Flask
+from flask import Flask, jsonify, redirect, url_for, request
 from flask_login import LoginManager
 from flask_wtf.csrf import CSRFProtect
 from flask_sqlalchemy import SQLAlchemy
@@ -71,6 +71,22 @@ def create_app():
     db.init_app(app)
     login_manager.init_app(app)
     app.login_manager = login_manager
+
+    @login_manager.unauthorized_handler
+    def handle_unauthorized():
+        is_ajax = (
+            request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+            or request.accept_mimetypes.best_match(
+                ['application/json', 'text/html']
+            ) == 'application/json'
+        )
+        if is_ajax:
+            return jsonify({
+                'success': False,
+                'message': 'Session expired. Please refresh the page and log in again.',
+                'redirect': url_for('auth.login'),
+            }), 401
+        return redirect(url_for('auth.login', next=request.url))
 
     from sentry_config import init_sentry
     init_sentry(app)

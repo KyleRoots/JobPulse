@@ -40,10 +40,8 @@ Usage
 
 from __future__ import annotations
 
-import base64
 import io
 import logging
-import os
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -95,67 +93,6 @@ def _try_rtf(file_content: bytes) -> Optional[str]:
         text = re.sub(r"\s+", " ", text).strip()
         return text if len(text) > 20 else None
     except Exception:
-        return None
-
-
-def _try_vision_ocr(file_content: bytes, filename: str) -> Optional[str]:
-    """Use GPT-4.1-mini vision OCR to read the .doc file as a document image."""
-    try:
-        from openai import OpenAI
-
-        api_key = os.environ.get("OPENAI_API_KEY")
-        if not api_key:
-            logger.warning("OPENAI_API_KEY not set — cannot use vision OCR fallback")
-            return None
-
-        client = OpenAI(api_key=api_key)
-        b64 = base64.b64encode(file_content).decode("utf-8")
-        ext = filename.lower().rsplit(".", 1)[-1] if "." in filename else "doc"
-        mime = {
-            "doc": "application/msword",
-            "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            "rtf": "application/rtf",
-        }.get(ext, "application/octet-stream")
-
-        response = client.chat.completions.create(
-            model="gpt-4.1-mini",
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are an OCR assistant. Extract ALL text from the document provided. "
-                        "Reproduce the text exactly as it appears — preserve names, dates, job titles, "
-                        "skills, phone numbers, emails, addresses, and formatting structure. "
-                        "Do not summarize or interpret. Output only the extracted text, nothing else."
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": "Extract all text from this resume document:"},
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:{mime};base64,{b64}",
-                                "detail": "high",
-                            },
-                        },
-                    ],
-                },
-            ],
-            max_completion_tokens=4000,
-        )
-
-        if not response.choices:
-            return None
-        text = (response.choices[0].message.content or "").strip()
-        if text:
-            logger.info(
-                f"📸 Vision OCR extracted {len(text)} chars from .doc-style file '{filename}'"
-            )
-        return text or None
-    except Exception as e:
-        logger.error(f"Vision OCR failed for '{filename}': {e}")
         return None
 
 
