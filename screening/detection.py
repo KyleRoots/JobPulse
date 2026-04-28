@@ -4,7 +4,8 @@ Candidate Detection - Discovery of new candidates from Bullhorn and ParsedEmail.
 
 Contains:
 - detect_new_applicants: Finds Online Applicant candidates via Bullhorn search
-- detect_pandologic_candidates: Finds Pandologic API candidates
+- detect_pandologic_candidates: Finds Pandologic API candidates (owner-based)
+- detect_pandologic_note_candidates: Finds re-applicants via Pandologic API notes
 - detect_matador_candidates: Finds Matador API candidates (corporate website submissions)
 - detect_unvetted_applications: Primary detection via ParsedEmail records
 - _should_skip_candidate: Job-aware dedup logic
@@ -691,7 +692,204 @@ class CandidateDetectionMixin:
         except Exception as e:
             logging.error(f"Error detecting Matador candidates: {str(e)}")
             return []
-    
+
+    def _resolve_pandologic_user_id(self, bullhorn) -> Optional[int]:
+        """
+        Resolve and cache the Bullhorn CorporateUser ID for the 'Pandologic API'
+        account, used by detect_pandologic_note_candidates.
+
+        Caching: stored in VettingConfig as 'pandologic_api_user_id' after the
+        first successful lookup. Subsequent calls return immediately from the
+        cache (one Bullhorn round-trip ever, per environment).
+
+        Returns None on persistent lookup failure — caller should skip note-based
+        detection for this cycle and try again next minute.
+        """
+        cached = VettingConfig.get_value('pandologic_api_user_id')
+        if cached:
+            try:
+                return int(cached)
+            except (ValueError, TypeError):
+                logging.warning(
+                    f"Cached pandologic_api_user_id is malformed ({cached!r}); "
+                    f"re-resolving from Bullhorn"
+                )
+
+        url = f"{bullhorn.base_url}search/CorporateUser"
+        params = {
+            'query': 'name:"Pandologic API"',
+            'fields': 'id,name',
+            'count': 1,
+            'BhRestToken': bullhorn.rest_token,
+        }
+        try:
+            resp = bullhorn.session.get(url, params=params, timeout=15)
+            if resp.status_code != 200:
+                logging.warning(
+                    f"Pandologic CorporateUser lookup failed: HTTP {resp.status_code} — "
+                    f"note-based detector will no-op this cycle"
+                )
+                return None
+            users = resp.json().get('data', []) or []
+            if not users:
+                logging.warning(
+                    "Pandologic API CorporateUser not found in Bullhorn — "
+                    "note-based detector will no-op until the user appears"
+                )
+                return None
+            user_id = users[0].get('id')
+            if not user_id:
+                return None
+            try:
+                VettingConfig.set_value(
+                    'pandologic_api_user_id',
+                    str(user_id),
+                    description=(
+                        'Bullhorn CorporateUser ID for the "Pandologic API" account. '
+                        'Used by detect_pandologic_note_candidates to discover '
+                        're-applicants whose owner did not change to Pandologic API. '
+                        'Auto-resolved on first detector run; safe to delete to '
+                        'force re-resolution.'
+                    ),
+                )
+                logging.info(f"✅ Cached pandologic_api_user_id: {user_id}")
+            except Exception as cache_err:
+                logging.warning(
+                    f"Could not cache pandologic_api_user_id: {cache_err} "
+                    f"(detector will still work, just slower next cycle)"
+                )
+            return int(user_id)
+        except Exception as e:
+            logging.warning(f"Error resolving Pandologic API user_id: {e}")
+            return None
+
+    def detect_pandologic_note_candidates(self, since_minutes: int = 5) -> List[Dict]:
+        """
+        Find candidates whose Bullhorn record received a NEW Note from the
+        'Pandologic API' user — catches existing/returning candidates whose
+        parent Candidate.owner did NOT change to 'Pandologic API' (so the
+        primary detect_pandologic_candidates detector misses them).
+
+        Background: when an existing Bullhorn candidate re-applies via
+        PandoLogic, PandoLogic creates a fresh JobSubmission and posts a note
+        to the candidate ("New application delivered by PandoLogic to job
+        id#NNNN") but does NOT change the parent Candidate's owner or status.
+        The owner-based detector only finds brand-new candidates (owner =
+        'Pandologic API'), so re-applicants fall through every other channel
+        (no email forward, no status flip, no owner change). This note-based
+        detector closes that gap by watching for notes authored by the
+        PandoLogic API CorporateUser.
+
+        Same dedup rules + recruiter-activity gate as the other detectors.
+
+        Args:
+            since_minutes: Fallback window when no last-run timestamp is available.
+
+        Returns:
+            List of candidate dicts (each enriched with `_applied_job_id` and
+            `_applied_job_title` when a JobSubmission lookup succeeds).
+        """
+        bullhorn = self._get_bullhorn_service()
+        if not bullhorn:
+            return []
+
+        if not bullhorn.authenticate():
+            logging.error("Failed to authenticate with Bullhorn for Pandologic-note detection")
+            return []
+
+        user_id = self._resolve_pandologic_user_id(bullhorn)
+        if not user_id:
+            # Resolver already logged at WARNING level — just no-op this cycle.
+            return []
+
+        try:
+            last_run = self._get_last_run_timestamp()
+            if last_run:
+                since_time = last_run
+            else:
+                since_time = datetime.utcnow() - timedelta(minutes=since_minutes)
+            since_ms = int(since_time.timestamp() * 1000)
+
+            url = f"{bullhorn.base_url}search/Note"
+            # Expand personReference inline so we get the candidate fields
+            # directly, avoiding a per-candidate /entity/Candidate fetch.
+            params = {
+                'query': (
+                    f'commentingPerson.id:{user_id} '
+                    f'AND dateAdded:[{since_ms} TO *] '
+                    f'AND isDeleted:false'
+                ),
+                'fields': (
+                    'id,dateAdded,'
+                    'personReference(id,firstName,lastName,email,phone,status,'
+                    'dateAdded,dateLastModified,source,occupation,description,'
+                    'address(address1,city,state,countryName))'
+                ),
+                'count': 50,
+                'sort': '-dateAdded',
+                'BhRestToken': bullhorn.rest_token,
+            }
+
+            resp = bullhorn.session.get(url, params=params, timeout=30)
+            if resp.status_code != 200:
+                logging.error(
+                    f"Pandologic note search failed: HTTP {resp.status_code}"
+                )
+                return []
+
+            notes = resp.json().get('data', []) or []
+            logging.info(
+                f"📝 Pandologic notes: Found {len(notes)} note(s) since {since_time}"
+            )
+
+            # One candidate may have multiple notes in the window — dedup by ID.
+            seen_candidate_ids = set()
+            new_candidates = []
+            for note in notes:
+                person_ref = note.get('personReference') or {}
+                candidate_id = person_ref.get('id')
+                if not candidate_id or candidate_id in seen_candidate_ids:
+                    continue
+                seen_candidate_ids.add(candidate_id)
+
+                applied_job_id, applied_job_title, _lookup_ok = self._fetch_latest_job_submission(
+                    bullhorn, candidate_id
+                )
+
+                # Job-aware dedup + recruiter-activity gate (same as other detectors)
+                if self._should_skip_candidate(candidate_id, applied_job_id, bullhorn=bullhorn):
+                    logging.debug(
+                        f"Pandologic-note candidate {candidate_id} skipped by dedup "
+                        f"(applied_job={applied_job_id})"
+                    )
+                    continue
+
+                # Build candidate dict from the expanded personReference. Mirrors
+                # the shape returned by the other detectors so downstream code
+                # is uniform.
+                candidate = dict(person_ref)
+                if applied_job_id is not None:
+                    candidate['_applied_job_id'] = applied_job_id
+                    candidate['_applied_job_title'] = applied_job_title or ''
+
+                new_candidates.append(candidate)
+                job_info = f" for job {applied_job_id}" if applied_job_id else ""
+                logging.info(
+                    f"📝 Pandologic-note candidate detected: "
+                    f"{candidate.get('firstName')} {candidate.get('lastName')} "
+                    f"(ID: {candidate_id}{job_info})"
+                )
+
+            logging.info(
+                f"📝 Pandologic notes: {len(new_candidates)} candidate(s) to vet "
+                f"out of {len(notes)} note(s)"
+            )
+            return new_candidates
+
+        except Exception as e:
+            logging.error(f"Error detecting Pandologic-note candidates: {str(e)}")
+            return []
+
     def detect_unvetted_applications(self, limit: int = 25) -> List[Dict]:
         """
         Find candidates from ParsedEmail records that have been successfully processed

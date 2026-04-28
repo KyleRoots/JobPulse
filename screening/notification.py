@@ -323,6 +323,47 @@ class NotificationMixin:
         if not prestige_matches:
             return 0
 
+        # ── Threshold gate ──────────────────────────────────────────────
+        # The +5 prestige bump is a courtesy boost for candidates currently
+        # at Tier-1 firms. The recruiter should ONLY be notified when the
+        # bumped final score actually meets or exceeds the qualifying
+        # threshold. If the candidate still falls below threshold even with
+        # the +5, they are a genuine Not-Recommended result and should not
+        # generate noise — same rule as the standard qualified path.
+        global_threshold = self.get_threshold()
+        job_threshold_map = {}
+        job_ids = [m.bullhorn_job_id for m in prestige_matches if m.bullhorn_job_id]
+        if job_ids:
+            try:
+                from models import JobVettingRequirements
+                custom_reqs = JobVettingRequirements.query.filter(
+                    JobVettingRequirements.bullhorn_job_id.in_(job_ids),
+                    JobVettingRequirements.vetting_threshold.isnot(None),
+                ).all()
+                for req in custom_reqs:
+                    job_threshold_map[req.bullhorn_job_id] = float(req.vetting_threshold)
+            except Exception as e:
+                logging.warning(
+                    f"Could not fetch per-job thresholds for prestige review: {str(e)}"
+                )
+
+        qualified_prestige_matches = [
+            m for m in prestige_matches
+            if (m.match_score or 0) >= resolve_match_threshold(
+                m, job_threshold_map, global_threshold
+            )
+        ]
+
+        if not qualified_prestige_matches:
+            logging.info(
+                f"  🏢 Skipping prestige notification for {vetting_log.candidate_name}: "
+                f"{len(prestige_matches)} prestige match(es) but none cleared the "
+                f"qualifying threshold even with the +5 bump (highest score: "
+                f"{max((m.match_score or 0) for m in prestige_matches):.0f}%)"
+            )
+            return 0
+
+        prestige_matches = qualified_prestige_matches
         logging.info(f"  🏢 Found {len(prestige_matches)} prestige employer matches for not-qualified candidate {vetting_log.candidate_name}")
 
         primary_recruiter_email = None

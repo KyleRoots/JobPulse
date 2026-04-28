@@ -1145,7 +1145,26 @@ class CandidateVettingService(
                     summary['detection_method'] = f"{summary['detection_method']}+matador"
                 else:
                     summary['detection_method'] = f"{summary['detection_method']}+matador"
-            
+
+            # ALSO detect PandoLogic re-applicants via the Note channel. When
+            # an existing Bullhorn candidate reapplies through PandoLogic, the
+            # parent Candidate.owner does NOT flip to 'Pandologic API' (only
+            # brand-new candidates get that owner), so detect_pandologic_candidates
+            # misses them. This detector watches for fresh notes authored by
+            # the Pandologic API CorporateUser and pulls those candidates in.
+            pando_note_candidates = self.detect_pandologic_note_candidates(since_minutes=10)
+            if pando_note_candidates:
+                logging.info(
+                    f"📝 Adding {len(pando_note_candidates)} PandoLogic-note "
+                    f"candidates to vetting queue"
+                )
+                existing_ids = {c.get('id') for c in candidates}
+                for cand in pando_note_candidates:
+                    if cand.get('id') not in existing_ids:
+                        candidates.append(cand)
+                        existing_ids.add(cand.get('id'))
+                summary['detection_method'] = f"{summary['detection_method']}+pando_note"
+
             summary['candidates_detected'] = len(candidates)
             
             if not candidates:
