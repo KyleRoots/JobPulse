@@ -164,8 +164,17 @@ def check_fresh_production_database_guard(db):
         return
 
     try:
+        from models import GlobalSettings
+    except ImportError:
+        pass  # GlobalSettings optional — guard still runs on the two core tables
+
+    try:
         user_count = db.session.query(User).count()
         vetting_count = db.session.query(VettingConfig).count()
+        try:
+            global_settings_count = db.session.query(GlobalSettings).count()
+        except Exception:
+            global_settings_count = 0
     except Exception as e:
         # If the query fails (e.g. tables not migrated yet), don't block
         # the deploy — the schema bootstrap path needs to run.
@@ -174,8 +183,13 @@ def check_fresh_production_database_guard(db):
         )
         return
 
-    if user_count > 0 or vetting_count > 0:
+    if user_count > 0 or vetting_count > 0 or global_settings_count > 0:
         # Has any pre-existing state — normal deploy path.
+        logger.debug(
+            f"ℹ️ Fresh-DB guard: DB has data "
+            f"(users={user_count}, vetting_config={vetting_count}, "
+            f"global_settings={global_settings_count}) — normal deploy path"
+        )
         return
 
     override = os.environ.get('ALLOW_FRESH_PROD_SEED', '').strip().lower()
@@ -196,6 +210,7 @@ def check_fresh_production_database_guard(db):
         "================================================================\n"
         f"  user_count = {user_count}\n"
         f"  vetting_config_count = {vetting_count}\n"
+        f"  global_settings_count = {global_settings_count}\n"
         "\n"
         "This means the deployed application is pointing at a fresh\n"
         "PostgreSQL database with no historical data. Continuing would\n"
@@ -1556,7 +1571,6 @@ SUPPORT_CONTACTS_MYTICAS = [
 ]
 
 SUPPORT_CONTACTS_STSI = [
-    {"first_name": "Kaniz", "last_name": "Abedin", "email": "kabedin@stsigroup.com", "department": "STS-STSI"},
     {"first_name": "Kellie", "last_name": "Beveridge", "email": "kbeveridge@q-ptgroup.com", "department": "STS-STSI"},
     {"first_name": "Josh", "last_name": "Bocek", "email": "jbocek@stsigroup.com", "department": "STS-STSI"},
     {"first_name": "Veronica", "last_name": "Connolly", "email": "vconnolly@stsigroup.com", "department": "STS-STSI"},

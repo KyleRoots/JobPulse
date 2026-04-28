@@ -20,7 +20,11 @@ def models(app):
 
 @pytest.fixture(autouse=True)
 def clean_state(app):
-    """Wipe User + VettingConfig before/after each test.
+    """Wipe User, VettingConfig, and GlobalSettings before/after each test.
+
+    These are the three tables the Fresh-DB Guard checks to determine
+    whether the production database is empty. All three must be clear to
+    simulate an empty database in the guard tests.
 
     Safe because conftest.py points the test app at a separate SQLite
     fallback database (instance/fallback.db) — NOT the dev/prod
@@ -29,17 +33,19 @@ def clean_state(app):
     production data.
     """
     from app import db
-    from models import User, VettingConfig
+    from models import User, VettingConfig, GlobalSettings
     with app.app_context():
         engine_url = str(db.engine.url)
         assert engine_url.startswith('sqlite'), (
             f"Refusing to wipe a non-SQLite database (engine={engine_url}). "
             "This fixture is only safe against the test fallback DB."
         )
+        GlobalSettings.query.delete()
         VettingConfig.query.delete()
         User.query.delete()
         db.session.commit()
         yield
+        GlobalSettings.query.delete()
         VettingConfig.query.delete()
         User.query.delete()
         db.session.commit()
