@@ -1438,7 +1438,7 @@ Consider: name spelling variations, nicknames, contact info matches.
                         parsed_email.processing_notes = str(e)
                         db.session.commit()
                         self._notify_admin_parse_failure(parsed_email, str(e))
-                except:
+                except Exception:
                     pass
         
         return result
@@ -1464,7 +1464,7 @@ Consider: name spelling variations, nicknames, contact info matches.
                         'content': base64.b64decode(att.get('content', '')),
                         'content_type': att.get('type', 'application/octet-stream')
                     })
-            except:
+            except Exception:
                 pass
         
         # Check for numbered attachment fields
@@ -1476,7 +1476,7 @@ Consider: name spelling variations, nicknames, contact info matches.
                 if att_info_key in sendgrid_payload:
                     try:
                         info = json.loads(sendgrid_payload[att_info_key])
-                    except:
+                    except Exception:
                         pass
                 
                 content = sendgrid_payload[att_key]

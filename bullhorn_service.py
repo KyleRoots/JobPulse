@@ -1788,7 +1788,7 @@ class BullhornService:
                         from datetime import datetime
                         start_date = datetime(int(work['start_year']), 1, 1)
                         work_data['startDate'] = int(start_date.timestamp() * 1000)
-                    except:
+                    except Exception:
                         pass
                 
                 # Add end date if available (and not current job)
@@ -1796,7 +1796,7 @@ class BullhornService:
                     try:
                         end_date = datetime(int(work['end_year']), 12, 31)
                         work_data['endDate'] = int(end_date.timestamp() * 1000)
-                    except:
+                    except Exception:
                         pass
                 
                 response = self.session.put(url, params=params, json=work_data, timeout=30)
@@ -1852,7 +1852,7 @@ class BullhornService:
                         from datetime import datetime
                         grad_date = datetime(int(edu['year']), 6, 1)  # Assume June graduation
                         edu_data['graduationDate'] = int(grad_date.timestamp() * 1000)
-                    except:
+                    except Exception:
                         pass
                 
                 response = self.session.put(url, params=params, json=edu_data, timeout=30)

@@ -487,7 +487,7 @@ This alert was triggered by the zero-job detection safeguard.
                 fcntl.flock(self.lock_fd, fcntl.LOCK_UN)
                 os.close(self.lock_fd)
                 delattr(self, 'lock_fd')
-        except:
+        except Exception:
             pass
     
     def _normalize_status(self, status: str) -> str:
@@ -871,7 +871,7 @@ This alert was triggered by the zero-job detection safeguard.
             else:
                 dt = datetime.strptime(str(timestamp), '%Y-%m-%d')
             return dt.strftime('%B %d, %Y')
-        except:
+        except Exception:
             return datetime.now().strftime('%B %d, %Y')
     
     def _generate_job_url(self, job_id: str, title: str, company: str) -> str:

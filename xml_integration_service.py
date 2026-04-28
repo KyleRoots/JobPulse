@@ -389,7 +389,7 @@ class XMLIntegrationService:
                     fallback_url = f"{base_url}/{str(bhatsid).strip()}/position/?source=LinkedIn"
                     self.logger.warning(f"Using fallback URL with job ID: {fallback_url}")
                     return fallback_url
-            except:
+            except Exception:
                 pass
             # Final fallback to generic URL
             return "https://myticas.com/"
@@ -688,7 +688,7 @@ class XMLIntegrationService:
                 # Try to parse various date formats
                 try:
                     date_obj = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-                except:
+                except Exception:
                     date_obj = datetime.now()
             
             return date_obj.strftime('%B %d, %Y')
@@ -1754,7 +1754,7 @@ class XMLIntegrationService:
                     import os
                     os.remove(backup_path)
                     self.logger.info(f"Successfully updated job {job_id} ({job_title}) in XML file")
-                except:
+                except Exception:
                     pass  # Backup cleanup failure is not critical
                 
                 return True
@@ -1767,14 +1767,14 @@ class XMLIntegrationService:
                         shutil.copy2(backup_path, xml_file_path)
                         time.sleep(retry_delay)
                         continue
-                    except:
+                    except Exception:
                         pass
                 else:
                     # Final attempt failed - restore backup
                     try:
                         shutil.copy2(backup_path, xml_file_path)
                         self.logger.error(f"Restored backup after failed update for job {job_id}")
-                    except:
+                    except Exception:
                         pass
                     return False
         

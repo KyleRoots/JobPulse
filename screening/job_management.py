@@ -328,7 +328,7 @@ class JobManagementMixin:
                         # Try parsing as ISO string
                         try:
                             job_modified_at = datetime.fromisoformat(str(date_last_modified).replace('Z', '+00:00'))
-                        except:
+                        except Exception:
                             continue
                     
                     # Compare with our last interpretation timestamp

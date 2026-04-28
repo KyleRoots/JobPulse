@@ -35,7 +35,7 @@ def get_monitors():
                 try:
                     jobs = json.loads(monitor.last_job_snapshot)
                     job_count = len(jobs) if isinstance(jobs, list) else 0
-                except:
+                except Exception:
                     job_count = 0
 
             monitor_data.append({

@@ -883,7 +883,7 @@ def get_monitor_status():
             try:
                 jobs = json.loads(monitor.last_job_snapshot)
                 job_count = len(jobs)
-            except:
+            except Exception:
                 job_count = 0
         
         is_overdue = False

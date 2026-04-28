@@ -309,7 +309,7 @@ class LogMonitoringService:
                                 ts = datetime.fromisoformat(ts_str.replace('Z', '+00:00'))
                                 if latest_ts is None or ts > latest_ts:
                                     latest_ts = ts
-                            except:
+                            except Exception:
                                 pass
                     if latest_ts:
                         self._last_log_timestamp = latest_ts
@@ -369,7 +369,7 @@ class LogMonitoringService:
                         result.time_range_start = entry_time
                     if result.time_range_end is None or entry_time > result.time_range_end:
                         result.time_range_end = entry_time
-                except:
+                except Exception:
                     pass
             
             # Check against each pattern
@@ -743,7 +743,7 @@ class LogMonitoringService:
             logger.error(f"❌ Failed to persist monitoring run to database: {e}")
             try:
                 db.session.rollback()
-            except:
+            except Exception:
                 pass
 
     

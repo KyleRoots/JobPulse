@@ -486,7 +486,7 @@ class SchedulerLock(db.Model):
             try:
                 from flask import current_app
                 current_app.logger.error(f"Error cleaning up expired locks: {str(e)}")
-            except:
+            except Exception:
                 # Fallback to basic python logging if Flask context unavailable
                 import logging
                 logging.getLogger(__name__).error(f"Error cleaning up expired locks: {str(e)}")

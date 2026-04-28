@@ -126,7 +126,7 @@ def refresh_reference_numbers():
             finally:
                 try:
                     os.remove(temp_file_path)
-                except:
+                except Exception:
                     pass
         else:
             upload_error_message = "SFTP credentials not configured"
@@ -711,7 +711,7 @@ def manual_upload_now():
 
         try:
             os.remove(temp_file.name)
-        except:
+        except Exception:
             pass
 
         if isinstance(upload_result, dict):
@@ -1054,7 +1054,7 @@ def run_automation_demo():
                 demo_xml_file_var = locals().get('demo_xml_file')
                 if demo_xml_file_var and os.path.exists(demo_xml_file_var):
                     os.remove(demo_xml_file_var)
-            except:
+            except Exception:
                 pass
             return {
                 'success': False,
@@ -1066,7 +1066,7 @@ def run_automation_demo():
             demo_xml_file_var = locals().get('demo_xml_file')
             if demo_xml_file_var and os.path.exists(demo_xml_file_var):
                 os.remove(demo_xml_file_var)
-        except:
+        except Exception:
             pass
         return {
             'success': False,

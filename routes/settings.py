@@ -156,7 +156,7 @@ def update_settings():
                         scheduler.remove_job('automated_upload')
                         current_app.logger.info("📋 Automated uploads disabled - job removed from scheduler")
                         flash('Automated uploads disabled. Manual download workflow activated.', 'info')
-                    except:
+                    except Exception:
                         current_app.logger.info("📋 Automated upload job was not scheduled")
                         flash('Automated uploads disabled.', 'info')
             except Exception as scheduler_error:

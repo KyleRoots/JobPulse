@@ -36,19 +36,19 @@ def dashboard_redirect():
     # Get automation status
     try:
         automation_active = get_automation_status()
-    except:
+    except Exception:
         automation_active = True  # Default to active if can't determine
     
     # Get recent activities (use BullhornActivity model that exists)
     try:
         recent_activities = BullhornActivity.query.order_by(BullhornActivity.created_at.desc()).limit(5).all()
-    except:
+    except Exception:
         recent_activities = []
     
     # Get latest schedules
     try:
         schedules = ScheduleConfig.query.filter_by(is_active=True).limit(3).all()
-    except:
+    except Exception:
         schedules = []
     
     # Get environment status
@@ -56,7 +56,7 @@ def dashboard_redirect():
     try:
         from models import EnvironmentStatus
         environment_status = EnvironmentStatus.query.filter_by(environment_name='production').first()
-    except:
+    except Exception:
         environment_status = None
     
     # Dashboard metrics

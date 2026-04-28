@@ -355,7 +355,7 @@ class XMLFieldSyncService:
                     try:
                         # Try to get exclusive lock (Unix only)
                         fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-                    except:
+                    except Exception:
                         pass  # Failed to get lock
                 
                 return self
@@ -365,7 +365,7 @@ class XMLFieldSyncService:
                     if FCNTL_AVAILABLE:
                         try:
                             fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_UN)
-                        except:
+                        except Exception:
                             pass
                     self.lock_file.close()
                     
@@ -373,7 +373,7 @@ class XMLFieldSyncService:
                 if os.path.exists(lock_path):
                     try:
                         os.remove(lock_path)
-                    except:
+                    except Exception:
                         pass
         
         return FileLock(file_path, self)

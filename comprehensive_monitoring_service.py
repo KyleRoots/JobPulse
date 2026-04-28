@@ -969,7 +969,7 @@ class ComprehensiveMonitoringService:
             if timestamp:
                 dt = datetime.fromtimestamp(int(timestamp) / 1000)
                 return dt.strftime('%B %d, %Y')
-        except:
+        except Exception:
             pass
         return datetime.now().strftime('%B %d, %Y')
 

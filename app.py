@@ -138,7 +138,7 @@ def get_xml_filename():
         else:
             app.logger.debug(f"Using development filename (source: request host)")
             return f"{base_filename}-dev.xml"
-    except:
+    except Exception:
         app.logger.warning(f"Could not determine environment, defaulting to production filename for safety")
         return f"{base_filename}.xml"
 

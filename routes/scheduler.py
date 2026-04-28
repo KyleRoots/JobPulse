@@ -364,7 +364,7 @@ def replace_schedule_file():
             if temp_file and hasattr(temp_file, 'name') and os.path.exists(temp_file.name):
                 try:
                     os.unlink(temp_file.name)
-                except:
+                except Exception:
                     pass
             raise e
         

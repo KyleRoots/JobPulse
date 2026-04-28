@@ -60,7 +60,7 @@ def health_check():
     try:
         from app import scheduler
         scheduler_status = 'running' if scheduler.running else 'stopped'
-    except:
+    except Exception:
         pass
     
     health_status = {

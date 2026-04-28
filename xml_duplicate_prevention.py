@@ -136,7 +136,7 @@ class XMLDuplicatePrevention:
                     tree = etree.parse(xml_file, self.parser)
                     root = tree.getroot()
                     total_jobs = len(root.findall('job'))
-                except:
+                except Exception:
                     pass
                 
                 if total_jobs > len(job_ids):

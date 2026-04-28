@@ -232,7 +232,7 @@ class TearsheetFlow:
             try:
                 dt = datetime.fromtimestamp(date_added / 1000)
                 formatted_date = dt.strftime('%Y-%m-%d')
-            except:
+            except Exception:
                 formatted_date = datetime.now().strftime('%Y-%m-%d')
         else:
             formatted_date = datetime.now().strftime('%Y-%m-%d')

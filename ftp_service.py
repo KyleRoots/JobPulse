@@ -91,7 +91,7 @@ class FTPService:
                             else:
                                 logging.error(f"Upload verification failed: remote {size} != local {local_size}")
                                 return False
-                        except:
+                        except Exception:
                             # If SIZE command not supported, consider upload successful
                             logging.warning("Unable to verify upload size - assuming success")
                             return True

@@ -543,7 +543,7 @@ def log_refresh_activity(job_count, upload_success=False):
         )
         db.session.add(activity)
         db.session.commit()
-    except:
+    except Exception:
         pass  # Don't fail if logging fails
 
 if __name__ == "__main__":
