@@ -347,7 +347,7 @@ def revet_candidate(candidate_id):
         if is_ajax:
             return jsonify({'success': False, 'message': 'Unauthorized — admin access required'}), 403
         flash('Unauthorized — admin access required', 'error')
-        return redirect(url_for('vetting.scout_screening'))
+        return redirect(url_for('scout_screening.dashboard'))
 
     try:
         parsed_emails = ParsedEmail.query.filter(
