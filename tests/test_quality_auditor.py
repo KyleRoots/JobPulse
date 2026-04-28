@@ -2755,3 +2755,233 @@ class TestAuditCycleSummaryDiagnostics:
         assert 'cycle complete' in joined.lower()
         assert 'skipped (24h cap)' in joined
         assert 'skipped (score stable)' in joined
+
+
+# ---------------------------------------------------------------------------
+# #54 — per-check heuristic unit tests for _run_false_positive_checks
+# ---------------------------------------------------------------------------
+
+class TestFalsePositiveHeuristics:
+    """Unit tests for _run_false_positive_checks — each check's trigger
+    conditions are verified directly.
+
+    Existing TestQualifiedAuditParity tests always patch
+    _run_false_positive_checks away, so no test previously called the real
+    function.  These tests call it directly with a SimpleNamespace stand-in
+    for job_match so each condition boundary is pinned.  vetting_log is not
+    accessed by _run_false_positive_checks and is passed as None throughout.
+    """
+
+    @staticmethod
+    def _make_match(
+        *,
+        match_score=82.0,
+        gaps='',
+        match_summary='',
+        years_analysis_json=None,
+    ):
+        from types import SimpleNamespace
+        return SimpleNamespace(
+            match_score=match_score,
+            gaps_identified=gaps,
+            match_summary=match_summary,
+            years_analysis_json=years_analysis_json,
+        )
+
+    # -------------------------------------------------------------------
+    # Score guard — early exit when score < 50
+    # -------------------------------------------------------------------
+
+    def test_score_below_50_returns_empty_regardless_of_gaps(self, app):
+        """_run_false_positive_checks exits early for score < 50, even when
+        mandatory-skill phrases appear in gaps."""
+        from vetting_audit_service import VettingAuditService
+
+        match = self._make_match(
+            match_score=49.0,
+            gaps='mandatory skill missing | lacks experience in core requirement',
+            match_summary='limited experience with the required stack',
+        )
+        issues = VettingAuditService()._run_false_positive_checks(None, match)
+        assert issues == [], (
+            'Score < 50 must produce no false-positive flags regardless of gap text'
+        )
+
+    # -------------------------------------------------------------------
+    # false_positive_skill_gap
+    # -------------------------------------------------------------------
+
+    def test_skill_gap_fires_with_two_mandatory_phrases(self, app):
+        """Two mandatory-skill indicator phrases in gaps_identified on a
+        Qualified score (≥50) triggers false_positive_skill_gap."""
+        from vetting_audit_service import VettingAuditService
+
+        match = self._make_match(
+            match_score=82.0,
+            gaps='mandatory skill not found | lacks experience in required area',
+        )
+        issues = VettingAuditService()._run_false_positive_checks(None, match)
+        check_types = [i['check_type'] for i in issues]
+        assert 'false_positive_skill_gap' in check_types, (
+            'Expected false_positive_skill_gap with 2+ mandatory phrases in gaps'
+        )
+
+    def test_skill_gap_silent_when_only_one_mandatory_phrase(self, app):
+        """A single mandatory-skill phrase does not reach the threshold of 2
+        — false_positive_skill_gap must NOT fire."""
+        from vetting_audit_service import VettingAuditService
+
+        match = self._make_match(
+            match_score=82.0,
+            gaps='mandatory skill not found — otherwise a strong fit',
+        )
+        issues = VettingAuditService()._run_false_positive_checks(None, match)
+        check_types = [i['check_type'] for i in issues]
+        assert 'false_positive_skill_gap' not in check_types
+
+    def test_skill_gap_silent_when_score_below_50(self, app):
+        """Two mandatory phrases in gaps but score < 50 → early return;
+        false_positive_skill_gap must not appear."""
+        from vetting_audit_service import VettingAuditService
+
+        match = self._make_match(
+            match_score=45.0,
+            gaps='mandatory skill | lacks experience with must have technology',
+        )
+        issues = VettingAuditService()._run_false_positive_checks(None, match)
+        assert issues == []
+
+    # -------------------------------------------------------------------
+    # false_positive_negative_summary
+    # -------------------------------------------------------------------
+
+    def test_negative_summary_fires_at_score_70_boundary(self, app):
+        """A negative qualifier in match_summary at exactly score=70 (the
+        boundary) triggers false_positive_negative_summary."""
+        from vetting_audit_service import VettingAuditService
+
+        match = self._make_match(
+            match_score=70.0,
+            match_summary='The candidate has limited experience with the primary stack.',
+        )
+        issues = VettingAuditService()._run_false_positive_checks(None, match)
+        check_types = [i['check_type'] for i in issues]
+        assert 'false_positive_negative_summary' in check_types, (
+            'Expected false_positive_negative_summary at score=70 with negative qualifier'
+        )
+
+    def test_negative_summary_silent_when_score_below_70(self, app):
+        """Negative qualifier present but score=65 (below 70) — the check
+        must NOT fire; the threshold is score ≥ 70."""
+        from vetting_audit_service import VettingAuditService
+
+        match = self._make_match(
+            match_score=65.0,
+            match_summary='The candidate has limited experience with the primary stack.',
+        )
+        issues = VettingAuditService()._run_false_positive_checks(None, match)
+        check_types = [i['check_type'] for i in issues]
+        assert 'false_positive_negative_summary' not in check_types
+
+    def test_negative_summary_silent_when_summary_is_positive(self, app):
+        """Strong positive summary at score=80 must NOT trigger
+        false_positive_negative_summary."""
+        from vetting_audit_service import VettingAuditService
+
+        match = self._make_match(
+            match_score=80.0,
+            match_summary='Excellent technical background with deep platform expertise.',
+        )
+        issues = VettingAuditService()._run_false_positive_checks(None, match)
+        check_types = [i['check_type'] for i in issues]
+        assert 'false_positive_negative_summary' not in check_types
+
+    # -------------------------------------------------------------------
+    # false_positive_experience_short
+    # -------------------------------------------------------------------
+
+    def test_experience_short_fires_when_estimated_below_half_required(self, app):
+        """required=5yr, estimated=1yr (< 2.5yr = half of 5), meets=True →
+        false_positive_experience_short fires (AI over-credited experience)."""
+        import json
+        from vetting_audit_service import VettingAuditService
+
+        years = {
+            'Python': {
+                'required_years': 5,
+                'estimated_years': 1.0,
+                'meets_requirement': True,
+            }
+        }
+        match = self._make_match(
+            match_score=78.0,
+            years_analysis_json=json.dumps(years),
+        )
+        issues = VettingAuditService()._run_false_positive_checks(None, match)
+        check_types = [i['check_type'] for i in issues]
+        assert 'false_positive_experience_short' in check_types, (
+            '1yr estimated < 2.5yr (half of 5yr required) with meets=True must fire'
+        )
+
+    def test_experience_short_silent_when_meets_is_false(self, app):
+        """If meets_requirement=False the AI already penalised the gap —
+        false_positive_experience_short must NOT double-flag it."""
+        import json
+        from vetting_audit_service import VettingAuditService
+
+        years = {
+            'Python': {
+                'required_years': 5,
+                'estimated_years': 1.0,
+                'meets_requirement': False,
+            }
+        }
+        match = self._make_match(
+            match_score=78.0,
+            years_analysis_json=json.dumps(years),
+        )
+        issues = VettingAuditService()._run_false_positive_checks(None, match)
+        check_types = [i['check_type'] for i in issues]
+        assert 'false_positive_experience_short' not in check_types
+
+    def test_experience_short_silent_when_estimated_above_half(self, app):
+        """required=5yr, estimated=3yr (≥ 2.5yr = half of 5) — above the 50 %
+        floor, so false_positive_experience_short must NOT fire."""
+        import json
+        from vetting_audit_service import VettingAuditService
+
+        years = {
+            'Python': {
+                'required_years': 5,
+                'estimated_years': 3.0,
+                'meets_requirement': True,
+            }
+        }
+        match = self._make_match(
+            match_score=78.0,
+            years_analysis_json=json.dumps(years),
+        )
+        issues = VettingAuditService()._run_false_positive_checks(None, match)
+        check_types = [i['check_type'] for i in issues]
+        assert 'false_positive_experience_short' not in check_types
+
+    def test_experience_short_silent_when_required_below_3(self, app):
+        """required < 3yr is excluded from the check even when estimated is
+        well below half — avoids spurious flags on junior/commodity skills."""
+        import json
+        from vetting_audit_service import VettingAuditService
+
+        years = {
+            'Git': {
+                'required_years': 2,
+                'estimated_years': 0.5,
+                'meets_requirement': True,
+            }
+        }
+        match = self._make_match(
+            match_score=78.0,
+            years_analysis_json=json.dumps(years),
+        )
+        issues = VettingAuditService()._run_false_positive_checks(None, match)
+        check_types = [i['check_type'] for i in issues]
+        assert 'false_positive_experience_short' not in check_types
