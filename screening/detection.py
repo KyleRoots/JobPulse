@@ -815,26 +815,24 @@ class CandidateDetectionMixin:
                 since_time = datetime.utcnow() - timedelta(minutes=since_minutes)
             since_ms = int(since_time.timestamp() * 1000)
 
-            url = f"{bullhorn.base_url}query/Note"
-            # Expand personReference inline so we get the candidate fields
-            # directly, avoiding a per-candidate /entity/Candidate fetch.
-            # Uses query/ (SQL WHERE) rather than search/ (Lucene) because
-            # commentingPerson.id is not a Lucene-indexed field on Note —
-            # search/Note returns 400 for this filter.
+            url = f"{bullhorn.base_url}search/Note"
+            # Note is a Lucene-indexed entity — must use search/ not query/.
+            # commentingPerson.id is NOT in the Lucene index so it cannot be
+            # used as a filter here; we fetch all recent notes and filter by
+            # commentingPerson.id in Python after the response.
             params = {
-                'where': (
-                    f'commentingPerson.id={user_id} '
-                    f'AND dateAdded>={since_ms} '
-                    f'AND isDeleted=false'
+                'query': (
+                    f'dateAdded:[{since_ms} TO *] '
+                    f'AND isDeleted:false'
                 ),
                 'fields': (
-                    'id,dateAdded,'
+                    'id,dateAdded,commentingPerson(id),'
                     'personReference(id,firstName,lastName,email,phone,status,'
                     'dateAdded,dateLastModified,source,occupation,description,'
                     'address(address1,city,state,countryName))'
                 ),
-                'count': 50,
-                'orderBy': '-dateAdded',
+                'count': 200,
+                'sort': '-dateAdded',
                 'BhRestToken': bullhorn.rest_token,
             }
 
@@ -850,9 +848,15 @@ class CandidateDetectionMixin:
                 )
                 return []
 
-            notes = resp.json().get('data', []) or []
+            all_notes = resp.json().get('data', []) or []
+            # Keep only notes authored by the Pandologic API user.
+            notes = [
+                n for n in all_notes
+                if (n.get('commentingPerson') or {}).get('id') == user_id
+            ]
             logger.info(
-                f"📝 Pandologic notes: Found {len(notes)} note(s) since {since_time}"
+                f"📝 Pandologic notes: Found {len(notes)} note(s) by user "
+                f"{user_id} (out of {len(all_notes)} total) since {since_time}"
             )
 
             # One candidate may have multiple notes in the window — dedup by ID.

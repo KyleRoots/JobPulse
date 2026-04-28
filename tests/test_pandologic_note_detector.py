@@ -42,14 +42,17 @@ def _make_bullhorn(note_payload, *, sub_payload=None, user_payload=None):
     def _get(url, params=None, timeout=None):
         resp = MagicMock()
         resp.status_code = 200
-        if 'query/Note' in url:
-            # Pandologic note search — uses query/ (SQL WHERE) because
-            # commentingPerson.id is not Lucene-indexed on Note.
-            resp.json.return_value = note_payload
-        elif 'search/Note' in url:
-            # Recruiter-activity check — uses search/ with personReference.id
-            # which IS Lucene-indexed. Return empty list (no human notes).
-            resp.json.return_value = {'data': []}
+        if 'search/Note' in url:
+            q = (params or {}).get('query', '')
+            if 'personReference.id' in q:
+                # Recruiter-activity check — filters by candidate reference
+                # which IS Lucene-indexed. Return empty list (no human notes).
+                resp.json.return_value = {'data': []}
+            else:
+                # Pandologic note search — broad dateAdded query, then filtered
+                # in Python by commentingPerson.id. Note is a Lucene-indexed
+                # entity so must use search/ not query/.
+                resp.json.return_value = note_payload
         elif 'search/JobSubmission' in url:
             resp.json.return_value = sub_payload or {'data': []}
         elif 'query/CorporateUser' in url:
@@ -135,6 +138,7 @@ def test_detector_picks_up_reapplicant_via_note(app):
                 {
                     'id': 5001,
                     'dateAdded': int(datetime.utcnow().timestamp() * 1000),
+                    'commentingPerson': {'id': 999001},
                     'personReference': {
                         'id': 4133209,
                         'firstName': 'Oluwadamilare',
@@ -184,11 +188,13 @@ def test_detector_dedups_multiple_notes_for_same_candidate(app):
                 {
                     'id': 5001,
                     'dateAdded': now_ms,
+                    'commentingPerson': {'id': 999001},
                     'personReference': {'id': 4133209, 'firstName': 'Olu', 'lastName': 'A'},
                 },
                 {
                     'id': 5002,
                     'dateAdded': now_ms - 1000,
+                    'commentingPerson': {'id': 999001},
                     'personReference': {'id': 4133209, 'firstName': 'Olu', 'lastName': 'A'},
                 },
             ]
@@ -244,6 +250,7 @@ def test_detector_respects_dedup(app):
                 'data': [{
                     'id': 5001,
                     'dateAdded': now_ms,
+                    'commentingPerson': {'id': 999001},
                     'personReference': {'id': 4133209, 'firstName': 'Olu', 'lastName': 'A'},
                 }]
             }
@@ -278,7 +285,9 @@ def test_detector_returns_empty_on_search_failure(app):
 
         def _get(url, params=None, timeout=None):
             resp = MagicMock()
-            if 'query/Note' in url:
+            q = (params or {}).get('query', '')
+            if 'search/Note' in url and 'personReference.id' not in q:
+                # Pandologic note search — simulate server error
                 resp.status_code = 500
                 resp.json.return_value = {}
                 resp.text = 'Internal Server Error'
