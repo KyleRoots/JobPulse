@@ -383,7 +383,7 @@ with app.app_context():
 
     # Seed database with initial data (production-safe, idempotent)
     try:
-        from seed_database import seed_database
+        from seed_database import seed_database, FreshProductionDatabaseError
         from models import User
 
         seeding_results = seed_database(db, User)
@@ -397,6 +397,13 @@ with app.app_context():
             for error in seeding_results['errors']:
                 app.logger.error(f"🌱 Seeding error: {error}")
 
+    except FreshProductionDatabaseError:
+        # HARD HALT: the fresh-prod-DB guard tripped. Do NOT let this be
+        # swallowed by the generic Exception handler below — propagate the
+        # error so gunicorn fails to import the worker and the deployment
+        # is blocked. The operator must investigate and explicitly opt in
+        # via ALLOW_FRESH_PROD_SEED=true before this can proceed.
+        raise
     except Exception as e:
         app.logger.error(f"❌ Database seeding failed: {str(e)}")
         app.logger.debug(f"Seeding error details: {traceback.format_exc()}")

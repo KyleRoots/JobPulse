@@ -131,6 +131,9 @@ class TestMissingKeysCreatedBySeed:
             'escalation_high', 'layer2_model', 'vetting_cutoff_date',
             'global_custom_requirements',
             'screening_audit_enabled',
+            'quality_auditor_model',
+            'platform_age_ceilings',
+            'qualified_audit_sample_rate',
             'recruiter_activity_check_enabled',
             'recruiter_activity_lookback_minutes',
         }
