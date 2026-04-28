@@ -1820,3 +1820,27 @@ class Prospect(db.Model):
 
     def __repr__(self):
         return f'<Prospect {self.id}: {self.company_name} ({self.status})>'
+
+
+class BackupLog(db.Model):
+    __tablename__ = 'backup_log'
+
+    id = db.Column(db.Integer, primary_key=True)
+    started_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    status = db.Column(db.String(20), nullable=False, default='running')
+    file_name = db.Column(db.String(500), nullable=True)
+    file_size_bytes = db.Column(db.BigInteger, nullable=True)
+    onedrive_item_id = db.Column(db.String(255), nullable=True)
+    onedrive_web_url = db.Column(db.String(1000), nullable=True)
+    error_message = db.Column(db.Text, nullable=True)
+    duration_seconds = db.Column(db.Float, nullable=True)
+    triggered_by = db.Column(db.String(50), nullable=False, default='scheduler')
+
+    __table_args__ = (
+        db.Index('idx_backup_log_started_at', 'started_at'),
+        db.Index('idx_backup_log_status', 'status'),
+    )
+
+    def __repr__(self):
+        return f'<BackupLog {self.id}: {self.status} @ {self.started_at}>'

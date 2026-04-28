@@ -237,6 +237,29 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
         )
         app.logger.info("📋 Scheduled activity retention cleanup (15 days)")
 
+    # ── Nightly Database Backup (daily at 2 AM UTC) ──────────────────────────
+    if is_primary_worker:
+        def run_nightly_backup():
+            with app.app_context():
+                try:
+                    from backup_service import BackupService
+                    svc = BackupService(app=app)
+                    result = svc.run_backup(triggered_by="scheduler")
+                    app.logger.info(f"📦 Nightly backup: {result.get('status')}")
+                except Exception as e:
+                    app.logger.error(f"❌ Nightly backup failed: {e}")
+
+        scheduler.add_job(
+            func=run_nightly_backup,
+            trigger='cron',
+            hour=2,
+            minute=0,
+            id='nightly_database_backup',
+            name='Nightly Database Backup (2 AM UTC)',
+            replace_existing=True
+        )
+        app.logger.info("📦 Scheduled nightly database backup (2 AM UTC → OneDrive)")
+
     # ── Log Monitoring / Self-Healing ─────────────────────────────────────────
     if is_primary_worker:
         from tasks import log_monitoring_cycle
