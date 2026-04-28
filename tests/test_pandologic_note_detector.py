@@ -42,15 +42,14 @@ def _make_bullhorn(note_payload, *, sub_payload=None, user_payload=None):
     def _get(url, params=None, timeout=None):
         resp = MagicMock()
         resp.status_code = 200
-        if 'search/Note' in url:
-            # Differentiate Pandologic-note search from recruiter-activity
-            # search by inspecting the query string.
-            q = (params or {}).get('query', '')
-            if 'commentingPerson.id' in q:
-                resp.json.return_value = note_payload
-            else:
-                # Recruiter-activity check — return an empty list (no human notes)
-                resp.json.return_value = {'data': []}
+        if 'query/Note' in url:
+            # Pandologic note search — uses query/ (SQL WHERE) because
+            # commentingPerson.id is not Lucene-indexed on Note.
+            resp.json.return_value = note_payload
+        elif 'search/Note' in url:
+            # Recruiter-activity check — uses search/ with personReference.id
+            # which IS Lucene-indexed. Return empty list (no human notes).
+            resp.json.return_value = {'data': []}
         elif 'search/JobSubmission' in url:
             resp.json.return_value = sub_payload or {'data': []}
         elif 'query/CorporateUser' in url:
@@ -279,9 +278,10 @@ def test_detector_returns_empty_on_search_failure(app):
 
         def _get(url, params=None, timeout=None):
             resp = MagicMock()
-            if 'search/Note' in url:
+            if 'query/Note' in url:
                 resp.status_code = 500
                 resp.json.return_value = {}
+                resp.text = 'Internal Server Error'
             else:
                 resp.status_code = 200
                 resp.json.return_value = {'data': []}

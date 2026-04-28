@@ -815,14 +815,17 @@ class CandidateDetectionMixin:
                 since_time = datetime.utcnow() - timedelta(minutes=since_minutes)
             since_ms = int(since_time.timestamp() * 1000)
 
-            url = f"{bullhorn.base_url}search/Note"
+            url = f"{bullhorn.base_url}query/Note"
             # Expand personReference inline so we get the candidate fields
             # directly, avoiding a per-candidate /entity/Candidate fetch.
+            # Uses query/ (SQL WHERE) rather than search/ (Lucene) because
+            # commentingPerson.id is not a Lucene-indexed field on Note —
+            # search/Note returns 400 for this filter.
             params = {
-                'query': (
-                    f'commentingPerson.id:{user_id} '
-                    f'AND dateAdded:[{since_ms} TO *] '
-                    f'AND isDeleted:false'
+                'where': (
+                    f'commentingPerson.id={user_id} '
+                    f'AND dateAdded>={since_ms} '
+                    f'AND isDeleted=false'
                 ),
                 'fields': (
                     'id,dateAdded,'
@@ -831,14 +834,19 @@ class CandidateDetectionMixin:
                     'address(address1,city,state,countryName))'
                 ),
                 'count': 50,
-                'sort': '-dateAdded',
+                'orderBy': '-dateAdded',
                 'BhRestToken': bullhorn.rest_token,
             }
 
             resp = bullhorn.session.get(url, params=params, timeout=30)
             if resp.status_code != 200:
+                try:
+                    body = resp.json()
+                except Exception:
+                    body = resp.text[:500]
                 logger.error(
-                    f"Pandologic note search failed: HTTP {resp.status_code}"
+                    f"Pandologic note search failed: HTTP {resp.status_code} — "
+                    f"body: {body}"
                 )
                 return []
 
