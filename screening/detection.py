@@ -827,9 +827,7 @@ class CandidateDetectionMixin:
                 ),
                 'fields': (
                     'id,dateAdded,commentingPerson(id),'
-                    'personReference(id,firstName,lastName,email,phone,status,'
-                    'source,occupation,description,'
-                    'address(address1,city,state,countryName))'
+                    'personReference(id,firstName,lastName,email,phone,status)'
                 ),
                 'count': 200,
                 'sort': '-dateAdded',
