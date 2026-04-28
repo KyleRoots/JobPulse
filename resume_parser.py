@@ -19,25 +19,25 @@ try:
     OPENAI_AVAILABLE = True
 except ImportError:
     OPENAI_AVAILABLE = False
-    logging.warning("OpenAI not available - AI-assisted PDF formatting disabled")
+    logger.warning("OpenAI not available - AI-assisted PDF formatting disabled")
 
 try:
     import fitz  # PyMuPDF - better at preserving spaces in text extraction
     PYMUPDF_AVAILABLE = True
 except ImportError:
     PYMUPDF_AVAILABLE = False
-    logging.warning("PyMuPDF not available - falling back to PyPDF2")
+    logger.warning("PyMuPDF not available - falling back to PyPDF2")
 
 try:
     import PyPDF2
     PYPDF2_AVAILABLE = True
 except ImportError:
     PYPDF2_AVAILABLE = False
-    logging.warning("PyPDF2 not available")
+    logger.warning("PyPDF2 not available")
 
 PDF_AVAILABLE = PYMUPDF_AVAILABLE or PYPDF2_AVAILABLE
 if not PDF_AVAILABLE:
-    logging.warning("No PDF parsing library available - PDF parsing disabled")
+    logger.warning("No PDF parsing library available - PDF parsing disabled")
 
 try:
     from docx import Document
@@ -45,7 +45,7 @@ try:
     DOCX_AVAILABLE = True
 except ImportError:
     DOCX_AVAILABLE = False
-    logging.warning("python-docx not available - DOCX parsing disabled")
+    logger.warning("python-docx not available - DOCX parsing disabled")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

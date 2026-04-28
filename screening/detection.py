@@ -17,6 +17,7 @@ Contains:
 """
 
 import logging
+logger = logging.getLogger(__name__)
 import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
@@ -50,7 +51,7 @@ def _resolve_vetting_cutoff() -> Optional[datetime]:
             return datetime.strptime(cutoff_raw.strip(), fmt)
         except ValueError:
             continue
-    logging.error(
+    logger.error(
         f"❌ Invalid vetting_cutoff_date format: '{cutoff_raw}' — expected "
         f"'YYYY-MM-DD HH:MM:SS' or ISO format. Cutoff DISABLED — entire "
         f"backlog will be processed!"
@@ -107,7 +108,7 @@ class CandidateDetectionMixin:
                 CandidateVettingLog.created_at >= recent_cutoff
             ).first()
             if recent:
-                logging.debug(
+                logger.debug(
                     f"Candidate {candidate_id} vetted within 24h (no job context), skipping"
                 )
                 return True
@@ -125,7 +126,7 @@ class CandidateDetectionMixin:
             CandidateVettingLog.created_at >= recent_cutoff
         ).first()
         if same_job_recent:
-            logging.debug(
+            logger.debug(
                 f"Candidate {candidate_id} vetted for job {applied_job_id} within 24h, skipping"
             )
             return True
@@ -139,7 +140,7 @@ class CandidateDetectionMixin:
             CandidateVettingLog.created_at >= week_cutoff
         ).count()
         if same_job_week_count >= 3:
-            logging.debug(
+            logger.debug(
                 f"Candidate {candidate_id} vetted for job {applied_job_id} "
                 f"{same_job_week_count} times in 7 days, skipping (soft cap)"
             )
@@ -172,7 +173,7 @@ class CandidateDetectionMixin:
                            or 'true')
             lookback_raw = VettingConfig.get_value('recruiter_activity_lookback_minutes')
         except Exception as cfg_err:
-            logging.warning(
+            logger.warning(
                 f"⚠️ Recruiter-activity gate: VettingConfig read failed "
                 f"({type(cfg_err).__name__}: {cfg_err}); failing open"
             )
@@ -192,7 +193,7 @@ class CandidateDetectionMixin:
             bullhorn, candidate_id, lookback_min
         )
         if active:
-            logging.info(
+            logger.info(
                 f"👤 Candidate {candidate_id}: recruiter activity within "
                 f"{minutes_ago}min (window={lookback_min}min), deferring auto-vet"
             )
@@ -228,7 +229,7 @@ class CandidateDetectionMixin:
         # If we don't know who the AI is, we can't distinguish AI notes from
         # recruiter notes — fail open rather than blocking every vet.
         if not api_user_id:
-            logging.debug(
+            logger.debug(
                 f"Recruiter-activity check skipped for candidate {candidate_id}: "
                 f"bullhorn.user_id not set"
             )
@@ -314,7 +315,7 @@ class CandidateDetectionMixin:
                     continue
                 break
 
-        logging.warning(
+        logger.warning(
             f"⚠️ Recruiter-activity lookup failed for candidate {candidate_id} "
             f"after retry ({last_error}, status={last_status}); "
             f"failing open — candidate will proceed to vet (gate degraded)"
@@ -407,7 +408,7 @@ class CandidateDetectionMixin:
                     continue
                 break
 
-        logging.warning(
+        logger.warning(
             f"⚠️ JobSubmission lookup failed for candidate {candidate_id} "
             f"after retry ({last_error}, status={last_status}); "
             f"falling back to global 24h dedup — possible missed re-application "
@@ -431,7 +432,7 @@ class CandidateDetectionMixin:
             return []
         
         if not bullhorn.authenticate():
-            logging.error("Failed to authenticate with Bullhorn for candidate detection")
+            logger.error("Failed to authenticate with Bullhorn for candidate detection")
             return []
         
         try:
@@ -439,11 +440,11 @@ class CandidateDetectionMixin:
             last_run = self._get_last_run_timestamp()
             if last_run:
                 since_time = last_run
-                logging.info(f"Using last run timestamp for detection: {since_time}")
+                logger.info(f"Using last run timestamp for detection: {since_time}")
             else:
                 # First run - only look at very recent candidates (prevent historical processing)
                 since_time = datetime.utcnow() - timedelta(minutes=since_minutes)
-                logging.info(f"First run - only detecting candidates from last {since_minutes} minutes")
+                logger.info(f"First run - only detecting candidates from last {since_minutes} minutes")
             
             since_timestamp = int(since_time.timestamp() * 1000)  # Bullhorn uses milliseconds
             
@@ -461,13 +462,13 @@ class CandidateDetectionMixin:
             response = bullhorn.session.get(url, params=params, timeout=30)
             
             if response.status_code != 200:
-                logging.error(f"Failed to search for applicants: {response.status_code}")
+                logger.error(f"Failed to search for applicants: {response.status_code}")
                 return []
             
             data = response.json()
             candidates = data.get('data', [])
             
-            logging.info(f"Bullhorn returned {len(candidates)} candidates since {since_time}")
+            logger.info(f"Bullhorn returned {len(candidates)} candidates since {since_time}")
             
             # Job-aware dedup: allow rescreening for different jobs
             new_candidates = []
@@ -481,16 +482,16 @@ class CandidateDetectionMixin:
                 # The ParsedEmail path (primary) already handles job-aware dedup properly.
                 # Pass bullhorn so the recruiter-activity gate can fire for this path.
                 if self._should_skip_candidate(candidate_id, bullhorn=bullhorn):
-                    logging.debug(f"Candidate {candidate_id} vetted recently, skipping")
+                    logger.debug(f"Candidate {candidate_id} vetted recently, skipping")
                 else:
                     new_candidates.append(candidate)
-                    logging.info(f"New applicant detected: {candidate.get('firstName')} {candidate.get('lastName')} (ID: {candidate_id})")
+                    logger.info(f"New applicant detected: {candidate.get('firstName')} {candidate.get('lastName')} (ID: {candidate_id})")
             
-            logging.info(f"Found {len(new_candidates)} new applicants to process out of {len(candidates)} recent online applicants")
+            logger.info(f"Found {len(new_candidates)} new applicants to process out of {len(candidates)} recent online applicants")
             return new_candidates
             
         except Exception as e:
-            logging.error(f"Error detecting new applicants: {str(e)}")
+            logger.error(f"Error detecting new applicants: {str(e)}")
             return []
     
     def detect_pandologic_candidates(self, since_minutes: int = 5) -> List[Dict]:
@@ -514,7 +515,7 @@ class CandidateDetectionMixin:
             return []
         
         if not bullhorn.authenticate():
-            logging.error("Failed to authenticate with Bullhorn for Pandologic detection")
+            logger.error("Failed to authenticate with Bullhorn for Pandologic detection")
             return []
         
         try:
@@ -541,13 +542,13 @@ class CandidateDetectionMixin:
             response = bullhorn.session.get(url, params=params, timeout=30)
             
             if response.status_code != 200:
-                logging.error(f"Failed to search for Pandologic candidates: {response.status_code}")
+                logger.error(f"Failed to search for Pandologic candidates: {response.status_code}")
                 return []
             
             data = response.json()
             candidates = data.get('data', [])
             
-            logging.info(f"🔍 Pandologic: Found {len(candidates)} candidates since {since_time}")
+            logger.info(f"🔍 Pandologic: Found {len(candidates)} candidates since {since_time}")
             
             # Job-aware dedup: get latest JobSubmission for each candidate to check
             # if they were already vetted for THIS specific job
@@ -569,24 +570,24 @@ class CandidateDetectionMixin:
 
                 # Job-aware dedup + recruiter-activity gate
                 if self._should_skip_candidate(candidate_id, applied_job_id, bullhorn=bullhorn):
-                    logging.debug(
+                    logger.debug(
                         f"Pandologic candidate {candidate_id} skipped by job-aware dedup "
                         f"(applied_job={applied_job_id})"
                     )
                 else:
                     new_candidates.append(candidate)
                     job_info = f" for job {applied_job_id}" if applied_job_id else ""
-                    logging.info(
+                    logger.info(
                         f"🔵 Pandologic candidate detected: "
                         f"{candidate.get('firstName')} {candidate.get('lastName')} "
                         f"(ID: {candidate_id}{job_info})"
                     )
             
-            logging.info(f"🔍 Pandologic: {len(new_candidates)} candidates to vet out of {len(candidates)} total")
+            logger.info(f"🔍 Pandologic: {len(new_candidates)} candidates to vet out of {len(candidates)} total")
             return new_candidates
             
         except Exception as e:
-            logging.error(f"Error detecting Pandologic candidates: {str(e)}")
+            logger.error(f"Error detecting Pandologic candidates: {str(e)}")
             return []
     
     def detect_matador_candidates(self, since_minutes: int = 5) -> List[Dict]:
@@ -619,7 +620,7 @@ class CandidateDetectionMixin:
             return []
         
         if not bullhorn.authenticate():
-            logging.error("Failed to authenticate with Bullhorn for Matador detection")
+            logger.error("Failed to authenticate with Bullhorn for Matador detection")
             return []
         
         try:
@@ -645,13 +646,13 @@ class CandidateDetectionMixin:
             response = bullhorn.session.get(url, params=params, timeout=30)
             
             if response.status_code != 200:
-                logging.error(f"Failed to search for Matador candidates: {response.status_code}")
+                logger.error(f"Failed to search for Matador candidates: {response.status_code}")
                 return []
             
             data = response.json()
             candidates = data.get('data', [])
             
-            logging.info(f"🔍 Matador: Found {len(candidates)} candidates since {since_time}")
+            logger.info(f"🔍 Matador: Found {len(candidates)} candidates since {since_time}")
             
             # Job-aware dedup: get latest JobSubmission for each candidate to check
             # if they were already vetted for THIS specific job
@@ -673,24 +674,24 @@ class CandidateDetectionMixin:
 
                 # Job-aware dedup + recruiter-activity gate
                 if self._should_skip_candidate(candidate_id, applied_job_id, bullhorn=bullhorn):
-                    logging.debug(
+                    logger.debug(
                         f"Matador candidate {candidate_id} skipped by job-aware dedup "
                         f"(applied_job={applied_job_id})"
                     )
                 else:
                     new_candidates.append(candidate)
                     job_info = f" for job {applied_job_id}" if applied_job_id else ""
-                    logging.info(
+                    logger.info(
                         f"🟣 Matador candidate detected: "
                         f"{candidate.get('firstName')} {candidate.get('lastName')} "
                         f"(ID: {candidate_id}{job_info})"
                     )
             
-            logging.info(f"🔍 Matador: {len(new_candidates)} candidates to vet out of {len(candidates)} total")
+            logger.info(f"🔍 Matador: {len(new_candidates)} candidates to vet out of {len(candidates)} total")
             return new_candidates
             
         except Exception as e:
-            logging.error(f"Error detecting Matador candidates: {str(e)}")
+            logger.error(f"Error detecting Matador candidates: {str(e)}")
             return []
 
     def _resolve_pandologic_user_id(self, bullhorn) -> Optional[int]:
@@ -710,7 +711,7 @@ class CandidateDetectionMixin:
             try:
                 return int(cached)
             except (ValueError, TypeError):
-                logging.warning(
+                logger.warning(
                     f"Cached pandologic_api_user_id is malformed ({cached!r}); "
                     f"re-resolving from Bullhorn"
                 )
@@ -725,14 +726,14 @@ class CandidateDetectionMixin:
         try:
             resp = bullhorn.session.get(url, params=params, timeout=15)
             if resp.status_code != 200:
-                logging.warning(
+                logger.warning(
                     f"Pandologic CorporateUser lookup failed: HTTP {resp.status_code} — "
                     f"note-based detector will no-op this cycle"
                 )
                 return None
             users = resp.json().get('data', []) or []
             if not users:
-                logging.warning(
+                logger.warning(
                     "Pandologic API CorporateUser not found in Bullhorn — "
                     "note-based detector will no-op until the user appears"
                 )
@@ -752,15 +753,15 @@ class CandidateDetectionMixin:
                         'force re-resolution.'
                     ),
                 )
-                logging.info(f"✅ Cached pandologic_api_user_id: {user_id}")
+                logger.info(f"✅ Cached pandologic_api_user_id: {user_id}")
             except Exception as cache_err:
-                logging.warning(
+                logger.warning(
                     f"Could not cache pandologic_api_user_id: {cache_err} "
                     f"(detector will still work, just slower next cycle)"
                 )
             return int(user_id)
         except Exception as e:
-            logging.warning(f"Error resolving Pandologic API user_id: {e}")
+            logger.warning(f"Error resolving Pandologic API user_id: {e}")
             return None
 
     def detect_pandologic_note_candidates(self, since_minutes: int = 5) -> List[Dict]:
@@ -794,7 +795,7 @@ class CandidateDetectionMixin:
             return []
 
         if not bullhorn.authenticate():
-            logging.error("Failed to authenticate with Bullhorn for Pandologic-note detection")
+            logger.error("Failed to authenticate with Bullhorn for Pandologic-note detection")
             return []
 
         user_id = self._resolve_pandologic_user_id(bullhorn)
@@ -832,13 +833,13 @@ class CandidateDetectionMixin:
 
             resp = bullhorn.session.get(url, params=params, timeout=30)
             if resp.status_code != 200:
-                logging.error(
+                logger.error(
                     f"Pandologic note search failed: HTTP {resp.status_code}"
                 )
                 return []
 
             notes = resp.json().get('data', []) or []
-            logging.info(
+            logger.info(
                 f"📝 Pandologic notes: Found {len(notes)} note(s) since {since_time}"
             )
 
@@ -858,7 +859,7 @@ class CandidateDetectionMixin:
 
                 # Job-aware dedup + recruiter-activity gate (same as other detectors)
                 if self._should_skip_candidate(candidate_id, applied_job_id, bullhorn=bullhorn):
-                    logging.debug(
+                    logger.debug(
                         f"Pandologic-note candidate {candidate_id} skipped by dedup "
                         f"(applied_job={applied_job_id})"
                     )
@@ -874,20 +875,20 @@ class CandidateDetectionMixin:
 
                 new_candidates.append(candidate)
                 job_info = f" for job {applied_job_id}" if applied_job_id else ""
-                logging.info(
+                logger.info(
                     f"📝 Pandologic-note candidate detected: "
                     f"{candidate.get('firstName')} {candidate.get('lastName')} "
                     f"(ID: {candidate_id}{job_info})"
                 )
 
-            logging.info(
+            logger.info(
                 f"📝 Pandologic notes: {len(new_candidates)} candidate(s) to vet "
                 f"out of {len(notes)} note(s)"
             )
             return new_candidates
 
         except Exception as e:
-            logging.error(f"Error detecting Pandologic-note candidates: {str(e)}")
+            logger.error(f"Error detecting Pandologic-note candidates: {str(e)}")
             return []
 
     def detect_unvetted_applications(self, limit: int = 25) -> List[Dict]:
@@ -949,7 +950,7 @@ class CandidateDetectionMixin:
             total_unvetted = stats.with_candidate - stats.already_vetted
             pre_cutoff_excluded = total_unvetted - stats.pending_eligible
 
-            logging.info(
+            logger.info(
                 f"📊 ParsedEmail stats: total={stats.total}, completed={stats.completed}, "
                 f"with_candidate_id={stats.with_candidate}, already_vetted={stats.already_vetted}, "
                 f"pending_eligible={stats.pending_eligible} (actionable), "
@@ -961,14 +962,14 @@ class CandidateDetectionMixin:
             if logging.getLogger().isEnabledFor(logging.DEBUG):
                 recent_emails = ParsedEmail.query.order_by(ParsedEmail.received_at.desc()).limit(5).all()
                 for pe in recent_emails:
-                    logging.debug(f"  📧 Recent ParsedEmail id={pe.id}: candidate='{pe.candidate_name}', "
+                    logger.debug(f"  📧 Recent ParsedEmail id={pe.id}: candidate='{pe.candidate_name}', "
                                 f"status={pe.status}, bh_id={pe.bullhorn_candidate_id}, "
                                 f"vetted_at={'SET' if pe.vetted_at else 'NULL'}, received={pe.received_at}")
 
             # Query ParsedEmail for completed applications that haven't been vetted
             # Apply cutoff date if configured (skip historical backlog)
             if cutoff_dt is not None:
-                logging.info(f"📅 Vetting cutoff active: only processing applicants received after {cutoff_dt} UTC")
+                logger.info(f"📅 Vetting cutoff active: only processing applicants received after {cutoff_dt} UTC")
 
             filters = [
                 ParsedEmail.status == 'completed',
@@ -985,10 +986,10 @@ class CandidateDetectionMixin:
             ).limit(limit).all()
             
             if not unvetted_emails:
-                logging.info("No unvetted applications found in ParsedEmail records")
+                logger.info("No unvetted applications found in ParsedEmail records")
                 return []
             
-            logging.info(f"Found {len(unvetted_emails)} unvetted applications from email parsing")
+            logger.info(f"Found {len(unvetted_emails)} unvetted applications from email parsing")
             
             # Build candidate list from ParsedEmail records
             candidates_to_vet = []
@@ -1007,7 +1008,7 @@ class CandidateDetectionMixin:
                 ).all()
                 vetted_email_ids = {log.parsed_email_id for log in existing_logs}
                 if vetted_email_ids:
-                    logging.info(f"Found {len(vetted_email_ids)} ParsedEmails already linked to vetting logs")
+                    logger.info(f"Found {len(vetted_email_ids)} ParsedEmails already linked to vetting logs")
             
             # Filter out already-vetted before making any Bullhorn API calls
             candidates_needing_details = []
@@ -1017,7 +1018,7 @@ class CandidateDetectionMixin:
                 # Dedup: skip if a vetting log already exists for THIS specific ParsedEmail
                 if parsed_email.id in vetted_email_ids:
                     already_vetted_ids.append(parsed_email.id)
-                    logging.info(f"Candidate {candidate_id} already vetted for ParsedEmail {parsed_email.id}, skipping (duplicate loop prevention)")
+                    logger.info(f"Candidate {candidate_id} already vetted for ParsedEmail {parsed_email.id}, skipping (duplicate loop prevention)")
                     continue
                 
                 candidates_needing_details.append(parsed_email)
@@ -1030,25 +1031,25 @@ class CandidateDetectionMixin:
                         synchronize_session=False
                     )
                     db.session.commit()
-                    logging.info(f"Marked {len(already_vetted_ids)} already-vetted applications")
+                    logger.info(f"Marked {len(already_vetted_ids)} already-vetted applications")
                 except Exception as e:
                     db.session.rollback()
-                    logging.error(f"Error updating already-vetted applications: {str(e)}")
+                    logger.error(f"Error updating already-vetted applications: {str(e)}")
             
             # ── Step 2: Only authenticate with Bullhorn if we have candidates to fetch ──
             if not candidates_needing_details:
-                logging.info("All unvetted candidates were already processed or skipped")
+                logger.info("All unvetted candidates were already processed or skipped")
                 return []
             
-            logging.info(f"Need Bullhorn details for {len(candidates_needing_details)} candidates")
+            logger.info(f"Need Bullhorn details for {len(candidates_needing_details)} candidates")
             
             bullhorn = self._get_bullhorn_service()
             if not bullhorn:
-                logging.warning(f"⚠️ Bullhorn service unavailable — {len(candidates_needing_details)} candidates waiting for vetting")
+                logger.warning(f"⚠️ Bullhorn service unavailable — {len(candidates_needing_details)} candidates waiting for vetting")
                 return []
             
             if not bullhorn.authenticate():
-                logging.warning(f"⚠️ Bullhorn authentication failed (possible rate limit) — "
+                logger.warning(f"⚠️ Bullhorn authentication failed (possible rate limit) — "
                               f"{len(candidates_needing_details)} candidates waiting for vetting. "
                               f"Will retry next cycle.")
                 return []
@@ -1064,13 +1065,13 @@ class CandidateDetectionMixin:
                     candidate_data['_applied_job_id'] = parsed_email.bullhorn_job_id
                     candidate_data['_is_duplicate'] = parsed_email.is_duplicate_candidate
                     candidates_to_vet.append(candidate_data)
-                    logging.info(f"Queued for vetting: {candidate_data.get('firstName')} {candidate_data.get('lastName')} (ID: {candidate_id}, Applied to Job: {parsed_email.bullhorn_job_id})")
+                    logger.info(f"Queued for vetting: {candidate_data.get('firstName')} {candidate_data.get('lastName')} (ID: {candidate_id}, Applied to Job: {parsed_email.bullhorn_job_id})")
             
-            logging.info(f"Prepared {len(candidates_to_vet)} candidates for vetting from email parsing")
+            logger.info(f"Prepared {len(candidates_to_vet)} candidates for vetting from email parsing")
             return candidates_to_vet
             
         except Exception as e:
-            logging.error(f"Error detecting unvetted applications: {str(e)}")
+            logger.error(f"Error detecting unvetted applications: {str(e)}")
             db.session.rollback()
             return []
     
@@ -1098,11 +1099,11 @@ class CandidateDetectionMixin:
                 data = response.json()
                 return data.get('data', {})
             else:
-                logging.warning(f"Failed to fetch candidate {candidate_id}: {response.status_code}")
+                logger.warning(f"Failed to fetch candidate {candidate_id}: {response.status_code}")
                 return None
                 
         except Exception as e:
-            logging.error(f"Error fetching candidate {candidate_id}: {str(e)}")
+            logger.error(f"Error fetching candidate {candidate_id}: {str(e)}")
             return None
     
     def _fetch_applied_job(self, bullhorn: 'BullhornService', job_id: int) -> Optional[Dict]:
@@ -1143,7 +1144,7 @@ class CandidateDetectionMixin:
             response = bullhorn.session.get(url, params=params, timeout=30)
             
             if response.status_code != 200:
-                logging.warning(
+                logger.warning(
                     f"Bullhorn returned {response.status_code} for job {job_id}"
                 )
                 return None
@@ -1160,7 +1161,7 @@ class CandidateDetectionMixin:
             # but leave the status as 'Accepting Candidates' (e.g., job 31896).
             from utils.job_status import is_job_eligible
             if not is_job_eligible(job_data):
-                logging.info(
+                logger.info(
                     f"Applied job {job_id} is closed "
                     f"(isOpen={job_data.get('isOpen')}, "
                     f"status={job_data.get('status')}) — skipping injection"
@@ -1189,7 +1190,7 @@ class CandidateDetectionMixin:
             return job_data
             
         except Exception as e:
-            logging.error(f"Error fetching applied job {job_id}: {str(e)}")
+            logger.error(f"Error fetching applied job {job_id}: {str(e)}")
             return None
     
     def _mark_application_vetted(self, parsed_email_id: int, success: bool = True):
@@ -1201,9 +1202,9 @@ class CandidateDetectionMixin:
                 if success and parsed_email.vetting_retry_count > 0:
                     parsed_email.vetting_retry_count = 0
                 db.session.commit()
-                logging.debug(f"Marked ParsedEmail {parsed_email_id} as vetted (success={success})")
+                logger.debug(f"Marked ParsedEmail {parsed_email_id} as vetted (success={success})")
         except Exception as e:
-            logging.error(f"Error marking application vetted: {str(e)}")
+            logger.error(f"Error marking application vetted: {str(e)}")
     
     def get_candidate_resume(self, candidate_id: int) -> Tuple[Optional[bytes], Optional[str]]:
         """
@@ -1227,14 +1228,14 @@ class CandidateDetectionMixin:
             response = bullhorn.session.get(url, params=params, timeout=30)
             
             if response.status_code != 200:
-                logging.warning(f"Failed to get files for candidate {candidate_id}: {response.status_code}")
+                logger.warning(f"Failed to get files for candidate {candidate_id}: {response.status_code}")
                 return None, None
             
             data = response.json()
             files = data.get('EntityFiles', [])
             
             if not files:
-                logging.info(f"No files found for candidate {candidate_id}")
+                logger.info(f"No files found for candidate {candidate_id}")
                 return None, None
             
             # Find the resume file (prioritize files with "Resume" type or name)
@@ -1267,8 +1268,8 @@ class CandidateDetectionMixin:
                 content_type = download_response.headers.get('Content-Type', 'unknown')
                 content_length = len(content) if content else 0
                 first_bytes = content[:50] if content else b''
-                logging.info(f"Downloaded resume for candidate {candidate_id}: {filename}")
-                logging.info(f"  Content-Type: {content_type}, Size: {content_length} bytes, First bytes: {first_bytes[:30]}")
+                logger.info(f"Downloaded resume for candidate {candidate_id}: {filename}")
+                logger.info(f"  Content-Type: {content_type}, Size: {content_length} bytes, First bytes: {first_bytes[:30]}")
                 
                 if content and content.lstrip()[:1] == b'{' and b'"File"' in content[:200]:
                     try:
@@ -1279,20 +1280,20 @@ class CandidateDetectionMixin:
                         b64_content = file_obj.get('fileContent', '')
                         if b64_content:
                             content = base64.b64decode(b64_content)
-                            logging.info(f"📦 Unwrapped JSON-enveloped file for candidate {candidate_id}: {len(content)} bytes decoded from base64")
+                            logger.info(f"📦 Unwrapped JSON-enveloped file for candidate {candidate_id}: {len(content)} bytes decoded from base64")
                         else:
-                            logging.warning(f"JSON envelope found but fileContent is empty for candidate {candidate_id} — Bullhorn returned no file data")
+                            logger.warning(f"JSON envelope found but fileContent is empty for candidate {candidate_id} — Bullhorn returned no file data")
                             return None, None
                     except (json.JSONDecodeError, Exception) as e:
-                        logging.warning(f"Failed to unwrap JSON envelope for candidate {candidate_id}: {e}")
+                        logger.warning(f"Failed to unwrap JSON envelope for candidate {candidate_id}: {e}")
                 
                 return content, filename
             else:
-                logging.warning(f"Failed to download file {file_id}: {download_response.status_code}")
+                logger.warning(f"Failed to download file {file_id}: {download_response.status_code}")
                 return None, None
                 
         except Exception as e:
-            logging.error(f"Error getting resume for candidate {candidate_id}: {str(e)}")
+            logger.error(f"Error getting resume for candidate {candidate_id}: {str(e)}")
             return None, None
     
     def extract_resume_text(self, file_content: bytes, filename: str) -> Optional[str]:

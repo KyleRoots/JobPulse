@@ -7,7 +7,6 @@ from flask_login import login_required
 from routes import register_module_guard
 from extensions import csrf, db
 from datetime import datetime, timedelta
-import logging
 import threading
 
 vetting_bp = Blueprint('vetting', __name__)
@@ -869,8 +868,7 @@ def activity_monitor():
     try:
         return _activity_monitor_data()
     except Exception as e:
-        import logging
-        logging.getLogger(__name__).error(f"Activity monitor error: {e}", exc_info=True)
+        current_app.logger.error(f"Activity monitor error: {e}", exc_info=True)
         return jsonify({'error': 'Internal server error'}), 500
 
 def _activity_monitor_data():
@@ -1583,7 +1581,7 @@ def save_job_requirements(job_id):
                 })
             ))
         except Exception as log_err:
-            logging.warning(f"Failed to write config_change log: {log_err}")
+            current_app.logger.warning(f"Failed to write config_change log: {log_err}")
 
         db.session.commit()
         
@@ -1652,7 +1650,7 @@ def save_job_threshold(job_id):
                 })
             ))
         except Exception as log_err:
-            logging.warning(f"Failed to write config_change log: {log_err}")
+            current_app.logger.warning(f"Failed to write config_change log: {log_err}")
 
         db.session.commit()
         

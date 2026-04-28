@@ -1,4 +1,5 @@
 import logging
+logger = logging.getLogger(__name__)
 import json
 import os
 import random
@@ -51,7 +52,7 @@ def get_platform_age_ceilings() -> Dict[str, float]:
             except (ValueError, TypeError):
                 continue
             if f != f or f <= 0 or f > 100:
-                logging.warning(
+                logger.warning(
                     f"⚠️ platform_age_ceilings: dropping out-of-range value "
                     f"{k!r}={v!r} (must be > 0 and <= 100 years)"
                 )
@@ -59,7 +60,7 @@ def get_platform_age_ceilings() -> Dict[str, float]:
             cleaned[str(k).lower()] = f
         return cleaned if cleaned else DEFAULT_PLATFORM_AGE_CEILINGS
     except Exception as e:
-        logging.warning(
+        logger.warning(
             f"⚠️ platform_age_ceilings load failed ({e!r}) — using in-file defaults"
         )
         return DEFAULT_PLATFORM_AGE_CEILINGS
@@ -73,7 +74,7 @@ def get_auditor_model() -> str:
         if isinstance(raw, str) and raw.strip():
             return raw.strip()
     except Exception as e:
-        logging.warning(
+        logger.warning(
             f"⚠️ quality_auditor_model load failed ({e!r}) — using default"
         )
     return DEFAULT_AUDITOR_MODEL
@@ -165,7 +166,7 @@ def backfill_revet_new_score(
             return 0
 
         db.session.commit()
-        logging.info(
+        logger.info(
             f"🔁 Back-filled revet_new_score on {backfilled} audit row(s) "
             f"for candidate {candidate_id}"
         )
@@ -176,7 +177,7 @@ def backfill_revet_new_score(
             db.session.rollback()
         except Exception:
             pass
-        logging.warning(
+        logger.warning(
             f"⚠️ Failed to back-fill revet_new_score for candidate "
             f"{candidate_id}: {e!r}"
         )
@@ -198,7 +199,7 @@ def get_qualified_sample_rate() -> int:
             if 0 <= value <= 100:
                 return value
     except (ValueError, TypeError, Exception) as e:
-        logging.warning(
+        logger.warning(
             f"⚠️ qualified_audit_sample_rate load failed ({e!r}) — using default"
         )
     return DEFAULT_QUALIFIED_SAMPLE_RATE
@@ -222,7 +223,7 @@ def get_revet_cap_per_24h() -> int:
                 return value
             return 1
     except (ValueError, TypeError, Exception) as e:
-        logging.warning(
+        logger.warning(
             f"⚠️ auditor_revet_cap_per_24h load failed ({e!r}) — using default"
         )
     return DEFAULT_REVET_CAP_PER_24H
@@ -246,7 +247,7 @@ def get_revet_score_tolerance() -> float:
                 return value
             return 0.0
     except (ValueError, TypeError, Exception) as e:
-        logging.warning(
+        logger.warning(
             f"⚠️ auditor_revet_score_tolerance load failed ({e!r}) — using default"
         )
     return DEFAULT_REVET_SCORE_TOLERANCE
@@ -322,7 +323,7 @@ class VettingAuditService:
             ).limit(batch_size).all()
 
             if not_qualified:
-                logging.info(
+                logger.info(
                     f"🔍 Screening audit (Not Qualified phase): reviewing "
                     f"{len(not_qualified)} unaudited results"
                 )
@@ -331,7 +332,7 @@ class VettingAuditService:
                         vetting_log, mode='not_qualified', summary=summary
                     )
             else:
-                logging.info("🔍 Screening audit: no new unaudited Not-Qualified results")
+                logger.info("🔍 Screening audit: no new unaudited Not-Qualified results")
 
             sample_rate = get_qualified_sample_rate()
             if sample_rate > 0:
@@ -339,7 +340,7 @@ class VettingAuditService:
                     batch_size, sample_rate
                 )
                 if qualified_sample:
-                    logging.info(
+                    logger.info(
                         f"🔍 Screening audit (Qualified false-positive phase): "
                         f"sampling {len(qualified_sample)} of recent Qualified results "
                         f"(sample rate: {sample_rate}%)"
@@ -349,11 +350,11 @@ class VettingAuditService:
                             vetting_log, mode='qualified_false_positive', summary=summary
                         )
                 else:
-                    logging.info(
+                    logger.info(
                         "🔍 Screening audit: no new Qualified results to sample"
                     )
             else:
-                logging.info(
+                logger.info(
                     "🔍 Screening audit: Qualified-sample phase disabled "
                     "(qualified_audit_sample_rate=0)"
                 )
@@ -363,10 +364,10 @@ class VettingAuditService:
                     self._send_audit_summary_email(summary)
                     summary['email_sent'] = True
                 except Exception as e:
-                    logging.error(f"❌ Screening audit email error: {str(e)}")
+                    logger.error(f"❌ Screening audit email error: {str(e)}")
                     summary['email_sent'] = False
 
-            logging.info(
+            logger.info(
                 f"✅ Screening audit cycle complete: "
                 f"{summary['total_audited']} total audited "
                 f"({summary['qualified_audited']} were Qualified samples), "
@@ -377,7 +378,7 @@ class VettingAuditService:
             )
 
         except Exception as e:
-            logging.error(f"❌ Screening audit cycle failed: {str(e)}")
+            logger.error(f"❌ Screening audit cycle failed: {str(e)}")
 
         return summary
 
@@ -439,7 +440,7 @@ class VettingAuditService:
             db.session.rollback()
             if not self._is_duplicate_audit_log_error(exc):
                 raise
-            logging.info(
+            logger.info(
                 f"🔁 Screening audit: candidate_vetting_log_id "
                 f"{audit_log.candidate_vetting_log_id} already audited by a "
                 f"concurrent cycle — skipping duplicate insert."
@@ -541,7 +542,7 @@ class VettingAuditService:
                         summary['qualified_audited'] += 1
                 return
 
-            logging.info(
+            logger.info(
                 f"⚠️ Screening audit ({mode}): {len(suspected_issues)} suspected issue(s) "
                 f"for candidate {vetting_log.bullhorn_candidate_id} "
                 f"({vetting_log.candidate_name}) on job {applied_match.bullhorn_job_id}"
@@ -611,13 +612,13 @@ class VettingAuditService:
                     audit_log.revet_new_score = revet_new_score
                     db.session.commit()
                 except Exception as e:
-                    logging.warning(
+                    logger.warning(
                         f"⚠️ Screening audit: failed to update revet_new_score "
                         f"on audit log {audit_log.id}: {e!r}"
                     )
                     db.session.rollback()
                 summary['revets_triggered'] += 1
-                logging.info(
+                logger.info(
                     f"✅ Screening audit ({mode}): re-vet triggered for candidate "
                     f"{vetting_log.bullhorn_candidate_id} ({vetting_log.candidate_name}). "
                     f"Original score: {applied_match.match_score}%, "
@@ -646,7 +647,7 @@ class VettingAuditService:
                 })
 
         except Exception as e:
-            logging.error(
+            logger.error(
                 f"❌ Screening audit error ({mode}) for candidate "
                 f"{vetting_log.bullhorn_candidate_id}: {str(e)}"
             )
@@ -720,7 +721,7 @@ class VettingAuditService:
         except Exception as e:
             # Never let an audit-history lookup error mask a genuine re-vet
             # decision — fail open and let the re-vet proceed.
-            logging.warning(
+            logger.warning(
                 f"⚠️ Auditor revet-cap lookup failed for candidate "
                 f"{candidate_id} job {job_id}: {e!r} — proceeding with re-vet"
             )
@@ -734,7 +735,7 @@ class VettingAuditService:
                 f"{prior[0].created_at.isoformat() if prior[0].created_at else '?'}; "
                 f"flag for human review instead of looping."
             )
-            logging.info(
+            logger.info(
                 f"🛑 Auditor revet-cap: candidate {candidate_id} job {job_id} "
                 f"hit 24h cap (count={len(prior)}, cap={cap}) — skipping re-vet"
             )
@@ -755,7 +756,7 @@ class VettingAuditService:
                     f"(within ±{tolerance:.0f}-point tolerance). "
                     f"Result is score-stable; further re-vets unlikely to help."
                 )
-                logging.info(
+                logger.info(
                     f"🛑 Auditor revet-stability: candidate {candidate_id} "
                     f"job {job_id} prior re-vet stable "
                     f"({float(prior_original):.0f}%→{float(prior_new):.0f}%, "
@@ -980,7 +981,7 @@ class VettingAuditService:
                             )
                         })
             except Exception as _loc_err:
-                logging.debug(f"remote_location_misfire check error: {_loc_err}")
+                logger.debug(f"remote_location_misfire check error: {_loc_err}")
 
         years_json_str2 = job_match.years_analysis_json
         if years_json_str2:
@@ -1146,7 +1147,7 @@ class VettingAuditService:
     def _run_ai_audit(self, job_match, resume_text: str, job_title: str,
                       suspected_issues: List[Dict], mode: str = 'not_qualified') -> Dict:
         if not self.openai_api_key:
-            logging.error("OpenAI API key not available for screening audit")
+            logger.error("OpenAI API key not available for screening audit")
             return {'finding_type': 'no_issue', 'confidence': 'low', 'reasoning': 'No API key'}
 
         issues_text = '\n'.join(
@@ -1261,7 +1262,7 @@ IMPORTANT:
             return json.loads(content)
 
         except Exception as e:
-            logging.error(f"❌ AI audit call failed: {str(e)}")
+            logger.error(f"❌ AI audit call failed: {str(e)}")
             return {
                 'finding_type': 'no_issue',
                 'confidence': 'low',
@@ -1283,7 +1284,7 @@ IMPORTANT:
             ).all()
 
             if not parsed_emails:
-                logging.warning(f"No ParsedEmail records for candidate {candidate_id}")
+                logger.warning(f"No ParsedEmail records for candidate {candidate_id}")
                 return None
 
             pe_ids = [pe.id for pe in parsed_emails]
@@ -1316,7 +1317,7 @@ IMPORTANT:
 
             db.session.commit()
 
-            logging.info(
+            logger.info(
                 f"🔄 Audit re-vet: reset candidate {candidate_id} — "
                 f"cleared {len(log_ids)} vetting logs, reset {len(pe_ids)} ParsedEmails. "
                 f"Will be picked up by next vetting cycle."
@@ -1326,7 +1327,7 @@ IMPORTANT:
 
         except Exception as e:
             db.session.rollback()
-            logging.error(f"❌ Audit re-vet failed for candidate {candidate_id}: {str(e)}")
+            logger.error(f"❌ Audit re-vet failed for candidate {candidate_id}: {str(e)}")
             return None
 
     def _send_audit_summary_email(self, summary: Dict):
@@ -1336,7 +1337,7 @@ IMPORTANT:
 
         admin_email = VettingConfig.get_value('admin_notification_email', '')
         if not admin_email:
-            logging.warning("No admin_notification_email configured — skipping audit summary email")
+            logger.warning("No admin_notification_email configured — skipping audit summary email")
             return
 
         # Re-read the persisted revet_new_score from VettingAuditLog when
@@ -1366,7 +1367,7 @@ IMPORTANT:
                         if audit_row is not None and audit_row.revet_new_score is not None:
                             resolved_new_score = audit_row.revet_new_score
                     except Exception as lookup_err:
-                        logging.warning(
+                        logger.warning(
                             f"⚠️ Audit summary email: failed to re-read "
                             f"audit row {d.get('audit_log_id')}: {lookup_err!r}"
                         )
@@ -1424,4 +1425,4 @@ IMPORTANT:
             html_content=html_body,
             notification_type='screening_audit_summary'
         )
-        logging.info(f"📧 Audit summary email sent to {admin_email}")
+        logger.info(f"📧 Audit summary email sent to {admin_email}")

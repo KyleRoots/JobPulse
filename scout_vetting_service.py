@@ -124,6 +124,12 @@ class ScoutVettingService:
         result = {'created': 0, 'queued': 0, 'skipped': 0, 'sessions': []}
         enabled_at = self._get_enabled_at()
 
+        # Fetch active-session count once for this candidate — incremented locally as sessions are created
+        active_count = ScoutVettingSession.query.filter(
+            ScoutVettingSession.bullhorn_candidate_id == vetting_log.bullhorn_candidate_id,
+            ScoutVettingSession.status.in_(['pending', 'outreach_sent', 'in_progress'])
+        ).count()
+
         for match in matches:
             # Forward-only: skip if analyzed before feature was enabled
             if enabled_at and vetting_log.analyzed_at and vetting_log.analyzed_at < enabled_at:
@@ -145,13 +151,7 @@ class ScoutVettingService:
                 result['skipped'] += 1
                 continue
 
-            # Count active sessions for this candidate
-            active_count = ScoutVettingSession.query.filter(
-                ScoutVettingSession.bullhorn_candidate_id == vetting_log.bullhorn_candidate_id,
-                ScoutVettingSession.status.in_(['pending', 'outreach_sent', 'in_progress'])
-            ).count()
-
-            # Create session
+            # Create session (active_count already loaded above; incremented as pending sessions are added)
             status = 'pending' if active_count < self.MAX_CONCURRENT_SESSIONS else 'queued'
             
             session = ScoutVettingSession(
@@ -171,6 +171,7 @@ class ScoutVettingService:
             db.session.flush()  # Get session.id for logging
 
             if status == 'pending':
+                active_count += 1  # Keep local count accurate for subsequent matches
                 result['created'] += 1
                 result['sessions'].append(session)
             else:
@@ -707,33 +708,53 @@ Return only valid JSON. No markdown, no preamble."""
                     stats['errors'] += 1
 
             # Promote queued sessions when slots open
+            # Bulk-load all queued candidate IDs in one query
             candidates_with_queued = db.session.query(
                 ScoutVettingSession.bullhorn_candidate_id
             ).filter(
                 ScoutVettingSession.status == 'queued'
             ).distinct().all()
 
-            for (candidate_id,) in candidates_with_queued:
-                active = ScoutVettingSession.query.filter(
-                    ScoutVettingSession.bullhorn_candidate_id == candidate_id,
+            if candidates_with_queued:
+                from sqlalchemy import func as sa_func
+                candidate_ids = [row[0] for row in candidates_with_queued]
+
+                # Bulk active-session counts for all candidates in one GROUP BY query
+                active_counts_rows = db.session.query(
+                    ScoutVettingSession.bullhorn_candidate_id,
+                    sa_func.count().label('cnt')
+                ).filter(
+                    ScoutVettingSession.bullhorn_candidate_id.in_(candidate_ids),
                     ScoutVettingSession.status.in_(['pending', 'outreach_sent', 'in_progress'])
-                ).count()
+                ).group_by(ScoutVettingSession.bullhorn_candidate_id).all()
+                active_counts = {row.bullhorn_candidate_id: row.cnt for row in active_counts_rows}
 
-                if active < self.MAX_CONCURRENT_SESSIONS:
-                    slots_available = self.MAX_CONCURRENT_SESSIONS - active
-                    queued = ScoutVettingSession.query.filter(
-                        ScoutVettingSession.bullhorn_candidate_id == candidate_id,
-                        ScoutVettingSession.status == 'queued'
-                    ).order_by(ScoutVettingSession.created_at).limit(slots_available).all()
+                # Bulk-fetch all queued sessions for these candidates, grouped in Python
+                all_queued = ScoutVettingSession.query.filter(
+                    ScoutVettingSession.bullhorn_candidate_id.in_(candidate_ids),
+                    ScoutVettingSession.status == 'queued'
+                ).order_by(
+                    ScoutVettingSession.bullhorn_candidate_id,
+                    ScoutVettingSession.created_at
+                ).all()
 
-                    for session in queued:
-                        session.status = 'pending'
-                        try:
-                            self._prepare_and_send_outreach(session)
-                            stats['promoted'] += 1
-                        except Exception as e:
-                            logger.error(f"Scout Vetting: Promotion failed for session {session.id}: {e}")
-                            stats['errors'] += 1
+                from collections import defaultdict
+                queued_by_candidate: dict = defaultdict(list)
+                for s in all_queued:
+                    queued_by_candidate[s.bullhorn_candidate_id].append(s)
+
+                for candidate_id in candidate_ids:
+                    active = active_counts.get(candidate_id, 0)
+                    if active < self.MAX_CONCURRENT_SESSIONS:
+                        slots_available = self.MAX_CONCURRENT_SESSIONS - active
+                        for session in queued_by_candidate[candidate_id][:slots_available]:
+                            session.status = 'pending'
+                            try:
+                                self._prepare_and_send_outreach(session)
+                                stats['promoted'] += 1
+                            except Exception as e:
+                                logger.error(f"Scout Vetting: Promotion failed for session {session.id}: {e}")
+                                stats['errors'] += 1
 
             db.session.commit()
 

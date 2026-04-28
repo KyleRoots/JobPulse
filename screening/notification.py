@@ -8,6 +8,7 @@ Contains:
 """
 
 import logging
+logger = logging.getLogger(__name__)
 from datetime import datetime
 from typing import List
 from app import db
@@ -39,10 +40,10 @@ class NotificationMixin:
         # Force fresh database read to bypass SQLAlchemy session cache
         db.session.expire_all()
         if not self.is_enabled():
-            logging.info(f"📧 Notification blocked - vetting disabled mid-cycle for {vetting_log.candidate_name}")
+            logger.info(f"📧 Notification blocked - vetting disabled mid-cycle for {vetting_log.candidate_name}")
             return 0
         
-        logging.info(f"📧 Notification check for {vetting_log.candidate_name} (ID: {vetting_log.bullhorn_candidate_id})")
+        logger.info(f"📧 Notification check for {vetting_log.candidate_name} (ID: {vetting_log.bullhorn_candidate_id})")
         
         if not vetting_log.is_qualified:
             # Try Location Review first — most specific signal (tech-qualified candidate
@@ -53,7 +54,7 @@ class NotificationMixin:
             # Fall back to prestige review (Tier-1 firm employer, below threshold)
             prestige_sent = self._send_prestige_review_notification(vetting_log)
             if not prestige_sent:
-                logging.info(f"  ⏭️ Skipping - not qualified (is_qualified={vetting_log.is_qualified})")
+                logger.info(f"  ⏭️ Skipping - not qualified (is_qualified={vetting_log.is_qualified})")
             return prestige_sent
         
         # Get ALL qualified matches for this candidate
@@ -64,10 +65,10 @@ class NotificationMixin:
         ).all()
         
         if not matches:
-            logging.info(f"  ⏭️ Skipping - no unsent qualified matches (all already notified)")
+            logger.info(f"  ⏭️ Skipping - no unsent qualified matches (all already notified)")
             return 0
         
-        logging.info(f"  📨 Found {len(matches)} unsent qualified matches")
+        logger.info(f"  📨 Found {len(matches)} unsent qualified matches")
         
         # Determine primary recruiter (from applied job) and CC list
         # Note: recruiter_email may now be comma-separated (multiple recruiters per job)
@@ -121,22 +122,22 @@ class NotificationMixin:
         # If kill switch is OFF, send only to admin email
         if not send_to_recruiters:
             if not admin_email:
-                logging.warning(f"❌ Recruiter emails disabled but no admin email configured - cannot send notification for {vetting_log.candidate_name}")
+                logger.warning(f"❌ Recruiter emails disabled but no admin email configured - cannot send notification for {vetting_log.candidate_name}")
                 return 0
             
-            logging.info(f"  🔒 Recruiter emails DISABLED - sending to admin only: {admin_email}")
+            logger.info(f"  🔒 Recruiter emails DISABLED - sending to admin only: {admin_email}")
             primary_recruiter_email = admin_email
             primary_recruiter_name = 'Admin'
             cc_recruiter_emails = []  # No CC when in testing mode
         elif not primary_recruiter_email:
             # Kill switch is ON but no recruiter emails found - try to fall back to admin
             if admin_email:
-                logging.warning(f"⚠️ No recruiter emails found for candidate {vetting_log.candidate_name} - falling back to admin email: {admin_email}")
+                logger.warning(f"⚠️ No recruiter emails found for candidate {vetting_log.candidate_name} - falling back to admin email: {admin_email}")
                 primary_recruiter_email = admin_email
                 primary_recruiter_name = 'Admin'
                 cc_recruiter_emails = []
             else:
-                logging.warning(f"❌ No recruiter emails found and no admin email configured - cannot send notification for {vetting_log.candidate_name}")
+                logger.warning(f"❌ No recruiter emails found and no admin email configured - cannot send notification for {vetting_log.candidate_name}")
                 return 0
         
         # Send ONE email with primary as To: and others as CC:
@@ -161,7 +162,7 @@ class NotificationMixin:
                 db.session.commit()
                 
                 cc_info = f" (CC: {', '.join(cc_recruiter_emails)})" if cc_recruiter_emails else ""
-                logging.info(f"Sent notification to {primary_recruiter_email}{cc_info} for {vetting_log.candidate_name} (Candidate ID: {vetting_log.bullhorn_candidate_id}, {len(matches)} positions)")
+                logger.info(f"Sent notification to {primary_recruiter_email}{cc_info} for {vetting_log.candidate_name} (Candidate ID: {vetting_log.bullhorn_candidate_id}, {len(matches)} positions)")
                 
                 # ── Scout Vetting trigger ──
                 # After recruiter notification, initiate Scout Vetting for qualified matches
@@ -170,18 +171,18 @@ class NotificationMixin:
                     sv_service = ScoutVettingService(email_service=self.email_service, bullhorn_service=self.bullhorn)
                     if sv_service.is_enabled():
                         sv_result = sv_service.initiate_vetting(vetting_log, matches)
-                        logging.info(f"🔍 Scout Vetting initiated: {sv_result.get('created', 0)} sessions created, "
+                        logger.info(f"🔍 Scout Vetting initiated: {sv_result.get('created', 0)} sessions created, "
                                     f"{sv_result.get('queued', 0)} queued, {sv_result.get('skipped', 0)} skipped")
                 except Exception as sv_err:
-                    logging.error(f"Scout Vetting trigger error (non-blocking): {str(sv_err)}")
+                    logger.error(f"Scout Vetting trigger error (non-blocking): {str(sv_err)}")
                 
                 return 1
             else:
-                logging.error(f"Failed to send notification for {vetting_log.candidate_name} (Candidate ID: {vetting_log.bullhorn_candidate_id})")
+                logger.error(f"Failed to send notification for {vetting_log.candidate_name} (Candidate ID: {vetting_log.bullhorn_candidate_id})")
                 return 0
                 
         except Exception as e:
-            logging.error(f"Failed to send notification: {str(e)}")
+            logger.error(f"Failed to send notification: {str(e)}")
             return 0
     
     def _send_recruiter_email(self, recruiter_email: str, recruiter_name: str,
@@ -307,7 +308,7 @@ class NotificationMixin:
             )
             return result is True or (isinstance(result, dict) and result.get('success', False))
         except Exception as e:
-            logging.error(f"Email send error: {str(e)}")
+            logger.error(f"Email send error: {str(e)}")
             return False
 
     def _send_prestige_review_notification(self, vetting_log: CandidateVettingLog) -> int:
@@ -343,7 +344,7 @@ class NotificationMixin:
                 for req in custom_reqs:
                     job_threshold_map[req.bullhorn_job_id] = float(req.vetting_threshold)
             except Exception as e:
-                logging.warning(
+                logger.warning(
                     f"Could not fetch per-job thresholds for prestige review: {str(e)}"
                 )
 
@@ -355,7 +356,7 @@ class NotificationMixin:
         ]
 
         if not qualified_prestige_matches:
-            logging.info(
+            logger.info(
                 f"  🏢 Skipping prestige notification for {vetting_log.candidate_name}: "
                 f"{len(prestige_matches)} prestige match(es) but none cleared the "
                 f"qualifying threshold even with the +5 bump (highest score: "
@@ -364,7 +365,7 @@ class NotificationMixin:
             return 0
 
         prestige_matches = qualified_prestige_matches
-        logging.info(f"  🏢 Found {len(prestige_matches)} prestige employer matches for not-qualified candidate {vetting_log.candidate_name}")
+        logger.info(f"  🏢 Found {len(prestige_matches)} prestige employer matches for not-qualified candidate {vetting_log.candidate_name}")
 
         primary_recruiter_email = None
         primary_recruiter_name = None
@@ -401,7 +402,7 @@ class NotificationMixin:
 
         if not send_to_recruiters:
             if not admin_email:
-                logging.warning(f"❌ Prestige notification blocked — recruiter emails disabled and no admin email")
+                logger.warning(f"❌ Prestige notification blocked — recruiter emails disabled and no admin email")
                 return 0
             primary_recruiter_email = admin_email
             primary_recruiter_name = 'Admin'
@@ -514,11 +515,11 @@ class NotificationMixin:
                     match.notification_sent = True
                     match.notification_sent_at = datetime.utcnow()
                 db.session.commit()
-                logging.info(f"  🏢 Prestige review notification sent to {primary_recruiter_email} for {candidate_name}")
+                logger.info(f"  🏢 Prestige review notification sent to {primary_recruiter_email} for {candidate_name}")
                 return 1
             return 0
         except Exception as e:
-            logging.error(f"Prestige notification send error: {str(e)}")
+            logger.error(f"Prestige notification send error: {str(e)}")
             return 0
 
     def _send_location_review_notification(self, vetting_log: CandidateVettingLog) -> int:
@@ -558,7 +559,7 @@ class NotificationMixin:
                 for req in custom_reqs:
                     job_threshold_map[req.bullhorn_job_id] = float(req.vetting_threshold)
             except Exception as e:
-                logging.warning(f"Could not fetch per-job thresholds for location review: {str(e)}")
+                logger.warning(f"Could not fetch per-job thresholds for location review: {str(e)}")
 
         location_matches = [
             m for m in candidate_matches
@@ -570,7 +571,7 @@ class NotificationMixin:
         if not location_matches:
             return 0
 
-        logging.info(
+        logger.info(
             f"  📍 Found {len(location_matches)} location-review match(es) for "
             f"not-qualified candidate {vetting_log.candidate_name}"
         )
@@ -612,7 +613,7 @@ class NotificationMixin:
 
         if not send_to_recruiters:
             if not admin_email:
-                logging.warning(
+                logger.warning(
                     f"❌ Location-review notification blocked — recruiter emails disabled "
                     f"and no admin email configured for {vetting_log.candidate_name}"
                 )
@@ -622,7 +623,7 @@ class NotificationMixin:
             cc_recruiter_emails = []
         elif not primary_recruiter_email:
             if admin_email:
-                logging.warning(
+                logger.warning(
                     f"⚠️ No recruiter emails on location-review matches for {vetting_log.candidate_name} "
                     f"— falling back to admin: {admin_email}"
                 )
@@ -773,13 +774,13 @@ class NotificationMixin:
                     match.notification_sent = True
                     match.notification_sent_at = datetime.utcnow()
                 db.session.commit()
-                logging.info(
+                logger.info(
                     f"  📍 Location review notification sent to {primary_recruiter_email} "
                     f"for {candidate_name} ({len(location_matches)} match(es))"
                 )
                 return 1
             return 0
         except Exception as e:
-            logging.error(f"Location review notification send error: {str(e)}")
+            logger.error(f"Location review notification send error: {str(e)}")
             return 0
 

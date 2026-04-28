@@ -5,6 +5,7 @@ from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, Email, To, Cc, Bcc, Content, Attachment
 import base64
 import logging
+logger = logging.getLogger(__name__)
 
 
 class EmailService:
@@ -13,7 +14,7 @@ class EmailService:
     def __init__(self, db=None, EmailDeliveryLog=None):
         self.api_key = os.environ.get('SENDGRID_API_KEY')
         if not self.api_key:
-            logging.error('SENDGRID_API_KEY environment variable not set')
+            logger.error('SENDGRID_API_KEY environment variable not set')
             return
 
         self.sg = SendGridAPIClient(self.api_key)
@@ -72,14 +73,14 @@ class EmailService:
             recent_notification = query.first()
             
             if recent_notification:
-                logging.info(f"DUPLICATE PREVENTION: Blocking duplicate {notification_type} notification to {recipient_email} "
+                logger.info(f"DUPLICATE PREVENTION: Blocking duplicate {notification_type} notification to {recipient_email} "
                            f"(last sent: {recent_notification.sent_at}, within {minutes_threshold}min threshold)")
                 return True
             
             return False
             
         except Exception as e:
-            logging.error(f"Error checking for recent notifications: {str(e)}")
+            logger.error(f"Error checking for recent notifications: {str(e)}")
             # Fail-safe: allow sending if check fails
             return False
     
@@ -225,12 +226,12 @@ class EmailService:
                     self.db.session.add(log_entry)
                     self.db.session.commit()
                 except Exception as log_error:
-                    logging.error(f"Failed to log automated upload notification delivery: {str(log_error)}")
+                    logger.error(f"Failed to log automated upload notification delivery: {str(log_error)}")
             
             return response.status_code in [200, 202]
             
         except Exception as e:
-            logging.error(f"Failed to send automated upload notification: {str(e)}")
+            logger.error(f"Failed to send automated upload notification: {str(e)}")
             return False
     
     def _deduplicate_job_list(self, job_list):
@@ -268,10 +269,10 @@ class EmailService:
                     # If no ID found, add anyway to avoid losing data
                     deduplicated.append(job)
                 else:
-                    logging.info(f"DEDUPLICATION: Removed duplicate job ID {job_id} from notification")
+                    logger.info(f"DEDUPLICATION: Removed duplicate job ID {job_id} from notification")
                     
             except Exception as e:
-                logging.error(f"Error deduplicating job: {e}")
+                logger.error(f"Error deduplicating job: {e}")
                 # Add job anyway to avoid losing data
                 deduplicated.append(job)
         
@@ -279,7 +280,7 @@ class EmailService:
         final_count = len(deduplicated)
         
         if original_count != final_count:
-            logging.info(f"DEDUPLICATION: Reduced {original_count} jobs to {final_count} (removed {original_count - final_count} duplicates)")
+            logger.info(f"DEDUPLICATION: Reduced {original_count} jobs to {final_count} (removed {original_count - final_count} duplicates)")
         
         return deduplicated
 
@@ -305,12 +306,12 @@ class EmailService:
         """
         try:
             if not self.api_key:
-                logging.error("EmailService: No SendGrid API key available")
+                logger.error("EmailService: No SendGrid API key available")
                 return False
             
             # Check for recent duplicate notifications
             if self._check_recent_notification('scheduled_processing', to_email, schedule_name=schedule_name):
-                logging.info(f"DUPLICATE PREVENTION: Skipping duplicate processing notification for {schedule_name}")
+                logger.info(f"DUPLICATE PREVENTION: Skipping duplicate processing notification for {schedule_name}")
                 return True  # Return True since we're intentionally not sending (not an error)
             # Read the XML file for attachment
             with open(xml_file_path, 'rb') as f:
@@ -400,10 +401,10 @@ class EmailService:
             )
 
             if response.status_code == 202:
-                logging.info(f"Email sent successfully to {to_email}")
+                logger.info(f"Email sent successfully to {to_email}")
                 return True
             else:
-                logging.error(
+                logger.error(
                     f"Failed to send email. Status code: {response.status_code}"
                 )
                 return False
@@ -418,7 +419,7 @@ class EmailService:
                 schedule_name=schedule_name,
                 changes_summary=f"Processing attempt for {jobs_processed} jobs"
             )
-            logging.error(f"Error sending email: {str(e)}")
+            logger.error(f"Error sending email: {str(e)}")
             return False
 
     def send_processing_error_notification(self, to_email: str,
@@ -437,12 +438,12 @@ class EmailService:
         """
         try:
             if not self.api_key:
-                logging.error("EmailService: No SendGrid API key available")
+                logger.error("EmailService: No SendGrid API key available")
                 return False
             
             # Check for recent duplicate notifications
             if self._check_recent_notification('processing_error', to_email, schedule_name=schedule_name):
-                logging.info(f"DUPLICATE PREVENTION: Skipping duplicate error notification for {schedule_name}")
+                logger.info(f"DUPLICATE PREVENTION: Skipping duplicate error notification for {schedule_name}")
                 return True  # Return True since we're intentionally not sending (not an error)
             
             subject = f"XML Processing Failed: {schedule_name}"
@@ -516,11 +517,11 @@ class EmailService:
             )
 
             if response.status_code == 202:
-                logging.info(
+                logger.info(
                     f"Error notification sent successfully to {to_email}")
                 return True
             else:
-                logging.error(
+                logger.error(
                     f"Failed to send error notification. Status code: {response.status_code}"
                 )
                 return False
@@ -535,7 +536,7 @@ class EmailService:
                 schedule_name=schedule_name,
                 changes_summary=f"Processing error notification attempt for {schedule_name}"
             )
-            logging.error(f"Error sending error notification: {str(e)}")
+            logger.error(f"Error sending error notification: {str(e)}")
             return False
 
     def send_reference_number_refresh_notification(self, to_email: str, schedule_name: str,
@@ -557,13 +558,13 @@ class EmailService:
         """
         try:
             if not self.api_key:
-                logging.error("EmailService: No SendGrid API key available")
+                logger.error("EmailService: No SendGrid API key available")
                 return False
                 
             # Check for recent duplicates (30-minute threshold for reference number refresh)
             if self._check_recent_notification('reference_number_refresh', to_email, 
                                              schedule_name=schedule_name, minutes_threshold=30):
-                logging.info(f"DUPLICATE PREVENTION: Skipping duplicate reference number refresh notification for {schedule_name}")
+                logger.info(f"DUPLICATE PREVENTION: Skipping duplicate reference number refresh notification for {schedule_name}")
                 return True  # Skip duplicate
             
             if status == "success":
@@ -660,14 +661,14 @@ This is an automated notification from the Job Feed Reference Number Refresh sys
             )
             
             if response.status_code == 202:
-                logging.info(f"📧 Reference number refresh notification sent to {to_email} for {schedule_name}")
+                logger.info(f"📧 Reference number refresh notification sent to {to_email} for {schedule_name}")
                 return True
             else:
-                logging.error(f"Failed to send reference number refresh notification. Status code: {response.status_code}")
+                logger.error(f"Failed to send reference number refresh notification. Status code: {response.status_code}")
                 return False
             
         except Exception as e:
-            logging.error(f"Failed to send reference number refresh notification: {e}")
+            logger.error(f"Failed to send reference number refresh notification: {e}")
             
             # Log failed delivery
             self._log_email_delivery(
@@ -710,12 +711,12 @@ This is an automated notification from the Job Feed Reference Number Refresh sys
         """
         try:
             if not self.api_key:
-                logging.error("EmailService: No SendGrid API key available")
+                logger.error("EmailService: No SendGrid API key available")
                 return False
             
             # Check for recent duplicate notifications
             if self._check_recent_notification('bullhorn_notification', to_email, monitor_name=monitor_name):
-                logging.info(f"DUPLICATE PREVENTION: Skipping duplicate Bullhorn notification for {monitor_name}")
+                logger.info(f"DUPLICATE PREVENTION: Skipping duplicate Bullhorn notification for {monitor_name}")
                 return True  # Return True since we're intentionally not sending (not an error)
 
             # Prepare default values and type checking
@@ -727,21 +728,21 @@ This is an automated notification from the Job Feed Reference Number Refresh sys
                 xml_sync_info = {}
             # Ensure xml_sync_info is a dictionary
             elif not isinstance(xml_sync_info, dict):
-                logging.warning(
+                logger.warning(
                     f"xml_sync_info received as {type(xml_sync_info)}, converting to empty dict"
                 )
                 xml_sync_info = {}
 
             # Debug logging to trace the issue
-            logging.info(
+            logger.info(
                 f"Email notification data - added_jobs type: {type(added_jobs)}, modified_jobs type: {type(modified_jobs)}"
             )
             if added_jobs:
-                logging.info(
+                logger.info(
                     f"First added job type: {type(added_jobs[0])}, content: {added_jobs[0]}"
                 )
             if modified_jobs:
-                logging.info(
+                logger.info(
                     f"First modified job type: {type(modified_jobs[0])}, content: {modified_jobs[0]}"
                 )
 
@@ -821,7 +822,7 @@ This is an automated notification from the Job Feed Reference Number Refresh sys
                         html_content += f"""<li><strong>{job_title}</strong> (ID: {job_id})<br>
                                           <small style="color: #666;">Account Manager: {account_manager}</small></li>"""
                     except Exception as e:
-                        logging.error(
+                        logger.error(
                             f"Error processing added job {i}: {e}. Job data: {job}"
                         )
                         html_content += f"""<li><strong>Error processing job {i}</strong></li>"""
@@ -1074,11 +1075,11 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
             )
 
             if response.status_code == 202:
-                logging.info(
+                logger.info(
                     f"Bullhorn notification sent successfully to {to_email}")
                 return True
             else:
-                logging.error(
+                logger.error(
                     f"Failed to send Bullhorn notification: {response.status_code}"
                 )
                 return False
@@ -1092,9 +1093,9 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
                 error_message=str(e),
                 changes_summary=f"Monitor: {monitor_name} - Failed to send notification"
             )
-            logging.error(f"Failed to send Bullhorn notification: {str(e)}")
+            logger.error(f"Failed to send Bullhorn notification: {str(e)}")
             import traceback
-            logging.error(f"Full traceback: {traceback.format_exc()}")
+            logger.error(f"Full traceback: {traceback.format_exc()}")
             return False
 
     def send_notification_email(self, to_email: str, subject: str, message: str, 
@@ -1113,7 +1114,7 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
         """
         try:
             if not self.api_key:
-                logging.warning("SendGrid API key not configured - cannot send email")
+                logger.warning("SendGrid API key not configured - cannot send email")
                 return False
 
             from_email_obj = Email(self.from_email)
@@ -1144,10 +1145,10 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
             )
 
             if response.status_code == 202:
-                logging.info(f"Generic notification sent successfully to {to_email}: {subject}")
+                logger.info(f"Generic notification sent successfully to {to_email}: {subject}")
                 return True
             else:
-                logging.error(f"Failed to send generic notification: {response.status_code}")
+                logger.error(f"Failed to send generic notification: {response.status_code}")
                 return False
 
         except Exception as e:
@@ -1159,7 +1160,7 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
                 error_message=str(e),
                 subject=subject
             )
-            logging.error(f"Failed to send generic notification: {str(e)}")
+            logger.error(f"Failed to send generic notification: {str(e)}")
             return False
 
     def send_html_email(self, to_email: str, subject: str, html_content: str,
@@ -1176,7 +1177,7 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
                         attachments: list = None):
         try:
             if not self.api_key:
-                logging.warning("SendGrid API key not configured - cannot send email")
+                logger.warning("SendGrid API key not configured - cannot send email")
                 return {'success': False, 'message_id': None}
 
             from_addr = from_email or self.from_email
@@ -1212,14 +1213,14 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
                 for cc_email in cc_emails:
                     if cc_email and cc_email != to_email:  # Don't CC the primary recipient
                         message.add_cc(Cc(cc_email))
-                logging.info(f"Adding CC recipients: {cc_emails}")
+                logger.info(f"Adding CC recipients: {cc_emails}")
             
             # Add BCC recipients if provided
             if bcc_emails:
                 for bcc_email in bcc_emails:
                     if bcc_email and bcc_email != to_email:  # Don't BCC the primary recipient
                         message.add_bcc(Bcc(bcc_email))
-                logging.info(f"Adding BCC recipients: {bcc_emails}")
+                logger.info(f"Adding BCC recipients: {bcc_emails}")
 
             if attachments:
                 for att in attachments:
@@ -1229,7 +1230,7 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
                     sg_attachment.file_name = att.get('filename', 'attachment')
                     sg_attachment.disposition = 'attachment'
                     message.add_attachment(sg_attachment)
-                logging.info(f"Adding {len(attachments)} attachment(s) to email")
+                logger.info(f"Adding {len(attachments)} attachment(s) to email")
 
             response = self.sg.client.mail.send.post(request_body=message.get())
             
@@ -1254,10 +1255,10 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
             )
             
             if response.status_code == 202:
-                logging.info(f"HTML email sent successfully to {to_email}")
+                logger.info(f"HTML email sent successfully to {to_email}")
                 return {'success': True, 'message_id': sendgrid_message_id}
             else:
-                logging.error(f"Failed to send HTML email: {response.status_code}")
+                logger.error(f"Failed to send HTML email: {response.status_code}")
                 return {'success': False, 'message_id': None}
                 
         except Exception as e:
@@ -1269,7 +1270,7 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
                 error_message=str(e),
                 subject=subject
             )
-            logging.error(f"Failed to send HTML email: {str(e)}")
+            logger.error(f"Failed to send HTML email: {str(e)}")
             return {'success': False, 'message_id': None}
 
     def send_new_job_notification(self, to_email: str, job_id: str, job_title: str, 
@@ -1288,7 +1289,7 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
         """
         try:
             if not self.api_key:
-                logging.warning("SendGrid API key not configured - cannot send email")
+                logger.warning("SendGrid API key not configured - cannot send email")
                 return False
             
             # Check for duplicate notification within 24 hours (1440 minutes)
@@ -1298,7 +1299,7 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}
                 job_id=job_id,
                 minutes_threshold=1440  # 24 hours
             ):
-                logging.info(f"DUPLICATE PREVENTION: Skipping duplicate new job notification for job {job_id}")
+                logger.info(f"DUPLICATE PREVENTION: Skipping duplicate new job notification for job {job_id}")
                 return True  # Return True since we're intentionally not sending (not an error)
             
             # Create subject line with job ID
@@ -1395,10 +1396,10 @@ This is an automated notification from your XML Job Feed monitoring system.
             )
             
             if response.status_code == 202:
-                logging.info(f"✅ New job notification sent to {to_email} for job {job_id}")
+                logger.info(f"✅ New job notification sent to {to_email} for job {job_id}")
                 return True
             else:
-                logging.error(f"❌ Failed to send new job notification: {response.status_code}")
+                logger.error(f"❌ Failed to send new job notification: {response.status_code}")
                 return False
                 
         except Exception as e:
@@ -1412,7 +1413,7 @@ This is an automated notification from your XML Job Feed monitoring system.
                 error_message=str(e),
                 changes_summary=f"New job added: {job_title} (ID: {job_id})"
             )
-            logging.error(f"❌ Failed to send new job notification: {str(e)}")
+            logger.error(f"❌ Failed to send new job notification: {str(e)}")
             return False
 
     def _log_email_delivery(self, notification_type: str, job_id: str = None, job_title: str = None,
@@ -1436,7 +1437,7 @@ This is an automated notification from your XML Job Feed monitoring system.
         """
         try:
             if not self.db or not self.EmailDeliveryLog:
-                logging.warning("EmailService: Database connection or EmailDeliveryLog model not available for logging")
+                logger.warning("EmailService: Database connection or EmailDeliveryLog model not available for logging")
                 return
 
             log_entry = self.EmailDeliveryLog(
@@ -1454,9 +1455,9 @@ This is an automated notification from your XML Job Feed monitoring system.
             self.db.session.add(log_entry)
             self.db.session.commit()
             
-            logging.info(f"Email delivery logged: {notification_type} to {recipient_email} - Status: {delivery_status}")
+            logger.info(f"Email delivery logged: {notification_type} to {recipient_email} - Status: {delivery_status}")
             
         except Exception as e:
-            logging.error(f"Failed to log email delivery: {str(e)}")
+            logger.error(f"Failed to log email delivery: {str(e)}")
             if self.db:
                 self.db.session.rollback()

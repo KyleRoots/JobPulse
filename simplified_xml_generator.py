@@ -13,7 +13,7 @@ try:
     from lxml import etree
 except ImportError:
     etree = None
-    logging.warning("lxml not available, XML generation features disabled")
+    logger.warning("lxml not available, XML generation features disabled")
 
 from bullhorn_service import BullhornService
 from xml_integration_service import XMLIntegrationService
@@ -124,14 +124,17 @@ class SimplifiedXMLGenerator:
         # Import from app to get the initialized models
         from app import GlobalSettings
         
+        cred_keys = ['bullhorn_client_id', 'bullhorn_client_secret', 'bullhorn_username', 'bullhorn_password']
         credentials = {}
-        for key in ['bullhorn_client_id', 'bullhorn_client_secret', 'bullhorn_username', 'bullhorn_password']:
-            try:
-                setting = GlobalSettings.query.filter_by(setting_key=key).first()
-                if setting and setting.setting_value:
-                    credentials[key] = setting.setting_value.strip()
-            except Exception as e:
-                self.logger.error(f"Error loading credential {key}: {str(e)}")
+        try:
+            rows = GlobalSettings.query.filter(
+                GlobalSettings.setting_key.in_(cred_keys)
+            ).all()
+            for row in rows:
+                if row.setting_value:
+                    credentials[row.setting_key] = row.setting_value.strip()
+        except Exception as e:
+            self.logger.error(f"Error loading Bullhorn credentials: {str(e)}")
         
         return BullhornService(
             client_id=credentials.get('bullhorn_client_id'),

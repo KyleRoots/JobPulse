@@ -16,6 +16,7 @@ Contains:
 """
 
 import logging
+logger = logging.getLogger(__name__)
 import json
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -61,7 +62,7 @@ class JobManagementMixin:
             # this likely means an API failure - do NOT delete anything
             if len(active_job_ids) == 0 and results['requirements_before'] > 0:
                 results['error'] = 'Could not fetch active jobs from tearsheets (API issue?) - sync aborted to prevent data loss'
-                logging.warning(f"⚠️ Sync aborted: {results['error']}")
+                logger.warning(f"⚠️ Sync aborted: {results['error']}")
                 return results
             
             # Find and remove orphaned requirements
@@ -72,16 +73,16 @@ class JobManagementMixin:
             
             if results['removed'] > 0:
                 db.session.commit()
-                logging.info(f"🧹 Synced AI requirements: removed {results['removed']} orphaned entries (not in active tearsheets)")
+                logger.info(f"🧹 Synced AI requirements: removed {results['removed']} orphaned entries (not in active tearsheets)")
             else:
-                logging.info(f"✅ AI requirements in sync with {results['active_jobs']} active tearsheet jobs")
+                logger.info(f"✅ AI requirements in sync with {results['active_jobs']} active tearsheet jobs")
             
             results['success'] = True
                 
         except Exception as e:
             db.session.rollback()
             results['error'] = str(e)
-            logging.error(f"Error syncing AI requirements: {str(e)}")
+            logger.error(f"Error syncing AI requirements: {str(e)}")
             
         return results
     
@@ -140,12 +141,12 @@ class JobManagementMixin:
                 if job_location:
                     req.job_location = job_location
                     updates_made += 1
-                    logging.info(f"📍 Updated location for job {req.bullhorn_job_id}: {job_location}")
+                    logger.info(f"📍 Updated location for job {req.bullhorn_job_id}: {job_location}")
             
             if updates_made > 0:
                 db.session.commit()
                 results['locations_updated'] = updates_made
-                logging.info(f"📍 Location refresh complete: updated {updates_made} jobs with empty locations")
+                logger.info(f"📍 Location refresh complete: updated {updates_made} jobs with empty locations")
             
             # Count jobs that already have locations
             results['already_have_location'] = results['jobs_checked'] - len(empty_location_reqs)
@@ -153,7 +154,7 @@ class JobManagementMixin:
         except Exception as e:
             db.session.rollback()
             results['errors'].append(str(e))
-            logging.error(f"Error refreshing job locations: {str(e)}")
+            logger.error(f"Error refreshing job locations: {str(e)}")
         
         return results
     
@@ -171,7 +172,7 @@ class JobManagementMixin:
         from bullhorn_service import BullhornService
         from models import GlobalSettings, CandidateVettingLog
         
-        logging.info(f"🔍 Querying for candidates with duplicate AI Vetting notes...")
+        logger.info(f"🔍 Querying for candidates with duplicate AI Vetting notes...")
         
         results = {
             'candidates_with_duplicates': [],
@@ -251,15 +252,15 @@ class JobManagementMixin:
                             break
                             
                 except Exception as e:
-                    logging.warning(f"Error checking candidate {candidate_id}: {e}")
+                    logger.warning(f"Error checking candidate {candidate_id}: {e}")
                     continue
             
-            logging.info(f"🔍 Found {len(results['candidates_with_duplicates'])} candidates with duplicates out of {results['total_checked']} checked")
+            logger.info(f"🔍 Found {len(results['candidates_with_duplicates'])} candidates with duplicates out of {results['total_checked']} checked")
             return results
             
         except Exception as e:
             results['errors'].append(str(e))
-            logging.error(f"Error querying candidates with duplicates: {e}")
+            logger.error(f"Error querying candidates with duplicates: {e}")
             return results
     
     def cleanup_duplicate_notes_batch(self, batch_size: int = 10) -> dict:
@@ -301,7 +302,7 @@ class JobManagementMixin:
                 jobs = self.get_active_jobs_from_tearsheets()
             
             results['jobs_checked'] = len(jobs)
-            logging.info(f"🔄 Checking {len(jobs)} jobs for modifications...")
+            logger.info(f"🔄 Checking {len(jobs)} jobs for modifications...")
             
             for job in jobs:
                 job_id = job.get('id')
@@ -346,7 +347,7 @@ class JobManagementMixin:
                         
                         job_work_type = map_work_type(job.get('onSite', 1))
                         
-                        logging.info(f"📝 Job {job_id} modified (Bullhorn: {job_modified_at}, Last AI: {existing.last_ai_interpretation}) - refreshing...")
+                        logger.info(f"📝 Job {job_id} modified (Bullhorn: {job_modified_at}, Last AI: {existing.last_ai_interpretation}) - refreshing...")
                         
                         # Update title and location (always)
                         existing.job_title = job_title
@@ -360,9 +361,9 @@ class JobManagementMixin:
                             job_location, job_work_type
                         )
                         if extracted:
-                            logging.info(f"  ✅ Refreshed AI interpretation for job {job_id}")
+                            logger.info(f"  ✅ Refreshed AI interpretation for job {job_id}")
                         else:
-                            logging.warning(f"  ⚠️ Could not refresh AI interpretation for job {job_id}")
+                            logger.warning(f"  ⚠️ Could not refresh AI interpretation for job {job_id}")
                         
                         results['jobs_refreshed'] += 1
                     else:
@@ -371,14 +372,14 @@ class JobManagementMixin:
                 except Exception as e:
                     # Rollback to recover from failed transaction state
                     db.session.rollback()
-                    logging.error(f"Error checking job {job_id} for changes: {str(e)}")
+                    logger.error(f"Error checking job {job_id} for changes: {str(e)}")
                     results['errors'].append(f"Job {job_id}: {str(e)}")
             
             if results['jobs_refreshed'] > 0:
-                logging.info(f"🔄 Job change detection complete: {results['jobs_refreshed']} refreshed, {results['jobs_skipped']} unchanged")
+                logger.info(f"🔄 Job change detection complete: {results['jobs_refreshed']} refreshed, {results['jobs_skipped']} unchanged")
             
         except Exception as e:
-            logging.error(f"Error in job change detection: {str(e)}")
+            logger.error(f"Error in job change detection: {str(e)}")
             results['errors'].append(str(e))
             
         return results
@@ -490,17 +491,17 @@ class JobManagementMixin:
                     results['matches_updated'] += 1
                     results['recruiters_added'] += len(new_recruiters)
                     
-                    logging.info(f"🔄 Updated job {match.bullhorn_job_id} match #{match.id}: "
+                    logger.info(f"🔄 Updated job {match.bullhorn_job_id} match #{match.id}: "
                                 f"added {len(new_recruiters)} recruiter(s) - {', '.join(new_recruiters)}")
             
             if results['matches_updated'] > 0:
                 db.session.commit()
-                logging.info(f"✅ Recruiter sync complete: {results['matches_updated']} matches updated, "
+                logger.info(f"✅ Recruiter sync complete: {results['matches_updated']} matches updated, "
                             f"{results['recruiters_added']} recruiters added")
             
         except Exception as e:
             db.session.rollback()
-            logging.error(f"Error in recruiter assignment sync: {str(e)}")
+            logger.error(f"Error in recruiter assignment sync: {str(e)}")
             results['errors'].append(str(e))
         
         return results
@@ -532,7 +533,7 @@ class JobManagementMixin:
             type(self)._active_job_ids_cache_time = now
             return result
         except Exception as e:
-            logging.error(f"Error getting active job IDs: {str(e)}")
+            logger.error(f"Error getting active job IDs: {str(e)}")
             return type(self)._active_job_ids_cache or set()
     
     def extract_requirements_for_jobs(self, jobs: list) -> dict:
@@ -600,10 +601,10 @@ class JobManagementMixin:
                 else:
                     results['failed'] += 1
             except Exception as e:
-                logging.error(f"Error in batch extraction for job {job_id}: {str(e)}")
+                logger.error(f"Error in batch extraction for job {job_id}: {str(e)}")
                 results['failed'] += 1
         
-        logging.info(f"📋 Job requirements extraction: {results['extracted']} extracted, {results['skipped']} skipped, {results['failed']} failed")
+        logger.info(f"📋 Job requirements extraction: {results['extracted']} extracted, {results['skipped']} skipped, {results['failed']} failed")
         return results
     
     def _save_ai_interpreted_requirements(self, job_id, job_title: str, requirements: str, 
@@ -612,7 +613,7 @@ class JobManagementMixin:
         try:
             # Normalize job_id - handle strings, whitespace, and invalid values
             if job_id is None or str(job_id).strip() in ('', 'N/A', 'None'):
-                logging.warning(f"⚠️ Cannot save requirements - invalid job_id: {job_id}")
+                logger.warning(f"⚠️ Cannot save requirements - invalid job_id: {job_id}")
                 return
             
             # Strip whitespace and convert to int
@@ -620,7 +621,7 @@ class JobManagementMixin:
             try:
                 job_id_int = int(job_id_str)
             except ValueError:
-                logging.error(f"⚠️ Cannot convert job_id to integer: '{job_id}' (stripped: '{job_id_str}')")
+                logger.error(f"⚠️ Cannot convert job_id to integer: '{job_id}' (stripped: '{job_id_str}')")
                 return
             
             # Handle case where AI returns a list instead of string
@@ -629,12 +630,12 @@ class JobManagementMixin:
             
             # Validate requirements content
             if not requirements or not str(requirements).strip():
-                logging.warning(f"⚠️ Empty requirements string for job {job_id_int}, skipping save")
+                logger.warning(f"⚠️ Empty requirements string for job {job_id_int}, skipping save")
                 return
             
             requirements = str(requirements).strip()
                 
-            logging.info(f"💾 Saving AI requirements for job {job_id_int}: {job_title[:50] if job_title else 'No title'}")
+            logger.info(f"💾 Saving AI requirements for job {job_id_int}: {job_title[:50] if job_title else 'No title'}")
             
             job_req = JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id_int).first()
             if job_req:
@@ -646,7 +647,7 @@ class JobManagementMixin:
                     job_req.job_location = job_location
                 if job_work_type:
                     job_req.job_work_type = job_work_type
-                logging.info(f"✅ Updated existing requirements for job {job_id_int}")
+                logger.info(f"✅ Updated existing requirements for job {job_id_int}")
             else:
                 job_req = JobVettingRequirements(
                     bullhorn_job_id=job_id_int,
@@ -657,13 +658,13 @@ class JobManagementMixin:
                     last_ai_interpretation=datetime.utcnow()
                 )
                 db.session.add(job_req)
-                logging.info(f"✅ Created new requirements record for job {job_id_int}")
+                logger.info(f"✅ Created new requirements record for job {job_id_int}")
             db.session.commit()
-            logging.info(f"✅ Successfully saved AI requirements for job {job_id_int}")
+            logger.info(f"✅ Successfully saved AI requirements for job {job_id_int}")
         except Exception as e:
-            logging.error(f"Error saving AI requirements for job {job_id}: {str(e)}")
+            logger.error(f"Error saving AI requirements for job {job_id}: {str(e)}")
             import traceback
-            logging.error(f"Traceback: {traceback.format_exc()}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
             db.session.rollback()
 
     def get_active_jobs_from_tearsheets(self) -> List[Dict]:
@@ -680,7 +681,7 @@ class JobManagementMixin:
         # Get all active monitors
         monitors = BullhornMonitor.query.filter_by(is_active=True).all()
         if not monitors:
-            logging.warning("No active tearsheet monitors configured")
+            logger.warning("No active tearsheet monitors configured")
             return []
         
         all_jobs = []
@@ -708,7 +709,7 @@ class JobManagementMixin:
                             all_user_ids.add(user['id'])
                     
             except Exception as e:
-                logging.error(f"Error getting jobs from tearsheet {monitor.name}: {str(e)}")
+                logger.error(f"Error getting jobs from tearsheet {monitor.name}: {str(e)}")
         
         # Fetch emails for all unique users (Bullhorn API doesn't return email in nested syntax)
         user_email_map = {}
@@ -732,7 +733,7 @@ class JobManagementMixin:
                     if user_id in user_email_map:
                         user['email'] = user_email_map[user_id].get('email', '')
         
-        logging.info(f"Loaded {len(all_jobs)} jobs from {len(monitors)} tearsheets with {len(user_email_map)} user emails")
+        logger.info(f"Loaded {len(all_jobs)} jobs from {len(monitors)} tearsheets with {len(user_email_map)} user emails")
         
         # Persist lightweight job snapshots to BullhornMonitor.last_job_snapshot
         # so the ATS Monitoring page shows accurate, up-to-date job counts.
@@ -780,7 +781,7 @@ class JobManagementMixin:
             
             db.session.commit()
         except Exception as e:
-            logging.warning(f"Failed to persist job snapshots: {str(e)}")
+            logger.warning(f"Failed to persist job snapshots: {str(e)}")
             db.session.rollback()
         
         return all_jobs
@@ -821,6 +822,6 @@ class JobManagementMixin:
             return None
             
         except Exception as e:
-            logging.error(f"Error getting job submission for candidate {candidate_id}: {str(e)}")
+            logger.error(f"Error getting job submission for candidate {candidate_id}: {str(e)}")
             return None
 

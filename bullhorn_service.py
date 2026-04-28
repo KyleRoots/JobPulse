@@ -1,5 +1,6 @@
 import os
 import logging
+logger = logging.getLogger(__name__)
 import requests
 import json
 from datetime import datetime, timedelta
@@ -39,11 +40,11 @@ class BullhornService:
         # Check if we should use Bullhorn One (new) API
         self.use_bullhorn_one = os.environ.get('BULLHORN_USE_NEW_API', 'false').lower() == 'true'
         if self.use_bullhorn_one:
-            logging.info("🔄 Bullhorn One API mode ENABLED - using new fixed endpoints")
-            logging.info(f"   Auth URL: {self.BULLHORN_ONE_AUTH_URL}")
-            logging.info(f"   Token URL: {self.BULLHORN_ONE_TOKEN_URL}")
-            logging.info(f"   REST Login URL: {self.BULLHORN_ONE_REST_LOGIN_URL}")
-            logging.info(f"   REST URL: {self.BULLHORN_ONE_REST_URL}")
+            logger.info("🔄 Bullhorn One API mode ENABLED - using new fixed endpoints")
+            logger.info(f"   Auth URL: {self.BULLHORN_ONE_AUTH_URL}")
+            logger.info(f"   Token URL: {self.BULLHORN_ONE_TOKEN_URL}")
+            logger.info(f"   REST Login URL: {self.BULLHORN_ONE_REST_LOGIN_URL}")
+            logger.info(f"   REST URL: {self.BULLHORN_ONE_REST_URL}")
         
         # Job exclusion configuration - specific job IDs to filter out
         self.excluded_job_ids = {31939, 34287}  # Set for O(1) lookup
@@ -74,19 +75,19 @@ class BullhornService:
             if ('text/html' in content_type or 
                 text_content.startswith('<!DOCTYPE') or 
                 text_content.startswith('<html')):
-                logging.warning(f"Received HTML response instead of JSON. Status: {response.status_code}")
+                logger.warning(f"Received HTML response instead of JSON. Status: {response.status_code}")
                 raise Exception("Authentication failed: Received HTML login page instead of JSON data. Please refresh and try again.")
             
             # Attempt to parse JSON
             return response.json()
             
         except json.JSONDecodeError as e:
-            logging.error(f"Invalid JSON response: {str(e)[:200]}")
+            logger.error(f"Invalid JSON response: {str(e)[:200]}")
             raise Exception(f"Invalid API response format. Please try again.")
         except Exception as e:
             if "Authentication failed" in str(e):
                 raise e  # Re-raise authentication errors as-is
-            logging.error(f"Error parsing API response: {str(e)}")
+            logger.error(f"Error parsing API response: {str(e)}")
             raise Exception("API response parsing error. Please refresh and try again.")
     
     def _load_credentials(self):
@@ -110,7 +111,7 @@ class BullhornService:
                 if password_setting:
                     self.password = password_setting.setting_value
         except Exception as e:
-            logging.warning(f"Could not load Bullhorn credentials from database: {str(e)}")
+            logger.warning(f"Could not load Bullhorn credentials from database: {str(e)}")
     
     def _filter_excluded_jobs(self, jobs: List[Dict]) -> List[Dict]:
         """
@@ -132,7 +133,7 @@ class BullhornService:
         
         if self.excluded_count > 0:
             excluded_ids = [job.get('id') for job in jobs if job.get('id') in self.excluded_job_ids]
-            logging.info(f"🚫 Excluded {self.excluded_count} jobs from processing: {excluded_ids}")
+            logger.info(f"🚫 Excluded {self.excluded_count} jobs from processing: {excluded_ids}")
         
         return filtered_jobs
     
@@ -289,7 +290,7 @@ class BullhornService:
             if parsed['country'] and not country:
                 country = parsed['country']
             
-            logging.debug(f"Parsed address for job {job.get('id')}: city={city}, state={state}")
+            logger.debug(f"Parsed address for job {job.get('id')}: city={city}, state={state}")
         
         # Update the address dict with normalized values
         if 'address' not in job or not isinstance(job['address'], dict):
@@ -310,19 +311,19 @@ class BullhornService:
         """
         # Check if we already have a valid session - skip re-authentication
         if self.rest_token and self.base_url:
-            logging.debug("Already authenticated, reusing existing session")
+            logger.debug("Already authenticated, reusing existing session")
             return True
         
         # Prevent concurrent authentication attempts
         if self._auth_in_progress:
-            logging.warning("Authentication already in progress, skipping duplicate attempt")
+            logger.warning("Authentication already in progress, skipping duplicate attempt")
             return False
             
         # Check if we just tried to authenticate (within last 5 seconds - reduced from 30 to allow faster recovery)
         if self._last_auth_attempt:
             time_since_last = datetime.now() - self._last_auth_attempt
             if time_since_last.total_seconds() < 5:
-                logging.warning(f"Recent authentication attempt detected ({time_since_last.total_seconds():.1f}s ago), skipping to prevent overload")
+                logger.warning(f"Recent authentication attempt detected ({time_since_last.total_seconds():.1f}s ago), skipping to prevent overload")
                 return False
         
         if not all([self.client_id, self.client_secret, self.username, self.password]):
@@ -332,7 +333,7 @@ class BullhornService:
             if not self.username: missing.append('username')
             if not self.password: missing.append('password')
             api_mode = 'Bullhorn One' if self.use_bullhorn_one else 'Legacy Bullhorn'
-            logging.error(f"Missing {api_mode} credentials: {', '.join(missing)}")
+            logger.error(f"Missing {api_mode} credentials: {', '.join(missing)}")
             return False
             
         try:
@@ -342,7 +343,7 @@ class BullhornService:
             return self._direct_login()
             
         except Exception as e:
-            logging.error(f"Bullhorn authentication failed: {str(e)}")
+            logger.error(f"Bullhorn authentication failed: {str(e)}")
             return False
         finally:
             self._auth_in_progress = False
@@ -368,7 +369,7 @@ class BullhornService:
                 data = self._safe_json_parse(response)
                 user_id = data.get('userId')
                 if user_id:
-                    logging.info(f"Got user ID from settings endpoint: {user_id}")
+                    logger.info(f"Got user ID from settings endpoint: {user_id}")
                     return int(user_id)
             
             # Alternative: Try to get from userInfo
@@ -378,11 +379,11 @@ class BullhornService:
                 data = self._safe_json_parse(response)
                 user_id = data.get('id') or data.get('userId')
                 if user_id:
-                    logging.info(f"Got user ID from userInfo endpoint: {user_id}")
+                    logger.info(f"Got user ID from userInfo endpoint: {user_id}")
                     return int(user_id)
                     
         except Exception as e:
-            logging.warning(f"Could not query current user ID: {e}")
+            logger.warning(f"Could not query current user ID: {e}")
         
         return None
     
@@ -408,7 +409,7 @@ class BullhornService:
         try:
             if self.use_bullhorn_one:
                 # Bullhorn One: Use fixed endpoints (no loginInfo discovery needed)
-                logging.info("🔄 Using Bullhorn One fixed endpoints for authentication")
+                logger.info("🔄 Using Bullhorn One fixed endpoints for authentication")
                 auth_endpoint = self.BULLHORN_ONE_AUTH_URL
                 token_endpoint = self.BULLHORN_ONE_TOKEN_URL
                 rest_login_url = self.BULLHORN_ONE_REST_LOGIN_URL
@@ -420,17 +421,17 @@ class BullhornService:
                 login_info_params = {'username': self.username}
                 
                 response = self.session.get(login_info_url, params=login_info_params, timeout=30)
-                logging.info(f"Login info request to {login_info_url} with username: {self.username}")
+                logger.info(f"Login info request to {login_info_url} with username: {self.username}")
                 if response.status_code != 200:
-                    logging.error(f"Failed to get login info: {response.status_code} - {response.text}")
+                    logger.error(f"Failed to get login info: {response.status_code} - {response.text}")
                     return False
                 
                 login_data = self._safe_json_parse(response)
-                logging.info(f"Login info response: {login_data}")
+                logger.info(f"Login info response: {login_data}")
                 
                 # Extract the authorization URL and REST URL
                 if 'oauthUrl' not in login_data or 'restUrl' not in login_data:
-                    logging.error("Missing oauthUrl or restUrl in login info response")
+                    logger.error("Missing oauthUrl or restUrl in login info response")
                     return False
                 
                 oauth_url = login_data['oauthUrl']
@@ -465,12 +466,12 @@ class BullhornService:
                 'action': 'Login'
             }
             
-            logging.info(f"Using redirect URI: {redirect_uri}")
-            logging.info(f"Auth endpoint: {auth_endpoint}")
+            logger.info(f"Using redirect URI: {redirect_uri}")
+            logger.info(f"Auth endpoint: {auth_endpoint}")
             
             auth_response = self.session.get(auth_endpoint, params=auth_params, allow_redirects=False, timeout=30)
-            logging.info(f"Auth response status: {auth_response.status_code}")
-            logging.info(f"Auth response headers: [redacted for security]")
+            logger.info(f"Auth response status: {auth_response.status_code}")
+            logger.info(f"Auth response headers: [redacted for security]")
             
             if auth_response.status_code == 302:
                 # Check for authorization code in redirect
@@ -480,18 +481,18 @@ class BullhornService:
                     # URL decode the auth code
                     from urllib.parse import unquote
                     auth_code = unquote(auth_code)
-                    logging.info(f"Got authorization code (first 10 chars): {auth_code[:10]}...")
+                    logger.info(f"Got authorization code (first 10 chars): {auth_code[:10]}...")
                 elif 'error=' in location:
                     error = location.split('error=')[1].split('&')[0]
-                    logging.error(f"OAuth authorization failed: {error}")
+                    logger.error(f"OAuth authorization failed: {error}")
                     return False
                 else:
-                    logging.error("No authorization code found in redirect")
+                    logger.error("No authorization code found in redirect")
                     return False
             else:
                 # Try to extract from response content for different OAuth implementations
                 response_text = auth_response.text
-                logging.info(f"Auth response text (first 500 chars): {response_text[:500]}")
+                logger.info(f"Auth response text (first 500 chars): {response_text[:500]}")
                 
                 if '"code":"' in response_text:
                     import re
@@ -503,12 +504,12 @@ class BullhornService:
                     code_match = re.search(r'code=([^&\s]+)', response_text)
                     auth_code = code_match.group(1) if code_match else None
                 else:
-                    logging.error(f"Unexpected auth response: {auth_response.status_code}")
-                    logging.error(f"Full response text: {response_text}")
+                    logger.error(f"Unexpected auth response: {auth_response.status_code}")
+                    logger.error(f"Full response text: {response_text}")
                     return False
             
             if not auth_code:
-                logging.error("Failed to obtain authorization code")
+                logger.error("Failed to obtain authorization code")
                 return False
             
             # Step 3: Exchange authorization code for access token
@@ -528,10 +529,10 @@ class BullhornService:
                 'Accept': 'application/json'
             }
             
-            logging.info(f"Exchanging auth code at token endpoint: {token_endpoint}")
+            logger.info(f"Exchanging auth code at token endpoint: {token_endpoint}")
             token_response = self.session.post(token_endpoint, data=token_data, headers=headers, timeout=30)
             if token_response.status_code != 200:
-                logging.error(f"Failed to get access token: HTTP {token_response.status_code}")
+                logger.error(f"Failed to get access token: HTTP {token_response.status_code}")
                 return False
             
             token_info = self._safe_json_parse(token_response)
@@ -539,7 +540,7 @@ class BullhornService:
             self.access_token = access_token  # Persist as instance attribute for health checks
             
             if not access_token:
-                logging.error("No access token in response")
+                logger.error("No access token in response")
                 return False
             
             # Step 4: Get REST token for API access
@@ -549,10 +550,10 @@ class BullhornService:
                 'access_token': access_token
             }
             
-            logging.info(f"Getting REST token from: {rest_login_url}")
+            logger.info(f"Getting REST token from: {rest_login_url}")
             rest_response = self.session.post(rest_login_url, params=rest_params, timeout=30)
             if rest_response.status_code != 200:
-                logging.error(f"Failed to get REST token: HTTP {rest_response.status_code}")
+                logger.error(f"Failed to get REST token: HTTP {rest_response.status_code}")
                 return False
             
             rest_data = self._safe_json_parse(rest_response)
@@ -564,35 +565,35 @@ class BullhornService:
             self.user_id = rest_data.get('userId') or rest_data.get('corporateUserId')
             
             # Log all keys in REST response for debugging
-            logging.info(f"REST login response keys: {list(rest_data.keys())}")
+            logger.info(f"REST login response keys: {list(rest_data.keys())}")
             
             if not self.rest_token:
-                logging.error("No REST token in response")
+                logger.error("No REST token in response")
                 return False
             
-            logging.info(f"Bullhorn authentication successful. Base URL: {self.base_url}")
-            logging.info(f"REST Token: ***{self.rest_token[-4:]}")
+            logger.info(f"Bullhorn authentication successful. Base URL: {self.base_url}")
+            logger.info(f"REST Token: ***{self.rest_token[-4:]}")
             
             # If user ID not in login response, try to fetch it
             if not self.user_id:
-                logging.warning(f"⚠️ No userId in REST response, querying current user...")
+                logger.warning(f"⚠️ No userId in REST response, querying current user...")
                 self.user_id = self._get_current_user_id()
             
             if self.user_id:
-                logging.info(f"User ID for note creation: {self.user_id}")
+                logger.info(f"User ID for note creation: {self.user_id}")
             else:
-                logging.warning(f"⚠️ Could not obtain userId - note creation will use minimal approach")
+                logger.warning(f"⚠️ Could not obtain userId - note creation will use minimal approach")
             return True
             
         except Exception as e:
-            logging.error(f"Direct login failed: {str(e)}")
+            logger.error(f"Direct login failed: {str(e)}")
             import traceback
             traceback_str = traceback.format_exc()
-            logging.error(f"Traceback: {traceback_str}")
+            logger.error(f"Traceback: {traceback_str}")
             # Log more details about the failure
-            logging.error(f"OAuth URL: {oauth_url if oauth_url else 'Not set'}")
-            logging.error(f"Auth endpoint: {auth_endpoint if auth_endpoint else 'Not set'}")
-            logging.error(f"Redirect URI: {redirect_uri if redirect_uri else 'Not set'}")
+            logger.error(f"OAuth URL: {oauth_url if oauth_url else 'Not set'}")
+            logger.error(f"Auth endpoint: {auth_endpoint if auth_endpoint else 'Not set'}")
+            logger.error(f"Redirect URI: {redirect_uri if redirect_uri else 'Not set'}")
             
             # Clear any partial authentication state
             self.rest_token = None
@@ -648,11 +649,11 @@ class BullhornService:
                 data = self._safe_json_parse(response)
                 return data.get('data', [])
             else:
-                logging.error(f"Failed to get job orders: {response.status_code} - {response.text}")
+                logger.error(f"Failed to get job orders: {response.status_code} - {response.text}")
                 return []
                 
         except Exception as e:
-            logging.error(f"Error getting job orders: {str(e)}")
+            logger.error(f"Error getting job orders: {str(e)}")
             return []
     
     def get_tearsheet_jobs(self, tearsheet_id: int) -> List[Dict]:
@@ -686,7 +687,7 @@ class BullhornService:
                 job_orders = entity_data.get('data', {}).get('jobOrders', {})
                 if isinstance(job_orders, dict):
                     entity_total = job_orders.get('total', 0)
-                    logging.info(f"Tearsheet {tearsheet_id}: Entity API reports {entity_total} total jobs")
+                    logger.info(f"Tearsheet {tearsheet_id}: Entity API reports {entity_total} total jobs")
                     
                     # Store Entity API job IDs from first page
                     entity_jobs_data = job_orders.get('data', [])
@@ -721,12 +722,12 @@ class BullhornService:
                                 if len(paginated_jobs) < page_size:
                                     break
                             else:
-                                logging.warning(f"Failed to fetch Entity API page at start={entity_start}: {paginated_response.status_code}")
+                                logger.warning(f"Failed to fetch Entity API page at start={entity_start}: {paginated_response.status_code}")
                                 break
                         
                         # Safeguard: Abort orphan filtering if we didn't collect all Entity IDs
                         if len(entity_job_ids) < entity_total:
-                            logging.error(f"Tearsheet {tearsheet_id}: Entity pagination incomplete! Collected {len(entity_job_ids)} IDs but Entity API reports {entity_total}. Aborting orphan filtering to prevent data loss.")
+                            logger.error(f"Tearsheet {tearsheet_id}: Entity pagination incomplete! Collected {len(entity_job_ids)} IDs but Entity API reports {entity_total}. Aborting orphan filtering to prevent data loss.")
                             entity_job_ids = set()  # Clear IDs to disable orphan filtering
             
             # For larger tearsheets, use search API to get all jobs
@@ -779,7 +780,7 @@ class BullhornService:
                     
                     start += count
                 else:
-                    logging.error(f"Failed to get tearsheet jobs: {response.status_code} - {response.text}")
+                    logger.error(f"Failed to get tearsheet jobs: {response.status_code} - {response.text}")
                     break
             # Apply job exclusion filter
             filtered_jobs = self._filter_excluded_jobs(all_jobs)
@@ -791,7 +792,7 @@ class BullhornService:
             # dropped if used for filtering. We log discrepancies but always
             # trust the Search API results.
             if entity_total > 0 and len(all_jobs) != entity_total:
-                logging.warning(
+                logger.warning(
                     f"Tearsheet {tearsheet_id}: Entity API reports {entity_total} jobs "
                     f"but Search API returned {len(all_jobs)}. "
                     f"Using Search API results (authoritative for tearsheet membership)."
@@ -804,7 +805,7 @@ class BullhornService:
             return filtered_jobs
                 
         except Exception as e:
-            logging.error(f"Error getting tearsheet jobs: {str(e)}")
+            logger.error(f"Error getting tearsheet jobs: {str(e)}")
             return []
     
     def get_jobs_by_query(self, query: str) -> List[Dict]:
@@ -863,7 +864,7 @@ class BullhornService:
                     all_jobs.extend(jobs_data)
                     
                     # Log pagination progress
-                    logging.info(f"Fetched {len(all_jobs)} of {total} jobs for query: {query}")
+                    logger.info(f"Fetched {len(all_jobs)} of {total} jobs for query: {query}")
                     
                     # Check if we need to fetch more pages
                     if len(jobs_data) < count or len(all_jobs) >= total:
@@ -871,7 +872,7 @@ class BullhornService:
                     
                     start += count
                 else:
-                    logging.error(f"Failed to get jobs by query: {response.status_code} - {response.text}")
+                    logger.error(f"Failed to get jobs by query: {response.status_code} - {response.text}")
                     break
             
             filtered_jobs = self._filter_excluded_jobs(all_jobs)
@@ -883,7 +884,7 @@ class BullhornService:
             return filtered_jobs
                 
         except Exception as e:
-            logging.error(f"Error getting jobs by query: {str(e)}")
+            logger.error(f"Error getting jobs by query: {str(e)}")
             return []
     
     def get_job_by_id(self, job_id: int) -> Optional[Dict]:
@@ -909,7 +910,7 @@ class BullhornService:
                 'BhRestToken': self.rest_token
             }
             
-            logging.info(f"Getting job {job_id} from {url}")
+            logger.info(f"Getting job {job_id} from {url}")
             response = self.session.get(url, params=params, timeout=30)
             
             if response.status_code == 200:
@@ -918,17 +919,17 @@ class BullhornService:
                     job = data['data']
                     # Normalize address - parse city/state from address1 if nested fields are empty
                     self.normalize_job_address(job)
-                    logging.info(f"Successfully retrieved job {job_id}: {job.get('title', 'No title')}")
+                    logger.info(f"Successfully retrieved job {job_id}: {job.get('title', 'No title')}")
                     return job
                 else:
-                    logging.warning(f"Job {job_id} not found in response")
+                    logger.warning(f"Job {job_id} not found in response")
                     return None
             else:
-                logging.error(f"Failed to get job {job_id}: {response.status_code} - {response.text}")
+                logger.error(f"Failed to get job {job_id}: {response.status_code} - {response.text}")
                 return None
                 
         except Exception as e:
-            logging.error(f"Error getting job {job_id}: {str(e)}")
+            logger.error(f"Error getting job {job_id}: {str(e)}")
             return None
     
     def get_user_emails(self, user_ids: List[int]) -> Dict[int, Dict]:
@@ -974,12 +975,12 @@ class BullhornService:
                             'email': data.get('email', '')
                         }
                 else:
-                    logging.debug(f"Failed to fetch user {user_id}: {response.status_code}")
+                    logger.debug(f"Failed to fetch user {user_id}: {response.status_code}")
                     
             except Exception as e:
-                logging.debug(f"Error fetching user {user_id}: {str(e)}")
+                logger.debug(f"Error fetching user {user_id}: {str(e)}")
         
-        logging.info(f"📧 Fetched emails for {len(user_map)}/{len(unique_ids)} users")
+        logger.info(f"📧 Fetched emails for {len(user_map)}/{len(unique_ids)} users")
         return user_map
     
     def get_tearsheets(self) -> List[Dict]:
@@ -1034,7 +1035,7 @@ class BullhornService:
                             break
                         
                 except Exception as e:
-                    logging.error(f"Error getting tearsheet {tearsheet_id}: {str(e)}")
+                    logger.error(f"Error getting tearsheet {tearsheet_id}: {str(e)}")
                     consecutive_failures += 1
                     if consecutive_failures >= 5:
                         break
@@ -1072,19 +1073,19 @@ class BullhornService:
             bool: True if connection successful, False otherwise
         """
         if not all([self.client_id, self.username]):
-            logging.error("Missing client_id or username for connection test")
+            logger.error("Missing client_id or username for connection test")
             return False
             
         try:
             # Test authentication
             if not self.authenticate():
-                logging.error("Authentication failed during connection test")
+                logger.error("Authentication failed during connection test")
                 return False
             
             # If we have valid authentication tokens, consider connection successful
             # This prevents monitoring failures due to temporary API issues
             if self.rest_token and self.base_url:
-                logging.info("Connection test passed - valid authentication credentials available")
+                logger.info("Connection test passed - valid authentication credentials available")
                 
                 # Optional: Try a simple API call, but don't fail if it has issues
                 try:
@@ -1098,20 +1099,20 @@ class BullhornService:
                     
                     response = self.session.get(url, params=params, timeout=15)
                     if response.status_code == 200:
-                        logging.info("Full API connection test successful")
+                        logger.info("Full API connection test successful")
                     else:
-                        logging.warning(f"API test returned {response.status_code}, but authentication valid - continuing")
+                        logger.warning(f"API test returned {response.status_code}, but authentication valid - continuing")
                         
                 except Exception as api_e:
-                    logging.warning(f"API test call failed but authentication succeeded: {str(api_e)} - continuing")
+                    logger.warning(f"API test call failed but authentication succeeded: {str(api_e)} - continuing")
                 
                 return True  # Return success if authentication worked
             else:
-                logging.error("Missing authentication tokens after successful authenticate() call")
+                logger.error("Missing authentication tokens after successful authenticate() call")
                 return False
             
         except Exception as e:
-            logging.error(f"Bullhorn connection test failed: {str(e)}")
+            logger.error(f"Bullhorn connection test failed: {str(e)}")
             return False
     
     def compare_job_lists(self, previous_jobs: List[Dict], current_jobs: List[Dict]) -> Dict:
@@ -1212,11 +1213,11 @@ class BullhornService:
                 data = self._safe_json_parse(response)
                 return data.get('data', [])
             else:
-                logging.error(f"Failed to get tearsheet members: {response.status_code} - {response.text}")
+                logger.error(f"Failed to get tearsheet members: {response.status_code} - {response.text}")
                 return []
                 
         except Exception as e:
-            logging.error(f"Error getting tearsheet members: {str(e)}")
+            logger.error(f"Error getting tearsheet members: {str(e)}")
             return []
     
     def remove_job_from_tearsheet(self, tearsheet_id: int, job_id: int) -> bool:
@@ -1244,14 +1245,14 @@ class BullhornService:
             response = self.session.delete(url, params=params, timeout=30)
             
             if response.status_code in [200, 204]:
-                logging.info(f"Successfully removed job {job_id} from tearsheet {tearsheet_id}")
+                logger.info(f"Successfully removed job {job_id} from tearsheet {tearsheet_id}")
                 return True
             else:
-                logging.error(f"Failed to remove job from tearsheet: {response.status_code} - {response.text}")
+                logger.error(f"Failed to remove job from tearsheet: {response.status_code} - {response.text}")
                 return False
                 
         except Exception as e:
-            logging.error(f"Error removing job from tearsheet: {str(e)}")
+            logger.error(f"Error removing job from tearsheet: {str(e)}")
             return False
     
     def get_jobs_batch(self, job_ids: List[int]) -> List[Dict]:
@@ -1301,14 +1302,14 @@ class BullhornService:
             if response.status_code == 200:
                 data = self._safe_json_parse(response)
                 jobs_data = data.get('data', [])
-                logging.info(f"Retrieved {len(jobs_data)} jobs out of {len(job_ids)} requested")
+                logger.info(f"Retrieved {len(jobs_data)} jobs out of {len(job_ids)} requested")
                 return self._filter_excluded_jobs(jobs_data)
             else:
-                logging.error(f"Failed to get jobs batch: {response.status_code} - {response.text}")
+                logger.error(f"Failed to get jobs batch: {response.status_code} - {response.text}")
                 return []
                 
         except Exception as e:
-            logging.error(f"Error getting jobs batch: {str(e)}")
+            logger.error(f"Error getting jobs batch: {str(e)}")
             return []
     
     # ==================== Candidate Methods ====================
@@ -1364,11 +1365,11 @@ class BullhornService:
         
         for attempt in range(2):
             try:
-                logging.info(f"🔍 Candidate search (attempt {attempt+1}/2): query={query}")
+                logger.info(f"🔍 Candidate search (attempt {attempt+1}/2): query={query}")
                 response = self.session.get(url, params=params, timeout=30)
                 
                 if response.status_code == 401:
-                    logging.info("Token expired during search_candidates, re-authenticating...")
+                    logger.info("Token expired during search_candidates, re-authenticating...")
                     self.rest_token = None
                     if self.authenticate():
                         params['BhRestToken'] = self.rest_token
@@ -1377,10 +1378,10 @@ class BullhornService:
                 if response.status_code == 200:
                     data = self._safe_json_parse(response)
                     results = data.get('data', [])
-                    logging.info(f"🔍 Candidate search returned {len(results)} results")
+                    logger.info(f"🔍 Candidate search returned {len(results)} results")
                     return results
                 else:
-                    logging.error(f"Candidate search failed (attempt {attempt+1}/2): {response.status_code} - {response.text}")
+                    logger.error(f"Candidate search failed (attempt {attempt+1}/2): {response.status_code} - {response.text}")
                     if attempt == 0:
                         import time
                         time.sleep(1)
@@ -1388,7 +1389,7 @@ class BullhornService:
                     return []
                     
             except Exception as e:
-                logging.error(f"Error searching candidates (attempt {attempt+1}/2): {str(e)}")
+                logger.error(f"Error searching candidates (attempt {attempt+1}/2): {str(e)}")
                 if attempt == 0:
                     import time
                     time.sleep(1)
@@ -1418,7 +1419,7 @@ class BullhornService:
             response = self.session.put(url, params=params, json=candidate_data, timeout=30)
             
             if response.status_code == 401:
-                logging.info("Token expired during create_candidate, re-authenticating...")
+                logger.info("Token expired during create_candidate, re-authenticating...")
                 self.rest_token = None
                 if self.authenticate():
                     params['BhRestToken'] = self.rest_token
@@ -1427,14 +1428,14 @@ class BullhornService:
             if response.status_code in [200, 201]:
                 data = self._safe_json_parse(response)
                 candidate_id = data.get('changedEntityId')
-                logging.info(f"Created candidate {candidate_id}: {candidate_data.get('firstName')} {candidate_data.get('lastName')}")
+                logger.info(f"Created candidate {candidate_id}: {candidate_data.get('firstName')} {candidate_data.get('lastName')}")
                 return candidate_id
             else:
-                logging.error(f"Failed to create candidate: {response.status_code} - {response.text}")
+                logger.error(f"Failed to create candidate: {response.status_code} - {response.text}")
                 return None
                 
         except Exception as e:
-            logging.error(f"Error creating candidate: {str(e)}")
+            logger.error(f"Error creating candidate: {str(e)}")
             return None
     
     def update_candidate(self, candidate_id: int, candidate_data: Dict) -> Optional[int]:
@@ -1459,21 +1460,21 @@ class BullhornService:
             response = self.session.post(url, params=params, json=candidate_data, timeout=30)
             
             if response.status_code == 401:
-                logging.info("Token expired during update_candidate, re-authenticating...")
+                logger.info("Token expired during update_candidate, re-authenticating...")
                 self.rest_token = None
                 if self.authenticate():
                     params['BhRestToken'] = self.rest_token
                     response = self.session.post(url, params=params, json=candidate_data, timeout=30)
             
             if response.status_code == 200:
-                logging.info(f"Updated candidate {candidate_id}")
+                logger.info(f"Updated candidate {candidate_id}")
                 return candidate_id
             else:
-                logging.error(f"Failed to update candidate: {response.status_code} - {response.text}")
+                logger.error(f"Failed to update candidate: {response.status_code} - {response.text}")
                 return None
                 
         except Exception as e:
-            logging.error(f"Error updating candidate: {str(e)}")
+            logger.error(f"Error updating candidate: {str(e)}")
             return None
     
     def upload_candidate_file(self, candidate_id: int, file_content: bytes, 
@@ -1494,17 +1495,17 @@ class BullhornService:
         import base64
         
         if not self.base_url or not self.rest_token:
-            logging.info(f"Authenticating before file upload for candidate {candidate_id}")
+            logger.info(f"Authenticating before file upload for candidate {candidate_id}")
             if not self.authenticate():
-                logging.error("Failed to authenticate for file upload")
+                logger.error("Failed to authenticate for file upload")
                 return None
         
         try:
             # Bullhorn file upload endpoint - PUT /file/Candidate/{candidateId}
             url = f"{self.base_url}file/Candidate/{candidate_id}"
             
-            logging.info(f"Uploading file to URL: {url}")
-            logging.info(f"File: {filename}, Size: {len(file_content)} bytes")
+            logger.info(f"Uploading file to URL: {url}")
+            logger.info(f"File: {filename}, Size: {len(file_content)} bytes")
             
             # Determine content type based on file extension
             content_type = 'application/octet-stream'
@@ -1536,7 +1537,7 @@ class BullhornService:
             
             # Log file size for debugging
             file_size_kb = len(file_content) / 1024
-            logging.info(f"Uploading file using base64 JSON method to candidate {candidate_id} ({file_size_kb:.1f} KB)")
+            logger.info(f"Uploading file using base64 JSON method to candidate {candidate_id} ({file_size_kb:.1f} KB)")
             
             # Temporarily set JSON content type for this request
             original_content_type = self.session.headers.get('Content-Type')
@@ -1558,37 +1559,37 @@ class BullhornService:
                 if original_content_type:
                     self.session.headers['Content-Type'] = original_content_type
             
-            logging.info(f"File upload response status: {response.status_code}")
-            logging.info(f"File upload response: {response.text[:500] if response.text else 'No response body'}")
+            logger.info(f"File upload response status: {response.status_code}")
+            logger.info(f"File upload response: {response.text[:500] if response.text else 'No response body'}")
             
             if response.status_code in [200, 201]:
                 data = self._safe_json_parse(response)
                 file_id = data.get('fileId')
                 if file_id:
-                    logging.info(f"✅ Successfully uploaded file '{filename}' to candidate {candidate_id}, file ID: {file_id}")
+                    logger.info(f"✅ Successfully uploaded file '{filename}' to candidate {candidate_id}, file ID: {file_id}")
                     return file_id
                 else:
                     # Some Bullhorn versions return changedEntityId instead
                     file_id = data.get('changedEntityId')
                     if file_id:
-                        logging.info(f"✅ Successfully uploaded file '{filename}' to candidate {candidate_id}, entity ID: {file_id}")
+                        logger.info(f"✅ Successfully uploaded file '{filename}' to candidate {candidate_id}, entity ID: {file_id}")
                         return file_id
-                    logging.warning(f"Upload returned success but no fileId in response: {data}")
+                    logger.warning(f"Upload returned success but no fileId in response: {data}")
                     return None
             else:
-                logging.error(f"❌ Failed to upload file to candidate {candidate_id}: {response.status_code}")
-                logging.error(f"Response: {response.text}")
-                logging.error(f"File details: name={filename}, size={file_size_kb:.1f}KB, type={content_type}")
+                logger.error(f"❌ Failed to upload file to candidate {candidate_id}: {response.status_code}")
+                logger.error(f"Response: {response.text}")
+                logger.error(f"File details: name={filename}, size={file_size_kb:.1f}KB, type={content_type}")
                 
                 # Common error diagnostics
                 if response.status_code == 400:
-                    logging.error("400 Bad Request - Check required fields: externalID, fileType, name, contentType")
+                    logger.error("400 Bad Request - Check required fields: externalID, fileType, name, contentType")
                 elif response.status_code == 500:
-                    logging.error("500 Internal Server Error - File may be too large or corrupted")
+                    logger.error("500 Internal Server Error - File may be too large or corrupted")
                 
                 # If authentication expired, try once more
                 if response.status_code == 401:
-                    logging.info("Token expired, re-authenticating and retrying file upload...")
+                    logger.info("Token expired, re-authenticating and retrying file upload...")
                     if self.authenticate():
                         params['BhRestToken'] = self.rest_token
                         self.session.headers['Content-Type'] = 'application/json'
@@ -1602,13 +1603,13 @@ class BullhornService:
                         if retry_response.status_code in [200, 201]:
                             data = self._safe_json_parse(retry_response)
                             file_id = data.get('fileId') or data.get('changedEntityId')
-                            logging.info(f"✅ Retry successful, file ID: {file_id}")
+                            logger.info(f"✅ Retry successful, file ID: {file_id}")
                             return file_id
                 
                 return None
                 
         except Exception as e:
-            logging.error(f"❌ Error uploading candidate file: {str(e)}", exc_info=True)
+            logger.error(f"❌ Error uploading candidate file: {str(e)}", exc_info=True)
             return None
     
     def get_job_order(self, job_id: int) -> Optional[Dict]:
@@ -1638,14 +1639,14 @@ class BullhornService:
                 data = self._safe_json_parse(response)
                 job_data = data.get('data', {})
                 if job_data and job_data.get('id'):
-                    logging.info(f"Found job order {job_id}: {job_data.get('title', 'Unknown')}")
+                    logger.info(f"Found job order {job_id}: {job_data.get('title', 'Unknown')}")
                     return job_data
             
-            logging.warning(f"Job order {job_id} not found in Bullhorn")
+            logger.warning(f"Job order {job_id} not found in Bullhorn")
             return None
             
         except Exception as e:
-            logging.error(f"Error getting job order: {str(e)}")
+            logger.error(f"Error getting job order: {str(e)}")
             return None
     
     def create_job_submission(self, candidate_id: int, job_id: int, 
@@ -1669,11 +1670,11 @@ class BullhornService:
             # Verify job exists before creating submission
             job = self.get_job_order(job_id)
             if not job:
-                logging.warning(f"Cannot create submission: job order {job_id} not found in Bullhorn")
+                logger.warning(f"Cannot create submission: job order {job_id} not found in Bullhorn")
                 return None
             
             if job.get('isDeleted'):
-                logging.warning(f"Cannot create submission: job order {job_id} is deleted")
+                logger.warning(f"Cannot create submission: job order {job_id} is deleted")
                 return None
             
             url = f"{self.base_url}entity/JobSubmission"
@@ -1690,7 +1691,7 @@ class BullhornService:
             response = self.session.put(url, params=params, json=submission_data, timeout=30)
             
             if response.status_code == 401:
-                logging.info("Token expired during create_job_submission, re-authenticating...")
+                logger.info("Token expired during create_job_submission, re-authenticating...")
                 self.rest_token = None
                 if self.authenticate():
                     params['BhRestToken'] = self.rest_token
@@ -1699,14 +1700,14 @@ class BullhornService:
             if response.status_code in [200, 201]:
                 data = self._safe_json_parse(response)
                 submission_id = data.get('changedEntityId')
-                logging.info(f"Created job submission {submission_id}: candidate {candidate_id} -> job {job_id}")
+                logger.info(f"Created job submission {submission_id}: candidate {candidate_id} -> job {job_id}")
                 return submission_id
             else:
-                logging.error(f"Failed to create job submission: {response.status_code} - {response.text}")
+                logger.error(f"Failed to create job submission: {response.status_code} - {response.text}")
                 return None
                 
         except Exception as e:
-            logging.error(f"Error creating job submission: {str(e)}")
+            logger.error(f"Error creating job submission: {str(e)}")
             return None
     
     def get_candidate(self, candidate_id: int) -> Optional[Dict]:
@@ -1733,7 +1734,7 @@ class BullhornService:
             response = self.session.get(url, params=params, timeout=30)
             
             if response.status_code == 401:
-                logging.info("Token expired during get_candidate, re-authenticating...")
+                logger.info("Token expired during get_candidate, re-authenticating...")
                 self.rest_token = None
                 if self.authenticate():
                     params['BhRestToken'] = self.rest_token
@@ -1743,11 +1744,11 @@ class BullhornService:
                 data = self._safe_json_parse(response)
                 return data.get('data', {})
             else:
-                logging.error(f"Failed to get candidate: {response.status_code}")
+                logger.error(f"Failed to get candidate: {response.status_code}")
                 return None
                 
         except Exception as e:
-            logging.error(f"Error getting candidate: {str(e)}")
+            logger.error(f"Error getting candidate: {str(e)}")
             return None
     
     def create_candidate_work_history(self, candidate_id: int, work_history: List[Dict]) -> List[int]:
@@ -1806,12 +1807,12 @@ class BullhornService:
                     work_id = data.get('changedEntityId')
                     if work_id:
                         created_ids.append(work_id)
-                        logging.info(f"Created work history {work_id}: {work.get('title')} at {work.get('company')}")
+                        logger.info(f"Created work history {work_id}: {work.get('title')} at {work.get('company')}")
                 else:
-                    logging.warning(f"Failed to create work history: {response.status_code} - {response.text}")
+                    logger.warning(f"Failed to create work history: {response.status_code} - {response.text}")
                     
             except Exception as e:
-                logging.error(f"Error creating work history record: {str(e)}")
+                logger.error(f"Error creating work history record: {str(e)}")
         
         return created_ids
     
@@ -1862,12 +1863,12 @@ class BullhornService:
                     edu_id = data.get('changedEntityId')
                     if edu_id:
                         created_ids.append(edu_id)
-                        logging.info(f"Created education {edu_id}: {edu.get('degree')} from {edu.get('institution')}")
+                        logger.info(f"Created education {edu_id}: {edu.get('degree')} from {edu.get('institution')}")
                 else:
-                    logging.warning(f"Failed to create education: {response.status_code} - {response.text}")
+                    logger.warning(f"Failed to create education: {response.status_code} - {response.text}")
                     
             except Exception as e:
-                logging.error(f"Error creating education record: {str(e)}")
+                logger.error(f"Error creating education record: {str(e)}")
         
         return created_ids
     
@@ -1887,7 +1888,7 @@ class BullhornService:
         """
         if not self.base_url or not self.rest_token:
             if not self.authenticate():
-                logging.error(f"get_candidate_notes failed: Could not authenticate with Bullhorn")
+                logger.error(f"get_candidate_notes failed: Could not authenticate with Bullhorn")
                 return []
         
         try:
@@ -1912,7 +1913,7 @@ class BullhornService:
                     return []
             
             if response.status_code != 200:
-                logging.warning(f"get_candidate_notes failed: HTTP {response.status_code}")
+                logger.warning(f"get_candidate_notes failed: HTTP {response.status_code}")
                 return []
             
             data = self._safe_json_parse(response)
@@ -1930,7 +1931,7 @@ class BullhornService:
             return notes
             
         except Exception as e:
-            logging.error(f"Error retrieving notes for candidate {candidate_id}: {str(e)}")
+            logger.error(f"Error retrieving notes for candidate {candidate_id}: {str(e)}")
             return []
     
     def create_candidate_note(self, candidate_id: int, note_text: str, 
@@ -1948,7 +1949,7 @@ class BullhornService:
         """
         if not self.base_url or not self.rest_token:
             if not self.authenticate():
-                logging.error(f"Note creation failed: Could not authenticate with Bullhorn")
+                logger.error(f"Note creation failed: Could not authenticate with Bullhorn")
                 return None
         
         url = f"{self.base_url}entity/Note"
@@ -1985,21 +1986,21 @@ class BullhornService:
         # Approach 4: Minimal - just personReference
         approaches.append(('minimal', base_note_data.copy()))
         
-        logging.info(f"📝 Creating note for candidate {candidate_id}: action='{action}', length={len(note_text)} chars, user_id={self.user_id}")
+        logger.info(f"📝 Creating note for candidate {candidate_id}: action='{action}', length={len(note_text)} chars, user_id={self.user_id}")
         
         for approach_name, note_data in approaches:
             try:
-                logging.info(f"Trying note creation approach: {approach_name}")
+                logger.info(f"Trying note creation approach: {approach_name}")
                 response = self.session.put(url, params=params, json=note_data, timeout=60)
                 
                 if response.status_code in [200, 201]:
                     data = self._safe_json_parse(response)
                     note_id = data.get('changedEntityId')
-                    logging.info(f"✅ Created note {note_id} on candidate {candidate_id} using '{approach_name}' approach")
+                    logger.info(f"✅ Created note {note_id} on candidate {candidate_id} using '{approach_name}' approach")
                     return note_id
                 elif response.status_code == 401:
                     # Token expired, re-authenticate and retry this approach
-                    logging.warning(f"Note creation got 401, re-authenticating...")
+                    logger.warning(f"Note creation got 401, re-authenticating...")
                     self.rest_token = None
                     if self.authenticate():
                         url = f"{self.base_url}entity/Note"  # Update URL in case base_url changed
@@ -2008,21 +2009,21 @@ class BullhornService:
                         if response.status_code in [200, 201]:
                             data = self._safe_json_parse(response)
                             note_id = data.get('changedEntityId')
-                            logging.info(f"✅ Created note {note_id} on candidate {candidate_id} using '{approach_name}' after re-auth")
+                            logger.info(f"✅ Created note {note_id} on candidate {candidate_id} using '{approach_name}' after re-auth")
                             return note_id
                     else:
                         # Re-auth failed - abort all attempts
-                        logging.error(f"❌ Re-authentication failed - aborting note creation for candidate {candidate_id}")
+                        logger.error(f"❌ Re-authentication failed - aborting note creation for candidate {candidate_id}")
                         return None
                 
                 # Log failure details and try next approach
                 error_text = response.text[:500] if response.text else "No error details"
-                logging.warning(f"⚠️ Note creation failed with '{approach_name}': HTTP {response.status_code} - {error_text}")
+                logger.warning(f"⚠️ Note creation failed with '{approach_name}': HTTP {response.status_code} - {error_text}")
                 
             except Exception as e:
-                logging.error(f"❌ Exception in note creation approach '{approach_name}': {str(e)}")
+                logger.error(f"❌ Exception in note creation approach '{approach_name}': {str(e)}")
         
-        logging.error(f"❌ All note creation approaches failed for candidate {candidate_id}")
+        logger.error(f"❌ All note creation approaches failed for candidate {candidate_id}")
         return None
 
     SUPPORTED_ENTITY_TYPES = {
@@ -2057,7 +2058,7 @@ class BullhornService:
 
     def get_entity(self, entity_type: str, entity_id: int, fields: str = None) -> Optional[Dict]:
         if entity_type not in self.SUPPORTED_ENTITY_TYPES:
-            logging.error(f"Unsupported entity type: {entity_type}")
+            logger.error(f"Unsupported entity type: {entity_type}")
             return None
 
         if not self.base_url or not self.rest_token:
@@ -2084,15 +2085,15 @@ class BullhornService:
                 data = self._safe_json_parse(response)
                 return data.get('data', {})
             else:
-                logging.error(f"Failed to get {entity_type} {entity_id}: {response.status_code}")
+                logger.error(f"Failed to get {entity_type} {entity_id}: {response.status_code}")
                 return None
         except Exception as e:
-            logging.error(f"Error getting {entity_type} {entity_id}: {e}")
+            logger.error(f"Error getting {entity_type} {entity_id}: {e}")
             return None
 
     def update_entity(self, entity_type: str, entity_id: int, data: Dict) -> bool:
         if entity_type not in self.SUPPORTED_ENTITY_TYPES:
-            logging.error(f"Unsupported entity type for update: {entity_type}")
+            logger.error(f"Unsupported entity type for update: {entity_type}")
             return False
 
         if not self.base_url or not self.rest_token:
@@ -2113,18 +2114,18 @@ class BullhornService:
                     return False
 
             if response.status_code == 200:
-                logging.info(f"Updated {entity_type} {entity_id}: {list(data.keys())}")
+                logger.info(f"Updated {entity_type} {entity_id}: {list(data.keys())}")
                 return True
             else:
-                logging.error(f"Failed to update {entity_type} {entity_id}: {response.status_code} - {response.text[:300]}")
+                logger.error(f"Failed to update {entity_type} {entity_id}: {response.status_code} - {response.text[:300]}")
                 return False
         except Exception as e:
-            logging.error(f"Error updating {entity_type} {entity_id}: {e}")
+            logger.error(f"Error updating {entity_type} {entity_id}: {e}")
             return False
 
     def search_entity(self, entity_type: str, query: str, fields: str = None, count: int = 10) -> List[Dict]:
         if entity_type not in self.SUPPORTED_ENTITY_TYPES:
-            logging.error(f"Unsupported entity type for search: {entity_type}")
+            logger.error(f"Unsupported entity type for search: {entity_type}")
             return []
 
         if not self.base_url or not self.rest_token:
@@ -2156,10 +2157,10 @@ class BullhornService:
                 data = self._safe_json_parse(response)
                 return data.get('data', [])
             else:
-                logging.error(f"Search {entity_type} failed: {response.status_code}")
+                logger.error(f"Search {entity_type} failed: {response.status_code}")
                 return []
         except Exception as e:
-            logging.error(f"Error searching {entity_type}: {e}")
+            logger.error(f"Error searching {entity_type}: {e}")
             return []
 
     def query_entity(self, entity_type: str, where: str, fields: str = 'id', count: int = 50) -> List[Dict]:
@@ -2189,15 +2190,15 @@ class BullhornService:
                 data = self._safe_json_parse(response)
                 return data.get('data', [])
             else:
-                logging.error(f"Query {entity_type} failed: {response.status_code}")
+                logger.error(f"Query {entity_type} failed: {response.status_code}")
                 return []
         except Exception as e:
-            logging.error(f"Error querying {entity_type}: {e}")
+            logger.error(f"Error querying {entity_type}: {e}")
             return []
 
     def delete_entity(self, entity_type: str, entity_id: int, soft_delete: bool = True) -> bool:
         if entity_type not in self.SUPPORTED_ENTITY_TYPES:
-            logging.error(f"Unsupported entity type for delete: {entity_type}")
+            logger.error(f"Unsupported entity type for delete: {entity_type}")
             return False
 
         if not self.base_url or not self.rest_token:
@@ -2221,13 +2222,13 @@ class BullhornService:
                         return False
 
                 if response.status_code in (200, 204):
-                    logging.info(f"Hard-deleted {entity_type} {entity_id}")
+                    logger.info(f"Hard-deleted {entity_type} {entity_id}")
                     return True
                 else:
-                    logging.error(f"Failed to delete {entity_type} {entity_id}: {response.status_code} - {response.text[:300]}")
+                    logger.error(f"Failed to delete {entity_type} {entity_id}: {response.status_code} - {response.text[:300]}")
                     return False
         except Exception as e:
-            logging.error(f"Error deleting {entity_type} {entity_id}: {e}")
+            logger.error(f"Error deleting {entity_type} {entity_id}: {e}")
             return False
 
     def bulk_update_entities(self, entity_type: str, entity_ids: List[int], data: Dict) -> Dict[int, bool]:
@@ -2235,7 +2236,7 @@ class BullhornService:
         for eid in entity_ids:
             results[eid] = self.update_entity(entity_type, eid, data)
         succeeded = sum(1 for v in results.values() if v)
-        logging.info(f"Bulk update {entity_type}: {succeeded}/{len(entity_ids)} succeeded")
+        logger.info(f"Bulk update {entity_type}: {succeeded}/{len(entity_ids)} succeeded")
         return results
 
     def bulk_delete_entities(self, entity_type: str, entity_ids: List[int], soft_delete: bool = True) -> Dict[int, bool]:
@@ -2243,12 +2244,12 @@ class BullhornService:
         for eid in entity_ids:
             results[eid] = self.delete_entity(entity_type, eid, soft_delete=soft_delete)
         succeeded = sum(1 for v in results.values() if v)
-        logging.info(f"Bulk delete {entity_type} (soft={soft_delete}): {succeeded}/{len(entity_ids)} succeeded")
+        logger.info(f"Bulk delete {entity_type} (soft={soft_delete}): {succeeded}/{len(entity_ids)} succeeded")
         return results
 
     def create_entity(self, entity_type: str, data: Dict) -> Optional[int]:
         if entity_type not in self.SUPPORTED_ENTITY_TYPES:
-            logging.error(f"Unsupported entity type for create: {entity_type}")
+            logger.error(f"Unsupported entity type for create: {entity_type}")
             return None
 
         if not self.base_url or not self.rest_token:
@@ -2271,13 +2272,13 @@ class BullhornService:
             if response.status_code in (200, 201):
                 result = self._safe_json_parse(response)
                 entity_id = result.get('changedEntityId')
-                logging.info(f"Created {entity_type} #{entity_id}")
+                logger.info(f"Created {entity_type} #{entity_id}")
                 return entity_id
             else:
-                logging.error(f"Failed to create {entity_type}: {response.status_code} - {response.text[:300]}")
+                logger.error(f"Failed to create {entity_type}: {response.status_code} - {response.text[:300]}")
                 return None
         except Exception as e:
-            logging.error(f"Error creating {entity_type}: {e}")
+            logger.error(f"Error creating {entity_type}: {e}")
             return None
 
     def add_entity_to_association(self, entity_type: str, entity_id: int,
@@ -2301,13 +2302,13 @@ class BullhornService:
                     return False
 
             if response.status_code == 200:
-                logging.info(f"Added {association_field} association on {entity_type} #{entity_id}: {ids_str}")
+                logger.info(f"Added {association_field} association on {entity_type} #{entity_id}: {ids_str}")
                 return True
             else:
-                logging.error(f"Failed to add association: {response.status_code} - {response.text[:300]}")
+                logger.error(f"Failed to add association: {response.status_code} - {response.text[:300]}")
                 return False
         except Exception as e:
-            logging.error(f"Error adding association on {entity_type} #{entity_id}: {e}")
+            logger.error(f"Error adding association on {entity_type} #{entity_id}: {e}")
             return False
 
     def remove_entity_from_association(self, entity_type: str, entity_id: int,
@@ -2331,13 +2332,13 @@ class BullhornService:
                     return False
 
             if response.status_code == 200:
-                logging.info(f"Removed {association_field} association on {entity_type} #{entity_id}: {ids_str}")
+                logger.info(f"Removed {association_field} association on {entity_type} #{entity_id}: {ids_str}")
                 return True
             else:
-                logging.error(f"Failed to remove association: {response.status_code} - {response.text[:300]}")
+                logger.error(f"Failed to remove association: {response.status_code} - {response.text[:300]}")
                 return False
         except Exception as e:
-            logging.error(f"Error removing association on {entity_type} #{entity_id}: {e}")
+            logger.error(f"Error removing association on {entity_type} #{entity_id}: {e}")
             return False
 
     def add_job_to_tearsheet(self, tearsheet_id: int, job_id: int) -> bool:
@@ -2373,10 +2374,10 @@ class BullhornService:
                 data = self._safe_json_parse(response)
                 return data.get('data', [])
             else:
-                logging.error(f"Failed to get {association_field} on {entity_type} #{entity_id}: {response.status_code}")
+                logger.error(f"Failed to get {association_field} on {entity_type} #{entity_id}: {response.status_code}")
                 return []
         except Exception as e:
-            logging.error(f"Error getting associations {entity_type} #{entity_id}/{association_field}: {e}")
+            logger.error(f"Error getting associations {entity_type} #{entity_id}/{association_field}: {e}")
             return []
 
     def query_entities(self, entity_type: str, where: str, fields: str = None,
@@ -2413,10 +2414,10 @@ class BullhornService:
                 data = self._safe_json_parse(response)
                 return data.get('data', [])
             else:
-                logging.error(f"Query {entity_type} failed: {response.status_code} - {response.text[:300]}")
+                logger.error(f"Query {entity_type} failed: {response.status_code} - {response.text[:300]}")
                 return []
         except Exception as e:
-            logging.error(f"Error querying {entity_type}: {e}")
+            logger.error(f"Error querying {entity_type}: {e}")
             return []
 
     def get_entity_files(self, entity_type: str, entity_id: int) -> List[Dict]:
@@ -2441,10 +2442,10 @@ class BullhornService:
                 data = self._safe_json_parse(response)
                 return data.get('EntityFiles', data.get('entityFiles', []))
             else:
-                logging.error(f"Failed to get files for {entity_type} #{entity_id}: {response.status_code}")
+                logger.error(f"Failed to get files for {entity_type} #{entity_id}: {response.status_code}")
                 return []
         except Exception as e:
-            logging.error(f"Error getting files for {entity_type} #{entity_id}: {e}")
+            logger.error(f"Error getting files for {entity_type} #{entity_id}: {e}")
             return []
 
     def delete_entity_file(self, entity_type: str, entity_id: int, file_id: int) -> bool:
@@ -2466,13 +2467,13 @@ class BullhornService:
                     return False
 
             if response.status_code in (200, 204):
-                logging.info(f"Deleted file #{file_id} from {entity_type} #{entity_id}")
+                logger.info(f"Deleted file #{file_id} from {entity_type} #{entity_id}")
                 return True
             else:
-                logging.error(f"Failed to delete file #{file_id}: {response.status_code}")
+                logger.error(f"Failed to delete file #{file_id}: {response.status_code}")
                 return False
         except Exception as e:
-            logging.error(f"Error deleting file #{file_id} from {entity_type} #{entity_id}: {e}")
+            logger.error(f"Error deleting file #{file_id} from {entity_type} #{entity_id}: {e}")
             return False
 
     def update_job_order(self, job_id: int, data: Dict) -> bool:
@@ -2512,10 +2513,10 @@ class BullhornService:
                 data = self._safe_json_parse(response)
                 return data
             else:
-                logging.warning(f"get_entity_meta({entity_type}) failed: HTTP {response.status_code}")
+                logger.warning(f"get_entity_meta({entity_type}) failed: HTTP {response.status_code}")
                 return None
         except Exception as e:
-            logging.error(f"get_entity_meta({entity_type}) error: {e}")
+            logger.error(f"get_entity_meta({entity_type}) error: {e}")
             return None
 
     def get_options(self, option_type: str) -> Optional[List[Dict]]:
@@ -2541,17 +2542,17 @@ class BullhornService:
                 return data.get('data', data.get('optionList', []))
 
             if response.status_code == 400:
-                logging.info(f"get_options({option_type}) returned 400 — trying meta field lookup instead")
+                logger.info(f"get_options({option_type}) returned 400 — trying meta field lookup instead")
                 meta_options = self._get_options_from_meta(option_type)
                 if meta_options is not None:
                     return meta_options
-                logging.warning(f"get_options({option_type}) failed: not available via /options/ or meta")
+                logger.warning(f"get_options({option_type}) failed: not available via /options/ or meta")
                 return None
             else:
-                logging.warning(f"get_options({option_type}) failed: HTTP {response.status_code}")
+                logger.warning(f"get_options({option_type}) failed: HTTP {response.status_code}")
                 return None
         except Exception as e:
-            logging.error(f"get_options({option_type}) error: {e}")
+            logger.error(f"get_options({option_type}) error: {e}")
             return None
 
     def _get_options_from_meta(self, option_type: str) -> Optional[List[Dict]]:
@@ -2603,8 +2604,8 @@ class BullhornService:
                 data = self._safe_json_parse(response)
                 return data
             else:
-                logging.warning(f"get_settings({setting_key}) failed: HTTP {response.status_code}")
+                logger.warning(f"get_settings({setting_key}) failed: HTTP {response.status_code}")
                 return None
         except Exception as e:
-            logging.error(f"get_settings({setting_key}) error: {e}")
+            logger.error(f"get_settings({setting_key}) error: {e}")
             return None

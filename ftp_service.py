@@ -3,6 +3,7 @@ import paramiko
 import os
 import socket
 import logging
+logger = logging.getLogger(__name__)
 from typing import Optional
 
 class FTPService:
@@ -51,21 +52,21 @@ class FTPService:
     def _upload_ftp(self, local_file_path: str, remote_filename: str) -> bool:
         """Upload file using FTP with timeout protection"""
         try:
-            logging.info(f"Connecting to FTP server: {self.hostname}:{self.port}")
+            logger.info(f"Connecting to FTP server: {self.hostname}:{self.port}")
             with ftplib.FTP() as ftp:
                 # Set generous timeouts to handle slow connections
                 ftp.set_debuglevel(0)
                 ftp.connect(self.hostname, self.port, timeout=120)  # Increased to 2 minutes
                 ftp.login(self.username, self.password)
-                logging.info("FTP login successful")
+                logger.info("FTP login successful")
                 
                 # Change to target directory if specified
                 if self.target_directory != "/":
                     try:
                         ftp.cwd(self.target_directory)
-                        logging.info(f"Changed to directory: {self.target_directory}")
+                        logger.info(f"Changed to directory: {self.target_directory}")
                     except ftplib.error_perm as e:
-                        logging.error(f"Could not change to directory {self.target_directory}: {e}")
+                        logger.error(f"Could not change to directory {self.target_directory}: {e}")
                         return False
                 
                 # Upload file in binary mode with thread-safe timeout protection
@@ -79,43 +80,43 @@ class FTPService:
                         result = ftp.storbinary(f'STOR {remote_filename}', file)
                     
                     if result.startswith('226'):  # 226 Transfer complete
-                        logging.info(f"File uploaded successfully via FTP: {remote_filename}")
+                        logger.info(f"File uploaded successfully via FTP: {remote_filename}")
                         
                         # Post-upload verification
                         try:
                             size = ftp.size(remote_filename)
                             local_size = os.path.getsize(local_file_path)
                             if size == local_size:
-                                logging.info(f"Upload verified: {remote_filename} ({size} bytes)")
+                                logger.info(f"Upload verified: {remote_filename} ({size} bytes)")
                                 return True
                             else:
-                                logging.error(f"Upload verification failed: remote {size} != local {local_size}")
+                                logger.error(f"Upload verification failed: remote {size} != local {local_size}")
                                 return False
                         except Exception:
                             # If SIZE command not supported, consider upload successful
-                            logging.warning("Unable to verify upload size - assuming success")
+                            logger.warning("Unable to verify upload size - assuming success")
                             return True
                     else:
-                        logging.error(f"FTP upload failed with result: {result}")
+                        logger.error(f"FTP upload failed with result: {result}")
                         return False
                 except (socket.timeout, socket.error) as e:
-                    logging.error(f"FTP upload timeout/socket error after 90 seconds for {remote_filename}: {e}")
+                    logger.error(f"FTP upload timeout/socket error after 90 seconds for {remote_filename}: {e}")
                     return False
                     
         except ftplib.error_perm as e:
-            logging.error(f"FTP permission error: {e}")
+            logger.error(f"FTP permission error: {e}")
             return False
         except ftplib.error_temp as e:
-            logging.error(f"FTP temporary error: {e}")
+            logger.error(f"FTP temporary error: {e}")
             return False
         except Exception as e:
-            logging.error(f"FTP upload error: {e}")
+            logger.error(f"FTP upload error: {e}")
             return False
     
     def _upload_sftp(self, local_file_path: str, remote_filename: str) -> bool:
         """Upload file using SFTP"""
         try:
-            logging.info(f"Connecting to SFTP server: {self.hostname}:{self.port}")
+            logger.info(f"Connecting to SFTP server: {self.hostname}:{self.port}")
             
             # Create SSH client
             ssh = paramiko.SSHClient()
@@ -132,15 +133,15 @@ class FTPService:
             
             # Create SFTP client
             sftp = ssh.open_sftp()
-            logging.info("SFTP connection successful")
+            logger.info("SFTP connection successful")
             
             # Change to target directory if specified
             if self.target_directory != "/":
                 try:
                     sftp.chdir(self.target_directory)
-                    logging.info(f"Changed to directory: {self.target_directory}")
+                    logger.info(f"Changed to directory: {self.target_directory}")
                 except Exception as e:
-                    logging.error(f"Could not change to directory {self.target_directory}: {e}")
+                    logger.error(f"Could not change to directory {self.target_directory}: {e}")
                     sftp.close()
                     ssh.close()
                     return False
@@ -160,11 +161,11 @@ class FTPService:
             remote_size = remote_stats.st_size
             
             if local_size == remote_size:
-                logging.info(f"File uploaded successfully via SFTP: {remote_filename} (Size: {local_size} bytes / {local_size/1024:.1f} KB)")
+                logger.info(f"File uploaded successfully via SFTP: {remote_filename} (Size: {local_size} bytes / {local_size/1024:.1f} KB)")
             else:
-                logging.error(f"SFTP upload size mismatch for {remote_filename}! Local: {local_size} bytes, Remote: {remote_size} bytes")
+                logger.error(f"SFTP upload size mismatch for {remote_filename}! Local: {local_size} bytes, Remote: {remote_size} bytes")
                 # Still return True as file was uploaded, but log the discrepancy
-                logging.warning(f"Continuing despite size mismatch - file may need re-upload")
+                logger.warning(f"Continuing despite size mismatch - file may need re-upload")
             
             # Close connections
             sftp.close()
@@ -172,20 +173,20 @@ class FTPService:
             return True
             
         except paramiko.AuthenticationException as e:
-            logging.error(f"SFTP authentication failed: {e}")
+            logger.error(f"SFTP authentication failed: {e}")
             return False
         except paramiko.SSHException as e:
-            logging.error(f"SFTP SSH error: {e}")
+            logger.error(f"SFTP SSH error: {e}")
             return False
         except IOError as e:
             # IOError often indicates permission denied or file not found on remote
-            logging.error(f"SFTP IOError (possible permission/path issue): {e}")
+            logger.error(f"SFTP IOError (possible permission/path issue): {e}")
             return False
         except Exception as e:
             # Log the full exception type for debugging
             import traceback
-            logging.error(f"SFTP upload error ({type(e).__name__}): {e}")
-            logging.error(f"SFTP upload traceback: {traceback.format_exc()}")
+            logger.error(f"SFTP upload error ({type(e).__name__}): {e}")
+            logger.error(f"SFTP upload traceback: {traceback.format_exc()}")
             return False
     
     def test_connection(self):
@@ -208,10 +209,10 @@ class FTPService:
                 if self.port and self.port != 21:
                     ftp.connect(self.hostname, self.port)
                 ftp.login(self.username, self.password)
-                logging.info("FTP connection test successful")
+                logger.info("FTP connection test successful")
                 return True
         except Exception as e:
-            logging.error(f"FTP connection test failed: {e}")
+            logger.error(f"FTP connection test failed: {e}")
             return False
     
     def _test_sftp_connection(self) -> dict:
@@ -223,7 +224,7 @@ class FTPService:
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             
-            logging.info(f"Testing SFTP connection to {self.hostname}:{self.port} as {self.username}")
+            logger.info(f"Testing SFTP connection to {self.hostname}:{self.port} as {self.username}")
             
             # Connect to server
             ssh.connect(
@@ -240,24 +241,24 @@ class FTPService:
             sftp.close()
             ssh.close()
             
-            logging.info("SFTP connection test successful")
+            logger.info("SFTP connection test successful")
             return {'success': True, 'message': 'Connection successful'}
             
         except paramiko.AuthenticationException as e:
-            logging.error(f"SFTP authentication failed: {e}")
+            logger.error(f"SFTP authentication failed: {e}")
             return {'success': False, 'error': f'Authentication failed: Invalid username or password'}
         except paramiko.SSHException as e:
-            logging.error(f"SFTP SSH error: {e}")
+            logger.error(f"SFTP SSH error: {e}")
             return {'success': False, 'error': f'SSH error: {str(e)}'}
         except socket.timeout:
-            logging.error(f"SFTP connection timeout to {self.hostname}:{self.port}")
+            logger.error(f"SFTP connection timeout to {self.hostname}:{self.port}")
             return {'success': False, 'error': f'Connection timeout - check hostname and port'}
         except socket.gaierror as e:
-            logging.error(f"SFTP DNS resolution failed: {e}")
+            logger.error(f"SFTP DNS resolution failed: {e}")
             return {'success': False, 'error': f'DNS resolution failed: Cannot resolve hostname {self.hostname}'}
         except Exception as e:
             error_type = type(e).__name__
-            logging.error(f"SFTP connection test failed ({error_type}): {e}")
+            logger.error(f"SFTP connection test failed ({error_type}): {e}")
             return {'success': False, 'error': f'{error_type}: {str(e)}'}
     
     def list_directory(self, directory: Optional[str] = None) -> list:
@@ -280,8 +281,8 @@ class FTPService:
                     ftp.cwd(self.target_directory)
                 
                 files = ftp.nlst()
-                logging.info(f"Directory listing successful: {len(files)} files found")
+                logger.info(f"Directory listing successful: {len(files)} files found")
                 return files
         except Exception as e:
-            logging.error(f"Error listing directory: {e}")
+            logger.error(f"Error listing directory: {e}")
             return []

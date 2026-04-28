@@ -9,6 +9,7 @@ Contains:
 """
 
 import logging
+logger = logging.getLogger(__name__)
 import json
 from datetime import datetime, timedelta
 from app import db
@@ -67,14 +68,14 @@ class NoteBuilderMixin:
         - str: returned as-is (already clean prose)
         """
         if isinstance(gaps, list):
-            logging.warning(f"Render-time array normalization for candidate {candidate_id}")
+            logger.warning(f"Render-time array normalization for candidate {candidate_id}")
             return ". ".join(str(item) for item in gaps)
         
         if isinstance(gaps, str) and gaps.startswith('['):
             try:
                 gaps_list = json.loads(gaps)
                 if isinstance(gaps_list, list):
-                    logging.warning(f"Render-time JSON string normalization for candidate {candidate_id}")
+                    logger.warning(f"Render-time JSON string normalization for candidate {candidate_id}")
                     return ". ".join(str(item) for item in gaps_list)
             except json.JSONDecodeError:
                 pass  # Not valid JSON, keep original
@@ -93,7 +94,7 @@ class NoteBuilderMixin:
         """
         # DEDUPLICATION SAFETY: Skip if note already created for this vetting log
         if vetting_log.note_created:
-            logging.info(f"⏭️ Note already exists for vetting log {vetting_log.id} (candidate {vetting_log.bullhorn_candidate_id}), skipping creation")
+            logger.info(f"⏭️ Note already exists for vetting log {vetting_log.id} (candidate {vetting_log.bullhorn_candidate_id}), skipping creation")
             return True  # Return True to indicate note exists
         
         bullhorn = self._get_bullhorn_service()
@@ -144,13 +145,13 @@ class NoteBuilderMixin:
                 _is_supersedable = (_all_incomplete or _all_failed_analysis) and _has_match_records
                 if _is_supersedable:
                     override_reason = "Incomplete" if _all_incomplete else "failed analysis (0%)"
-                    logging.info(
+                    logger.info(
                         f"ℹ️ DUPLICATE SAFEGUARD OVERRIDE: Candidate {vetting_log.bullhorn_candidate_id} "
                         f"has {len(existing_notes)} {override_reason} note(s) in Bullhorn from last 6h. "
                         f"Allowing new complete result to supersede."
                     )
                 else:
-                    logging.warning(
+                    logger.warning(
                         f"⚠️ DUPLICATE SAFEGUARD: Candidate {vetting_log.bullhorn_candidate_id} already has "
                         f"{len(existing_notes)} AI vetting note(s) in Bullhorn from last 6h. "
                         f"Skipping duplicate note creation."
@@ -161,7 +162,7 @@ class NoteBuilderMixin:
                     return True
         except Exception as e:
             # Don't block note creation if the safety check itself fails
-            logging.warning(f"Pre-note duplicate check failed (proceeding with creation): {str(e)}")
+            logger.warning(f"Pre-note duplicate check failed (proceeding with creation): {str(e)}")
         
         # Get all match results for this candidate
         matches = CandidateJobMatch.query.filter_by(
@@ -187,7 +188,7 @@ class NoteBuilderMixin:
                 for req in custom_reqs:
                     job_threshold_map[req.bullhorn_job_id] = float(req.vetting_threshold)
             except Exception as e:
-                logging.warning(f"Could not fetch per-job thresholds for note: {str(e)}")
+                logger.warning(f"Could not fetch per-job thresholds for note: {str(e)}")
         
         # Handle case where no jobs were analyzed (no matches recorded)
         all_analysis_failed = matches and all(
@@ -227,10 +228,10 @@ class NoteBuilderMixin:
                 vetting_log.note_created = True
                 vetting_log.bullhorn_note_id = note_id
                 db.session.commit()
-                logging.info(f"Created incomplete vetting note for candidate {vetting_log.bullhorn_candidate_id}")
+                logger.info(f"Created incomplete vetting note for candidate {vetting_log.bullhorn_candidate_id}")
                 return True
             else:
-                logging.error(f"Failed to create incomplete vetting note for candidate {vetting_log.bullhorn_candidate_id}")
+                logger.error(f"Failed to create incomplete vetting note for candidate {vetting_log.bullhorn_candidate_id}")
                 return False
         
         # ── LOCATION REVIEW DETECTION ──
@@ -324,13 +325,13 @@ class NoteBuilderMixin:
                 vetting_log.note_created = True
                 vetting_log.bullhorn_note_id = note_id
                 db.session.commit()
-                logging.info(
+                logger.info(
                     f"📍 Created location review note for candidate {vetting_log.bullhorn_candidate_id} "
                     f"(tech fit: {top_tech:.0f}%, final: {top_final:.0f}%)"
                 )
                 return True
             else:
-                logging.error(f"Failed to create location review note for candidate {vetting_log.bullhorn_candidate_id}")
+                logger.error(f"Failed to create location review note for candidate {vetting_log.bullhorn_candidate_id}")
                 return False
 
         elif vetting_log.is_qualified:
@@ -419,9 +420,9 @@ class NoteBuilderMixin:
             vetting_log.note_created = True
             vetting_log.bullhorn_note_id = note_id
             db.session.commit()
-            logging.info(f"Created vetting note for candidate {vetting_log.bullhorn_candidate_id}")
+            logger.info(f"Created vetting note for candidate {vetting_log.bullhorn_candidate_id}")
             return True
         else:
-            logging.error(f"Failed to create vetting note for candidate {vetting_log.bullhorn_candidate_id}")
+            logger.error(f"Failed to create vetting note for candidate {vetting_log.bullhorn_candidate_id}")
             return False
 

@@ -1,5 +1,6 @@
 import os
 import logging
+logger = logging.getLogger(__name__)
 import threading
 import time
 import signal
@@ -26,7 +27,7 @@ try:
     from lxml import etree
 except ImportError:
     etree = None
-    logging.warning("lxml not available, some XML features disabled")
+    logger.warning("lxml not available, some XML features disabled")
 
 from xml_processor import XMLProcessor
 from email_service import EmailService
@@ -641,7 +642,7 @@ def process_bullhorn_monitors():
         from feeds.freeze_manager import FreezeManager
         freeze_mgr = FreezeManager()
         if freeze_mgr.is_frozen():
-            logging.info("🔒 XML FEED FROZEN: Skipping manual monitoring cycle")
+            logger.info("🔒 XML FEED FROZEN: Skipping manual monitoring cycle")
             return
 
         from incremental_monitoring_service import IncrementalMonitoringService
@@ -658,9 +659,9 @@ def process_bullhorn_monitors():
                 monitor.next_check = current_time + timedelta(minutes=5)
             _db.session.commit()
 
-        logging.info(f"✅ Manual monitor cycle completed: {cycle_results}")
+        logger.info(f"✅ Manual monitor cycle completed: {cycle_results}")
     except Exception:
-        logging.error("Manual monitor cycle error", exc_info=True)
+        logger.error("Manual monitor cycle error", exc_info=True)
         try:
             from extensions import db as _db
             _db.session.rollback()

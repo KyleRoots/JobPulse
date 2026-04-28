@@ -63,33 +63,33 @@ def _extract_resume_text_raw(file_content: bytes, filename: str) -> Optional[str
             if result and len(result.strip()) > 10:
                 return result
             if actual_format == 'doc':
-                logging.info(f"🔄 File '{filename}' is labeled .docx but is actually a legacy .doc — retrying with .doc extractor")
+                logger.info(f"🔄 File '{filename}' is labeled .docx but is actually a legacy .doc — retrying with .doc extractor")
                 result = extract_text_from_doc(file_content)
                 if result and len(result.strip()) > 10:
                     return result
             if actual_format == 'pdf':
-                logging.info(f"🔄 File '{filename}' is labeled .docx but is actually a PDF — retrying with PDF extractor")
+                logger.info(f"🔄 File '{filename}' is labeled .docx but is actually a PDF — retrying with PDF extractor")
                 return extract_text_from_pdf(file_content)
-            logging.info(f"🔄 DOCX extraction failed for '{filename}' (detected format: {actual_format}) — attempting AI vision OCR")
+            logger.info(f"🔄 DOCX extraction failed for '{filename}' (detected format: {actual_format}) — attempting AI vision OCR")
             return _ocr_document_with_vision(file_content, filename)
         elif filename_lower.endswith('.doc'):
             # Routes through utils.doc_extraction: handles real OLE2 .doc via
             # vision OCR, mislabeled .docx via python-docx, mislabeled PDF returns
             # None so we route here.
             if actual_format == 'pdf':
-                logging.info(f"🔄 File '{filename}' is labeled .doc but is actually a PDF — routing to PDF extractor")
+                logger.info(f"🔄 File '{filename}' is labeled .doc but is actually a PDF — routing to PDF extractor")
                 return extract_text_from_pdf(file_content)
             result = extract_text_from_doc(file_content, filename)
             if result and len(result.strip()) > 10:
                 return result
-            logging.info(f"🔄 DOC extraction returned no usable text for '{filename}' (detected format: {actual_format})")
+            logger.info(f"🔄 DOC extraction returned no usable text for '{filename}' (detected format: {actual_format})")
             return None
         elif filename_lower.endswith('.txt'):
             return file_content.decode('utf-8', errors='ignore')
         else:
             return file_content.decode('utf-8', errors='ignore')
     except Exception as e:
-        logging.error(f"Error extracting text from {filename}: {str(e)}")
+        logger.error(f"Error extracting text from {filename}: {str(e)}")
         return None
 
 
@@ -114,21 +114,21 @@ def _ocr_document_with_vision(file_content: bytes, filename: str) -> Optional[st
                 with open(pdf_path, 'rb') as f:
                     pdf_bytes = f.read()
                 os.unlink(pdf_path)
-                logging.info(f"📄 Converted '{filename}' to PDF ({len(pdf_bytes)} bytes) for OCR")
+                logger.info(f"📄 Converted '{filename}' to PDF ({len(pdf_bytes)} bytes) for OCR")
                 return extract_text_from_pdf(pdf_bytes)
         except FileNotFoundError:
-            logging.warning("LibreOffice not available for document conversion")
+            logger.warning("LibreOffice not available for document conversion")
         except subprocess.TimeoutExpired:
-            logging.warning("LibreOffice conversion timed out")
+            logger.warning("LibreOffice conversion timed out")
         finally:
             if os.path.exists(input_path):
                 os.unlink(input_path)
 
-        logging.info(f"📸 Direct AI vision OCR fallback for '{filename}'")
+        logger.info(f"📸 Direct AI vision OCR fallback for '{filename}'")
         ocr_text = _ocr_raw_file_with_vision(file_content, filename)
         return ocr_text
     except Exception as e:
-        logging.error(f"Document OCR fallback failed for '{filename}': {str(e)}")
+        logger.error(f"Document OCR fallback failed for '{filename}': {str(e)}")
         return None
 
 
@@ -169,10 +169,10 @@ def _ocr_raw_file_with_vision(file_content: bytes, filename: str) -> Optional[st
 
         ocr_text = response.choices[0].message.content.strip() if response.choices else None
         if ocr_text:
-            logging.info(f"📸 Raw file vision OCR extracted {len(ocr_text)} chars from '{filename}'")
+            logger.info(f"📸 Raw file vision OCR extracted {len(ocr_text)} chars from '{filename}'")
         return ocr_text
     except Exception as e:
-        logging.error(f"Raw file vision OCR failed for '{filename}': {str(e)}")
+        logger.error(f"Raw file vision OCR failed for '{filename}': {str(e)}")
         return None
 
 
@@ -183,10 +183,10 @@ def extract_text_from_pdf(file_content: bytes) -> Optional[str]:
         
         content_size = len(file_content) if file_content else 0
         first_bytes = file_content[:50] if file_content and len(file_content) >= 50 else file_content
-        logging.info(f"PDF extraction: size={content_size} bytes, starts with: {first_bytes[:20] if first_bytes else 'empty'}")
+        logger.info(f"PDF extraction: size={content_size} bytes, starts with: {first_bytes[:20] if first_bytes else 'empty'}")
         
         if not file_content or not file_content.startswith(b'%PDF'):
-            logging.error(f"Invalid PDF content - doesn't start with %PDF header. First 100 bytes: {file_content[:100] if file_content else 'empty'}")
+            logger.error(f"Invalid PDF content - doesn't start with %PDF header. First 100 bytes: {file_content[:100] if file_content else 'empty'}")
             return None
         
         doc = fitz.open(stream=file_content, filetype="pdf")
@@ -197,30 +197,30 @@ def extract_text_from_pdf(file_content: bytes) -> Optional[str]:
         
         doc.close()
         extracted_text = "\n".join(text_parts).strip()
-        logging.info(f"PDF extraction successful: {len(extracted_text)} chars extracted")
+        logger.info(f"PDF extraction successful: {len(extracted_text)} chars extracted")
         
         if len(extracted_text) < 50 and content_size > 5000:
-            logging.info(f"🔍 Image-based PDF detected ({len(extracted_text)} chars from {content_size} byte file) — attempting AI vision OCR")
+            logger.info(f"🔍 Image-based PDF detected ({len(extracted_text)} chars from {content_size} byte file) — attempting AI vision OCR")
             ocr_text = _ocr_pdf_with_vision(file_content)
             if ocr_text and len(ocr_text) > len(extracted_text):
-                logging.info(f"📸 AI vision OCR successful: {len(ocr_text)} chars extracted from image-based PDF")
+                logger.info(f"📸 AI vision OCR successful: {len(ocr_text)} chars extracted from image-based PDF")
                 return ocr_text
             else:
-                logging.warning(f"AI vision OCR did not improve extraction (got {len(ocr_text) if ocr_text else 0} chars)")
+                logger.warning(f"AI vision OCR did not improve extraction (got {len(ocr_text) if ocr_text else 0} chars)")
         
         return extracted_text
     except ImportError:
-        logging.warning("PyMuPDF not installed - trying pdfminer")
+        logger.warning("PyMuPDF not installed - trying pdfminer")
         try:
             from pdfminer.high_level import extract_text
             return extract_text(io.BytesIO(file_content))
         except ImportError:
-            logging.error("No PDF extraction library available")
+            logger.error("No PDF extraction library available")
             return None
     except Exception as e:
-        logging.error(f"PDF extraction error: {str(e)}")
+        logger.error(f"PDF extraction error: {str(e)}")
         if file_content:
-            logging.error(f"PDF content size: {len(file_content)} bytes, first 50 bytes: {file_content[:50]}")
+            logger.error(f"PDF content size: {len(file_content)} bytes, first 50 bytes: {file_content[:50]}")
         return None
 
 
@@ -273,11 +273,11 @@ def _ocr_pdf_with_vision(file_content: bytes, max_pages: int = 5) -> Optional[st
 
         ocr_text = response.choices[0].message.content.strip() if response.choices else None
         if ocr_text:
-            logging.info(f"📸 Vision OCR extracted {len(ocr_text)} chars from {page_count} page(s)")
+            logger.info(f"📸 Vision OCR extracted {len(ocr_text)} chars from {page_count} page(s)")
         return ocr_text
 
     except Exception as e:
-        logging.error(f"Vision OCR failed: {str(e)}")
+        logger.error(f"Vision OCR failed: {str(e)}")
         return None
 
 
@@ -294,10 +294,10 @@ def extract_text_from_docx(file_content: bytes) -> Optional[str]:
         
         return "\n".join(text_parts)
     except ImportError:
-        logging.error("python-docx not installed for DOCX extraction")
+        logger.error("python-docx not installed for DOCX extraction")
         return None
     except Exception as e:
-        logging.error(f"DOCX extraction error: {str(e)}")
+        logger.error(f"DOCX extraction error: {str(e)}")
         return None
 
 
@@ -312,5 +312,5 @@ def extract_text_from_doc(file_content: bytes, filename: str = "document.doc") -
         from utils.doc_extraction import extract_doc_text
         return extract_doc_text(file_content, filename)
     except Exception as e:
-        logging.error(f"DOC extraction error for '{filename}': {e}")
+        logger.error(f"DOC extraction error for '{filename}': {e}")
         return None

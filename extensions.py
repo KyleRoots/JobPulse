@@ -35,7 +35,7 @@ def create_app():
 
     env = (os.environ.get('APP_ENV') or os.environ.get('ENVIRONMENT') or 'production').lower()
     app.config['ENVIRONMENT'] = env
-    print(f"App environment set to: {env}")
+    logging.getLogger(__name__).info(f"App environment set to: {env}")
 
     app.secret_key = os.environ.get("SESSION_SECRET")
     app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)

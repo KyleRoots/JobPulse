@@ -10,6 +10,7 @@ Scheduled to run at 8 AM ET daily, sending to kroots@myticas.com.
 """
 
 import logging
+logger = logging.getLogger(__name__)
 from datetime import datetime, timedelta
 from typing import Dict, List, Tuple
 
@@ -231,7 +232,7 @@ def get_digest_data(since: datetime = None) -> Dict:
         
         quality_flags = weak_req_flags[:10] + recency_flags[:10] + years_flags[:10]
     except Exception as e:
-        logging.warning(f"Quality flags query failed (non-critical): {e}")
+        logger.warning(f"Quality flags query failed (non-critical): {e}")
         quality_flags = []
     
     return {
@@ -570,12 +571,12 @@ def send_daily_digest(since: datetime = None) -> bool:
         True if email was sent successfully
     """
     try:
-        logging.info("📧 Starting digest data collection...")
+        logger.info("📧 Starting digest data collection...")
         data = get_digest_data(since=since)
-        logging.info(f"📧 Digest data collected: {data.get('total_evaluated', 0)} evaluated, {data.get('quality_flag_count', 0)} quality flags")
+        logger.info(f"📧 Digest data collected: {data.get('total_evaluated', 0)} evaluated, {data.get('quality_flag_count', 0)} quality flags")
         
         html = build_digest_html(data)
-        logging.info(f"📧 Digest HTML built ({len(html)} chars)")
+        logger.info(f"📧 Digest HTML built ({len(html)} chars)")
         
         # Include duplicate alert in subject line if any found
         dup_prefix = f"🚨 {data['duplicate_count']} DUPLICATE{'S' if data['duplicate_count'] != 1 else ''} — " if data.get('duplicate_count', 0) > 0 else ''
@@ -590,7 +591,7 @@ def send_daily_digest(since: datetime = None) -> bool:
         from email_service import EmailService
         email = EmailService()
         
-        logging.info(f"📧 Sending digest email to {DIGEST_RECIPIENT}...")
+        logger.info(f"📧 Sending digest email to {DIGEST_RECIPIENT}...")
         result = email.send_html_email(
             to_email=DIGEST_RECIPIENT,
             subject=subject,
@@ -598,17 +599,17 @@ def send_daily_digest(since: datetime = None) -> bool:
             notification_type='embedding_digest'
         )
         
-        logging.info(f"📧 EmailService result: {result}")
+        logger.info(f"📧 EmailService result: {result}")
         success = result is True or (isinstance(result, dict) and result.get('success', False))
         
         if success:
-            logging.info(f"✅ Daily embedding digest sent to {DIGEST_RECIPIENT}")
+            logger.info(f"✅ Daily embedding digest sent to {DIGEST_RECIPIENT}")
         else:
-            logging.error(f"❌ Failed to send daily embedding digest to {DIGEST_RECIPIENT}. Result: {result}")
+            logger.error(f"❌ Failed to send daily embedding digest to {DIGEST_RECIPIENT}. Result: {result}")
         
         return success
         
     except Exception as e:
         import traceback
-        logging.error(f"Error generating/sending daily digest: {str(e)}\n{traceback.format_exc()}")
+        logger.error(f"Error generating/sending daily digest: {str(e)}\n{traceback.format_exc()}")
         return False

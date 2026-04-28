@@ -8,6 +8,7 @@ Contains:
 """
 
 import logging
+logger = logging.getLogger(__name__)
 from datetime import datetime, timedelta
 from app import db
 from sqlalchemy import func
@@ -82,7 +83,7 @@ class RecoveryMixin:
                     )
                     log.status = 'failed'
                     blocked_count += 1
-                    logging.info(
+                    logger.info(
                         f"🚫 Retry-blocked candidate {candidate_id} after {max_retry + 1} "
                         f"consecutive 0% failures (vetting log {log_id})"
                     )
@@ -110,10 +111,10 @@ class RecoveryMixin:
                     parts.append(f"reset {reset_count}")
                 if blocked_count > 0:
                     parts.append(f"blocked {blocked_count}")
-                logging.info(f"🔄 Auto-retry: {', '.join(parts)} candidates with 0% scores (API failure recovery)")
+                logger.info(f"🔄 Auto-retry: {', '.join(parts)} candidates with 0% scores (API failure recovery)")
         except Exception as e:
             db.session.rollback()
-            logging.error(f"Error in zero-score auto-retry: {str(e)}")
+            logger.error(f"Error in zero-score auto-retry: {str(e)}")
     
     def _reset_stuck_processing(self):
         """Reset vetting logs stuck in 'processing' status.
@@ -172,10 +173,10 @@ class RecoveryMixin:
             
             if reset_count > 0:
                 db.session.commit()
-                logging.info(f"🔄 Auto-retry: Reset {reset_count} candidates stuck in 'processing' (deployment restart recovery)")
+                logger.info(f"🔄 Auto-retry: Reset {reset_count} candidates stuck in 'processing' (deployment restart recovery)")
         except Exception as e:
             db.session.rollback()
-            logging.error(f"Error in stuck-processing reset: {str(e)}")
+            logger.error(f"Error in stuck-processing reset: {str(e)}")
     
     def _handle_quota_exhaustion(self):
         """Handle OpenAI quota exhaustion: auto-disable vetting and send alert email.
@@ -192,7 +193,7 @@ class RecoveryMixin:
             if config:
                 config.setting_value = 'false'
                 db.session.commit()
-                logging.warning("⛔ Scout Screening auto-disabled due to OpenAI quota exhaustion")
+                logger.warning("⛔ Scout Screening auto-disabled due to OpenAI quota exhaustion")
             
             # Send alert email
             try:
@@ -221,12 +222,12 @@ class RecoveryMixin:
                     message=message,
                     notification_type='openai_quota_alert'
                 )
-                logging.info(f"📧 Quota exhaustion alert sent to {alert_email}")
+                logger.info(f"📧 Quota exhaustion alert sent to {alert_email}")
             except Exception as email_err:
-                logging.error(f"Failed to send quota alert email: {str(email_err)}")
+                logger.error(f"Failed to send quota alert email: {str(email_err)}")
             
             type(self)._quota_alert_sent = True
             
         except Exception as e:
-            logging.error(f"Error handling quota exhaustion: {str(e)}")
+            logger.error(f"Error handling quota exhaustion: {str(e)}")
 

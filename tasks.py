@@ -850,11 +850,10 @@ def automated_upload():
       - myticas-job-feed-v2.xml   — all tearsheets; STSI (1531) jobs WITHOUT #STSIVMS or #STSIEG tags
       - myticas-job-feed-pando.xml — all tearsheets; ALL STSI (1531) jobs (no tag filter)
     """
-    print("📤 AUTOMATED UPLOAD: Function invoked by scheduler", flush=True)
     from app import app
     from extensions import db
     with app.app_context():
-        app.logger.info("📤 AUTOMATED UPLOAD: Function invoked")
+        app.logger.info("📤 AUTOMATED UPLOAD: Function invoked by scheduler")
         try:
             from models import GlobalSettings
             

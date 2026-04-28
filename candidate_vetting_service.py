@@ -7,6 +7,7 @@ and notifies recruiters when candidates match at 80%+ threshold.
 """
 
 import logging
+logger = logging.getLogger(__name__)
 import threading
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
@@ -76,7 +77,7 @@ class CandidateVettingService(
         if api_key:
             self.openai_client = OpenAI(api_key=api_key)
         else:
-            logging.warning("OPENAI_API_KEY not found - AI matching will not work")
+            logger.warning("OPENAI_API_KEY not found - AI matching will not work")
 
     def _get_bullhorn_service(self) -> BullhornService:
         """Get or create Bullhorn service with current credentials"""
@@ -99,7 +100,7 @@ class CandidateVettingService(
             )
             return self.bullhorn
         else:
-            logging.error("Bullhorn credentials not fully configured")
+            logger.error("Bullhorn credentials not fully configured")
             return None
     
     def get_config_value(self, key: str, default: str = None) -> str:
@@ -126,7 +127,7 @@ class CandidateVettingService(
                 return float(job_req.vetting_threshold)
             return self.get_threshold()  # Fall back to global default
         except Exception as e:
-            logging.warning(f"Error getting job threshold for {job_id}: {e}")
+            logger.warning(f"Error getting job threshold for {job_id}: {e}")
             return self.get_threshold()
     
     def _get_layer2_model(self) -> str:
@@ -172,7 +173,7 @@ class CandidateVettingService(
                 return job_req.get_active_requirements()
             return None
         except Exception as e:
-            logging.error(f"Error getting custom requirements for job {job_id}: {str(e)}")
+            logger.error(f"Error getting custom requirements for job {job_id}: {str(e)}")
             return None
     
     def _get_global_custom_requirements(self) -> Optional[str]:
@@ -183,7 +184,7 @@ class CandidateVettingService(
                 return config.setting_value.strip()
             return None
         except Exception as e:
-            logging.error(f"Error getting global custom requirements: {str(e)}")
+            logger.error(f"Error getting global custom requirements: {str(e)}")
             return None
 
     def _get_last_run_timestamp(self) -> Optional[datetime]:
@@ -220,17 +221,17 @@ class CandidateVettingService(
                             lock_age_minutes = (datetime.utcnow() - lock_time).total_seconds() / 60
                             if lock_age_minutes > 5:
                                 # Stale lock detected - auto-release and continue
-                                logging.warning(f"⚠️ Stale vetting lock detected ({lock_age_minutes:.1f} min old), auto-releasing")
+                                logger.warning(f"⚠️ Stale vetting lock detected ({lock_age_minutes:.1f} min old), auto-releasing")
                                 # Fall through to acquire the lock
                             else:
-                                logging.info("Vetting cycle already in progress, skipping")
+                                logger.info("Vetting cycle already in progress, skipping")
                                 return False
                         except (ValueError, TypeError) as e:
                             # Invalid timestamp - treat as stale and acquire
-                            logging.warning(f"⚠️ Invalid lock timestamp, auto-releasing: {e}")
+                            logger.warning(f"⚠️ Invalid lock timestamp, auto-releasing: {e}")
                     else:
                         # No lock timestamp means it's likely stale from a crash
-                        logging.warning("⚠️ Vetting lock exists without timestamp, auto-releasing")
+                        logger.warning("⚠️ Vetting lock exists without timestamp, auto-releasing")
                 config.setting_value = 'true'
             else:
                 config = VettingConfig(setting_key='vetting_in_progress', setting_value='true')
@@ -247,7 +248,7 @@ class CandidateVettingService(
             db.session.commit()
             return True
         except Exception as e:
-            logging.error(f"Error acquiring vetting lock: {str(e)}")
+            logger.error(f"Error acquiring vetting lock: {str(e)}")
             return False
     
     def _release_vetting_lock(self):
@@ -263,7 +264,7 @@ class CandidateVettingService(
                 config.setting_value = 'false'
                 db.session.commit()
         except Exception as e:
-            logging.error(f"Error releasing vetting lock: {str(e)}")
+            logger.error(f"Error releasing vetting lock: {str(e)}")
             try:
                 db.session.rollback()
             except Exception:
@@ -294,7 +295,7 @@ class CandidateVettingService(
         candidate_name = sanitize_text(f"{candidate.get('firstName', '')} {candidate.get('lastName', '')}".strip())
         candidate_email = sanitize_text(candidate.get('email', ''))
         
-        logging.info(f"🔍 Processing candidate: {candidate_name} (ID: {candidate_id})")
+        logger.info(f"🔍 Processing candidate: {candidate_name} (ID: {candidate_id})")
         
         # Always create a FRESH vetting log for each application
         # This ensures returning applicants get a new analysis + Bullhorn note
@@ -323,7 +324,7 @@ class CandidateVettingService(
                 if existing_log:
                     if existing_log.highest_match_score == 0 and existing_log.status == 'completed':
                         # Reset stale 0% vetting log for re-analysis
-                        logging.info(
+                        logger.info(
                             f"🔄 Re-analyzing candidate {candidate_id} ({candidate_name}) — "
                             f"previous vetting had 0% scores (likely from aggressive filter threshold)"
                         )
@@ -341,13 +342,13 @@ class CandidateVettingService(
                         vetting_log = existing_log
                     else:
                         # Already has real scores — skip
-                        logging.info(f"⏭️ Candidate {candidate_id} already vetted with score {existing_log.highest_match_score}%")
+                        logger.info(f"⏭️ Candidate {candidate_id} already vetted with score {existing_log.highest_match_score}%")
                         return existing_log
                 else:
-                    logging.error(f"Failed to create vetting log for candidate {candidate_id}: {str(e)}")
+                    logger.error(f"Failed to create vetting log for candidate {candidate_id}: {str(e)}")
                     return None
             else:
-                logging.error(f"Failed to create vetting log for candidate {candidate_id}: {str(e)}")
+                logger.error(f"Failed to create vetting log for candidate {candidate_id}: {str(e)}")
                 return None
         
         try:
@@ -365,7 +366,7 @@ class CandidateVettingService(
             
             # First try: Get description field directly from candidate data
             raw_description = candidate.get('description') if candidate else None
-            logging.info(f"📄 Candidate description field present: {bool(raw_description)}, type: {type(raw_description).__name__}, length: {len(str(raw_description)) if raw_description else 0}")
+            logger.info(f"📄 Candidate description field present: {bool(raw_description)}, type: {type(raw_description).__name__}, length: {len(str(raw_description)) if raw_description else 0}")
             
             if raw_description:
                 description = str(raw_description).strip()
@@ -377,29 +378,29 @@ class CandidateVettingService(
                 description = re.sub(r'<[^>]+>', ' ', description)
                 description = re.sub(r'\s+', ' ', description).strip()
                 
-                logging.info(f"📄 After cleaning: {len(description)} chars, first 200: {description[:200]}")
+                logger.info(f"📄 After cleaning: {len(description)} chars, first 200: {description[:200]}")
                 
                 if len(description) >= 100:  # Minimum viable resume length
                     resume_text = sanitize_text(description)
-                    logging.info(f"📄 Using candidate description field: {len(resume_text)} chars")
+                    logger.info(f"📄 Using candidate description field: {len(resume_text)} chars")
                 else:
-                    logging.info(f"Description too short ({len(description)} chars), will try file download")
+                    logger.info(f"Description too short ({len(description)} chars), will try file download")
             else:
-                logging.info(f"📄 No description field in candidate data - will try file download")
+                logger.info(f"📄 No description field in candidate data - will try file download")
             
             # Second try: Fall back to file download if description not available
             if not resume_text:
-                logging.info("Falling back to resume file download...")
+                logger.info("Falling back to resume file download...")
                 with CandidateVettingService._bullhorn_lock:
                     file_content, filename = self.get_candidate_resume(candidate_id)
                 if file_content and filename:
                     resume_text = self.extract_resume_text(file_content, filename)
                     if resume_text:
-                        logging.info(f"Extracted {len(resume_text)} characters from resume file")
+                        logger.info(f"Extracted {len(resume_text)} characters from resume file")
                     else:
-                        logging.warning(f"Could not extract text from resume: {filename}")
+                        logger.warning(f"Could not extract text from resume: {filename}")
                 else:
-                    logging.warning(f"No resume file found for candidate {candidate_id}")
+                    logger.warning(f"No resume file found for candidate {candidate_id}")
             
             if resume_text:
                 vetting_log.resume_text = resume_text[:50000]  # Limit storage size
@@ -430,18 +431,18 @@ class CandidateVettingService(
                             )
                         if applied_job_data:
                             jobs.append(applied_job_data)
-                            logging.info(
+                            logger.info(
                                 f"🎯 Injected applied job {vetting_log.applied_job_id} "
                                 f"({applied_job_data.get('title', 'Unknown')}) — "
                                 f"not in monitored tearsheets"
                             )
                         else:
-                            logging.warning(
+                            logger.warning(
                                 f"⚠️ Applied job {vetting_log.applied_job_id} could not be "
                                 f"fetched (closed/invalid) — will proceed without it"
                             )
                     except Exception as e:
-                        logging.warning(
+                        logger.warning(
                             f"⚠️ Failed to fetch applied job {vetting_log.applied_job_id}: "
                             f"{str(e)} — will proceed without it"
                         )
@@ -472,11 +473,11 @@ class CandidateVettingService(
                             candidate_location.get('countryName', '') or candidate_location.get('country', '')]
                 loc_str = ', '.join(filter(None, loc_parts))
                 if loc_str:
-                    logging.info(f"📍 Candidate location from Bullhorn: {loc_str}")
+                    logger.info(f"📍 Candidate location from Bullhorn: {loc_str}")
                 else:
-                    logging.info("📍 Candidate has address field but no city/state/country - AI will infer from resume")
+                    logger.info("📍 Candidate has address field but no city/state/country - AI will infer from resume")
             else:
-                logging.info("📍 No address in Bullhorn record - AI will infer location from resume")
+                logger.info("📍 No address in Bullhorn record - AI will infer location from resume")
             
             # Analyze against each job - PARALLEL PROCESSING for faster throughput
             threshold = self.get_threshold()
@@ -485,8 +486,8 @@ class CandidateVettingService(
             
             # Pre-check resume validity once
             if not cached_resume_text or len(cached_resume_text.strip()) < 50:
-                logging.error(f"❌ CRITICAL: Resume text missing or too short for candidate {candidate_id}")
-                logging.error(f"   Resume text length: {len(cached_resume_text) if cached_resume_text else 0}")
+                logger.error(f"❌ CRITICAL: Resume text missing or too short for candidate {candidate_id}")
+                logger.error(f"   Resume text length: {len(cached_resume_text) if cached_resume_text else 0}")
                 vetting_log.status = 'completed'
                 vetting_log.error_message = 'Resume text too short for analysis'
                 db.session.commit()
@@ -502,7 +503,7 @@ class CandidateVettingService(
             jobs_to_analyze = [job for job in jobs if job.get('id') not in existing_job_ids]
             
             if not jobs_to_analyze:
-                logging.info(f"All {len(jobs)} jobs already analyzed for this candidate")
+                logger.info(f"All {len(jobs)} jobs already analyzed for this candidate")
                 vetting_log.status = 'completed'
                 vetting_log.analyzed_at = datetime.utcnow()
                 db.session.commit()
@@ -550,13 +551,13 @@ class CandidateVettingService(
                 if applied_job_entry:
                     if applied_job_entry not in filtered_jobs:
                         filtered_jobs.insert(0, applied_job_entry)
-                        logging.info(
+                        logger.info(
                             f"🎯 Applied job {vetting_log.applied_job_id} "
                             f"({applied_job_entry.get('title', 'Unknown')}) protected "
                             f"from embedding pre-filter — guaranteed GPT analysis"
                         )
                     else:
-                        logging.info(
+                        logger.info(
                             f"🎯 Applied job {vetting_log.applied_job_id} passed "
                             f"embedding filter naturally"
                         )
@@ -564,19 +565,19 @@ class CandidateVettingService(
                 jobs_to_analyze = filtered_jobs
                 
                 if filtered_count > 0:
-                    logging.info(
+                    logger.info(
                         f"🔍 Embedding pre-filter: {pre_filter_count} → {len(jobs_to_analyze)} jobs "
                         f"({filtered_count} filtered out)"
                     )
             except Exception as e:
-                logging.error(f"⚠️ Embedding pre-filter error (bypassing filter): {str(e)}")
+                logger.error(f"⚠️ Embedding pre-filter error (bypassing filter): {str(e)}")
                 # On error, proceed with all jobs (safe fallback)
             
             if not jobs_to_analyze:
                 # SAFEGUARD: Never allow 100% filter rate — fall back to top 5
                 # jobs by similarity so GPT can still produce real scores.
                 # A 100% block likely means the threshold is too aggressive.
-                logging.warning(
+                logger.warning(
                     f"⚠️ Embedding pre-filter blocked ALL {pre_filter_count} jobs for "
                     f"candidate {candidate_id} ({candidate_name}). "
                     f"Falling back to top 5 jobs by similarity to avoid 0% scores."
@@ -597,23 +598,23 @@ class CandidateVettingService(
                             if job.get('id') in top_job_ids
                         ]
                         top_sims = [f"{log.job_title}: {log.similarity_score:.4f}" for log in filter_logs]
-                        logging.info(
+                        logger.info(
                             f"🔄 Fallback: passing top {len(jobs_to_analyze)} jobs to GPT: "
                             f"{', '.join(top_sims)}"
                         )
                 except Exception as fb_e:
-                    logging.error(f"Fallback failed: {str(fb_e)}")
+                    logger.error(f"Fallback failed: {str(fb_e)}")
                 
                 if not jobs_to_analyze:
                     # True fallback: even the similarity lookup failed
-                    logging.info(f"All jobs filtered by embedding pre-filter for candidate {candidate_id} — no GPT calls needed")
+                    logger.info(f"All jobs filtered by embedding pre-filter for candidate {candidate_id} — no GPT calls needed")
                     vetting_log.status = 'completed'
                     vetting_log.analyzed_at = datetime.utcnow()
                     db.session.commit()
                     return vetting_log
             
-            logging.info(f"🚀 Parallel analysis of {len(jobs_to_analyze)} jobs (skipping {len(existing_job_ids)} already analyzed)")
-            logging.info(f"📄 Resume: {len(cached_resume_text)} chars, First 200: {cached_resume_text[:200]}")
+            logger.info(f"🚀 Parallel analysis of {len(jobs_to_analyze)} jobs (skipping {len(existing_job_ids)} already analyzed)")
+            logger.info(f"📄 Resume: {len(cached_resume_text)} chars, First 200: {cached_resume_text[:200]}")
             
             # PRE-FETCH all custom requirements BEFORE parallel processing
             # This is critical because parallel threads don't have Flask app context
@@ -630,13 +631,13 @@ class CandidateVettingService(
                         if active:
                             job_requirements_cache[req.bullhorn_job_id] = active
                 except Exception as e:
-                    logging.error(f"Error batch-fetching job requirements: {str(e)}")
+                    logger.error(f"Error batch-fetching job requirements: {str(e)}")
             
-            logging.info(f"📋 Pre-fetched requirements for {len(job_requirements_cache)} jobs")
+            logger.info(f"📋 Pre-fetched requirements for {len(job_requirements_cache)} jobs")
             
             # Read Layer 2 model fresh each cycle (supports live revert via VettingConfig)
             self.model = self._get_layer2_model()
-            logging.info(f"🤖 Layer 2 model: {self.model}")
+            logger.info(f"🤖 Layer 2 model: {self.model}")
             
             # PRE-FETCH all DB-dependent config BEFORE entering ThreadPoolExecutor
             # Threads lack Flask app context — any DB access inside them will crash
@@ -657,7 +658,7 @@ class CandidateVettingService(
                     if req.employer_prestige_boost:
                         job_prestige_boost_cache[req.bullhorn_job_id] = True
             except Exception as e:
-                logging.error(f"Error pre-fetching job thresholds: {str(e)}")
+                logger.error(f"Error pre-fetching job thresholds: {str(e)}")
             
             # Helper function for parallel execution - runs AI analysis for one job
             def analyze_single_job(job_with_req):
@@ -687,7 +688,7 @@ class CandidateVettingService(
                     esc_low, esc_high = escalation_range
                     if esc_low <= mini_score <= esc_high and self.model != 'gpt-5.4':
                         job_title = job.get('title', 'Unknown')
-                        logging.info(
+                        logger.info(
                             f"⬆️ Escalating {candidate_name} × {job_title}: "
                             f"Layer 2 score={mini_score}% (in escalation range)"
                         )
@@ -720,7 +721,7 @@ class CandidateVettingService(
                             }
                             
                         except Exception as esc_e:
-                            logging.error(f"Escalation failed for job {job_id}: {str(esc_e)}")
+                            logger.error(f"Escalation failed for job {job_id}: {str(esc_e)}")
                             # Fall back to Layer 2 result (preserved)
                     
                     return {
@@ -731,7 +732,7 @@ class CandidateVettingService(
                     }
                 except Exception as e:
                     error_str = str(e)
-                    logging.error(f"Error analyzing job {job_id}: {error_str}")
+                    logger.error(f"Error analyzing job {job_id}: {error_str}")
                     # Track OpenAI quota exhaustion (429 with 'quota' keyword)
                     if '429' in error_str and 'quota' in error_str.lower():
                         CandidateVettingService._consecutive_quota_errors += 1
@@ -765,7 +766,7 @@ class CandidateVettingService(
                     result = future.result()
                     analysis_results.append(result)
             
-            logging.info(f"✅ Parallel analysis complete: {len(analysis_results)} jobs processed")
+            logger.info(f"✅ Parallel analysis complete: {len(analysis_results)} jobs processed")
             
             # Process results and create match records (single-threaded for DB safety)
             for result in analysis_results:
@@ -826,7 +827,7 @@ class CandidateVettingService(
                     _original = _final_score
                     _final_score = min(100, _final_score + PRESTIGE_BOOST_POINTS)
                     _prestige_boost_applied = True
-                    logging.info(
+                    logger.info(
                         f"  🏢 Prestige boost: {_prestige_employer} detected, "
                         f"score {_original}→{_final_score} (+{PRESTIGE_BOOST_POINTS}pts) for job {job_id}"
                     )
@@ -861,19 +862,19 @@ class CandidateVettingService(
                 threshold_note = f" (threshold: {int(job_threshold)}%)" if job_threshold != threshold else ""
                 if match_record.is_qualified:
                     qualified_matches.append(match_record)
-                    logging.info(f"  ✅ Match: {job.get('title')} - {analysis.get('match_score')}%{threshold_note}")
+                    logger.info(f"  ✅ Match: {job.get('title')} - {analysis.get('match_score')}%{threshold_note}")
                 else:
                     if analysis.get('is_location_barrier', False) and analysis.get('match_score', 0) >= job_threshold:
-                        logging.info(
+                        logger.info(
                             f"  📍 Location barrier override: {job.get('title')} scored {analysis.get('match_score')}% "
                             f"(>= {int(job_threshold)}% threshold) but is_qualified=False due to location mismatch"
                         )
-                    logging.info(f"  ❌ No match: {job.get('title')} - {analysis.get('match_score')}%{threshold_note}")
+                    logger.info(f"  ❌ No match: {job.get('title')} - {analysis.get('match_score')}%{threshold_note}")
                     # Diagnostic: log GPT's reasoning for 0% scores
                     if analysis.get('match_score', 0) == 0:
                         summary = analysis.get('match_summary', 'no summary')[:200]
                         gaps = analysis.get('gaps_identified', 'no gaps')[:200]
-                        logging.warning(f"    🔬 0% diagnostic: summary={summary} | gaps={gaps}")
+                        logger.warning(f"    🔬 0% diagnostic: summary={summary} | gaps={gaps}")
                 
                 # Handle deferred database save (now in main thread with Flask app context)
                 deferred = analysis.get('_deferred_save')
@@ -887,7 +888,7 @@ class CandidateVettingService(
                             deferred['work_type']
                         )
                     except Exception as save_err:
-                        logging.warning(f"Failed to save requirements for job {deferred['job_id']}: {save_err}")
+                        logger.warning(f"Failed to save requirements for job {deferred['job_id']}: {save_err}")
                 
                 # Handle deferred escalation log (needs Flask app context for DB write)
                 esc_data = analysis.get('_escalation_data')
@@ -904,13 +905,13 @@ class CandidateVettingService(
                             threshold=job_threshold
                         )
                     except Exception as esc_save_err:
-                        logging.warning(f"Failed to save escalation log for job {esc_data['job_id']}: {esc_save_err}")
+                        logger.warning(f"Failed to save escalation log for job {esc_data['job_id']}: {esc_save_err}")
             
             # ZERO-SCORE VERIFICATION: If ALL jobs scored 0%, re-verify the top candidates
             # to confirm the AI is truly confident — a candidate who applied should have
             # at least some minimal relevance unless they're genuinely mismatched.
             if all_match_results and all(m.match_score == 0 for m in all_match_results):
-                logging.info(
+                logger.info(
                     f"🔄 Zero-score verification: {candidate_name} scored 0% on all "
                     f"{len(all_match_results)} jobs — running re-verification on top matches"
                 )
@@ -953,21 +954,21 @@ class CandidateVettingService(
                                     match_record.is_qualified = new_score >= job_threshold
                                     if match_record.is_qualified:
                                         qualified_matches.append(match_record)
-                                    logging.info(
+                                    logger.info(
                                         f"  ✅ Re-verified {job.get('title')}: 0% → {new_score}% "
                                         f"(reason: {reverify_result.get('revision_reason', 'N/A')[:100]})"
                                     )
                                 else:
-                                    logging.info(
+                                    logger.info(
                                         f"  ✔️ Confirmed 0% for {job.get('title')}: "
                                         f"{reverify_result.get('confidence_reason', 'AI confirmed non-fit')[:100]}"
                                     )
                             except Exception as rv_err:
-                                logging.warning(
+                                logger.warning(
                                     f"  ⚠️ Re-verification failed for job {match_record.bullhorn_job_id}: {rv_err}"
                                 )
                 except Exception as verify_err:
-                    logging.warning(f"⚠️ Zero-score verification error for {candidate_name}: {verify_err}")
+                    logger.warning(f"⚠️ Zero-score verification error for {candidate_name}: {verify_err}")
             
             # Update vetting log summary
             vetting_log.status = 'completed'
@@ -980,7 +981,7 @@ class CandidateVettingService(
             
             db.session.commit()
             
-            logging.info(f"✅ Completed analysis for {candidate_name} (ID: {candidate_id}): {len(qualified_matches)} qualified matches out of {len(all_match_results)} jobs")
+            logger.info(f"✅ Completed analysis for {candidate_name} (ID: {candidate_id}): {len(qualified_matches)} qualified matches out of {len(all_match_results)} jobs")
 
             # Back-fill any pending Quality Auditor re-vet rows for this
             # candidate. _trigger_revet returns synchronously before the
@@ -991,7 +992,7 @@ class CandidateVettingService(
                 from vetting_audit_service import backfill_revet_new_score
                 backfill_revet_new_score(candidate_id, vetting_log=vetting_log)
             except Exception as backfill_err:
-                logging.warning(
+                logger.warning(
                     f"⚠️ Audit revet_new_score back-fill failed for "
                     f"candidate {candidate_id}: {backfill_err!r}"
                 )
@@ -999,7 +1000,7 @@ class CandidateVettingService(
             return vetting_log
             
         except Exception as e:
-            logging.error(f"Error processing candidate {candidate_id}: {str(e)}")
+            logger.error(f"Error processing candidate {candidate_id}: {str(e)}")
             try:
                 vetting_log = db.session.merge(vetting_log)
                 vetting_log.status = 'failed'
@@ -1008,7 +1009,7 @@ class CandidateVettingService(
                 db.session.commit()
             except Exception as merge_err:
                 db.session.rollback()
-                logging.error(f"Could not update vetting log for candidate {candidate_id}: {str(merge_err)}")
+                logger.error(f"Could not update vetting log for candidate {candidate_id}: {str(merge_err)}")
             return vetting_log
     
 
@@ -1054,15 +1055,15 @@ class CandidateVettingService(
         db.session.expire_all()
         
         if not self.is_enabled():
-            logging.info("Candidate vetting is disabled")
+            logger.info("Candidate vetting is disabled")
             return {'status': 'disabled'}
         
         # Acquire lock to prevent overlapping runs
         if not self._acquire_vetting_lock():
-            logging.info("Skipping vetting cycle - another cycle is in progress")
+            logger.info("Skipping vetting cycle - another cycle is in progress")
             return {'status': 'skipped', 'reason': 'cycle_in_progress'}
         
-        logging.info("🚀 Starting candidate vetting cycle")
+        logger.info("🚀 Starting candidate vetting cycle")
         cycle_start = datetime.utcnow()
         
         # Auto-retry: reset candidates that failed with 0% on all jobs
@@ -1078,7 +1079,7 @@ class CandidateVettingService(
         
         # Get configurable batch size
         batch_size = self._get_batch_size()
-        logging.info(f"Using batch size: {batch_size}")
+        logger.info(f"Using batch size: {batch_size}")
         
         summary = {
             'candidates_detected': 0,
@@ -1099,7 +1100,7 @@ class CandidateVettingService(
             # Fallback to legacy detection if no ParsedEmail records found
             # (for candidates entering through other channels)
             if not candidates:
-                logging.info("No ParsedEmail records to vet, falling back to legacy detection")
+                logger.info("No ParsedEmail records to vet, falling back to legacy detection")
                 candidates = self.detect_new_applicants(since_minutes=10)
                 if candidates and len(candidates) > batch_size:
                     candidates = candidates[:batch_size]
@@ -1109,7 +1110,7 @@ class CandidateVettingService(
             # These are fed directly into Bullhorn by Pandologic's integration
             pandologic_candidates = self.detect_pandologic_candidates(since_minutes=10)
             if pandologic_candidates:
-                logging.info(f"🔵 Adding {len(pandologic_candidates)} Pandologic candidates to vetting queue")
+                logger.info(f"🔵 Adding {len(pandologic_candidates)} Pandologic candidates to vetting queue")
                 
                 # Merge with existing candidates, dedupe by candidate ID
                 existing_ids = {c.get('id') for c in candidates}
@@ -1131,7 +1132,7 @@ class CandidateVettingService(
             # mirrors the Pandologic pattern.
             matador_candidates = self.detect_matador_candidates(since_minutes=10)
             if matador_candidates:
-                logging.info(f"🟣 Adding {len(matador_candidates)} Matador candidates to vetting queue")
+                logger.info(f"🟣 Adding {len(matador_candidates)} Matador candidates to vetting queue")
                 
                 # Merge with existing candidates, dedupe by candidate ID
                 existing_ids = {c.get('id') for c in candidates}
@@ -1154,7 +1155,7 @@ class CandidateVettingService(
             # the Pandologic API CorporateUser and pulls those candidates in.
             pando_note_candidates = self.detect_pandologic_note_candidates(since_minutes=10)
             if pando_note_candidates:
-                logging.info(
+                logger.info(
                     f"📝 Adding {len(pando_note_candidates)} PandoLogic-note "
                     f"candidates to vetting queue"
                 )
@@ -1168,7 +1169,7 @@ class CandidateVettingService(
             summary['candidates_detected'] = len(candidates)
             
             if not candidates:
-                logging.info("No new candidates to process")
+                logger.info("No new candidates to process")
                 self._set_last_run_timestamp(cycle_start)
                 return summary
             
@@ -1186,7 +1187,7 @@ class CandidateVettingService(
                     seen_candidate_ids.add(cid)
                     unique_candidates.append(cand)
             if len(unique_candidates) < len(candidates):
-                logging.info(f"🔄 Deduped candidates: {len(candidates)} → {len(unique_candidates)} unique Bullhorn IDs")
+                logger.info(f"🔄 Deduped candidates: {len(candidates)} → {len(unique_candidates)} unique Bullhorn IDs")
             candidates = unique_candidates
             
             # ═══════════════════════════════════════════════════════════════
@@ -1195,7 +1196,7 @@ class CandidateVettingService(
             # candidate, causing 300+ redundant Bullhorn API calls per batch.
             # ═══════════════════════════════════════════════════════════════
             batch_jobs = self.get_active_jobs_from_tearsheets()
-            logging.info(f"📦 Batch job cache: {len(batch_jobs)} jobs loaded once for {len(candidates)} candidates")
+            logger.info(f"📦 Batch job cache: {len(batch_jobs)} jobs loaded once for {len(candidates)} candidates")
             
             # ═══════════════════════════════════════════════════════════════
             # PARALLEL CANDIDATE PROCESSING
@@ -1236,7 +1237,7 @@ class CandidateVettingService(
                 for future in as_completed(futures):
                     candidate_results.append(future.result())
             
-            logging.info(f"✅ Parallel candidate processing complete: {len(candidate_results)} candidates")
+            logger.info(f"✅ Parallel candidate processing complete: {len(candidate_results)} candidates")
             
             for result in candidate_results:
                 candidate = result['candidate']
@@ -1246,7 +1247,7 @@ class CandidateVettingService(
                 
                 if error:
                     error_msg = f"Error processing candidate {candidate.get('id')}: {error}"
-                    logging.error(error_msg)
+                    logger.error(error_msg)
                     summary['errors'].append(error_msg)
                     continue
                 
@@ -1255,7 +1256,7 @@ class CandidateVettingService(
                     if vetting_log_id and status == 'completed':
                         vetting_log = CandidateVettingLog.query.get(vetting_log_id)
                         if not vetting_log:
-                            logging.error(f"Vetting log {vetting_log_id} not found for post-processing")
+                            logger.error(f"Vetting log {vetting_log_id} not found for post-processing")
                             continue
                         
                         summary['candidates_processed'] += 1
@@ -1267,7 +1268,7 @@ class CandidateVettingService(
                             if self.create_candidate_note(vetting_log):
                                 summary['notes_created'] += 1
                         else:
-                            logging.info(f"⏭️ Skipping note creation - already exists for candidate {vetting_log.bullhorn_candidate_id}")
+                            logger.info(f"⏭️ Skipping note creation - already exists for candidate {vetting_log.bullhorn_candidate_id}")
                         
                         # Always invoke notifications: the dispatcher has internal
                         # branching for qualified candidates, location-review near-misses
@@ -1290,7 +1291,7 @@ class CandidateVettingService(
                 except Exception as e:
                     db.session.rollback()
                     error_msg = f"Error post-processing candidate {candidate.get('id')}: {str(e)}"
-                    logging.error(error_msg)
+                    logger.error(error_msg)
                     summary['errors'].append(error_msg)
             
             # Update last run timestamp
@@ -1303,13 +1304,13 @@ class CandidateVettingService(
                 # Reset alert flag when quota is healthy
                 CandidateVettingService._quota_alert_sent = False
             
-            logging.info(f"✅ Vetting cycle complete: {summary}")
+            logger.info(f"✅ Vetting cycle complete: {summary}")
             return summary
             
         except Exception as e:
             db.session.rollback()
             error_msg = f"Vetting cycle error: {str(e)}"
-            logging.error(error_msg)
+            logger.error(error_msg)
             summary['errors'].append(error_msg)
             return summary
         finally:

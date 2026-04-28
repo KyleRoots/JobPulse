@@ -7,7 +7,6 @@ OAuth authentication, and related API endpoints.
 
 import json
 import os
-import logging
 import time
 import requests
 from datetime import datetime
@@ -621,7 +620,7 @@ def oauth_start():
         
         if use_new_api:
             auth_endpoint = BullhornService.BULLHORN_ONE_AUTH_URL
-            logging.info(f"Using Bullhorn One auth endpoint: {auth_endpoint}")
+            current_app.logger.info(f"Using Bullhorn One auth endpoint: {auth_endpoint}")
         else:
             login_info_url = "https://rest.bullhornstaffing.com/rest-services/loginInfo"
             login_info_params = {'username': 'oauth'}
@@ -647,8 +646,8 @@ def oauth_start():
         base_url = os.environ.get('OAUTH_REDIRECT_BASE_URL', "https://app.scoutgenius.ai").strip()
         redirect_uri = f"{base_url}/ats-integration/oauth/callback"
         
-        logging.info(f"OAuth redirect_uri: {redirect_uri}")
-        logging.info(f"OAuth client_id: {client_id_setting.setting_value}")
+        current_app.logger.info(f"OAuth redirect_uri: {redirect_uri}")
+        current_app.logger.info(f"OAuth client_id: {client_id_setting.setting_value}")
         
         auth_params = {
             'client_id': client_id_setting.setting_value,
@@ -659,12 +658,12 @@ def oauth_start():
         
         auth_url = f"{auth_endpoint}?{urlencode(auth_params)}"
         
-        logging.info(f"OAuth full auth_url: {auth_url}")
-        logging.info(f"Starting OAuth with state: {state[:10]}...")
+        current_app.logger.info(f"OAuth full auth_url: {auth_url}")
+        current_app.logger.info(f"Starting OAuth with state: {state[:10]}...")
         return redirect(auth_url)
         
     except Exception as e:
-        logging.error(f"OAuth start error: {str(e)}")
+        current_app.logger.error(f"OAuth start error: {str(e)}")
         flash(f'Error starting OAuth flow: {str(e)}', 'error')
         return redirect(url_for('ats_integration.ats_integration_settings'))
 
@@ -698,20 +697,20 @@ def oauth_callback():
         
         if not stored_state or not state:
             flash('OAuth state validation failed - possible CSRF attack. Please try again.', 'error')
-            logging.error("OAuth CSRF validation failed - missing state")
+            current_app.logger.error("OAuth CSRF validation failed - missing state")
             return redirect(url_for('ats_integration.ats_integration_settings'))
         
         if stored_state != state:
             flash('OAuth state validation failed - possible CSRF attack. Please try again.', 'error')
-            logging.error(f"OAuth CSRF validation failed - state mismatch: expected {stored_state[:10]}..., got {state[:10]}...")
+            current_app.logger.error(f"OAuth CSRF validation failed - state mismatch: expected {stored_state[:10]}..., got {state[:10]}...")
             return redirect(url_for('ats_integration.ats_integration_settings'))
         
         if int(time.time()) - stored_timestamp > 300:
             flash('OAuth session expired. Please try again.', 'warning')
-            logging.warning("OAuth state expired")
+            current_app.logger.warning("OAuth state expired")
             return redirect(url_for('ats_integration.ats_integration_settings'))
         
-        logging.info(f"✅ OAuth callback received with valid state - code: {code[:10]}...")
+        current_app.logger.info(f"✅ OAuth callback received with valid state - code: {code[:10]}...")
         
         try:
             client_id_setting = GlobalSettings.query.filter_by(setting_key='bullhorn_client_id').first()
@@ -727,7 +726,7 @@ def oauth_callback():
                 token_endpoint = BullhornService.BULLHORN_ONE_TOKEN_URL
                 rest_login_url = BullhornService.BULLHORN_ONE_REST_LOGIN_URL
                 rest_api_url = BullhornService.BULLHORN_ONE_REST_URL
-                logging.info(f"OAuth callback using Bullhorn One endpoints: token={token_endpoint}, login={rest_login_url}")
+                current_app.logger.info(f"OAuth callback using Bullhorn One endpoints: token={token_endpoint}, login={rest_login_url}")
             else:
                 login_info_url = "https://rest.bullhornstaffing.com/rest-services/loginInfo"
                 login_info_params = {'username': 'oauth'}
@@ -758,7 +757,7 @@ def oauth_callback():
                 'redirect_uri': redirect_uri
             }
             
-            logging.info(f"Token exchange with redirect_uri: {redirect_uri}")
+            current_app.logger.info(f"Token exchange with redirect_uri: {redirect_uri}")
             
             headers = {
                 'Content-Type': 'application/x-www-form-urlencoded',
@@ -767,7 +766,7 @@ def oauth_callback():
             
             token_response = requests.post(token_endpoint, data=token_data, headers=headers, timeout=30)
             if token_response.status_code != 200:
-                logging.error(f"Token exchange failed: HTTP {token_response.status_code}")
+                current_app.logger.error(f"Token exchange failed: HTTP {token_response.status_code}")
                 flash(f'Failed to exchange authorization code for tokens (HTTP {token_response.status_code})', 'error')
                 return redirect(url_for('ats_integration.ats_integration_settings'))
             
@@ -788,10 +787,10 @@ def oauth_callback():
                 'access_token': access_token
             }
             
-            logging.info(f"REST login request to: {rest_login_endpoint}")
+            current_app.logger.info(f"REST login request to: {rest_login_endpoint}")
             rest_response = requests.post(rest_login_endpoint, params=rest_params, timeout=30)
             if rest_response.status_code != 200:
-                logging.error(f"REST login failed: HTTP {rest_response.status_code}")
+                current_app.logger.error(f"REST login failed: HTTP {rest_response.status_code}")
                 flash('Failed to get REST token for API access', 'error')
                 return redirect(url_for('ats_integration.ats_integration_settings'))
             
@@ -807,32 +806,32 @@ def oauth_callback():
                 return redirect(url_for('ats_integration.ats_integration_settings'))
             
             flash('✅ Bullhorn OAuth authentication completed successfully! Terms of Service accepted and connection established.', 'success')
-            logging.info(f"✅ Complete OAuth flow successful - REST Token: ***{rest_token[-4:]}, Base URL: {base_url_api}")
+            current_app.logger.info(f"✅ Complete OAuth flow successful - REST Token: ***{rest_token[-4:]}, Base URL: {base_url_api}")
             
             try:
                 test_url = f"{base_url_api}/search/JobOrder?query=id>0&count=1&fields=id"
                 test_response = requests.get(test_url, params={'BhRestToken': rest_token}, timeout=15)
                 if test_response.status_code == 200:
                     flash('✅ API connection test passed - ready for data migration!', 'success')
-                    logging.info("✅ API test call successful")
+                    current_app.logger.info("✅ API test call successful")
                 else:
                     flash('⚠️ Authentication successful but API test failed. Connection may still work.', 'warning')
-                    logging.warning(f"API test failed: {test_response.status_code}")
+                    current_app.logger.warning(f"API test failed: {test_response.status_code}")
             except Exception as test_error:
-                logging.warning(f"API test error (not critical): {str(test_error)}")
+                current_app.logger.warning(f"API test error (not critical): {str(test_error)}")
                 flash('⚠️ Authentication successful but couldn\'t verify API access. Connection should still work.', 'warning')
                 
         except requests.exceptions.RequestException as req_error:
-            logging.error(f"Network error during OAuth token exchange: {str(req_error)}")
+            current_app.logger.error(f"Network error during OAuth token exchange: {str(req_error)}")
             flash(f'Network error during authentication: {str(req_error)}', 'error')
         except Exception as auth_error:
-            logging.error(f"Error during OAuth token exchange: {str(auth_error)}")
+            current_app.logger.error(f"Error during OAuth token exchange: {str(auth_error)}")
             flash(f'Error completing authentication: {str(auth_error)}', 'error')
             
         return redirect(url_for('ats_integration.ats_integration_settings'))
         
     except Exception as e:
-        logging.error(f"OAuth callback error: {str(e)}")
+        current_app.logger.error(f"OAuth callback error: {str(e)}")
         flash(f'OAuth callback error: {str(e)}', 'error')
         return redirect(url_for('ats_integration.ats_integration_settings'))
 

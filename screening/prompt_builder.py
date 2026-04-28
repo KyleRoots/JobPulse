@@ -9,6 +9,7 @@ Contains:
 """
 
 import logging
+logger = logging.getLogger(__name__)
 import json
 import re
 from datetime import datetime, date, timedelta
@@ -156,7 +157,7 @@ Respond in JSON format:
 }}"""
         
         try:
-            logging.info(f"🔄 Years re-check: verifying {len(skills_to_check)} skill(s) for job {job_id}")
+            logger.info(f"🔄 Years re-check: verifying {len(skills_to_check)} skill(s) for job {job_id}")
             
             response = self.openai_client.chat.completions.create(
                 model="gpt-5.4",
@@ -186,21 +187,21 @@ Respond in JSON format:
                 
                 if abs(new_est - orig_est) >= 0.5:
                     any_correction = True
-                    logging.info(
+                    logger.info(
                         f"🔄 Years re-check CORRECTION for '{skill}' on job {job_id}: "
                         f"{orig_est:.1f}yr → {new_est:.1f}yr "
                         f"(calc: {data.get('calculation', 'N/A')})"
                     )
             
             if any_correction:
-                logging.info(f"✅ Years re-check found corrections for job {job_id} — using updated values")
+                logger.info(f"✅ Years re-check found corrections for job {job_id} — using updated values")
                 return recheck
             else:
-                logging.info(f"✅ Years re-check CONFIRMS original values for job {job_id}")
+                logger.info(f"✅ Years re-check CONFIRMS original values for job {job_id}")
                 return None
                 
         except Exception as e:
-            logging.error(f"❌ Years re-check failed for job {job_id}: {str(e)}")
+            logger.error(f"❌ Years re-check failed for job {job_id}: {str(e)}")
             return None
 
     def extract_job_requirements(self, job_id: int, job_title: str, job_description: str,
@@ -222,7 +223,7 @@ Respond in JSON format:
             Extracted requirements string or None if extraction fails
         """
         if not self.openai_client:
-            logging.warning("OpenAI client not initialized - cannot extract requirements")
+            logger.warning("OpenAI client not initialized - cannot extract requirements")
             return None
         
         # NOTE: Removed early return check for existing requirements
@@ -234,7 +235,7 @@ Respond in JSON format:
         clean_description = re.sub(r'<[^>]+>', '', job_description) if job_description else ''
         
         if len(clean_description) < 50:
-            logging.warning(f"Job {job_id} has insufficient description for requirements extraction")
+            logger.warning(f"Job {job_id} has insufficient description for requirements extraction")
             return None
         
         # Truncate if too long
@@ -288,13 +289,13 @@ Format as a bullet-point list. Be specific and concise."""
             # Save the extracted requirements with location data
             if requirements:
                 self._save_ai_interpreted_requirements(job_id, job_title, requirements, job_location, job_work_type)
-                logging.info(f"✅ Extracted requirements for job {job_id}: {job_title[:50]}")
+                logger.info(f"✅ Extracted requirements for job {job_id}: {job_title[:50]}")
                 return requirements
             
             return None
             
         except Exception as e:
-            logging.error(f"Error extracting requirements for job {job_id}: {str(e)}")
+            logger.error(f"Error extracting requirements for job {job_id}: {str(e)}")
             return None
 
     def _reverify_zero_score(self, resume_text: str, job: Dict,
@@ -380,7 +381,7 @@ Respond in JSON:
             return result
             
         except Exception as e:
-            logging.warning(f"Zero-score re-verification failed: {e}")
+            logger.warning(f"Zero-score re-verification failed: {e}")
             return None
 
     def analyze_candidate_job_match(self, resume_text: str, job: Dict, candidate_location: Optional[Dict] = None, prefetched_requirements: Optional[str] = None, model_override: Optional[str] = None, prefetched_global_requirements: Optional[str] = None) -> Dict:
@@ -977,16 +978,16 @@ CRITICAL SCORING RULES:
                     cached_tokens = getattr(details, 'cached_tokens', 0) or 0
                 if prompt_tokens > 0:
                     hit_pct = (cached_tokens / prompt_tokens) * 100
-                    logging.info(f"💰 Cache: {cached_tokens} cached / {prompt_tokens} prompt tokens ({hit_pct:.0f}% hit rate) for job {job_id}")
+                    logger.info(f"💰 Cache: {cached_tokens} cached / {prompt_tokens} prompt tokens ({hit_pct:.0f}% hit rate) for job {job_id}")
                 else:
-                    logging.info(f"💰 Cache: usage data unavailable for job {job_id}")
+                    logger.info(f"💰 Cache: usage data unavailable for job {job_id}")
             except Exception as _cache_log_err:
-                logging.debug(f"Cache logging error (non-fatal): {_cache_log_err}")
+                logger.debug(f"Cache logging error (non-fatal): {_cache_log_err}")
 
             response_content = response.choices[0].message.content
             if not response_content or not response_content.strip():
                 finish_reason = response.choices[0].finish_reason if response.choices[0] else 'unknown'
-                logging.error(f"Empty GPT response for job {job_id} (finish_reason={finish_reason})")
+                logger.error(f"Empty GPT response for job {job_id} (finish_reason={finish_reason})")
                 return {
                     'match_score': 0,
                     'match_summary': f'Analysis failed: Empty API response (finish_reason={finish_reason})',
@@ -1001,11 +1002,11 @@ CRITICAL SCORING RULES:
             for field in ['gaps_identified', 'match_summary', 'skills_match', 'experience_match', 'key_requirements']:
                 if isinstance(result.get(field), list):
                     result[field] = ". ".join(str(item) for item in result[field])
-                    logging.warning(f"Normalized {field} from array to string for job {job_id}")
+                    logger.warning(f"Normalized {field} from array to string for job {job_id}")
             
             # Diagnostic: log raw GPT response score before integer conversion
             raw_score = result.get('match_score')
-            logging.info(f"📊 Raw GPT score for job {job_id}: {raw_score} (type: {type(raw_score).__name__})")
+            logger.info(f"📊 Raw GPT score for job {job_id}: {raw_score} (type: {type(raw_score).__name__})")
             
             # Ensure match_score and technical_score are integers
             result['match_score'] = int(result.get('match_score', 0))
@@ -1067,7 +1068,7 @@ CRITICAL SCORING RULES:
                             result['match_score'] + 25,
                             result.get('technical_score', result['match_score'] + 25)
                         )
-                        logging.warning(
+                        logger.warning(
                             f"🛡️ REMOTE LOCATION ENFORCER: Fixed misfire for job {job_id}. "
                             f"AI said same-country in summary but applied different-country penalty in gaps. "
                             f"Score restored: {result['match_score']}→{_restored_score}. "
@@ -1124,7 +1125,7 @@ CRITICAL SCORING RULES:
                                 break
                         
                         if ceiling is not None and required > ceiling:
-                            logging.info(
+                            logger.info(
                                 f"📐 Platform age ceiling applied for job {job_id}: "
                                 f"'{skill}' requires {required:.0f}yr but platform max is ~{ceiling:.0f}yr. "
                                 f"Effective requirement adjusted to {ceiling:.0f}yr."
@@ -1179,20 +1180,20 @@ CRITICAL SCORING RULES:
                     if max_shortfall >= 2.0:
                         if result['match_score'] > 60:
                             result['match_score'] = 60
-                            logging.info(
+                            logger.info(
                                 f"📉 Years hard gate: capped score {original_score}→60 for job {job_id} "
                                 f"(shortfall: {max_shortfall:.1f}yr, confirmed by re-check)"
                             )
                     elif max_shortfall >= 1.0:
                         result['match_score'] = max(0, result['match_score'] - 15)
                         if result['match_score'] != original_score:
-                            logging.info(
+                            logger.info(
                                 f"📉 Years penalty: reduced score {original_score}→{result['match_score']} for job {job_id} "
                                 f"(shortfall: {max_shortfall:.1f}yr, adjusted after re-check)"
                             )
                     else:
                         # Re-check overturned the shortfall — no penalty
-                        logging.info(
+                        logger.info(
                             f"✅ Years re-check OVERTURNED shortfall for job {job_id}: "
                             f"now meets requirements (max remaining shortfall: {max_shortfall:.1f}yr). "
                             f"Score {original_score} preserved."
@@ -1201,7 +1202,7 @@ CRITICAL SCORING RULES:
                     # Significant penalty: 1-2 year shortfall → reduce by 15 points
                     result['match_score'] = max(0, result['match_score'] - 15)
                     if result['match_score'] != original_score:
-                        logging.info(
+                        logger.info(
                             f"📉 Years penalty: reduced score {original_score}→{result['match_score']} for job {job_id} "
                             f"(shortfall: {max_shortfall:.1f}yr)"
                         )
@@ -1244,7 +1245,7 @@ CRITICAL SCORING RULES:
                         or any(wp in _justification_lower for wp in _WEAK_INDICATORS)
                     )
                     if _is_invalid:
-                        logging.warning(
+                        logger.warning(
                             f"🔍 JUSTIFICATION ENFORCER: AI marked most_recent_role_relevant=True "
                             f"for job {job_id} but justification is missing/weak: '{_justification[:100]}'. "
                             f"Overriding to relevant=False."
@@ -1270,7 +1271,7 @@ CRITICAL SCORING RULES:
                     ]
                     if any(kw in most_recent_role_str for kw in recency_domain_keywords):
                         # Most recent role is clearly in the relevant domain — override misfire
-                        logging.warning(
+                        logger.warning(
                             f"⚠️ Recency gate misfire detected for job {job_id}: "
                             f"AI reported most_recent_role_relevant=False with months_since={months_since} "
                             f"but most_recent_role='{recency_analysis.get('most_recent_role', '')}' "
@@ -1308,7 +1309,7 @@ CRITICAL SCORING RULES:
                     
                     if new_score < result['match_score']:
                         result['match_score'] = new_score
-                        logging.info(
+                        logger.info(
                             f"📉 Recency hard gate: reduced score {recency_original_score}→{new_score} "
                             f"for job {job_id} (penalty: {effective_penalty}pts, "
                             f"months_since_relevant: {months_since})"
@@ -1353,7 +1354,7 @@ CRITICAL SCORING RULES:
                     _match_before = result['match_score']
                     result['match_score'] = max(0, _match_before - _delta)
                     _gap_between = _gap_analysis.get('midcareer_gap_between', 'unknown')
-                    logging.info(
+                    logger.info(
                         f"📉 Mid-career gap enforcer: AI applied {_ai_midcareer_penalty}pts but "
                         f"target is {_target_midcareer_penalty}pts for {_midcareer_gap_months}-month gap. "
                         f"Added delta {_delta}pts for job {job_id}. "
@@ -1410,7 +1411,7 @@ CRITICAL SCORING RULES:
                 if classification in ('FRESH_GRAD', 'ENTRY') and required_min_years >= 3:
                     if result['match_score'] > 55:
                         result['match_score'] = 55
-                        logging.info(
+                        logger.info(
                             f"📉 Experience floor: capped {exp_floor_original_score}→55 "
                             f"for job {job_id} (classification={classification}, "
                             f"professional_years={professional_years:.1f}, "
@@ -1444,7 +1445,7 @@ CRITICAL SCORING RULES:
                                     float(data.get('estimated_years', 0))
                                 )
                                 overridden = True
-                                logging.warning(
+                                logger.warning(
                                     f"⚠️ Experience floor override: {skill} "
                                     f"meets_requirement forced to false for job {job_id} "
                                     f"(intern-only profile, {professional_years:.1f}yr professional)"
@@ -1473,7 +1474,7 @@ CRITICAL SCORING RULES:
                             
                             if max_shortfall_recheck >= 2.0 and result['match_score'] > 60:
                                 result['match_score'] = min(result['match_score'], 60)
-                                logging.info(
+                                logger.info(
                                     f"📉 Experience floor re-check: capped at 60 for job {job_id} "
                                     f"(shortfall: {max_shortfall_recheck:.1f}yr after override)"
                                 )
@@ -1500,7 +1501,7 @@ CRITICAL SCORING RULES:
                         professional_years < 1.0 and result['match_score'] > 65):
                     gate3_original = result['match_score']
                     result['match_score'] = 65
-                    logging.info(
+                    logger.info(
                         f"📉 Experience floor (catch-all): capped {gate3_original}→65 "
                         f"for job {job_id} (highest_role={highest_role}, "
                         f"professional_years={professional_years:.1f})"
@@ -1523,7 +1524,7 @@ CRITICAL SCORING RULES:
             _prestige_firm = detect_prestige_employer(resume_text)
             if _prestige_firm:
                 result['_prestige_employer'] = _prestige_firm
-                logging.info(f"🏢 Prestige employer detected for job {job_id}: {_prestige_firm}")
+                logger.info(f"🏢 Prestige employer detected for job {job_id}: {_prestige_firm}")
 
             # ── POST-PROCESSING: Location barrier detection ──
             # On-site/Hybrid jobs where the AI flagged a location mismatch are marked
@@ -1531,14 +1532,14 @@ CRITICAL SCORING RULES:
             _gaps_text = result.get('gaps_identified', '') or ''
             if work_type in ('On-site', 'Hybrid') and 'location mismatch' in _gaps_text.lower():
                 result['is_location_barrier'] = True
-                logging.info(
+                logger.info(
                     f"📍 Location barrier detected for job {job_id}: "
                     f"work_type={work_type}, score={result['match_score']}"
                 )
 
             # Save AI-interpreted requirements for future reference/editing
             key_requirements = result.get('key_requirements', '')
-            logging.info(f"📋 AI response for job {job_id}: score={result['match_score']}%, has_requirements={bool(key_requirements)}, has_custom={bool(custom_requirements)}, years_analysis={bool(years_analysis)}")
+            logger.info(f"📋 AI response for job {job_id}: score={result['match_score']}%, has_requirements={bool(key_requirements)}, has_custom={bool(custom_requirements)}, years_analysis={bool(years_analysis)}")
             
             # Serialize years_analysis for database persistence (auditability)
             years_analysis_json = json.dumps(years_analysis) if years_analysis else None
@@ -1557,15 +1558,15 @@ CRITICAL SCORING RULES:
             }
             
             if not key_requirements:
-                logging.warning(f"⚠️ AI did not return key_requirements for job {job_id} - requirements will not be saved")
+                logger.warning(f"⚠️ AI did not return key_requirements for job {job_id} - requirements will not be saved")
             elif custom_requirements:
-                logging.info(f"📝 Job {job_id} has custom requirements - AI interpretation will ALSO be saved (custom supplements AI)")
+                logger.info(f"📝 Job {job_id} has custom requirements - AI interpretation will ALSO be saved (custom supplements AI)")
             # NOTE: Actual save is now deferred to caller to avoid Flask app context issues in parallel threads
             
             return result
             
         except Exception as e:
-            logging.error(f"AI analysis error for job {job_id}: {str(e)}")
+            logger.error(f"AI analysis error for job {job_id}: {str(e)}")
             return {
                 'match_score': 0,
                 'match_summary': f'Analysis failed: {str(e)}',

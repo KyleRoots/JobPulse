@@ -16,6 +16,7 @@ Architecture:
 import hashlib
 import json
 import logging
+logger = logging.getLogger(__name__)
 import math
 import os
 from datetime import datetime
@@ -29,7 +30,7 @@ try:
     TIKTOKEN_AVAILABLE = True
 except ImportError:
     TIKTOKEN_AVAILABLE = False
-    logging.warning("tiktoken not available; using conservative fallback estimation")
+    logger.warning("tiktoken not available; using conservative fallback estimation")
 
 
 # Default configuration constants
@@ -61,7 +62,7 @@ class EmbeddingService:
         if api_key:
             self.openai_client = OpenAI(api_key=api_key)
         else:
-            logging.warning("OPENAI_API_KEY not found - embedding service will not work")
+            logger.warning("OPENAI_API_KEY not found - embedding service will not work")
     
     @staticmethod
     def count_tokens(text: str, model: str = DEFAULT_EMBEDDING_MODEL) -> int:
@@ -83,7 +84,7 @@ class EmbeddingService:
                 encoding = tiktoken.encoding_for_model(model)
                 return len(encoding.encode(text))
             except Exception as e:
-                logging.warning(f"tiktoken encoding failed: {e}, using fallback")
+                logger.warning(f"tiktoken encoding failed: {e}, using fallback")
                 return len(text) // 3  # Conservative fallback
         else:
             # Conservative estimation: assume 3 chars/token (safer than 4)
@@ -130,7 +131,7 @@ class EmbeddingService:
                 
                 truncated = head_text + "\n...[truncated]...\n" + tail_text
                 
-                logging.warning(
+                logger.warning(
                     f"📏 Text truncated for embedding: {original_tokens} tokens → "
                     f"{max_tokens} tokens (head={head_budget}, tail={tail_budget}). "
                     f"Original length: {len(text)} chars."
@@ -138,7 +139,7 @@ class EmbeddingService:
                 
                 return truncated, True, original_tokens
             except Exception as e:
-                logging.warning(f"tiktoken truncation failed: {e}, using char fallback")
+                logger.warning(f"tiktoken truncation failed: {e}, using char fallback")
         
         # Fallback: character-based truncation (conservative 3 chars/token)
         max_chars = max_tokens * 3
@@ -148,7 +149,7 @@ class EmbeddingService:
         head = text[:head_chars]
         tail = text[-tail_chars:]
         
-        logging.warning(
+        logger.warning(
             f"📏 Text truncated for embedding (char fallback): ~{original_tokens} est. tokens "
             f"→ ~{max_tokens} budget. Kept first {head_chars} + last {tail_chars} chars."
         )
@@ -171,11 +172,11 @@ class EmbeddingService:
             List of floats (embedding vector) or None if generation fails
         """
         if not self.openai_client:
-            logging.error("OpenAI client not initialized - cannot generate embedding")
+            logger.error("OpenAI client not initialized - cannot generate embedding")
             return None
         
         if not text or not text.strip():
-            logging.warning("Empty text provided for embedding generation")
+            logger.warning("Empty text provided for embedding generation")
             return None
         
         try:
@@ -184,7 +185,7 @@ class EmbeddingService:
             truncated_text, was_truncated, original_tokens = self._truncate_for_embedding(text)
             
             if was_truncated:
-                logging.warning(
+                logger.warning(
                     f"Embedding truncation applied: {original_tokens} tokens → "
                     f"{MAX_EMBEDDING_TOKENS} token budget. "
                     f"Resume length: {len(text)} chars."
@@ -198,7 +199,7 @@ class EmbeddingService:
             return response.data[0].embedding
             
         except Exception as e:
-            logging.error(f"Failed to generate embedding: {str(e)}")
+            logger.error(f"Failed to generate embedding: {str(e)}")
             return None
     
     @staticmethod
@@ -295,7 +296,7 @@ class EmbeddingService:
                 cached.job_title = job_title
                 cached.embedding_model = self.embedding_model
                 cached.updated_at = datetime.utcnow()
-                logging.info(f"🔄 Updated embedding cache for job {job_id} (description changed)")
+                logger.info(f"🔄 Updated embedding cache for job {job_id} (description changed)")
             else:
                 # Create new cache entry
                 new_entry = JobEmbedding(
@@ -306,13 +307,13 @@ class EmbeddingService:
                     embedding_model=self.embedding_model
                 )
                 db.session.add(new_entry)
-                logging.info(f"📦 Cached new embedding for job {job_id}: {job_title}")
+                logger.info(f"📦 Cached new embedding for job {job_id}: {job_title}")
             
             db.session.commit()
             return embedding
             
         except Exception as e:
-            logging.error(f"Error in get_job_embedding for job {job_id}: {str(e)}")
+            logger.error(f"Error in get_job_embedding for job {job_id}: {str(e)}")
             try:
                 db.session.rollback()
             except Exception:
@@ -335,7 +336,7 @@ class EmbeddingService:
             if value is not None:
                 return float(value)
         except Exception as e:
-            logging.warning(f"Error reading embedding threshold config: {e}")
+            logger.warning(f"Error reading embedding threshold config: {e}")
         
         return DEFAULT_SIMILARITY_THRESHOLD
     
@@ -361,7 +362,7 @@ class EmbeddingService:
             if value is not None:
                 return value.lower() in ('true', '1', 'yes')
         except Exception as e:
-            logging.warning(f"Error reading embedding filter config: {e}")
+            logger.warning(f"Error reading embedding filter config: {e}")
         
         # Default: enabled
         return True
@@ -393,7 +394,7 @@ class EmbeddingService:
         """
         # If filter is disabled, pass all jobs through
         if not self.is_filter_enabled():
-            logging.info("🔍 Embedding filter is DISABLED — all jobs passed through")
+            logger.info("🔍 Embedding filter is DISABLED — all jobs passed through")
             return jobs, 0
         
         if not resume_text or not jobs:
@@ -402,7 +403,7 @@ class EmbeddingService:
         # Generate resume embedding (one call per candidate)
         resume_embedding = self.generate_embedding(resume_text)
         if not resume_embedding:
-            logging.warning("⚠️ Failed to generate resume embedding — bypassing filter, all jobs passed through")
+            logger.warning("⚠️ Failed to generate resume embedding — bypassing filter, all jobs passed through")
             return jobs, 0
         
         threshold = self.get_similarity_threshold()
@@ -453,7 +454,7 @@ class EmbeddingService:
         if filtered_entries:
             self._save_filter_logs(filtered_entries)
         
-        logging.info(
+        logger.info(
             f"🔍 Embedding pre-filter for {candidate_name} (ID: {candidate_id}): "
             f"{len(relevant_jobs)} jobs passed, {filtered_count} filtered "
             f"(threshold={threshold}, total={len(jobs)})"
@@ -486,10 +487,10 @@ class EmbeddingService:
                 db.session.add(log)
             
             db.session.commit()
-            logging.debug(f"📝 Saved {len(entries)} embedding filter log entries")
+            logger.debug(f"📝 Saved {len(entries)} embedding filter log entries")
             
         except Exception as e:
-            logging.error(f"Failed to save embedding filter logs: {str(e)}")
+            logger.error(f"Failed to save embedding filter logs: {str(e)}")
             try:
                 from app import db
                 db.session.rollback()
@@ -549,13 +550,13 @@ class EmbeddingService:
             db.session.commit()
             
             status = "CROSSED THRESHOLD" if crossed_threshold else ("MATERIAL CHANGE" if material_change else "minor")
-            logging.info(
+            logger.info(
                 f"📊 Escalation logged: {candidate_name} × {job_title} — "
                 f"mini={mini_score}% → gpt4o={gpt4o_score}% (Δ{score_delta:+.1f}) [{status}]"
             )
             
         except Exception as e:
-            logging.error(f"Failed to save escalation log: {str(e)}")
+            logger.error(f"Failed to save escalation log: {str(e)}")
             try:
                 from app import db
                 db.session.rollback()
