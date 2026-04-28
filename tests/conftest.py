@@ -12,6 +12,43 @@ from datetime import datetime
 # Ensure the project root is in the path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# ── CRITICAL: module-level test environment setup ────────────────────────────
+# conftest.py is loaded by pytest BEFORE any test file is collected or
+# imported.  Several screening sub-modules (note_builder, notification, …)
+# carry top-level "from app import db" statements that execute the moment
+# Python walks the screening package tree — which happens even for tests that
+# only do "from screening.location_review import …" because Python always
+# initialises the parent package (screening/__init__.py) first.
+#
+# TWO things must happen here at module scope, before any test file is
+# imported:
+#
+# 1. Delete DATABASE_URL so Flask-SQLAlchemy falls back to
+#    sqlite:///fallback.db instead of binding to the live PostgreSQL engine.
+#    If DATABASE_URL is present when "from app import db" first executes
+#    (during test collection), the PostgreSQL engine is cached for the
+#    entire process and conftest's session-scoped app fixture cannot fix it.
+#
+# 2. Delete any stale fallback.db from a previous run.  Without this,
+#    the first test-collection import that triggers "from app import db"
+#    opens a handle to the existing fallback.db.  When the session-scoped
+#    app fixture later tries to os.remove() that same file (to pick up
+#    schema changes), it unlinks the directory entry while the handle is
+#    still open.  On Linux, SQLite then fails all subsequent writes with
+#    "attempt to write a readonly database".  Deleting the file here
+#    (before any import opens it) lets the first import create a fresh
+#    fallback.db that remains valid for the entire session.
+if "DATABASE_URL" in os.environ:
+    os.environ.pop("DATABASE_URL")
+
+_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_instance_dir = os.path.join(_project_root, "instance")
+os.makedirs(_instance_dir, exist_ok=True)
+for _stale_db in ("fallback.db", "test.db"):
+    _stale_path = os.path.join(_instance_dir, _stale_db)
+    if os.path.exists(_stale_path):
+        os.remove(_stale_path)
+
 
 @pytest.fixture(scope='session')
 def app():
@@ -28,31 +65,16 @@ def app():
     options entirely. We just need to make sure no stale DB file is reused
     across schema changes.
     """
-    # CRITICAL: Set testing environment variables BEFORE importing app
-    # These must be set before app.py loads to prevent PostgreSQL pool options
+    # DATABASE_URL and stale fallback.db are both cleaned up at conftest
+    # module scope (see the block above the fixtures) so that they are gone
+    # before any test-collection import can trigger "from app import db" and
+    # bind the engine to PostgreSQL or open a stale SQLite file.
+    # Nothing to redo here — just set the testing env flags.
     os.environ['FLASK_ENV'] = 'testing'
     os.environ['TESTING'] = 'true'
 
-    # Don't set DATABASE_URL here - let extensions.py fall back to
-    # sqlite:///fallback.db (which avoids PostgreSQL-only pool options).
-    if 'DATABASE_URL' in os.environ:
-        del os.environ['DATABASE_URL']
-
-    # CRITICAL: delete any stale SQLite files from previous test runs BEFORE
-    # importing app. SQLAlchemy's create_all() only creates missing tables —
-    # it never adds new columns to existing ones. If a stale fallback.db is
-    # left over from before a model column was added, every test that touches
-    # that table errors with "no such column". Deleting the file forces a
-    # fresh schema build from the current models on app import.
-    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    instance_dir = os.path.join(project_root, 'instance')
-    for stale_db in ('fallback.db', 'test.db'):
-        stale_path = os.path.join(instance_dir, stale_db)
-        if os.path.exists(stale_path):
-            os.remove(stale_path)
-
-    # Import app after cleanup. extensions.py + app.py will rebuild
-    # instance/fallback.db with the current schema during import.
+    # Import app — extensions.py + app.py will create a fresh
+    # instance/fallback.db (SQLite) with the current schema on first import.
     from app import app as flask_app, db
 
     # Configure for testing. Note: SQLALCHEMY_DATABASE_URI is intentionally
