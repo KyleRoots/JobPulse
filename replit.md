@@ -49,6 +49,7 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 - **Scout Support**: AI-powered internal ATS support ticket module with two-tier approval, AI intake, clarification, solution proposals, and Bullhorn API execution.
 - **Platform Support**: User feedback creates support tickets with a simplified workflow.
 - **Seeding Package Layout**: Modularized `seed_database.py` with specific seeding logic moved to the `seeding/` package for better organization and maintainability.
+- **Vetting Routes Package Layout**: Modularized `routes/vetting.py` (2,274 → 56 lines) into a thin orchestrator + `routes/vetting_handlers/` package (settings, dispatch, diagnostics, email, job_requirements, embedding_audit) sharing a single `vetting_bp` blueprint. All 30 `vetting.*` endpoint names preserved.
 - **Fresh-Prod-DB Guard**: Prevents accidental reseeding of production databases by halting boot if an empty database is detected.
 - **Phone-Search Trigram Index**: GIN trigram index on normalized phone numbers for efficient substring lookups.
 - **Resume Name Hardening**: Multi-layered fix for incorrect name extraction from resumes, including blocklists for work authorization terms.
