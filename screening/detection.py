@@ -828,7 +828,7 @@ class CandidateDetectionMixin:
                 'fields': (
                     'id,dateAdded,commentingPerson(id),'
                     'personReference(id,firstName,lastName,email,phone,status,'
-                    'dateAdded,dateLastModified,source,occupation,description,'
+                    'source,occupation,description,'
                     'address(address1,city,state,countryName))'
                 ),
                 'count': 200,
