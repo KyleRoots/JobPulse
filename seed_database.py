@@ -1651,6 +1651,88 @@ def ensure_module_subscriptions(db, User):
         logger.warning(f"⚠️ Failed to update module subscriptions: {str(e)}")
 
 
+def seed_myticas_users(db, User):
+    """
+    Create locked login accounts for all Myticas support contacts.
+
+    Idempotent — skips contacts whose email already has a User account
+    (notably kroots@myticas.com which is already attached to the `admin`
+    user). All accounts are subscribed to scout_inbound, scout_screening,
+    scout_support and locked until a welcome email / password reset is
+    sent by the admin.
+
+    Restores the 24 Myticas user logins that were lost when the production
+    database was reseeded from the dev defaults on 2026-04-28. Forward-only:
+    historical login activity / passwords are NOT recovered, but the
+    accounts exist again so the admin can issue resets.
+    """
+    try:
+        from datetime import datetime
+        existing_emails = {u.email for u in User.query.all()}
+        existing_usernames = {u.username for u in User.query.all()}
+
+        created = 0
+        for c in SUPPORT_CONTACTS_MYTICAS:
+            if c['email'] in existing_emails:
+                continue
+
+            first = c['first_name'][0].lower()
+            last = c['last_name'].lower().replace(' ', '').replace('-', '').replace("'", '')
+            base_username = f'{first}{last}.myt'
+            username = base_username
+            suffix = 2
+            while username in existing_usernames:
+                username = f'{base_username}{suffix}'
+                suffix += 1
+
+            full_name = f"{c['first_name']} {c['last_name']}"
+            user = User(
+                username=username,
+                email=c['email'],
+                display_name=full_name,
+                company='Myticas Consulting',
+                is_admin=False,
+                is_company_admin=False,
+                password_hash='!locked',
+                created_at=datetime.utcnow(),
+            )
+            user.set_modules(['scout_inbound', 'scout_screening', 'scout_support'])
+            db.session.add(user)
+            existing_usernames.add(username)
+            existing_emails.add(c['email'])
+            created += 1
+
+        if created > 0:
+            db.session.commit()
+            logger.info(f"✅ Myticas users: created {created} locked login accounts")
+        else:
+            logger.info(f"✅ All Myticas user accounts already exist")
+
+        # Verification: every SUPPORT_CONTACTS_MYTICAS entry should now map to a User row.
+        # Surface a loud warning if the actual count is short, so a partial-restoration
+        # failure doesn't pass silently.
+        expected_emails = {c['email'] for c in SUPPORT_CONTACTS_MYTICAS}
+        actual_emails = {u.email for u in User.query.filter(
+            User.email.in_(list(expected_emails))).all()}
+        missing = expected_emails - actual_emails
+        if missing:
+            logger.warning(
+                f"⚠️ Myticas user restoration INCOMPLETE: "
+                f"{len(actual_emails)}/{len(expected_emails)} accounts present. "
+                f"Missing: {sorted(missing)}"
+            )
+        else:
+            logger.info(
+                f"✅ Myticas user restoration verified: all "
+                f"{len(expected_emails)} contacts have an account "
+                f"(by email)"
+            )
+
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ Failed to seed Myticas users: {str(e)}")
+
+
 def seed_stsi_users(db, User):
     """
     Create locked login accounts for all STSI support contacts.
@@ -1869,6 +1951,7 @@ def seed_database(db, User):
         seed_support_contacts(db)
 
         seed_stsi_users(db, User)
+        seed_myticas_users(db, User)
 
         ensure_module_subscriptions(db, User)
 
