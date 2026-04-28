@@ -14,8 +14,9 @@ What we verify:
     their own PDF extractor (avoids duplicating PDF logic).
   - RTF bytes mislabelled as .doc are stripped without invoking the
     network OCR path.
-  - Genuine OLE2 .doc bytes fall through to the AI vision OCR path
-    (mocked).
+  - Genuine OLE2 .doc bytes return None cleanly — vision OCR is
+    deliberately skipped because the OpenAI vision API rejects
+    non-image MIME types (application/msword) with HTTP 400.
   - The four legacy antiword call sites no longer reference 'antiword'
     in source — defence in depth against accidental reintroduction.
 """
@@ -105,16 +106,17 @@ def test_rtf_bytes_extracted_without_network_call():
     assert "python" in text.lower()
 
 
-def test_genuine_ole2_doc_falls_through_to_vision_ocr():
-    """A real .doc (OLE2 magic) should invoke vision OCR fallback."""
+def test_genuine_ole2_doc_returns_none_without_vision_ocr():
+    """A real .doc (OLE2 magic) must return None cleanly — vision OCR must
+    NOT be called because the OpenAI vision API rejects application/msword
+    with HTTP 400 ('Invalid MIME type. Only image types are supported.')."""
     ole2_bytes = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 200
 
     with patch("utils.doc_extraction._try_vision_ocr") as mock_ocr:
-        mock_ocr.return_value = "Extracted candidate text from OCR"
         text = extract_doc_text(ole2_bytes, "resume.doc")
+        mock_ocr.assert_not_called()
 
-    mock_ocr.assert_called_once()
-    assert text == "Extracted candidate text from OCR"
+    assert text is None
 
 
 def test_empty_bytes_return_none():
@@ -122,25 +124,26 @@ def test_empty_bytes_return_none():
     assert extract_doc_text(None, "resume.doc") is None  # type: ignore[arg-type]
 
 
-def test_vision_ocr_failure_returns_none():
-    """If vision OCR raises, the helper returns None — no exception leaks."""
+def test_ole2_doc_returns_none_without_network_call():
+    """Genuine OLE2 .doc must return None without touching the network.
+    Vision OCR is disabled for this format — verify no OpenAI call is made."""
     ole2_bytes = b"\xd0\xcf\x11\xe0" + b"\x00" * 100
 
-    with patch("utils.doc_extraction.OpenAI", create=True) as mock_openai:
-        mock_openai.side_effect = RuntimeError("simulated OpenAI outage")
-        # Patch the import inside _try_vision_ocr by patching at use site
-        with patch("openai.OpenAI") as mock_openai_real:
-            mock_openai_real.side_effect = RuntimeError("simulated OpenAI outage")
-            text = extract_doc_text(ole2_bytes, "resume.doc")
+    with patch("utils.doc_extraction._try_vision_ocr") as mock_ocr:
+        text = extract_doc_text(ole2_bytes, "resume.doc")
+        mock_ocr.assert_not_called()
 
     assert text is None
 
 
-def test_no_openai_key_returns_none_for_genuine_doc(monkeypatch):
-    """When OPENAI_API_KEY is unset, vision OCR returns None gracefully."""
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    ole2_bytes = b"\xd0\xcf\x11\xe0" + b"\x00" * 100
-    text = extract_doc_text(ole2_bytes, "resume.doc")
+def test_unknown_binary_returns_none_without_network_call():
+    """Unrecognised binary format must return None without touching the network."""
+    unknown_bytes = b"\x00\x01\x02\x03" + b"\xff" * 100
+
+    with patch("utils.doc_extraction._try_vision_ocr") as mock_ocr:
+        text = extract_doc_text(unknown_bytes, "mystery.doc")
+        mock_ocr.assert_not_called()
+
     assert text is None
 
 

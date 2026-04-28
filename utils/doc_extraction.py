@@ -19,8 +19,11 @@ This module replaces antiword everywhere with a deterministic chain:
     2. If the bytes are actually a PDF (%PDF magic) → caller's PDF path
        (this module returns None and lets the caller route to its own
        PDF extractor — keeps PDF logic in one place)
-    3. Otherwise (genuine OLE2 .doc, RTF, or unknown) → AI vision OCR
-       via the existing GPT-4.1-mini path
+    3. If the bytes are RTF → lightweight RTF stripper
+    4. Otherwise (genuine OLE2 .doc or unknown binary) → returns None.
+       Vision OCR is NOT used here: the OpenAI vision API only accepts
+       image MIME types and rejects application/msword with a 400.
+       Callers receive None and handle the clean failure themselves.
 
 No system binaries are invoked. No filesystem temp files are created
 unless the caller passes a path-style input.
@@ -163,11 +166,14 @@ def extract_doc_text(file_content: bytes, filename: str = "document.doc") -> Opt
     Order of attempts:
       1. If bytes are actually .docx (PK magic) → python-docx
       2. If bytes are actually RTF → lightweight RTF stripper
-      3. Otherwise → AI vision OCR (handles real OLE2 .doc files)
+      3. If bytes are actually PDF → return None (caller routes to PDF extractor)
+      4. Genuine OLE2 .doc or unknown binary → return None with a warning.
+         Vision OCR is deliberately skipped: the OpenAI vision API only
+         accepts image MIME types and rejects application/msword with a
+         400 error.  There is no binary-free extraction path for genuine
+         OLE2 .doc files in this environment.
 
-    Returns the extracted text, or None if every attempt fails. PDF
-    bytes return None — caller is expected to route PDFs to their own
-    extractor (this module intentionally does not duplicate PDF logic).
+    Returns the extracted text, or None if every attempt fails.
     """
     if not file_content:
         return None
@@ -179,19 +185,27 @@ def extract_doc_text(file_content: bytes, filename: str = "document.doc") -> Opt
         text = _try_python_docx(file_content)
         if text and len(text.strip()) > 10:
             return text
-        # Fall through to OCR
+        logger.warning(f"⚠️ '{filename}' has DOCX magic bytes but python-docx could not extract text — returning None")
+        return None
 
     if fmt == "rtf":
         logger.info(f"🔄 '{filename}' is RTF — using lightweight RTF stripper")
         text = _try_rtf(file_content)
         if text and len(text.strip()) > 10:
             return text
-        # Fall through to OCR
+        logger.warning(f"⚠️ '{filename}' is RTF but stripper produced no usable text — returning None")
+        return None
 
     if fmt == "pdf":
-        # Caller should handle PDFs — return None so they route correctly
         logger.info(f"🔄 '{filename}' is labeled .doc but is actually a PDF — caller should route to PDF extractor")
         return None
 
-    # Genuine .doc (OLE2) or unknown format → vision OCR
-    return _try_vision_ocr(file_content, filename)
+    # Genuine OLE2 .doc or unrecognised binary format.
+    # Vision OCR cannot process non-image MIME types (returns HTTP 400).
+    # No system-binary extraction is available in this environment.
+    fmt_label = "OLE2 .doc" if fmt == "doc" else "unknown binary"
+    logger.warning(
+        f"⚠️ '{filename}' is a genuine {fmt_label} file — no text extraction "
+        f"available without system binaries (antiword/LibreOffice). Returning None."
+    )
+    return None
