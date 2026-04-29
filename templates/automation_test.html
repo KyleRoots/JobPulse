@@ -458,6 +458,71 @@
             </div>
         </div>
 
+        <!-- Owner Reassignment Section -->
+        <div class="row mt-3">
+            <div class="col-12">
+                <div class="test-card">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <h3 class="mb-0"><i class="fas fa-user-tag me-2"></i>Owner Reassignment</h3>
+                        <div class="d-flex align-items-center gap-3">
+                            <span id="ownerReassignStatus" class="badge {% if owner_reassign_enabled %}bg-success{% else %}bg-secondary{% endif %} fs-6">
+                                {% if owner_reassign_enabled %}Active{% else %}Paused{% endif %}
+                            </span>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" role="switch"
+                                       id="ownerReassignToggle"
+                                       {% if owner_reassign_enabled %}checked{% endif %}
+                                       style="width:3em;height:1.5em;cursor:pointer;">
+                                <label class="form-check-label ms-2" for="ownerReassignToggle">
+                                    Enable Automation
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p class="text-muted small mb-3">
+                        Automatically transfers candidate ownership from API service accounts (Pandologic, Matador, etc.)
+                        to the human recruiter responsible for the job they applied to. Runs every 5 minutes when enabled.
+                    </p>
+
+                    {% if not api_user_ids_configured %}
+                    <div class="alert alert-warning py-2 mb-3" role="alert">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Setup required:</strong> No API user IDs configured. Go to
+                        <a href="{{ url_for('vetting.vetting_settings') }}" class="alert-link">Vetting Settings</a>
+                        and enter the Bullhorn CorporateUser IDs for your API accounts before running a test.
+                    </div>
+                    {% endif %}
+
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <button id="runOwnerPreview" class="btn btn-outline-info"
+                                {% if not api_user_ids_configured %}disabled title="Configure API user IDs in Vetting Settings first"{% endif %}>
+                            <i class="fas fa-search me-2"></i>Preview Test Batch (5 candidates)
+                        </button>
+                        <span class="text-muted small">Read-only — shows what would be reassigned without making any changes</span>
+                    </div>
+
+                    <div id="ownerPreviewResults" style="display:none;">
+                        <div id="ownerPreviewSummary" class="mb-2 small text-muted"></div>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-dark table-bordered mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Candidate</th>
+                                        <th>Current Owner</th>
+                                        <th>Applied Job</th>
+                                        <th>Would Reassign To</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ownerPreviewTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="row">
             <div class="col-12">
                 <div class="test-card">
@@ -665,7 +730,109 @@
         // Initialize the tester when the page loads
         document.addEventListener('DOMContentLoaded', () => {
             new AutomationTester();
+            initOwnerReassignment();
         });
+
+        function initOwnerReassignment() {
+            const toggle = document.getElementById('ownerReassignToggle');
+            const statusBadge = document.getElementById('ownerReassignStatus');
+            const previewBtn = document.getElementById('runOwnerPreview');
+
+            if (toggle) {
+                toggle.addEventListener('change', async () => {
+                    const enabled = toggle.checked;
+                    toggle.disabled = true;
+                    try {
+                        const resp = await fetch('/automation_test', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: 'ownership_toggle', enabled })
+                        });
+                        const data = await resp.json();
+                        if (data.success) {
+                            statusBadge.textContent = enabled ? 'Active' : 'Paused';
+                            statusBadge.className = 'badge fs-6 ' + (enabled ? 'bg-success' : 'bg-secondary');
+                        } else {
+                            toggle.checked = !enabled;
+                            alert('Failed to update toggle: ' + (data.error || 'Unknown error'));
+                        }
+                    } catch (e) {
+                        toggle.checked = !enabled;
+                        alert('Error updating toggle: ' + e.message);
+                    } finally {
+                        toggle.disabled = false;
+                    }
+                });
+            }
+
+            if (previewBtn) {
+                previewBtn.addEventListener('click', async () => {
+                    previewBtn.disabled = true;
+                    previewBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Fetching from Bullhorn...';
+                    const resultsDiv = document.getElementById('ownerPreviewResults');
+                    const summaryDiv = document.getElementById('ownerPreviewSummary');
+                    const tbody = document.getElementById('ownerPreviewTableBody');
+
+                    try {
+                        const resp = await fetch('/automation_test', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: 'ownership_preview' })
+                        });
+                        const data = await resp.json();
+
+                        if (!data.success) {
+                            summaryDiv.innerHTML = '<span class="text-danger"><i class="fas fa-times-circle me-1"></i>' + (data.error || 'Preview failed') + '</span>';
+                            resultsDiv.style.display = 'block';
+                            return;
+                        }
+
+                        if (data.error) {
+                            summaryDiv.innerHTML = '<span class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>' + data.error + '</span>';
+                            resultsDiv.style.display = 'block';
+                            return;
+                        }
+
+                        const candidates = data.candidates || [];
+                        const totalFound = data.total_found || 0;
+                        const willReassign = candidates.filter(c => c.would_reassign).length;
+
+                        summaryDiv.innerHTML = `Found <strong>${totalFound}</strong> API-owned candidate(s) in the last 30 days. ` +
+                            `Showing ${candidates.length}. <strong class="text-warning">${willReassign}</strong> would be reassigned.`;
+
+                        tbody.innerHTML = '';
+                        if (candidates.length === 0) {
+                            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No API-owned candidates found in the last 30 days.</td></tr>';
+                        } else {
+                            candidates.forEach(c => {
+                                const tr = document.createElement('tr');
+                                const actionCell = c.would_reassign
+                                    ? `<td><span class="badge bg-warning text-dark"><i class="fas fa-exchange-alt me-1"></i>Would Reassign</span></td>`
+                                    : `<td><span class="badge bg-secondary">${c.skip_reason || 'Skip'}</span></td>`;
+                                const toCell = c.would_reassign
+                                    ? `<td class="text-warning">${c.new_owner || ('ID ' + c.new_owner_id)}</td>`
+                                    : `<td class="text-muted">—</td>`;
+                                tr.innerHTML = `
+                                    <td><small>${c.name || ('ID ' + c.candidate_id)}</small></td>
+                                    <td><small>${c.current_owner}</small></td>
+                                    <td><small>${c.job_title || (c.job_id ? 'Job ' + c.job_id : '—')}</small></td>
+                                    ${toCell}
+                                    ${actionCell}
+                                `;
+                                tbody.appendChild(tr);
+                            });
+                        }
+                        resultsDiv.style.display = 'block';
+                    } catch (e) {
+                        summaryDiv.innerHTML = '<span class="text-danger">Error: ' + e.message + '</span>';
+                        resultsDiv.style.display = 'block';
+                    } finally {
+                        previewBtn.disabled = false;
+                        previewBtn.innerHTML = '<i class="fas fa-search me-2"></i>Preview Test Batch (5 candidates)';
+                    }
+                });
+            }
+        }
     </script>
 
     <!-- Scout Genius™ Footer -->

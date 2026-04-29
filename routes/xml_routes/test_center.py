@@ -18,7 +18,20 @@ logger = logging.getLogger(__name__)
 def automation_test():
     """Automation test center page"""
     reset_test_file()
-    return render_template('automation_test.html')
+    try:
+        from models import VettingConfig
+        row = VettingConfig.query.filter_by(setting_key='auto_reassign_owner_enabled').first()
+        owner_reassign_enabled = row and row.setting_value == 'true'
+        row2 = VettingConfig.query.filter_by(setting_key='api_user_ids').first()
+        api_user_ids_configured = bool(row2 and row2.setting_value and row2.setting_value.strip())
+    except Exception:
+        owner_reassign_enabled = False
+        api_user_ids_configured = False
+    return render_template(
+        'automation_test.html',
+        owner_reassign_enabled=owner_reassign_enabled,
+        api_user_ids_configured=api_user_ids_configured,
+    )
 
 
 @xml_routes_bp.route('/automation_test', methods=['POST'])
@@ -86,6 +99,34 @@ def automation_test_action():
                     'xml_content': sample_xml,
                     'note': 'This is sample XML content. Run the Complete Demo first to see actual processed results.'
                 })
+
+        elif action == 'ownership_toggle':
+            new_value = data.get('enabled', False)
+            try:
+                from models import VettingConfig
+                from extensions import db as _db
+                row = VettingConfig.query.filter_by(setting_key='auto_reassign_owner_enabled').first()
+                if row:
+                    row.setting_value = 'true' if new_value else 'false'
+                else:
+                    row = VettingConfig(
+                        setting_key='auto_reassign_owner_enabled',
+                        setting_value='true' if new_value else 'false',
+                    )
+                    _db.session.add(row)
+                _db.session.commit()
+                return jsonify({'success': True, 'enabled': new_value})
+            except Exception as e:
+                return jsonify({'success': False, 'error': str(e)})
+
+        elif action == 'ownership_preview':
+            try:
+                from tasks.owner_reassignment import preview_reassign_candidates
+                result = preview_reassign_candidates(limit=5)
+                return jsonify({'success': True, **result})
+            except Exception as e:
+                logger.error(f"ownership_preview error: {str(e)}")
+                return jsonify({'success': False, 'error': str(e)})
 
         else:
             return jsonify({'success': False, 'error': 'Unknown action'})

@@ -133,6 +133,165 @@ def _build_note_text(
     )
 
 
+def preview_reassign_candidates(limit: int = 5) -> dict:
+    """
+    Read-only preview: return a list of up to `limit` candidates that WOULD be
+    reassigned by the scheduled task, without making any changes to Bullhorn.
+
+    Used by the Automation Test Center "Test Batch" UI.
+
+    Returns a dict with keys:
+      enabled         bool    whether the feature toggle is on
+      api_user_ids    list    configured API user IDs
+      candidates      list    [{candidate_id, name, current_owner, job_title, job_id,
+                               resolved_recruiter_id, would_reassign: bool, skip_reason}]
+      total_found     int     total API-owned candidates found (may exceed limit)
+      error           str     only present on failure
+    """
+    from app import app
+
+    with app.app_context():
+        try:
+            enabled = _get_vetting_config('auto_reassign_owner_enabled', 'false').lower() == 'true'
+            api_user_ids = _parse_api_user_ids(_get_vetting_config('api_user_ids', ''))
+
+            if not api_user_ids:
+                return {
+                    'enabled': enabled,
+                    'api_user_ids': [],
+                    'candidates': [],
+                    'total_found': 0,
+                    'error': 'No API user IDs configured. Add Bullhorn CorporateUser IDs in Vetting Settings.',
+                }
+
+            bh = BullhornService()
+            if not bh.authenticate():
+                return {
+                    'enabled': enabled,
+                    'api_user_ids': api_user_ids,
+                    'candidates': [],
+                    'total_found': 0,
+                    'error': 'Bullhorn authentication failed.',
+                }
+
+            base_url = bh.base_url
+            rest_token = bh.rest_token
+            headers = {
+                'BhRestToken': rest_token,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+            }
+
+            if len(api_user_ids) == 1:
+                owner_clause = f'owner.id:{api_user_ids[0]}'
+            else:
+                owner_clause = '(' + ' OR '.join(f'owner.id:{uid}' for uid in api_user_ids) + ')'
+
+            since_time = datetime.utcnow() - timedelta(days=30)
+            since_ts = int(since_time.timestamp() * 1000)
+            query = f'{owner_clause} AND dateLastModified:[{since_ts} TO *]'
+
+            search_url = f"{base_url}search/Candidate"
+            resp = _requests.get(
+                search_url,
+                headers=headers,
+                params={
+                    'query': query,
+                    'fields': _CANDIDATE_FIELDS,
+                    'count': max(limit, 10),
+                    'start': 0,
+                    'sort': '-dateLastModified',
+                },
+                timeout=30,
+            )
+
+            if resp.status_code != 200:
+                return {
+                    'enabled': enabled,
+                    'api_user_ids': api_user_ids,
+                    'candidates': [],
+                    'total_found': 0,
+                    'error': f'Bullhorn search failed: HTTP {resp.status_code}',
+                }
+
+            page_data = resp.json()
+            all_candidates = page_data.get('data', [])
+            total_found = page_data.get('total', len(all_candidates))
+            sample = all_candidates[:limit]
+
+            results = []
+            for candidate in sample:
+                candidate_id = candidate.get('id')
+                if not candidate_id:
+                    continue
+
+                c_first = candidate.get('firstName', '')
+                c_last = candidate.get('lastName', '')
+                old_owner = candidate.get('owner') or {}
+                old_owner_id = old_owner.get('id')
+                old_owner_name = f"{old_owner.get('firstName', '')} {old_owner.get('lastName', '')}".strip() or 'API User'
+
+                job_id, job_title, recruiter_id = _fetch_candidate_job(base_url, headers, candidate_id)
+
+                entry = {
+                    'candidate_id': candidate_id,
+                    'name': f"{c_first} {c_last}".strip(),
+                    'current_owner': old_owner_name,
+                    'current_owner_id': old_owner_id,
+                    'job_id': job_id,
+                    'job_title': job_title or '',
+                    'resolved_recruiter_id': recruiter_id,
+                    'would_reassign': False,
+                    'skip_reason': None,
+                }
+
+                if job_id is None:
+                    entry['skip_reason'] = 'No job submission found'
+                elif not recruiter_id:
+                    entry['skip_reason'] = 'Job has no resolvable owner'
+                elif int(recruiter_id) in api_user_ids:
+                    entry['skip_reason'] = f'Job owner is also an API user (ID {recruiter_id})'
+                elif old_owner_id and int(old_owner_id) == int(recruiter_id):
+                    entry['skip_reason'] = 'Already assigned to correct recruiter'
+                else:
+                    new_owner_name = str(recruiter_id)
+                    try:
+                        user_resp = _requests.get(
+                            f"{base_url}entity/CorporateUser/{recruiter_id}",
+                            headers=headers,
+                            params={'fields': 'id,firstName,lastName'},
+                            timeout=10,
+                        )
+                        if user_resp.status_code == 200:
+                            ud = user_resp.json().get('data', {})
+                            new_owner_name = f"{ud.get('firstName', '')} {ud.get('lastName', '')}".strip() or str(recruiter_id)
+                    except Exception:
+                        pass
+                    entry['would_reassign'] = True
+                    entry['new_owner'] = new_owner_name
+                    entry['new_owner_id'] = recruiter_id
+
+                results.append(entry)
+                time.sleep(0.05)
+
+            return {
+                'enabled': enabled,
+                'api_user_ids': api_user_ids,
+                'candidates': results,
+                'total_found': total_found,
+            }
+
+        except Exception as exc:
+            logger.error(f"preview_reassign_candidates: unexpected error — {exc}", exc_info=True)
+            return {
+                'enabled': False,
+                'api_user_ids': [],
+                'candidates': [],
+                'total_found': 0,
+                'error': str(exc),
+            }
+
+
 def reassign_api_user_candidates(since_minutes: int = 30) -> None:
     """
     Main entry point for the scheduled task.
@@ -275,6 +434,14 @@ def reassign_api_user_candidates(since_minutes: int = 30) -> None:
                         f"({c_first} {c_last}) — job owner is also an API user ({recruiter_id})"
                     )
                     skipped_no_recruiter += 1
+                    continue
+
+                old_owner_id = old_owner.get('id')
+                if old_owner_id and int(old_owner_id) == int(recruiter_id):
+                    logger.debug(
+                        f"owner_reassignment: skipping candidate {candidate_id} "
+                        f"({c_first} {c_last}) — already owned by correct recruiter ({recruiter_id})"
+                    )
                     continue
 
                 try:

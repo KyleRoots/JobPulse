@@ -14,16 +14,6 @@ Task Plans: Every project task plan must include the recommended autonomy level 
 Source of Truth: GitHub repository (KyleRoots/Scout Genius) — main branch.
 Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 
-## Maintenance Cadence
-The following recurring checks must be performed proactively and reminded to the user at the appropriate intervals:
-
-- **Every deploy (post-go-live check):** Immediately after any production deployment, pull the deployment logs, check for errors/warnings/exceptions, confirm all schedulers are registered, and verify the new feature is live. Report status to user before closing out the task.
-- **Every 4–6 weeks (light refactor):** Economy autonomy. Review test suite health (run full suite), scan prod logs for recurring warnings or new patterns, address any tech debt or test gaps that have accumulated. Remind user when this window arrives.
-- **Every 2–3 months (optimization sprint):** Power autonomy. Deeper focus on one subsystem — scoring quality, token cost, performance, or architecture. Pick the area showing the most friction in recent prod logs. Remind user when this window arrives.
-- **Quarterly (security + dependency audit):** Run security scan and dependency audit. Flag outdated packages, new CVEs, and any hardcoded values or secrets risks. Remind user when this window arrives.
-
-Tracking: Last post-go-live check — 2026-04-29. Last light refactor — 2026-04-29 (test suite 1,260/1,260 green). Next light refactor reminder due: ~2026-06-10. Next optimization sprint due: ~2026-07-01. Next security audit due: ~2026-07-29.
-
 ## System Architecture
 
 ### UI/UX Decisions
@@ -58,32 +48,23 @@ Tracking: Last post-go-live check — 2026-04-29. Last light refactor — 2026-0
 - **Vetting Sandbox**: 5-stage wizard for manually testing the AI vetting pipeline.
 - **Scout Support**: AI-powered internal ATS support ticket module with two-tier approval, AI intake, clarification, solution proposals, and Bullhorn API execution.
 - **Platform Support**: User feedback creates support tickets with a simplified workflow.
-- **Modularized Services**: Key services like Seeding, Vetting Routes, Bullhorn Service, XML Integration Service, Vetting Audit Service, Automation Service, Email Service, and Inbound Email Service are modularized into mixin-based packages for better organization and maintainability.
-- **Tasks Package**: Scheduled task functions split from a 1,561-line monolith (`tasks.py`) into `tasks/` package with 5 domain modules: `monitoring.py` (health checks & alerts), `cleanup.py` (retention & timeout cleanup), `xml_feeds.py` (XML generation, SFTP upload, change monitor), `vetting.py` (AI vetting cycle & requirements maintenance), `bullhorn_maintenance.py` (LinkedIn cleanup, tearsheet enforcement, scheduler). All 17 public functions re-exported from `tasks/__init__.py` preserving the existing import surface.
-- **Screening Prompt Builder Package**: The 1,578-line `screening/prompt_builder.py` monolith split into 4 focused modules: `screening/prestige.py` (~52L, prestige employer constants & detection), `screening/system_prompt.py` (~447L, system message & location prompt construction), `screening/post_processing.py` (~482L, defense-in-depth post-processing gates), and the slimmed `screening/prompt_builder.py` (~480L, PromptBuilderMixin with 5 methods requiring `self.openai_client`). All imports re-exported for backward compatibility.
-- **Screening Detection Package**: The 1,324-line `screening/detection.py` monolith split into 3 focused modules: `screening/dedup.py` (~268L, CandidateDeduplicationMixin with job-aware dedup & recruiter-activity gating), `screening/candidate_data.py` (~375L, CandidateDataAccessMixin with Bullhorn data fetching, resume handling, and `_resolve_vetting_cutoff`), and the slimmed `screening/detection.py` (~647L, CandidateDetectionMixin inheriting from both sub-mixins with 5 detect_* source methods). All imports re-exported for backward compatibility.
-- **Candidate Vetting Service Package**: The 1,318-line `candidate_vetting_service.py` monolith converted to `candidate_vetting_service/` package with 5 modules: `config.py` (~176L, VettingConfigMixin with config/threshold/model/timestamp helpers), `locking.py` (~71L, VettingLockMixin with exclusive lock management), `processing.py` (~654L, CandidateProcessingMixin with the full single-candidate pipeline), `cycle.py` (~244L, VettingCycleMixin with multi-source detection and parallel processing orchestration), and `__init__.py` (~85L, CandidateVettingService class definition composing all mixins). All existing imports (`CandidateVettingService`, `map_work_type`, model names) re-exported for backward compatibility.
-- **XML Routes Package**: The 1,296-line `routes/xml_routes.py` monolith converted to `routes/xml_routes/` package with 4 modules: `__init__.py` (~20L, blueprint creation, admin guard, shared constants), `feed_ops.py` (~524L, XML upload/download/validate/reference-refresh routes), `automation.py` (~258L, automation status and manual SFTP upload routes), `test_center.py` (~514L, automation test center routes and demo helper functions). All 13 routes registered on the same `xml_routes_bp` blueprint. Security fix: added missing `@login_required` to `automation_test_action` POST route.
-- **Fresh-Prod-DB Guard**: Prevents accidental reseeding of production databases by halting boot if an empty database is detected.
+- **Modularized Services**: Key services like Seeding, Vetting Routes, Bullhorn Service, XML Integration Service, Vetting Audit Service, Automation Service, Email Service, and Inbound Email Service are modularized into mixin-based packages.
+- **Code Refactoring**: Extensive refactoring of monolith files into modular packages for `tasks`, `screening/prompt_builder`, `screening/detection`, `candidate_vetting_service`, and `routes/xml_routes` for improved maintainability and organization.
+- **Fresh-Prod-DB Guard**: Prevents accidental reseeding of production databases.
 - **Phone-Search Trigram Index**: GIN trigram index on normalized phone numbers for efficient substring lookups.
-- **Resume Name Hardening**: Multi-layered fix for incorrect name extraction from resumes, including blocklists for work authorization terms.
-- **Location Review Tier**: Candidates with a small location penalty are flagged for recruiter judgment rather than auto-rejected, triggering specific Bullhorn notes and emails.
-- **PandoLogic Note-Based Re-Applicant Detector**: Detects re-applicants via PandoLogic API notes to improve deduplication.
-- **Prestige Notification Threshold Gate**: Only notifies recruiters of prestige boosts if the boosted score meets the qualifying threshold.
-- **Nightly Database Backup**: Automated daily PostgreSQL backup to OneDrive with 30-day retention, failure alerts, and an admin dashboard.
-- **Audit Cooldown**: Quality Auditor skips re-examining the same (candidate, job) pair within a configurable window (default 6h, `auditor_cooldown_hours` in VettingConfig) when the prior audit produced a non-actionable outcome (`no_action`, `revet_skipped_*`). Actionable outcomes (`revet_triggered`, `flagged_for_review`) are never subject to the cooldown. Implemented in `vetting_audit_service/orchestration_mixin.py` (`_check_audit_cooldown`), getter in `helpers.py`.
-- **API User → Recruiter Ownership Reassignment (Task #70)**: Scheduled task (`tasks/owner_reassignment.py`) runs every 5 minutes via APScheduler. Searches Bullhorn for candidates owned by configured API service accounts (Pandologic, Matador, Myticas, etc.), resolves the correct human recruiter from the candidate's most recent job submission, and updates the `Candidate.owner` field in Bullhorn via POST to `entity/Candidate/{id}`. Optionally creates an audit note on reassignment. Three new VettingConfig settings: `auto_reassign_owner_enabled` (master toggle, default off), `api_user_ids` (comma-separated Bullhorn CorporateUser IDs), `reassign_owner_note_enabled` (default on). New `BullhornService.get_candidate_submissions()` method in `bullhorn_service/candidates.py`. Settings UI section in `vetting_settings.html` with live toggle behavior. 17 tests in `tests/test_owner_reassignment.py`.
-- **Scout Vetting Pre-Launch Hardening (Task #69)**: Six hardening items: (1) Staggered outreach — `scheduled_outreach_at` column on `ScoutVettingSession`; index-0 session sends immediately, subsequent sessions deferred by `STAGGER_MINUTES` (15min); failed sends auto-reschedule via `scheduled_outreach_at` for retry by `run_followups`. (2) Global `scout_vetting_enabled` toggle in VettingConfig with settings UI checkbox and `scout_vetting_enabled_at` timestamp. (3) Cross-session availability answer sharing — availability-type answers propagated to sibling active sessions for the same candidate. (4) Mid-conversation requirements-change flag — `requirements_changed_mid_session` Boolean column; job settings save flags active sessions; dashboard renders amber "Req. Changed" badge. (5) Inbound reply integration tests (4 tests covering answer/decline/finalization/OOO paths). (6) Test coverage gaps — SendGrid failure reschedule test, batch_size boundary tests, 23 total new tests across 3 files.
-
-### Bullhorn Note Creation — Critical Requirements
-- **`personReference`**: Must point to a Person entity (Candidate or ClientContact).
-- **Entity-Specific Payloads**: Defines `personReference`, association method, and action type for various entities.
-- **To-Many Fields**: `candidates` array can be set during PUT; other arrays require `NoteEntity` to link after creation.
-- **Standard Fields**: `commentingPerson` (API user's CorporateUser ID: 1147490), `action` (registered Note Action type), and `isDeleted` (always `False`).
+- **Resume Name Hardening**: Multi-layered fix for incorrect name extraction from resumes.
+- **Location Review Tier**: Candidates with small location penalties are flagged for recruiter judgment.
+- **PandoLogic Note-Based Re-Applicant Detector**: Detects re-applicants via PandoLogic API notes.
+- **Prestige Notification Threshold Gate**: Notifies recruiters of prestige boosts only if the boosted score meets qualifying thresholds.
+- **Nightly Database Backup**: Automated daily PostgreSQL backup to OneDrive with 30-day retention.
+- **Audit Cooldown**: Quality Auditor skips re-examining the same (candidate, job) pair within a configurable window under specific conditions.
+- **API User → Recruiter Ownership Reassignment**: Scheduled task to reassign candidate ownership in Bullhorn from API users to human recruiters based on job submissions. Includes a preview function and kill switch.
+- **Scout Vetting Pre-Launch Hardening**: Implemented staggered outreach for vetting sessions, a global toggle for Scout Vetting, cross-session availability answer sharing, mid-conversation requirements-change flag, and improved test coverage for inbound replies.
+- **Bullhorn Note Creation**: Critical requirements for Bullhorn note creation include `personReference`, entity-specific payloads, handling to-many fields, and standard fields like `commentingPerson`, `action`, and `isDeleted`.
 
 ## External Dependencies
 
 - **Python Libraries**: Flask, Flask-Login, Flask-WTF, Flask-SQLAlchemy, lxml, SQLAlchemy, Alembic, APScheduler, gunicorn, SendGrid, OpenAI, tiktoken, PyMuPDF, PyPDF2, python-docx, Paramiko, Requests, httpx, Sentry SDK, bcrypt, BeautifulSoup4.
 - **Frontend Libraries**: Bootstrap 5, Font Awesome 6.
-- **External Services**: PostgreSQL (Replit-hosted), SendGrid, OpenAI, Bullhorn ATS/CRM, Sentry, Microsoft OneDrive (for backups).
+- **External Services**: PostgreSQL, SendGrid, OpenAI, Bullhorn ATS/CRM, Sentry, Microsoft OneDrive.
 - **AI Models**: OpenAI GPT-5.4 (primary), GPT-4.1-mini Vision.
