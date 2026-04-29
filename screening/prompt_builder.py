@@ -244,39 +244,72 @@ Format as a bullet-point list. Be specific and concise."""
             return None
 
     def _reverify_zero_score(self, resume_text: str, job: Dict,
-                              candidate_location: Optional[Dict] = None) -> Optional[Dict]:
+                              candidate_location: Optional[Dict] = None,
+                              prior_summary: str = '',
+                              prior_gaps: str = '',
+                              global_requirements: Optional[str] = None) -> Optional[Dict]:
         """Re-verify a candidate who scored 0% to check for false negatives.
 
-        Uses a lightweight, focused prompt to quickly determine if the candidate
-        has ANY relevant skills. This catches cases where the main analysis
-        produced a zero score due to JSON parsing errors or other anomalies.
+        Uses a focused prompt with prior analysis context to determine whether
+        the zero score was accurate or a false negative.  Returns a
+        ``revised_score`` key so the caller can update the match record when
+        a genuine false negative is detected.
+
+        Args:
+            resume_text: Extracted resume text.
+            job: Bullhorn job dict.
+            candidate_location: Optional candidate address dict (unused in
+                prompt today but preserved for future location-aware checks).
+            prior_summary: Match summary from the initial 0% result.
+            prior_gaps: Gaps identified in the initial 0% result.
+            global_requirements: Pre-fetched global screening requirements.
         """
         try:
             job_title = job.get('title', 'Unknown')
             job_description = job.get('description', '') or job.get('publicDescription', '')
             job_description = re.sub(r'<[^>]+>', '', job_description)[:2000]
 
-            prompt = f"""Quick relevance check: Does this candidate have ANY skills relevant to this job?
+            prior_context = ''
+            if prior_summary or prior_gaps:
+                prior_context = (
+                    f"\nPrior analysis (scored 0%):\n"
+                    f"- Summary: {(prior_summary or 'N/A')[:300]}\n"
+                    f"- Gaps: {(prior_gaps or 'N/A')[:300]}\n"
+                )
 
-Job: {job_title}
-Key requirements from description: {job_description[:1000]}
+            global_req_block = ''
+            if global_requirements:
+                global_req_block = (
+                    f"\nGlobal screening requirements:\n{global_requirements[:500]}\n"
+                )
 
-Resume (first 3000 chars):
-{resume_text[:3000]}
-
-Rate 0-100 how relevant this candidate is. Be strict but fair.
-If they have ZERO relevant skills, score 0-10.
-If they have SOME relevant skills but major gaps, score 20-50.
-If they have MOST required skills, score 60-80.
-
-Respond in JSON:
-{{"match_score": <int>, "match_summary": "<1 sentence>", "skills_match": "<relevant skills found>", "gaps_identified": "<major gaps>"}}"""
+            prompt = (
+                f"You are re-checking a candidate who scored 0% in an initial AI screen. "
+                f"Determine whether the 0% was accurate or a false negative.\n\n"
+                f"Job: {job_title}\n"
+                f"Job description: {job_description[:1000]}\n"
+                f"{global_req_block}"
+                f"{prior_context}\n"
+                f"Resume (first 3000 chars):\n{resume_text[:3000]}\n\n"
+                f"Instructions:\n"
+                f"- Review the prior analysis. If it correctly identified a clear mismatch, "
+                f"confirm the 0% score.\n"
+                f"- If it missed genuine relevant experience, provide a revised score (20-100).\n"
+                f"- Only revise upward when there is clear resume evidence.\n\n"
+                f'Respond in JSON:\n'
+                f'{{"revised_score": <int 0-100>, "revised_summary": "<1 sentence>", '
+                f'"revised_gaps": "<major gaps>", '
+                f'"revision_reason": "<why you revised or confirmed>", '
+                f'"confidence_reason": "<your confidence assessment>"}}'
+            )
 
             response = self.openai_client.chat.completions.create(
                 model="gpt-5.4",
                 messages=[
-                    {"role": "system", "content": "You are a quick-check technical screener. "
-                     "Determine if a candidate has ANY relevant skills for a job. Be concise."},
+                    {"role": "system", "content": (
+                        "You are a precise technical screener re-checking a zero-score "
+                        "result. Return only valid JSON."
+                    )},
                     {"role": "user", "content": prompt}
                 ],
                 response_format={"type": "json_object"},
@@ -284,10 +317,12 @@ Respond in JSON:
             )
 
             result = json.loads(response.choices[0].message.content)
-            result['match_score'] = int(result.get('match_score', 0))
+            result['revised_score'] = int(result.get('revised_score', 0))
 
-            result.setdefault('experience_match', '')
-            result.setdefault('key_requirements', '')
+            result.setdefault('revised_summary', '')
+            result.setdefault('revised_gaps', '')
+            result.setdefault('revision_reason', '')
+            result.setdefault('confidence_reason', '')
 
             return result
 
