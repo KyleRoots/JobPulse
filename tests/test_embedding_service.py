@@ -258,12 +258,11 @@ class TestGenerateEmbedding:
         service = EmbeddingService()
         long_text = "software engineer experience " * 5000  # well over 8000 tokens
         
-        with patch('embedding_service.logging') as mock_logging:
+        with patch('embedding_service.logger') as mock_logger:
             result, was_truncated, original_tokens = service._truncate_for_embedding(long_text)
             assert was_truncated is True
-            # Should have logged at least one warning about truncation
-            assert mock_logging.warning.called
-            warning_msg = mock_logging.warning.call_args[0][0]
+            assert mock_logger.warning.called
+            warning_msg = mock_logger.warning.call_args[0][0]
             assert "truncated" in warning_msg.lower()
     
     def test_truncation_returns_metadata_tuple(self):

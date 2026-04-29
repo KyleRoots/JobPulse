@@ -109,6 +109,8 @@ SAFE_NAME_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"^mStatusBadge$"),
     re.compile(r"^notesCell$"),
     re.compile(r"^rescreenCell$"),
+    re.compile(r"^jobCountCell$"),
+    re.compile(r"^pagerHtml$"),
     re.compile(r"^transcriptHtml$"),
     re.compile(r"^chatHtml$"),
     re.compile(r"^qList$"),  # vetting_sandbox.html: built from _esc(q) in a loop

@@ -402,17 +402,19 @@ def migrate_legacy_custom_requirements(db):
             else:
                 edited_text = custom_text
 
+            from datetime import datetime as _dt
             db.session.execute(
                 text(
                     """
                     UPDATE job_vetting_requirements
                     SET edited_requirements = :edited,
-                        requirements_edited_at = COALESCE(:edited_at, NOW()),
+                        requirements_edited_at = COALESCE(:edited_at, :fallback_now),
                         requirements_edited_by = 'migrated'
                     WHERE id = :row_id
                     """
                 ),
-                {'edited': edited_text, 'edited_at': updated_at, 'row_id': row_id}
+                {'edited': edited_text, 'edited_at': updated_at,
+                 'row_id': row_id, 'fallback_now': _dt.utcnow()}
             )
             migrated += 1
 

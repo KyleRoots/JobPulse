@@ -128,8 +128,19 @@ class TestPersistenceBoundaryWiring:
     def _read(self, relpath):
         import os
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        with open(os.path.join(root, relpath), 'r', encoding='utf-8') as f:
-            return f.read()
+        target = os.path.join(root, relpath)
+        if os.path.isfile(target):
+            with open(target, 'r', encoding='utf-8') as f:
+                return f.read()
+        pkg_dir = os.path.join(root, relpath.replace('.py', ''))
+        if os.path.isdir(pkg_dir):
+            parts = []
+            for fn in sorted(os.listdir(pkg_dir)):
+                if fn.endswith('.py'):
+                    with open(os.path.join(pkg_dir, fn), 'r', encoding='utf-8') as f:
+                        parts.append(f.read())
+            return '\n'.join(parts)
+        raise FileNotFoundError(f"Neither {target} nor {pkg_dir}/ found")
 
     def test_cvs_imports_sanitize_text(self):
         src = self._read('candidate_vetting_service.py')

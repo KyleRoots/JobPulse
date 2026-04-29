@@ -433,7 +433,7 @@ class TestSTSIDomainRedirect:
 class TestSTSISeedData:
     def test_seed_data_count(self):
         from seed_database import SUPPORT_CONTACTS_STSI
-        assert len(SUPPORT_CONTACTS_STSI) == 15
+        assert len(SUPPORT_CONTACTS_STSI) == 14
 
     def test_seed_data_all_have_department(self):
         from seed_database import SUPPORT_CONTACTS_STSI

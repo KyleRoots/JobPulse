@@ -35,7 +35,8 @@ class TestZeroScoreAutoRetry:
                 candidate_name='Test Zero',
                 status='completed',
                 highest_match_score=0,
-                created_at=datetime.utcnow() - timedelta(minutes=15)
+                created_at=datetime.utcnow() - timedelta(minutes=15),
+                error_message='OpenAI API quota exceeded'
             )
             db.session.add(log)
             db.session.flush()
@@ -222,7 +223,7 @@ class TestQuotaExhaustionAlert:
             svc = CandidateVettingService()
 
             with patch.object(svc, '_get_admin_notification_email', return_value='test@example.com'):
-                with patch('candidate_vetting_service.EmailService') as MockEmail:
+                with patch('screening.recovery.EmailService') as MockEmail:
                     mock_instance = MockEmail.return_value
                     mock_instance.send_notification_email.return_value = True
 

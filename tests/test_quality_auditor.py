@@ -1964,7 +1964,14 @@ class TestRevetNewScoreBackfill:
         helper in isolation. Guarded as a source-text check because the
         full vetting pipeline is too heavy to drive in this test module."""
         import candidate_vetting_service as cvs_module
-        src = open(cvs_module.__file__, 'r', encoding='utf-8').read()
+        import os
+        pkg_dir = os.path.dirname(cvs_module.__file__)
+        parts = []
+        for fn in sorted(os.listdir(pkg_dir)):
+            if fn.endswith('.py'):
+                with open(os.path.join(pkg_dir, fn), 'r', encoding='utf-8') as f:
+                    parts.append(f.read())
+        src = '\n'.join(parts)
         assert 'from vetting_audit_service import backfill_revet_new_score' in src, (
             'CandidateVettingService must import backfill_revet_new_score'
         )
