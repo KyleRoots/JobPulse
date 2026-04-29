@@ -789,6 +789,9 @@ def test_run_scheduled_check_drains_queue_on_quiet_hour(monkeypatch):
         db.session.commit()
 
         svc = DuplicateMergeService()
+        # Bypass Bullhorn auth — the test SQLite DB has no credentials seeded,
+        # so _ensure_auth() would fail. Auth is orthogonal to queue-drain logic.
+        monkeypatch.setattr(svc, '_ensure_auth', lambda: None)
         # Simulate "no fresh candidates this hour".
         monkeypatch.setattr(svc, '_search_recent_candidates', lambda: [])
 
