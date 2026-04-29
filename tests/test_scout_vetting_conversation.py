@@ -691,3 +691,291 @@ class TestHelperMethods:
             summary = svc._get_conversation_summary(session)
 
         assert isinstance(summary, str)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Group 7 — Inbound Reply Integration (T005)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestInboundReplyIntegration:
+    """Full inbound path: classify → update answers → advance/close session."""
+
+    def test_answer_reply_updates_answers_and_sends_followup(self):
+        """Full path: answer reply → answers merged → follow-up sent → session in_progress."""
+        svc, email_svc, _ = _make_service()
+        session = _make_session(
+            status='outreach_sent',
+            current_turn=1,
+            max_turns=5,
+            answered_questions_json='{}',
+        )
+
+        answers = {'How many years of Python experience do you have?': '8 years'}
+        classify_result = {
+            'intent': 'answer',
+            'reasoning': 'Direct answer.',
+            'answers_extracted': answers,
+        }
+        followup_html = '<p>Thanks! Next question...</p>'
+        db_mock = _mock_db()
+
+        with patch('app.db', db_mock), \
+             patch.object(svc, '_classify_reply', return_value=classify_result), \
+             patch.object(svc, '_generate_followup_reply', return_value=followup_html), \
+             patch.object(svc, '_record_turn'), \
+             patch.object(svc, '_build_subject', return_value='Re: Vetting [SV-42]'), \
+             patch.object(svc, '_build_quoted_history', return_value=''), \
+             patch.object(svc, '_get_threading_headers', return_value={'in_reply_to': '<x>', 'references': '<x>'}), \
+             patch.object(svc, '_generate_message_id', return_value='<new@test.com>'), \
+             patch.object(svc, '_share_availability_answers'):
+
+            result = svc.process_candidate_reply(session, 'I have 8 years.', 'Re: Vetting [SV-42]')
+
+        assert result == followup_html
+        assert session.status == 'in_progress'
+        assert session.current_turn == 2
+        stored = json.loads(session.answered_questions_json)
+        assert 'How many years of Python experience do you have?' in stored
+        email_svc.send_html_email.assert_called_once()
+
+    def test_decline_reply_closes_session_no_email(self):
+        """Full path: decline reply → session declined → no outbound email."""
+        svc, email_svc, _ = _make_service()
+        session = _make_session(status='outreach_sent', current_turn=1)
+
+        classify_result = {
+            'intent': 'decline',
+            'reasoning': 'Candidate explicitly declined.',
+            'answers_extracted': {},
+        }
+        db_mock = _mock_db()
+
+        with patch('app.db', db_mock), \
+             patch.object(svc, '_classify_reply', return_value=classify_result), \
+             patch.object(svc, '_record_turn'):
+
+            result = svc.process_candidate_reply(session, 'No thanks, not interested.')
+
+        assert result is None
+        assert session.status == 'declined'
+        email_svc.send_html_email.assert_not_called()
+
+    def test_final_answer_triggers_finalization_and_thank_you(self):
+        """Full path: final answer → all questions answered → finalize + thank-you."""
+        svc, email_svc, _ = _make_service()
+        session = _make_session(
+            status='in_progress',
+            current_turn=2,
+            max_turns=5,
+            answered_questions_json=json.dumps({
+                'How many years of Python experience do you have?': '8 years',
+                'Have you worked with AWS or other cloud platforms?': 'Yes, extensively.',
+            }),
+        )
+
+        answers = {'Are you comfortable working fully remotely?': 'Yes, fully remote.'}
+        classify_result = {
+            'intent': 'answer',
+            'reasoning': 'Final answer.',
+            'answers_extracted': answers,
+        }
+        thank_you_html = '<p>Thank you for your time!</p>'
+        outcome = {'recommendation': 'qualified', 'score': 90, 'summary': 'Great fit.'}
+        db_mock = _mock_db()
+
+        with patch('app.db', db_mock), \
+             patch.object(svc, '_classify_reply', return_value=classify_result), \
+             patch.object(svc, '_generate_thank_you', return_value=thank_you_html), \
+             patch.object(svc, '_generate_outcome', return_value=outcome), \
+             patch.object(svc, '_record_turn'), \
+             patch.object(svc, '_build_subject', return_value='Re: Vetting [SV-42]'), \
+             patch.object(svc, '_build_quoted_history', return_value=''), \
+             patch.object(svc, '_get_threading_headers', return_value={'in_reply_to': '<x>', 'references': '<x>'}), \
+             patch.object(svc, '_generate_message_id', return_value='<ty@test.com>'), \
+             patch.object(svc, '_send_recruiter_handoff'), \
+             patch.object(svc, '_create_bullhorn_note', return_value=12345), \
+             patch.object(svc, '_share_availability_answers'):
+
+            result = svc.process_candidate_reply(session, 'Yes, fully remote.')
+
+        assert result == thank_you_html
+        assert session.status == 'qualified'
+
+    def test_ooo_reply_does_not_advance_turn_or_send_email(self):
+        """Full path: OOO auto-reply → turn NOT incremented, no outbound email."""
+        svc, email_svc, _ = _make_service()
+        session = _make_session(status='outreach_sent', current_turn=1)
+        original_turn = session.current_turn
+
+        classify_result = {
+            'intent': 'out_of_office',
+            'reasoning': 'Automated OOO.',
+            'answers_extracted': {},
+        }
+        db_mock = _mock_db()
+
+        with patch('app.db', db_mock), \
+             patch.object(svc, '_classify_reply', return_value=classify_result), \
+             patch.object(svc, '_record_turn'):
+
+            result = svc.process_candidate_reply(session, 'I am out of the office until April 20.')
+
+        assert result is None
+        assert session.current_turn == original_turn
+        email_svc.send_html_email.assert_not_called()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Group 8 — Cross-Session Answer Sharing (T003)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestCrossSessionAnswerSharing:
+
+    def test_availability_answer_shared_to_sibling(self):
+        """Availability-type answer is propagated to a sibling session's unanswered slot."""
+        svc, _, _ = _make_service()
+
+        source_session = _make_session(id=10, bullhorn_candidate_id=5001)
+
+        sibling = _make_session(
+            id=20,
+            bullhorn_candidate_id=5001,
+            bullhorn_job_id=4001,
+            status='outreach_sent',
+            vetting_questions_json=json.dumps([
+                'What is your current availability?',
+                'Describe your cloud experience.',
+            ]),
+            answered_questions_json='{}',
+        )
+
+        mock_query = Mock()
+        mock_query.filter.return_value.all.return_value = [sibling]
+
+        with patch('models.ScoutVettingSession') as MockSVS:
+            MockSVS.query = mock_query
+
+            answers = {'When could you start a new position?': 'Immediately available'}
+            svc._share_availability_answers(source_session, answers)
+
+        sib_answers = json.loads(sibling.answered_questions_json)
+        assert 'What is your current availability?' in sib_answers
+        assert '[shared from another session]' in sib_answers['What is your current availability?']
+
+    def test_non_availability_answer_not_shared(self):
+        """Non-availability answers (skills, experience) are NOT shared."""
+        svc, _, _ = _make_service()
+
+        source_session = _make_session(id=10, bullhorn_candidate_id=5001)
+
+        sibling = _make_session(
+            id=20,
+            bullhorn_candidate_id=5001,
+            status='outreach_sent',
+            vetting_questions_json=json.dumps([
+                'What Python frameworks have you used?',
+            ]),
+            answered_questions_json='{}',
+        )
+
+        mock_query = Mock()
+        mock_query.filter.return_value.all.return_value = [sibling]
+
+        with patch('models.ScoutVettingSession') as MockSVS:
+            MockSVS.query = mock_query
+
+            answers = {'How many years of Python experience?': '8 years'}
+            svc._share_availability_answers(source_session, answers)
+
+        sib_answers = json.loads(sibling.answered_questions_json)
+        assert len(sib_answers) == 0
+
+    def test_sharing_skips_already_answered_sibling_questions(self):
+        """If the sibling already has an answer for its availability Q, don't overwrite."""
+        svc, _, _ = _make_service()
+
+        source_session = _make_session(id=10, bullhorn_candidate_id=5001)
+
+        sibling = _make_session(
+            id=20,
+            bullhorn_candidate_id=5001,
+            status='in_progress',
+            vetting_questions_json=json.dumps([
+                'What is your availability?',
+            ]),
+            answered_questions_json=json.dumps({
+                'What is your availability?': 'In 2 weeks',
+            }),
+        )
+
+        mock_query = Mock()
+        mock_query.filter.return_value.all.return_value = [sibling]
+
+        with patch('models.ScoutVettingSession') as MockSVS:
+            MockSVS.query = mock_query
+
+            answers = {'When could you start?': 'Immediately'}
+            svc._share_availability_answers(source_session, answers)
+
+        sib_answers = json.loads(sibling.answered_questions_json)
+        assert sib_answers['What is your availability?'] == 'In 2 weeks'
+
+    def test_sharing_with_no_siblings_is_noop(self):
+        """No sibling sessions → method exits without error."""
+        svc, _, _ = _make_service()
+        source_session = _make_session(id=10, bullhorn_candidate_id=5001)
+
+        mock_query = Mock()
+        mock_query.filter.return_value.all.return_value = []
+
+        with patch('models.ScoutVettingSession') as MockSVS:
+            MockSVS.query = mock_query
+            svc._share_availability_answers(source_session, {'When available?': 'Now'})
+
+    def test_process_reply_calls_share_on_answer_intent(self):
+        """process_candidate_reply invokes _share_availability_answers for answer intents."""
+        svc, email_svc, _ = _make_service()
+        session = _make_session(status='outreach_sent', current_turn=1, max_turns=5)
+
+        answers = {'When could you start?': 'In 2 weeks'}
+        classify_result = {
+            'intent': 'answer',
+            'reasoning': 'Availability stated.',
+            'answers_extracted': answers,
+        }
+        db_mock = _mock_db()
+
+        with patch('app.db', db_mock), \
+             patch.object(svc, '_classify_reply', return_value=classify_result), \
+             patch.object(svc, '_generate_followup_reply', return_value='<p>Next Q</p>'), \
+             patch.object(svc, '_record_turn'), \
+             patch.object(svc, '_build_subject', return_value='Re: Vetting'), \
+             patch.object(svc, '_build_quoted_history', return_value=''), \
+             patch.object(svc, '_get_threading_headers', return_value={'in_reply_to': '<x>', 'references': '<x>'}), \
+             patch.object(svc, '_generate_message_id', return_value='<new@test.com>'), \
+             patch.object(svc, '_share_availability_answers') as mock_share:
+
+            svc.process_candidate_reply(session, 'In 2 weeks', 'Re: Vetting')
+
+        mock_share.assert_called_once_with(session, answers)
+
+    def test_process_reply_does_not_share_on_decline(self):
+        """process_candidate_reply does NOT call _share_availability_answers for decline."""
+        svc, email_svc, _ = _make_service()
+        session = _make_session(status='outreach_sent', current_turn=1)
+
+        classify_result = {
+            'intent': 'decline',
+            'reasoning': 'Declined.',
+            'answers_extracted': {},
+        }
+        db_mock = _mock_db()
+
+        with patch('app.db', db_mock), \
+             patch.object(svc, '_classify_reply', return_value=classify_result), \
+             patch.object(svc, '_record_turn'), \
+             patch.object(svc, '_share_availability_answers') as mock_share:
+
+            svc.process_candidate_reply(session, 'Not interested.')
+
+        mock_share.assert_not_called()

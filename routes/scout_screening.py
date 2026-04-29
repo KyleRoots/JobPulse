@@ -338,6 +338,23 @@ def save_job_settings(job_id):
             logger.warning(f"Failed to write config_change log: {log_err}")
 
         db.session.commit()
+
+        if not is_ajax_threshold_save and edit_action == 'set':
+            try:
+                from models import ScoutVettingSession
+                active_sessions = ScoutVettingSession.query.filter(
+                    ScoutVettingSession.bullhorn_job_id == job_id,
+                    ScoutVettingSession.status.in_(['outreach_sent', 'in_progress']),
+                ).all()
+                if active_sessions:
+                    for s in active_sessions:
+                        s.requirements_changed_mid_session = True
+                    db.session.commit()
+                    logger.info(f"Flagged {len(active_sessions)} active vetting session(s) "
+                               f"for job {job_id} — requirements changed mid-session")
+            except Exception as flag_err:
+                logger.warning(f"Failed to flag mid-session requirement change: {flag_err}")
+
         if request.form.get('_ajax') == '1':
             return ('', 204)
         flash(f'Settings saved for Job #{job_id}.', 'success')

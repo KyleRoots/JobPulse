@@ -1114,6 +1114,12 @@ class ScoutVettingSession(db.Model):
     note_created = db.Column(db.Boolean, nullable=False, default=False)
     handoff_sent = db.Column(db.Boolean, nullable=False, default=False)
     
+    # Staggered outreach scheduling
+    scheduled_outreach_at = db.Column(db.DateTime, nullable=True)
+    
+    # Mid-session requirements change flag
+    requirements_changed_mid_session = db.Column(db.Boolean, nullable=True)
+    
     # Email threading
     last_message_id = db.Column(db.String(255), nullable=True)  # For In-Reply-To header
     thread_message_id = db.Column(db.String(255), nullable=True)  # First message in thread (for References header)

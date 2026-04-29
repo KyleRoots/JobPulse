@@ -183,12 +183,16 @@ class ScoutVettingService:
 
         db.session.commit()
 
-        # Send outreach for pending sessions (staggered)
+        now = datetime.utcnow()
         for i, session in enumerate(result['sessions']):
-            try:
-                self._prepare_and_send_outreach(session, stagger_index=i)
-            except Exception as e:
-                logger.error(f"Scout Vetting: Failed to send outreach for session {session.id}: {e}")
+            if i == 0:
+                self._prepare_and_send_outreach(session, stagger_index=0)
+            else:
+                session.scheduled_outreach_at = now + timedelta(minutes=i * self.STAGGER_MINUTES)
+                logger.info(f"Scout Vetting: Session {session.id} deferred — "
+                           f"outreach scheduled at {session.scheduled_outreach_at.strftime('%H:%M')} "
+                           f"(+{i * self.STAGGER_MINUTES}min)")
+        db.session.commit()
 
         return result
 
@@ -228,24 +232,31 @@ class ScoutVettingService:
                 session.last_outreach_at = datetime.utcnow()
                 session.current_turn = 1
                 session.last_message_id = msg_id
+                session.scheduled_outreach_at = None
                 self._capture_thread_root(session, msg_id)
 
-                # Record the outbound turn
                 self._record_turn(session, 'outbound', subject, html, questions_asked=questions,
                                   message_id=msg_id)
 
                 logger.info(f"Scout Vetting: Outreach sent for session {session.id} "
                            f"to {session.candidate_email}")
             else:
-                session.status = 'pending'  # Will retry next cycle
-                logger.error(f"Scout Vetting: Email send failed for session {session.id}")
+                session.scheduled_outreach_at = datetime.utcnow() + timedelta(minutes=self.STAGGER_MINUTES)
+                logger.error(f"Scout Vetting: Email send failed for session {session.id} — "
+                            f"rescheduled at {session.scheduled_outreach_at.strftime('%H:%M')}")
 
             db.session.commit()
 
         except Exception as e:
-            logger.error(f"Scout Vetting: Error preparing outreach for session {session.id}: {e}")
+            session.scheduled_outreach_at = datetime.utcnow() + timedelta(minutes=self.STAGGER_MINUTES)
+            logger.error(f"Scout Vetting: Error preparing outreach for session {session.id}: {e} — "
+                        f"rescheduled at {session.scheduled_outreach_at.strftime('%H:%M')}")
             import traceback
             logger.error(traceback.format_exc())
+            try:
+                db.session.commit()
+            except Exception:
+                pass
 
     # ═══════════════════════════════════════════════════════════════
     # AI Question Generation
@@ -372,6 +383,10 @@ Example format: ["Question 1?", "Question 2?", "Question 3?"]"""
             existing_answers.update(answers)
             session.answered_questions_json = json.dumps(existing_answers)
 
+            # Cross-session answer sharing: propagate availability-type answers
+            if answers and intent == 'answer':
+                self._share_availability_answers(session, answers)
+
             # Determine next action based on intent
             if intent == 'decline':
                 session.status = 'declined'
@@ -454,6 +469,54 @@ Example format: ["Question 1?", "Question 2?", "Question 3?"]"""
             import traceback
             logger.error(traceback.format_exc())
             return None
+
+    AVAILABILITY_KEYWORDS = [
+        'availability', 'available', 'start date', 'notice period',
+        'when could you start', 'when would you be able', 'preferred start',
+        'current availability', 'start a new position', 'notice',
+    ]
+
+    def _share_availability_answers(self, session, answers: Dict):
+        """Share availability-type answers with sibling sessions for the same candidate.
+
+        Avoids asking the same availability/start-date question in parallel threads.
+        """
+        from app import db
+        from models import ScoutVettingSession
+
+        availability_answers = {}
+        for question, answer in answers.items():
+            q_lower = question.lower()
+            if any(kw in q_lower for kw in self.AVAILABILITY_KEYWORDS):
+                availability_answers[question] = answer
+
+        if not availability_answers:
+            return
+
+        siblings = ScoutVettingSession.query.filter(
+            ScoutVettingSession.bullhorn_candidate_id == session.bullhorn_candidate_id,
+            ScoutVettingSession.id != session.id,
+            ScoutVettingSession.status.in_(['pending', 'outreach_sent', 'in_progress']),
+        ).all()
+
+        for sibling in siblings:
+            try:
+                sib_answers = json.loads(sibling.answered_questions_json or '{}')
+                sib_questions = json.loads(sibling.vetting_questions_json or '[]')
+                shared_any = False
+                for avail_q, avail_a in availability_answers.items():
+                    for sq in sib_questions:
+                        sq_lower = sq.lower()
+                        if any(kw in sq_lower for kw in self.AVAILABILITY_KEYWORDS) and sq not in sib_answers:
+                            sib_answers[sq] = f"[shared from another session] {avail_a}"
+                            shared_any = True
+                            break
+                if shared_any:
+                    sibling.answered_questions_json = json.dumps(sib_answers)
+                    logger.info(f"Scout Vetting: Shared availability answer from session "
+                               f"{session.id} to sibling session {sibling.id}")
+            except Exception as e:
+                logger.warning(f"Scout Vetting: Failed to share answers to session {sibling.id}: {e}")
 
     def _classify_reply(self, session, email_body: str) -> Dict:
         """Use AI to classify the candidate's reply intent and extract answers."""
@@ -676,10 +739,29 @@ Return only valid JSON. No markdown, no preamble."""
         from app import db
         from models import ScoutVettingSession
 
-        stats = {'followups_sent': 0, 'closed_unresponsive': 0, 'promoted': 0, 'errors': 0}
+        stats = {'followups_sent': 0, 'closed_unresponsive': 0, 'promoted': 0,
+                 'deferred_sent': 0, 'errors': 0}
         now = datetime.utcnow()
 
         try:
+            # Send deferred staggered outreach that is now due
+            try:
+                deferred_sessions = ScoutVettingSession.query.filter(
+                    ScoutVettingSession.status == 'pending',
+                    ScoutVettingSession.scheduled_outreach_at.isnot(None),
+                    ScoutVettingSession.scheduled_outreach_at <= now,
+                ).all()
+                for session in deferred_sessions:
+                    try:
+                        self._prepare_and_send_outreach(session)
+                        session.scheduled_outreach_at = None
+                        stats['deferred_sent'] += 1
+                    except Exception as e:
+                        logger.error(f"Scout Vetting: Deferred outreach failed for session {session.id}: {e}")
+                        stats['errors'] += 1
+            except Exception as deferred_err:
+                logger.error(f"Scout Vetting: Deferred outreach query error: {deferred_err}")
+
             # Find sessions needing follow-up
             sessions_needing_followup = ScoutVettingSession.query.filter(
                 ScoutVettingSession.status.in_(['outreach_sent', 'in_progress']),

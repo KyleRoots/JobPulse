@@ -148,6 +148,11 @@
                                 <span class="badge bg-{{ status_colors.get(s.status, 'secondary') }}">
                                     {{ s.status.replace('_', ' ').title() }}
                                 </span>
+                                {% if s.requirements_changed_mid_session %}
+                                <span class="badge bg-warning text-dark ms-1" title="Job requirements were updated while this session was in progress. Questions may be based on an older snapshot.">
+                                    <i class="fas fa-exclamation-triangle"></i> Req. Changed
+                                </span>
+                                {% endif %}
                             </td>
                             <td class="text-center">{{ s.current_turn }}/{{ s.max_turns }}</td>
                             <td>

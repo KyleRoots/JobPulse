@@ -812,3 +812,209 @@ class TestRecruiterActivityGate:
         assert skip is True
         # The recruiter-activity Bullhorn call should NEVER fire
         assert bh.session.get.call_count == 0
+
+
+# ===========================================================================
+# 9. Scout Vetting: SendGrid failure during outreach (Task #69 T006)
+# ===========================================================================
+class TestScoutVettingSendGridFailure:
+    """When SendGrid throws during initial outreach the session must stay pending
+    so the deferred-send path can retry it later."""
+
+    def test_sendgrid_exception_leaves_session_pending(self):
+        from scout_vetting_service import ScoutVettingService
+        from unittest.mock import Mock, patch, MagicMock
+
+        mock_email = Mock()
+        mock_email.send_html_email.side_effect = Exception('SendGrid 503')
+        svc = ScoutVettingService(email_service=mock_email)
+
+        session = MagicMock()
+        session.id = 99
+        session.status = 'pending'
+        session.candidate_email = 'fail@test.com'
+        session.candidate_name = 'Fail Test'
+        session.job_title = 'Engineer'
+        session.bullhorn_candidate_id = 1111
+        session.bullhorn_job_id = 2222
+        session.max_turns = 5
+        session.match_summary = 'Good'
+        session.gaps_identified = 'None'
+        session.vetting_questions_json = None
+
+        with patch.object(svc, 'generate_vetting_questions', return_value=['Q1?', 'Q2?']), \
+             patch.object(svc, '_build_outreach_email', return_value='<p>Hi</p>'), \
+             patch.object(svc, '_build_subject', return_value='Subject'), \
+             patch.object(svc, '_generate_message_id', return_value='<msg@test>'), \
+             patch.object(svc, '_record_turn'):
+            svc._prepare_and_send_outreach(session, stagger_index=0)
+
+        assert session.status != 'outreach_sent'
+
+    def test_immediate_send_failure_reschedules_session(self):
+        """When SendGrid fails on index-0 immediate send, _prepare_and_send_outreach
+        sets scheduled_outreach_at so the deferred-send scheduler can retry."""
+        from scout_vetting_service import ScoutVettingService
+        from unittest.mock import Mock, patch, MagicMock
+
+        mock_email = Mock()
+        mock_email.send_html_email.side_effect = Exception('SendGrid 503')
+        svc = ScoutVettingService(email_service=mock_email)
+
+        session = MagicMock()
+        session.id = 77
+        session.status = 'pending'
+        session.scheduled_outreach_at = None
+        session.candidate_email = 'retry@test.com'
+        session.candidate_name = 'Retry Test'
+        session.job_title = 'Engineer'
+        session.bullhorn_candidate_id = 3333
+        session.bullhorn_job_id = 4444
+        session.max_turns = 5
+        session.match_summary = 'Good'
+        session.gaps_identified = 'None'
+        session.vetting_questions_json = None
+
+        now = datetime.utcnow()
+
+        with patch.object(svc, 'generate_vetting_questions', return_value=['Q1?']), \
+             patch.object(svc, '_build_outreach_email', return_value='<p>Hi</p>'), \
+             patch.object(svc, '_build_subject', return_value='Subject'), \
+             patch.object(svc, '_generate_message_id', return_value='<msg@test>'), \
+             patch.object(svc, '_record_turn'), \
+             patch('app.db') as db_mock:
+            db_mock.session.commit = Mock()
+            svc._prepare_and_send_outreach(session, stagger_index=0)
+
+        assert session.scheduled_outreach_at is not None
+        assert session.scheduled_outreach_at > now
+        assert session.status != 'outreach_sent'
+
+    def test_sendgrid_success_sets_outreach_sent(self):
+        from scout_vetting_service import ScoutVettingService
+        from unittest.mock import Mock, patch, MagicMock
+
+        mock_email = Mock()
+        mock_email.send_html_email.return_value = {'message_id': '<ok@test>', 'success': True}
+        svc = ScoutVettingService(email_service=mock_email)
+
+        session = MagicMock()
+        session.id = 100
+        session.status = 'pending'
+        session.candidate_email = 'ok@test.com'
+        session.candidate_name = 'OK Test'
+        session.job_title = 'Engineer'
+        session.bullhorn_candidate_id = 1112
+        session.bullhorn_job_id = 2223
+        session.max_turns = 5
+        session.match_summary = 'Good'
+        session.gaps_identified = 'None'
+        session.vetting_questions_json = None
+
+        with patch.object(svc, 'generate_vetting_questions', return_value=['Q1?']), \
+             patch.object(svc, '_build_outreach_email', return_value='<p>Hi</p>'), \
+             patch.object(svc, '_build_subject', return_value='Subject'), \
+             patch.object(svc, '_generate_message_id', return_value='<msg@test>'), \
+             patch.object(svc, '_record_turn'), \
+             patch.object(svc, '_capture_thread_root'), \
+             patch('app.db') as db_mock:
+            db_mock.session.commit = Mock()
+            svc._prepare_and_send_outreach(session, stagger_index=0)
+
+        assert session.status == 'outreach_sent'
+
+
+# ===========================================================================
+# 10. Batch-size boundary behavior (Task #69 T006)
+# ===========================================================================
+class TestBatchSizeBoundary:
+    """batch_size=1 should still process exactly one candidate."""
+
+    def test_batch_size_one(self, app):
+        """batch_size=1 limits detect_unvetted_applications to 1 candidate."""
+        _set_vetting_enabled(app, True)
+        cvs = _make_cvs()
+
+        with app.app_context():
+            _release_lock(app)
+            from models import VettingConfig
+            from app import db
+
+            cfg = VettingConfig.query.filter_by(setting_key='batch_size').first()
+            if cfg:
+                cfg.setting_value = '1'
+            else:
+                db.session.add(VettingConfig(setting_key='batch_size', setting_value='1'))
+            db.session.commit()
+
+            all_candidates = [
+                {'id': 1001, 'firstName': 'A', 'lastName': 'One'},
+                {'id': 1002, 'firstName': 'B', 'lastName': 'Two'},
+            ]
+
+            def mock_detect(limit=25):
+                return all_candidates[:limit]
+
+            processed_ids = []
+
+            def mock_process(candidate, **kwargs):
+                processed_ids.append(candidate['id'])
+                return None
+
+            with patch.object(cvs, 'detect_unvetted_applications', side_effect=mock_detect):
+                with patch.object(cvs, 'detect_pandologic_candidates', return_value=[]):
+                    with patch.object(cvs, 'detect_matador_candidates', return_value=[]):
+                        with patch.object(cvs, 'process_candidate', side_effect=mock_process):
+                            result = cvs.run_vetting_cycle()
+
+            assert len(processed_ids) == 1, f"Expected 1 candidate processed, got {len(processed_ids)}"
+            assert result['candidates_detected'] == 1
+            _release_lock(app)
+
+            cfg = VettingConfig.query.filter_by(setting_key='batch_size').first()
+            if cfg:
+                cfg.setting_value = '25'
+                db.session.commit()
+
+    def test_batch_size_one_caps_processing(self, app):
+        """batch_size=1 caps detection so only 1 of 3 candidates is processed."""
+        _set_vetting_enabled(app, True)
+        cvs = _make_cvs()
+
+        with app.app_context():
+            _release_lock(app)
+            from models import VettingConfig
+            from app import db
+
+            cfg = VettingConfig.query.filter_by(setting_key='batch_size').first()
+            if cfg:
+                cfg.setting_value = '1'
+            else:
+                db.session.add(VettingConfig(setting_key='batch_size', setting_value='1'))
+            db.session.commit()
+
+            all_candidates = [
+                {'id': 2001, 'firstName': 'X', 'lastName': 'One'},
+                {'id': 2002, 'firstName': 'Y', 'lastName': 'Two'},
+                {'id': 2003, 'firstName': 'Z', 'lastName': 'Three'},
+            ]
+
+            def mock_detect(limit=25):
+                return all_candidates[:limit]
+
+            mock_pc = MagicMock(return_value=None)
+
+            with patch.object(cvs, 'detect_unvetted_applications', side_effect=mock_detect):
+                with patch.object(cvs, 'detect_pandologic_candidates', return_value=[]):
+                    with patch.object(cvs, 'detect_matador_candidates', return_value=[]):
+                        with patch.object(cvs, 'process_candidate', side_effect=mock_pc):
+                            result = cvs.run_vetting_cycle()
+
+            assert mock_pc.call_count == 1, f"Expected 1 call, got {mock_pc.call_count}"
+            assert result['candidates_detected'] == 1
+            _release_lock(app)
+
+            cfg = VettingConfig.query.filter_by(setting_key='batch_size').first()
+            if cfg:
+                cfg.setting_value = '25'
+                db.session.commit()

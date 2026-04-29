@@ -23,6 +23,7 @@ def vetting_settings():
         'vetting_enabled': False,
         'send_recruiter_emails': False,
         'screening_audit_enabled': False,
+        'scout_vetting_enabled': False,
         'match_threshold': 80,
         'batch_size': 25,
         'admin_notification_email': '',
@@ -48,7 +49,8 @@ def vetting_settings():
         value = config_map.get(key)
         if value is not None:
             if key in ('vetting_enabled', 'send_recruiter_emails',
-                       'screening_audit_enabled', 'recruiter_activity_check_enabled'):
+                       'screening_audit_enabled', 'recruiter_activity_check_enabled',
+                       'scout_vetting_enabled'):
                 settings[key] = value.lower() == 'true'
             elif key in ('match_threshold', 'batch_size',
                          'recruiter_activity_lookback_minutes',
@@ -155,6 +157,7 @@ def save_vetting_settings():
         vetting_enabled = 'vetting_enabled' in request.form
         send_recruiter_emails = 'send_recruiter_emails' in request.form
         screening_audit_enabled = 'screening_audit_enabled' in request.form
+        scout_vetting_enabled = 'scout_vetting_enabled' in request.form
         match_threshold = request.form.get('match_threshold', '80')
         batch_size = request.form.get('batch_size', '25')
         admin_email = request.form.get('admin_notification_email', '')
@@ -164,7 +167,7 @@ def save_vetting_settings():
         global_custom_requirements = request.form.get('global_custom_requirements', '').strip()
         # Recruiter-activity gate (Task D)
         recruiter_gate_enabled = 'recruiter_activity_check_enabled' in request.form
-        recruiter_lookback_raw = request.form.get('recruiter_activity_lookback_minutes', '60')
+        recruiter_lookback_raw = request.form.get('recruiter_activity_lookback_minutes', '1440')
         # Quality auditor controls (Task #11 rescope)
         # When the audit toggle is OFF the three fields below are disabled
         # in the UI and won't be submitted. Detect that case so we preserve
@@ -213,9 +216,9 @@ def save_vetting_settings():
         try:
             recruiter_lookback = int(str(recruiter_lookback_raw).strip())
             if recruiter_lookback < 0 or recruiter_lookback > 1440:
-                recruiter_lookback = 60
+                recruiter_lookback = 1440
         except (ValueError, TypeError):
-            recruiter_lookback = 60
+            recruiter_lookback = 1440
 
         # Validate qualified_audit_sample_rate (0-100; 0 disables Phase 2).
         # Skipped entirely when fields weren't submitted (audit toggle off).
@@ -263,6 +266,16 @@ def save_vetting_settings():
             ('vetting_enabled', 'true' if vetting_enabled else 'false'),
             ('send_recruiter_emails', 'true' if send_recruiter_emails else 'false'),
             ('screening_audit_enabled', 'true' if screening_audit_enabled else 'false'),
+            ('scout_vetting_enabled', 'true' if scout_vetting_enabled else 'false'),
+        ]
+        if scout_vetting_enabled:
+            existing_sv = VettingConfig.query.filter_by(setting_key='scout_vetting_enabled').first()
+            was_off = not existing_sv or existing_sv.setting_value.lower() != 'true'
+            if was_off:
+                settings_to_save.append(
+                    ('scout_vetting_enabled_at', datetime.utcnow().isoformat())
+                )
+        settings_to_save.extend([
             ('match_threshold', str(threshold)),
             ('batch_size', str(batch)),
             ('admin_notification_email', admin_email),
@@ -273,7 +286,7 @@ def save_vetting_settings():
             ('recruiter_activity_check_enabled',
              'true' if recruiter_gate_enabled else 'false'),
             ('recruiter_activity_lookback_minutes', str(recruiter_lookback)),
-        ]
+        ])
         if auditor_fields_submitted:
             settings_to_save.extend([
                 ('quality_auditor_model', quality_auditor_model),

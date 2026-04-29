@@ -525,3 +525,186 @@ class TestInboundEmailRouting:
                     'text': 'Resume attached',
                 })
                 assert response.status_code == 200
+
+
+# ===========================================================================
+# Stagger Outreach (T001 — Task #69)
+# ===========================================================================
+
+class TestStaggerOutreach:
+    """Tests for the STAGGER_MINUTES deferred outreach scheduling."""
+
+    def test_stagger_constant_is_15(self):
+        from scout_vetting_service import ScoutVettingService
+        assert ScoutVettingService.STAGGER_MINUTES == 15
+
+    def test_first_session_sends_immediately(self, app):
+        """Index 0 session calls _prepare_and_send_outreach right away."""
+        with app.app_context():
+            from scout_vetting_service import ScoutVettingService
+            from models import ScoutVettingSession, VettingConfig
+
+            svc = ScoutVettingService(email_service=Mock())
+
+            vlog = _make_vetting_log(bullhorn_candidate_id=7001, analyzed_at=datetime.utcnow())
+            match = _make_match(bullhorn_job_id=8001)
+
+            with patch.object(svc, 'is_enabled', return_value=True), \
+                 patch.object(svc, '_get_enabled_at', return_value=datetime(2020, 1, 1)), \
+                 patch.object(svc, 'is_enabled_for_job', return_value=True), \
+                 patch.object(svc, '_check_active_session_exists', return_value=False), \
+                 patch.object(ScoutVettingSession, 'query') as mock_sq, \
+                 patch.object(svc, '_prepare_and_send_outreach') as mock_send, \
+                 patch('app.db') as db_mock:
+
+                mock_sq.filter.return_value.count.return_value = 0
+                db_mock.session.add = Mock()
+                db_mock.session.flush = Mock()
+                db_mock.session.commit = Mock()
+
+                result = svc.initiate_vetting(vlog, [match])
+
+            assert result['created'] == 1
+            mock_send.assert_called_once()
+
+    def test_second_session_gets_deferred_timestamp(self, app):
+        """Index 1+ sessions get scheduled_outreach_at = now + i*STAGGER_MINUTES."""
+        with app.app_context():
+            from scout_vetting_service import ScoutVettingService
+            from models import ScoutVettingSession
+
+            svc = ScoutVettingService(email_service=Mock())
+
+            vlog = _make_vetting_log(bullhorn_candidate_id=7002, analyzed_at=datetime.utcnow())
+            match1 = _make_match(bullhorn_job_id=8001)
+            match2 = _make_match(bullhorn_job_id=8002)
+
+            created_sessions = []
+
+            def mock_add(obj):
+                if hasattr(obj, 'bullhorn_job_id'):
+                    created_sessions.append(obj)
+
+            def mock_flush():
+                for s in created_sessions:
+                    if not hasattr(s, 'id') or s.id is None:
+                        s.id = len(created_sessions) + 100
+
+            with patch.object(svc, 'is_enabled', return_value=True), \
+                 patch.object(svc, '_get_enabled_at', return_value=datetime(2020, 1, 1)), \
+                 patch.object(svc, 'is_enabled_for_job', return_value=True), \
+                 patch.object(svc, '_check_active_session_exists', return_value=False), \
+                 patch.object(ScoutVettingSession, 'query') as mock_sq, \
+                 patch.object(svc, '_prepare_and_send_outreach'), \
+                 patch('app.db') as db_mock:
+
+                mock_sq.filter.return_value.count.return_value = 0
+                db_mock.session.add = mock_add
+                db_mock.session.flush = mock_flush
+                db_mock.session.commit = Mock()
+
+                result = svc.initiate_vetting(vlog, [match1, match2])
+
+            assert result['created'] == 2
+            second_session = result['sessions'][1]
+            assert second_session.scheduled_outreach_at is not None
+
+
+# ===========================================================================
+# Global scout_vetting_enabled Toggle (T002 — Task #69)
+# ===========================================================================
+
+class TestGlobalScoutVettingToggle:
+    """Tests for the scout_vetting_enabled VettingConfig key."""
+
+    def test_settings_page_shows_scout_vetting_toggle(self, authenticated_client, app):
+        """Vetting settings page renders the Scout Vetting checkbox."""
+        with app.app_context():
+            response = authenticated_client.get('/screening')
+            assert response.status_code == 200
+            assert b'scout_vetting_enabled' in response.data
+            assert b'Enable Scout Vetting' in response.data
+
+    def test_save_settings_persists_toggle(self, authenticated_client, app):
+        """Toggling scout_vetting_enabled ON persists to VettingConfig."""
+        with app.app_context():
+            from models import VettingConfig
+
+            response = authenticated_client.post('/screening/save', data={
+                'vetting_enabled': 'on',
+                'scout_vetting_enabled': 'on',
+                'match_threshold': '80',
+                'batch_size': '25',
+                'admin_notification_email': '',
+                'health_alert_email': '',
+                'embedding_similarity_threshold': '0.25',
+                'vetting_cutoff_date': '',
+                'global_custom_requirements': '',
+            }, follow_redirects=True)
+            assert response.status_code == 200
+
+            cfg = VettingConfig.query.filter_by(setting_key='scout_vetting_enabled').first()
+            assert cfg is not None
+            assert cfg.setting_value == 'true'
+
+
+# ===========================================================================
+# Mid-Conversation Requirements-Change Flag (T004 — Task #69)
+# ===========================================================================
+
+class TestMidSessionRequirementsFlag:
+    """Tests for the requirements_changed_mid_session column and dashboard indicator."""
+
+    def test_model_column_exists(self, app):
+        """ScoutVettingSession model has the requirements_changed_mid_session column."""
+        with app.app_context():
+            from models import ScoutVettingSession
+            assert hasattr(ScoutVettingSession, 'requirements_changed_mid_session')
+
+    def test_scheduled_outreach_column_exists(self, app):
+        """ScoutVettingSession model has the scheduled_outreach_at column."""
+        with app.app_context():
+            from models import ScoutVettingSession
+            assert hasattr(ScoutVettingSession, 'scheduled_outreach_at')
+
+    def test_dashboard_renders_req_changed_badge(self, authenticated_client, app):
+        """Dashboard shows amber badge for sessions with requirements_changed_mid_session."""
+        with app.app_context():
+            from app import db
+            from models import ScoutVettingSession, CandidateVettingLog
+
+            vlog = CandidateVettingLog(
+                bullhorn_candidate_id=9999,
+                candidate_name='Test Candidate',
+                candidate_email='test@test.com',
+                status='completed',
+            )
+            db.session.add(vlog)
+            db.session.flush()
+
+            session = ScoutVettingSession(
+                vetting_log_id=vlog.id,
+                bullhorn_candidate_id=9999,
+                candidate_email='test@test.com',
+                candidate_name='Test Candidate',
+                bullhorn_job_id=1234,
+                job_title='Test Job',
+                recruiter_email='r@test.com',
+                recruiter_name='Recruiter',
+                status='in_progress',
+                current_turn=2,
+                max_turns=5,
+                requirements_changed_mid_session=True,
+            )
+            db.session.add(session)
+            db.session.commit()
+            session_id = session.id
+            vlog_id = vlog.id
+
+            response = authenticated_client.get('/vetting')
+            assert response.status_code == 200
+            assert b'Req. Changed' in response.data
+
+            ScoutVettingSession.query.filter_by(id=session_id).delete()
+            CandidateVettingLog.query.filter_by(id=vlog_id).delete()
+            db.session.commit()

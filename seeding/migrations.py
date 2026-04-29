@@ -38,6 +38,9 @@ def run_schema_migrations(db):
         ("job_vetting_requirements", "edited_requirements", "TEXT"),
         ("job_vetting_requirements", "requirements_edited_at", "TIMESTAMP"),
         ("job_vetting_requirements", "requirements_edited_by", "VARCHAR(255)"),
+        # Scout Vetting stagger + mid-session flag (added Apr 2026)
+        ("scout_vetting_session", "scheduled_outreach_at", "TIMESTAMP"),
+        ("scout_vetting_session", "requirements_changed_mid_session", "BOOLEAN"),
     ]
 
     _SAFE_IDENTIFIER = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
