@@ -302,15 +302,21 @@ def save_vetting_settings():
                 ('platform_age_ceilings', platform_age_ceilings_value),
                 ('qualified_audit_sample_rate', str(qualified_sample_rate)),
             ])
-        # Ownership Reassignment — sanitize IDs to comma-separated integers only
-        sanitized_api_ids = ','.join(
-            p.strip() for p in api_user_ids_raw.split(',') if p.strip().isdigit()
+        # Ownership Reassignment — save master toggle always; only overwrite
+        # api_user_ids and note toggle when the master toggle is ON so that
+        # turning it off (which disables and un-submits those fields) never
+        # erases a user's previously configured IDs or note preference.
+        settings_to_save.append(
+            ('auto_reassign_owner_enabled', 'true' if auto_reassign_owner_enabled else 'false')
         )
-        settings_to_save.extend([
-            ('auto_reassign_owner_enabled', 'true' if auto_reassign_owner_enabled else 'false'),
-            ('api_user_ids', sanitized_api_ids),
-            ('reassign_owner_note_enabled', 'true' if reassign_owner_note_enabled else 'false'),
-        ])
+        if auto_reassign_owner_enabled:
+            sanitized_api_ids = ','.join(
+                p.strip() for p in api_user_ids_raw.split(',') if p.strip().isdigit()
+            )
+            settings_to_save.extend([
+                ('api_user_ids', sanitized_api_ids),
+                ('reassign_owner_note_enabled', 'true' if reassign_owner_note_enabled else 'false'),
+            ])
 
         for key, value in settings_to_save:
             config = VettingConfig.query.filter_by(setting_key=key).first()

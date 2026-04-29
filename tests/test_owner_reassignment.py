@@ -605,3 +605,34 @@ class TestGetToggleRendering:
         assert 'checked' in match.group(0), (
             "auto_reassign_owner_enabled toggle should be checked when DB value is 'true'"
         )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# T017: sub-settings preserved when master toggle is turned OFF
+# ─────────────────────────────────────────────────────────────────────────────
+class TestSubSettingsPreservedOnToggleOff:
+    def test_api_user_ids_preserved_when_toggle_off(self, app, authenticated_client):
+        """Turning master toggle OFF must not erase previously configured IDs."""
+        from models import VettingConfig
+        _ensure_config(app, 'auto_reassign_owner_enabled', 'true')
+        _ensure_config(app, 'api_user_ids', '111222,333444')
+        _ensure_config(app, 'reassign_owner_note_enabled', 'true')
+
+        resp = authenticated_client.post('/screening/save', data={
+            'match_threshold': '80',
+            'batch_size': '25',
+        }, follow_redirects=False)
+
+        assert resp.status_code in (302, 200)
+
+        with app.app_context():
+            r_toggle = VettingConfig.query.filter_by(setting_key='auto_reassign_owner_enabled').first()
+            r_ids = VettingConfig.query.filter_by(setting_key='api_user_ids').first()
+            r_note = VettingConfig.query.filter_by(setting_key='reassign_owner_note_enabled').first()
+            assert r_toggle and r_toggle.setting_value == 'false', "Master toggle should be false"
+            assert r_ids and r_ids.setting_value == '111222,333444', (
+                "api_user_ids must be preserved when master toggle is turned off"
+            )
+            assert r_note and r_note.setting_value == 'true', (
+                "reassign_owner_note_enabled must be preserved when master toggle is turned off"
+            )
