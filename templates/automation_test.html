@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Test Automation - Scout Genius™</title>
     <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -596,6 +597,8 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
         class AutomationTester {
             constructor() {
                 this.testOutput = document.getElementById('testOutput');
@@ -662,7 +665,7 @@
 
                     const response = await fetch('/automation_test', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
                         body: JSON.stringify({ action: 'complete_demo' })
                     });
 
@@ -722,7 +725,7 @@
                 try {
                     const response = await fetch('/automation_test', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
                         body: JSON.stringify({ action })
                     });
 
@@ -757,7 +760,7 @@
                 try {
                     const response = await fetch('/automation_test', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
                         body: JSON.stringify({ action: 'show_xml' })
                     });
 
@@ -844,7 +847,7 @@
                     try {
                         const resp = await fetch('/automation_test', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
                             body: JSON.stringify({ action: 'ownership_run_live' })
                         });
                         const data = await resp.json();
@@ -899,7 +902,7 @@
                     try {
                         const resp = await fetch('/automation_test', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
                             body: JSON.stringify({
                                 action: 'ownership_save_config',
                                 api_user_ids: apiIdsInput.value,
@@ -932,7 +935,7 @@
                     try {
                         await fetch('/automation_test', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
                             body: JSON.stringify({
                                 action: 'ownership_save_config',
                                 api_user_ids: apiIdsInput ? apiIdsInput.value : '',
@@ -954,7 +957,7 @@
                     try {
                         const resp = await fetch('/automation_test', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
                             body: JSON.stringify({ action: 'ownership_toggle', enabled })
                         });
                         const data = await resp.json();
@@ -987,7 +990,7 @@
                     try {
                         const resp = await fetch('/automation_test', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
                             body: JSON.stringify({ action: 'ownership_preview' })
                         });
                         const data = await resp.json();
