@@ -49,6 +49,7 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 - **Scout Support**: AI-powered internal ATS support ticket module with two-tier approval, AI intake, clarification, solution proposals, and Bullhorn API execution.
 - **Platform Support**: User feedback creates support tickets with a simplified workflow.
 - **Modularized Services**: Key services like Seeding, Vetting Routes, Bullhorn Service, XML Integration Service, Vetting Audit Service, Automation Service, Email Service, and Inbound Email Service are modularized into mixin-based packages for better organization and maintainability.
+- **Tasks Package**: Scheduled task functions split from a 1,561-line monolith (`tasks.py`) into `tasks/` package with 5 domain modules: `monitoring.py` (health checks & alerts), `cleanup.py` (retention & timeout cleanup), `xml_feeds.py` (XML generation, SFTP upload, change monitor), `vetting.py` (AI vetting cycle & requirements maintenance), `bullhorn_maintenance.py` (LinkedIn cleanup, tearsheet enforcement, scheduler). All 17 public functions re-exported from `tasks/__init__.py` preserving the existing import surface.
 - **Fresh-Prod-DB Guard**: Prevents accidental reseeding of production databases by halting boot if an empty database is detected.
 - **Phone-Search Trigram Index**: GIN trigram index on normalized phone numbers for efficient substring lookups.
 - **Resume Name Hardening**: Multi-layered fix for incorrect name extraction from resumes, including blocklists for work authorization terms.
