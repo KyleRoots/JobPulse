@@ -22,7 +22,7 @@ The following recurring checks must be performed proactively and reminded to the
 - **Every 2–3 months (optimization sprint):** Power autonomy. Deeper focus on one subsystem — scoring quality, token cost, performance, or architecture. Pick the area showing the most friction in recent prod logs. Remind user when this window arrives.
 - **Quarterly (security + dependency audit):** Run security scan and dependency audit. Flag outdated packages, new CVEs, and any hardcoded values or secrets risks. Remind user when this window arrives.
 
-Tracking: Last post-go-live check — 2026-04-29. Last light refactor — 2026-04-29 (test suite 1,250/1,250 green). Next light refactor reminder due: ~2026-06-10. Next optimization sprint due: ~2026-07-01. Next security audit due: ~2026-07-29.
+Tracking: Last post-go-live check — 2026-04-29. Last light refactor — 2026-04-29 (test suite 1,254/1,254 green). Next light refactor reminder due: ~2026-06-10. Next optimization sprint due: ~2026-07-01. Next security audit due: ~2026-07-29.
 
 ## System Architecture
 

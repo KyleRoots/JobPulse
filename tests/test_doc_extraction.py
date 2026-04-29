@@ -101,12 +101,15 @@ def test_rtf_bytes_extracted_without_network_call():
     assert "python" in text.lower()
 
 
-def test_genuine_ole2_doc_returns_none_cleanly():
-    """A real .doc (OLE2 magic) must return None cleanly.
-    Vision OCR was removed — the OpenAI vision API rejects application/msword
-    with HTTP 400 ('Invalid MIME type. Only image types are supported.')."""
+def test_genuine_ole2_doc_returns_none_when_antiword_fails():
+    """When antiword is unavailable or returns no text, extract_doc_text
+    returns None cleanly.  Vision OCR is deliberately skipped because the
+    OpenAI vision API rejects application/msword with HTTP 400."""
+    from unittest.mock import patch
+
     ole2_bytes = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 200
-    text = extract_doc_text(ole2_bytes, "resume.doc")
+    with patch("utils.doc_extraction._try_antiword", return_value=None):
+        text = extract_doc_text(ole2_bytes, "resume.doc")
     assert text is None
 
 
@@ -115,19 +118,74 @@ def test_empty_bytes_return_none():
     assert extract_doc_text(None, "resume.doc") is None  # type: ignore[arg-type]
 
 
-def test_ole2_doc_returns_none_without_network_call():
-    """Genuine OLE2 .doc must return None — vision OCR has been removed
-    because the OpenAI vision API rejects application/msword with HTTP 400."""
+def test_ole2_doc_returns_none_when_antiword_unavailable():
+    """If antiword is not on PATH, extract_doc_text returns None gracefully."""
+    from unittest.mock import patch
+
     ole2_bytes = b"\xd0\xcf\x11\xe0" + b"\x00" * 100
-    text = extract_doc_text(ole2_bytes, "resume.doc")
+    with patch("utils.doc_extraction._try_antiword", return_value=None):
+        text = extract_doc_text(ole2_bytes, "resume.doc")
     assert text is None
 
 
-def test_unknown_binary_returns_none_without_network_call():
-    """Unrecognised binary format must return None — vision OCR removed."""
+def test_unknown_binary_returns_none_when_antiword_fails():
+    """Unrecognised binary format returns None when antiword also fails."""
+    from unittest.mock import patch
+
     unknown_bytes = b"\x00\x01\x02\x03" + b"\xff" * 100
-    text = extract_doc_text(unknown_bytes, "mystery.doc")
+    with patch("utils.doc_extraction._try_antiword", return_value=None):
+        text = extract_doc_text(unknown_bytes, "mystery.doc")
     assert text is None
+
+
+def test_ole2_doc_returns_text_when_antiword_succeeds():
+    """When antiword succeeds on a genuine OLE2 .doc, the text is returned."""
+    from unittest.mock import patch
+
+    ole2_bytes = b"\xd0\xcf\x11\xe0" + b"\x00" * 200
+    extracted = "Angela Carney\nPurchasing Director\n20 years experience in procurement"
+    with patch("utils.doc_extraction._try_antiword", return_value=extracted):
+        text = extract_doc_text(ole2_bytes, "resume.doc")
+    assert text == extracted
+
+
+def test_antiword_eio_returns_none():
+    """OSError(errno=5 EIO) from a broken Nix binary must be caught and
+    return None — never raise up to the caller."""
+    import errno
+    from unittest.mock import patch
+
+    from utils.doc_extraction import _try_antiword
+
+    def _raise_eio(*args, **kwargs):
+        raise OSError(errno.EIO, "Input/output error")
+
+    with patch("subprocess.run", side_effect=_raise_eio):
+        result = _try_antiword(b"\xd0\xcf\x11\xe0" + b"\x00" * 100, "test.doc")
+    assert result is None
+
+
+def test_antiword_file_not_found_returns_none():
+    """If antiword is not installed, FileNotFoundError must be caught."""
+    from unittest.mock import patch
+
+    from utils.doc_extraction import _try_antiword
+
+    with patch("subprocess.run", side_effect=FileNotFoundError("antiword not found")):
+        result = _try_antiword(b"\xd0\xcf\x11\xe0" + b"\x00" * 100, "test.doc")
+    assert result is None
+
+
+def test_antiword_timeout_returns_none():
+    """If antiword hangs, TimeoutExpired must be caught."""
+    import subprocess
+    from unittest.mock import patch
+
+    from utils.doc_extraction import _try_antiword
+
+    with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("antiword", 30)):
+        result = _try_antiword(b"\xd0\xcf\x11\xe0" + b"\x00" * 100, "test.doc")
+    assert result is None
 
 
 # ---------------------------------------------------------------------------
