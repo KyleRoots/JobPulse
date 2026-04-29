@@ -979,3 +979,173 @@ class TestCrossSessionAnswerSharing:
             svc.process_candidate_reply(session, 'Not interested.')
 
         mock_share.assert_not_called()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Group 9 — Inbound Webhook Route Integration (Task #69 T005)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestInboundWebhookRouteIntegration:
+    """HTTP route-level tests for /api/email/inbound → Scout Vetting path.
+
+    These tests verify the full inbound route layer: POST a mock SendGrid
+    payload, assert the scout-vetting address is detected, and assert that
+    process_candidate_reply is invoked with the correct email body for both
+    an answer reply and a decline reply.
+    """
+
+    def test_route_returns_200_for_scout_vetting_email(self, client):
+        """POST to /api/email/inbound returns 200 immediately (accepted for processing)."""
+        import json as _json
+        resp = client.post('/api/email/inbound', data={
+            'to': 'scout-vetting@parse.lyntrix.ai',
+            'from': 'candidate@example.com',
+            'subject': 'Re: Vetting [SV-42]',
+            'text': 'I have 8 years of Python experience.',
+        })
+        assert resp.status_code == 200
+        body = _json.loads(resp.data)
+        assert body['success'] is True
+
+    def test_bg_handler_answer_reply_advances_session_to_in_progress(self, app):
+        """Full end-to-end: answer reply via bg handler → _classify_reply runs → session advances to in_progress.
+
+        process_candidate_reply is called with the real implementation; only
+        sub-dependencies (LLM, email, DB) are mocked so we can assert the
+        session state transition without making live API calls.
+        """
+        from routes.email import _handle_scout_vetting_inbound_bg
+        from scout_vetting_service import ScoutVettingService as SVC
+
+        session_mock = _make_session(
+            status='outreach_sent',
+            current_turn=1,
+            max_turns=5,
+            answered_questions_json='{}',
+        )
+        db_mock = _mock_db()
+
+        classify_result = {
+            'intent': 'answer',
+            'reasoning': 'Direct answer provided.',
+            'answers_extracted': {'How many years of Python experience?': '8 years'},
+        }
+
+        with app.app_context(), \
+             patch('scout_vetting_service.ScoutVettingService.find_session_by_subject_token',
+                   return_value=session_mock), \
+             patch('email_service.EmailService') as MockEmailSvc, \
+             patch.object(SVC, '_classify_reply', return_value=classify_result), \
+             patch.object(SVC, '_record_turn'), \
+             patch.object(SVC, '_share_availability_answers'), \
+             patch.object(SVC, '_generate_followup_reply', return_value='<p>Next question</p>'), \
+             patch.object(SVC, '_build_subject', return_value='Re: Vetting [SV-42]'), \
+             patch.object(SVC, '_build_quoted_history', return_value=''), \
+             patch.object(SVC, '_get_threading_headers',
+                          return_value={'in_reply_to': '<x>', 'references': '<x>'}), \
+             patch.object(SVC, '_generate_message_id', return_value='<new@test.com>'), \
+             patch('app.db', db_mock):
+
+            mock_email_instance = Mock()
+            mock_email_instance.send_html_email.return_value = {'message_id': '<ok>', 'success': True}
+            MockEmailSvc.return_value = mock_email_instance
+
+            _handle_scout_vetting_inbound_bg(app, {
+                'to': 'scout-vetting@parse.lyntrix.ai',
+                'from': 'candidate@example.com',
+                'subject': 'Re: Vetting [SV-42]',
+                'text': 'I have 8 years of Python experience.',
+            })
+
+        assert session_mock.status == 'in_progress', (
+            f"Expected session 'in_progress' after answer reply, got '{session_mock.status}'"
+        )
+        assert session_mock.current_turn == 2, (
+            f"Expected turn 2 after one answer, got {session_mock.current_turn}"
+        )
+
+    def test_bg_handler_decline_reply_closes_session(self, app):
+        """Full end-to-end: decline reply via bg handler → _classify_reply runs → session set to declined.
+
+        process_candidate_reply is called with the real implementation; only
+        LLM and DB are mocked so we can assert the session closure without
+        live API calls.
+        """
+        from routes.email import _handle_scout_vetting_inbound_bg
+        from scout_vetting_service import ScoutVettingService as SVC
+
+        session_mock = _make_session(status='outreach_sent', current_turn=1, max_turns=5)
+        db_mock = _mock_db()
+
+        classify_result = {
+            'intent': 'decline',
+            'reasoning': 'Candidate explicitly declined.',
+            'answers_extracted': {},
+        }
+
+        with app.app_context(), \
+             patch('scout_vetting_service.ScoutVettingService.find_session_by_subject_token',
+                   return_value=None), \
+             patch('scout_vetting_service.ScoutVettingService.find_session_by_email',
+                   return_value=session_mock), \
+             patch('email_service.EmailService'), \
+             patch.object(SVC, '_classify_reply', return_value=classify_result), \
+             patch.object(SVC, '_record_turn'), \
+             patch('app.db', db_mock):
+
+            _handle_scout_vetting_inbound_bg(app, {
+                'to': 'scout-vetting@parse.lyntrix.ai',
+                'from': 'candidate@example.com',
+                'subject': 'Re: Vetting',
+                'text': 'No thanks, not interested.',
+            })
+
+        assert session_mock.status == 'declined', (
+            f"Expected session 'declined' after decline reply, got '{session_mock.status}'"
+        )
+
+    def test_bg_handler_no_session_skips_processing(self, app):
+        """Background handler exits without calling process_candidate_reply when no session matches."""
+        from routes.email import _handle_scout_vetting_inbound_bg
+
+        with app.app_context(), \
+             patch('scout_vetting_service.ScoutVettingService') as MockSVS, \
+             patch('email_service.EmailService'):
+
+            MockSVS.find_session_by_subject_token.return_value = None
+            MockSVS.find_session_by_email.return_value = None
+            mock_svc_instance = Mock()
+            MockSVS.return_value = mock_svc_instance
+
+            _handle_scout_vetting_inbound_bg(app, {
+                'to': 'scout-vetting@parse.lyntrix.ai',
+                'from': 'unknown@example.com',
+                'subject': 'Random email',
+                'text': 'Hello.',
+            })
+
+        mock_svc_instance.process_candidate_reply.assert_not_called()
+
+    def test_bg_handler_prefers_subject_token_over_email_lookup(self, app):
+        """Session found by subject token is used; find_session_by_email is not called."""
+        from routes.email import _handle_scout_vetting_inbound_bg
+
+        session_mock = _make_session(status='outreach_sent', current_turn=1, max_turns=5)
+
+        with app.app_context(), \
+             patch('scout_vetting_service.ScoutVettingService') as MockSVS, \
+             patch('email_service.EmailService'):
+
+            MockSVS.find_session_by_subject_token.return_value = session_mock
+            mock_svc_instance = Mock()
+            MockSVS.return_value = mock_svc_instance
+
+            _handle_scout_vetting_inbound_bg(app, {
+                'to': 'scout-vetting@parse.lyntrix.ai',
+                'from': 'candidate@example.com',
+                'subject': 'Re: Vetting [SV-42]',
+                'text': 'Yes, available immediately.',
+            })
+
+        MockSVS.find_session_by_email.assert_not_called()
+        mock_svc_instance.process_candidate_reply.assert_called_once()

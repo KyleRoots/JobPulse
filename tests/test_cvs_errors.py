@@ -138,6 +138,63 @@ class TestResumeExtractionFailure:
             CandidateVettingLog.query.filter_by(bullhorn_candidate_id=700).delete()
             db.session.commit()
 
+    def test_empty_string_resume_body_does_not_crash(self, app):
+        """Empty-string description with no file download skips candidate gracefully (Task #69 T006a).
+
+        An empty or whitespace-only description is effectively the same as no
+        resume: the pipeline should log a warning and complete the log record
+        with an error_message rather than raising an exception.
+        """
+        from app import db
+        from models import CandidateVettingLog
+        cvs = _make_cvs()
+
+        with app.app_context():
+            candidate = {
+                'id': 701, 'firstName': 'Empty', 'lastName': 'Body',
+                'email': 'emptybody@test.com', 'description': '',
+                '_parsed_email_id': None, '_applied_job_id': None,
+            }
+            with patch.object(cvs, 'get_candidate_job_submission', return_value=None):
+                with patch.object(cvs, 'get_candidate_resume', return_value=(None, None)):
+                    with patch.object(cvs, 'get_active_jobs_from_tearsheets', return_value=[]):
+                        with patch.object(cvs, '_get_bullhorn_service', return_value=cvs.bullhorn):
+                            result = cvs.process_candidate(candidate)
+
+            log = CandidateVettingLog.query.filter_by(bullhorn_candidate_id=701).first()
+            assert log is not None, "VettingLog must be written even for empty-body candidates"
+            assert log.error_message is not None or log.status == 'completed', (
+                "Pipeline must record an error/completion, not crash silently"
+            )
+
+            CandidateVettingLog.query.filter_by(bullhorn_candidate_id=701).delete()
+            db.session.commit()
+
+    def test_whitespace_only_resume_body_does_not_crash(self, app):
+        """Whitespace-only description is treated as absent; pipeline skips without crashing (Task #69 T006a)."""
+        from app import db
+        from models import CandidateVettingLog
+        cvs = _make_cvs()
+
+        with app.app_context():
+            candidate = {
+                'id': 702, 'firstName': 'Whitespace', 'lastName': 'Only',
+                'email': 'wsonly@test.com', 'description': '   \n\t  ',
+                '_parsed_email_id': None, '_applied_job_id': None,
+            }
+            with patch.object(cvs, 'get_candidate_job_submission', return_value=None):
+                with patch.object(cvs, 'get_candidate_resume', return_value=(None, None)):
+                    with patch.object(cvs, 'get_active_jobs_from_tearsheets', return_value=[]):
+                        with patch.object(cvs, '_get_bullhorn_service', return_value=cvs.bullhorn):
+                            result = cvs.process_candidate(candidate)
+
+            log = CandidateVettingLog.query.filter_by(bullhorn_candidate_id=702).first()
+            assert log is not None, "VettingLog must be written even for whitespace-body candidates"
+            assert log.error_message is not None or log.status == 'completed'
+
+            CandidateVettingLog.query.filter_by(bullhorn_candidate_id=702).delete()
+            db.session.commit()
+
 
 # ===========================================================================
 # 3. Quota exhaustion counter and auto-disable
