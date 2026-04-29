@@ -408,6 +408,65 @@ class CandidatesMixin:
         except Exception as e:
             logger.error(f"Error getting candidate: {str(e)}")
             return None
+
+    def get_candidate_submissions(self, candidate_id: int, count: int = 10) -> List[Dict]:
+        """
+        Retrieve job submissions for a candidate, ordered most-recent first.
+
+        Each item in the returned list contains at minimum:
+          {
+            'id': <submission_id>,
+            'jobOrder': {
+                'id': <job_id>,
+                'title': <job_title>,
+                'owner': {'id': <corp_user_id>, 'firstName': ..., 'lastName': ...},
+                'assignedUsers': {'data': [{'id': ..., 'firstName': ..., 'lastName': ...}]}
+            },
+            'dateAdded': <epoch_ms>
+          }
+
+        Returns an empty list on failure (caller should handle gracefully).
+        """
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                return []
+
+        try:
+            url = f"{self.base_url}search/JobSubmission"
+            params = {
+                'query': f'candidate.id:{candidate_id}',
+                'fields': (
+                    'id,dateAdded,'
+                    'jobOrder(id,title,owner(id,firstName,lastName),'
+                    'assignedUsers(id,firstName,lastName))'
+                ),
+                'count': count,
+                'sort': '-dateAdded',
+                'BhRestToken': self.rest_token,
+            }
+
+            response = self.session.get(url, params=params, timeout=15)
+
+            if response.status_code == 401:
+                logger.info("Token expired during get_candidate_submissions, re-authenticating...")
+                self.rest_token = None
+                if self.authenticate():
+                    params['BhRestToken'] = self.rest_token
+                    response = self.session.get(url, params=params, timeout=15)
+
+            if response.status_code == 200:
+                data = self._safe_json_parse(response)
+                return data.get('data', [])
+            else:
+                logger.warning(
+                    f"get_candidate_submissions: HTTP {response.status_code} for candidate {candidate_id}"
+                )
+                return []
+
+        except Exception as e:
+            logger.error(f"Error fetching submissions for candidate {candidate_id}: {e}")
+            return []
+
     def create_candidate_work_history(self, candidate_id: int, work_history: List[Dict]) -> List[int]:
         """
         Create work history records for a candidate

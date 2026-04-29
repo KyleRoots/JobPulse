@@ -399,6 +399,20 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
         )
         app.logger.info("🌐 Enforce tearsheet jobs public enabled — runs every 30 minutes to set isPublic=true on all active tearsheet jobs")
 
+    # ── Ownership Reassignment (every 5 minutes) ─────────────────────────────
+    if is_primary_worker:
+        from tasks import reassign_api_user_candidates
+        scheduler.add_job(
+            func=reassign_api_user_candidates,
+            trigger=IntervalTrigger(minutes=5),
+            id='owner_reassignment',
+            name='API User → Recruiter Ownership Reassignment (5 min)',
+            replace_existing=True,
+            misfire_grace_time=300,
+            coalesce=True,
+        )
+        app.logger.info("🔄 Owner reassignment task registered — runs every 5 minutes (gated on auto_reassign_owner_enabled)")
+
     # ── Requirements Maintenance (every 5 minutes) ────────────────────────────
     if is_primary_worker:
         from tasks import run_requirements_maintenance

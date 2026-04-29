@@ -374,6 +374,13 @@ def seed_vetting_config(db, VettingConfig):
             # Scout Vetting (Layer 2) — independent toggle for the conversational follow-up engine.
             # Off by default; user enables via UI once Layer 1 screening is stable.
             'scout_vetting_enabled': 'false',
+            # Ownership Reassignment — automatically transfer candidate ownership from
+            # API service accounts (Pandologic, Matador, Myticas) to the human recruiter
+            # responsible for the job the candidate applied to.
+            # api_user_ids: comma-separated Bullhorn CorporateUser IDs of API accounts.
+            'auto_reassign_owner_enabled': 'false',
+            'api_user_ids': '',
+            'reassign_owner_note_enabled': 'true',
             # Global screening instructions — loaded from version-controlled config file
             # so a DB reset restores the full prompt instead of wiping it.
             'global_custom_requirements': _load_global_screening_prompt(),

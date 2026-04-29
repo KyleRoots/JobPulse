@@ -137,6 +137,12 @@ class TestMissingKeysCreatedBySeed:
             'auditor_cooldown_hours',
             'recruiter_activity_check_enabled',
             'recruiter_activity_lookback_minutes',
+            # Task #69: Scout Vetting Layer 2
+            'scout_vetting_enabled',
+            # Task #70: API User → Recruiter Ownership Reassignment
+            'auto_reassign_owner_enabled',
+            'api_user_ids',
+            'reassign_owner_note_enabled',
         }
 
         with app.app_context():

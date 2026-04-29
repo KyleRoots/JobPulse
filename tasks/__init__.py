@@ -25,6 +25,7 @@ from .bullhorn_maintenance import (
     cleanup_linkedin_source,
     enforce_tearsheet_jobs_public,
 )
+from .owner_reassignment import reassign_api_user_candidates
 
 __all__ = [
     "check_monitor_health",
@@ -44,4 +45,5 @@ __all__ = [
     "cleanup_linkedin_source",
     "enforce_tearsheet_jobs_public",
     "run_requirements_maintenance",
+    "reassign_api_user_candidates",
 ]
