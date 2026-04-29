@@ -67,8 +67,22 @@ def create_app():
     else:
         app.logger.warning("DATABASE_URL not set, using default SQLite for development")
         app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///fallback.db"
+        app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+            "connect_args": {"check_same_thread": False},
+        }
 
     db.init_app(app)
+
+    if not database_url:
+        with app.app_context():
+            from sqlalchemy import event
+            @event.listens_for(db.engine, "connect")
+            def _set_sqlite_wal(dbapi_conn, connection_record):
+                cursor = dbapi_conn.cursor()
+                cursor.execute("PRAGMA journal_mode=WAL")
+                cursor.execute("PRAGMA synchronous=NORMAL")
+                cursor.close()
+
     login_manager.init_app(app)
     app.login_manager = login_manager
 

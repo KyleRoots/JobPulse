@@ -19,14 +19,12 @@ class TestSettingsPage:
             # Should contain settings-related content
             assert b'settings' in response.data.lower() or b'Settings' in response.data
     
-    def test_settings_page_contains_sftp_section(self, authenticated_client, app):
-        """Test that settings page contains SFTP configuration section."""
+    def test_settings_page_contains_management_section(self, authenticated_client, app):
+        """Test that settings page contains user management section."""
         response = authenticated_client.get('/settings')
-        # May render page (200) or redirect if auth not working (302)
         assert response.status_code in [200, 302]
         if response.status_code == 200:
-            # Should contain SFTP-related content
-            assert b'sftp' in response.data.lower() or b'SFTP' in response.data
+            assert b'User Management' in response.data or b'Global Settings' in response.data
 
 
 class TestSettingsUpdate:

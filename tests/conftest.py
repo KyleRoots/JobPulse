@@ -44,10 +44,13 @@ if "DATABASE_URL" in os.environ:
 _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _instance_dir = os.path.join(_project_root, "instance")
 os.makedirs(_instance_dir, exist_ok=True)
-for _stale_db in ("fallback.db", "test.db"):
+for _stale_db in ("fallback.db", "fallback.db-wal", "fallback.db-shm", "test.db"):
     _stale_path = os.path.join(_instance_dir, _stale_db)
-    if os.path.exists(_stale_path):
-        os.remove(_stale_path)
+    try:
+        if os.path.exists(_stale_path):
+            os.remove(_stale_path)
+    except OSError:
+        pass
 
 
 @pytest.fixture(scope='session')
@@ -122,6 +125,67 @@ def app():
         # Cleanup
         db.session.remove()
         db.drop_all()
+
+
+@pytest.fixture(autouse=True)
+def _db_cleanup(app):
+    """Prevent database and auth state leakage between tests.
+
+    Flask 3.x binds flask.g to the app context.  Because the session-scoped
+    ``app`` fixture keeps one app context alive for all tests,
+    ``g._login_user`` (set by flask_login.login_user) persists across test
+    functions unless explicitly cleared.
+
+    Before every test (setup):
+      - Clear ``g._login_user`` so an unauthenticated client is truly anonymous.
+      - Roll back any uncommitted transaction and remove the scoped session.
+
+    After every test (teardown):
+      - Same g / session cleanup.
+      - Purge accumulated UserActivityLog rows so they cannot trigger cascade
+        IntegrityErrors when a test deletes its temporary users.
+      - Re-validate the shared testadmin user (password + is_admin flag) in
+        case a previous test modified or deleted it.
+
+    NOTE: This fixture operates directly on the session-scoped app context
+    (no extra ``with app.app_context():``) so it clears the *correct* ``g``.
+    """
+    from flask import g
+    from app import db
+    g.pop('_login_user', None)
+    db.session.rollback()
+    db.session.remove()
+
+    yield
+
+    g.pop('_login_user', None)
+    db.session.rollback()
+    db.session.remove()
+
+    try:
+        from models import UserActivityLog
+        UserActivityLog.query.delete()
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+    from models import User
+    user = User.query.filter_by(username='testadmin').first()
+    if user is None:
+        from werkzeug.security import generate_password_hash
+        user = User(
+            username='testadmin',
+            email='testadmin@test.com',
+            is_admin=True,
+        )
+        user.password_hash = generate_password_hash(
+            'testpassword123', method='pbkdf2:sha256'
+        )
+        db.session.add(user)
+        db.session.commit()
+    elif not user.is_admin:
+        user.is_admin = True
+        db.session.commit()
 
 
 @pytest.fixture(scope='function')

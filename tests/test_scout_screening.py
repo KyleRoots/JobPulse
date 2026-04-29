@@ -52,13 +52,14 @@ def _login_fresh(app, username, password='testpass'):
 
 
 def _cleanup(app, *usernames):
-    """Delete test users by username."""
+    """Delete test users by username, clearing activity logs first."""
     from extensions import db
-    from models import User
+    from models import User, UserActivityLog
     with app.app_context():
         for uname in usernames:
             u = User.query.filter_by(username=uname).first()
             if u:
+                UserActivityLog.query.filter_by(user_id=u.id).delete()
                 db.session.delete(u)
         db.session.commit()
 
