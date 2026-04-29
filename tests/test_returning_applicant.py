@@ -699,3 +699,167 @@ class TestPreNoteDuplicateSafeguard:
             CandidateJobMatch.query.filter_by(vetting_log_id=vetting_log.id).delete()
             CandidateVettingLog.query.filter_by(bullhorn_candidate_id=999071).delete()
             db.session.commit()
+
+
+class TestSubmissionGate:
+    """
+    Unit tests for the job-submission gate added to detect_pandologic_candidates
+    and detect_matador_candidates.
+
+    Gate rules:
+      - lookup OK  + no submission  → candidate skipped (sourced, not applied)
+      - lookup FAIL (transient)     → candidate passes through (fail-open)
+      - lookup OK  + submission     → candidate passes through normally
+    """
+
+    def _make_bullhorn(self, candidate_id=8001):
+        """Return a mock BullhornService that returns one candidate in the search."""
+        bh = MagicMock()
+        bh.authenticate.return_value = True
+        bh.base_url = 'https://rest.bullhorn.test/'
+        bh.rest_token = 'token123'
+        bh.user_id = 1147490
+
+        candidate_payload = {
+            'id': candidate_id,
+            'firstName': 'Test',
+            'lastName': 'Candidate',
+            'email': 'test@example.com',
+            'status': 'New Lead',
+            'dateAdded': 1700000000000,
+            'dateLastModified': 1700000000000,
+            'source': 'LinkedIn',
+            'occupation': '',
+            'description': '',
+            'address': {},
+            'owner': {'name': 'Pandologic API'},
+        }
+        search_response = MagicMock()
+        search_response.status_code = 200
+        search_response.json.return_value = {'data': [candidate_payload]}
+        bh.session.get.return_value = search_response
+        return bh
+
+    def _make_service(self):
+        from candidate_vetting_service import CandidateVettingService
+        svc = CandidateVettingService.__new__(CandidateVettingService)
+        svc.bullhorn_service = MagicMock()
+        svc.openai_client = MagicMock()
+        svc.model = 'gpt-5.4'
+        svc.embedding_model = 'text-embedding-3-small'
+        return svc
+
+    def test_pandologic_no_submission_skipped(self, app):
+        """
+        Pandologic candidate whose job-submission lookup succeeds but returns
+        no submission (sourced, not applied) must be excluded from results.
+        """
+        svc = self._make_service()
+        bh = self._make_bullhorn()
+
+        with patch.object(svc, '_get_bullhorn_service', return_value=bh), \
+             patch.object(svc, '_get_last_run_timestamp', return_value=None), \
+             patch.object(svc, '_fetch_latest_job_submission',
+                          return_value=(None, None, True)), \
+             patch.object(svc, '_should_skip_candidate', return_value=False):
+            with app.app_context():
+                result = svc.detect_pandologic_candidates()
+
+        assert result == [], (
+            "Candidate with no JobSubmission (lookup OK) should be excluded"
+        )
+
+    def test_pandologic_lookup_failure_passes_through(self, app):
+        """
+        Pandologic candidate whose job-submission lookup fails transiently
+        must pass through (fail-open) so API hiccups never silently drop applicants.
+        """
+        svc = self._make_service()
+        bh = self._make_bullhorn()
+
+        with patch.object(svc, '_get_bullhorn_service', return_value=bh), \
+             patch.object(svc, '_get_last_run_timestamp', return_value=None), \
+             patch.object(svc, '_fetch_latest_job_submission',
+                          return_value=(None, None, False)), \
+             patch.object(svc, '_should_skip_candidate', return_value=False):
+            with app.app_context():
+                result = svc.detect_pandologic_candidates()
+
+        assert len(result) == 1, (
+            "Candidate with failed lookup should pass through (fail-open)"
+        )
+
+    def test_pandologic_with_submission_passes_through(self, app):
+        """
+        Pandologic candidate with a confirmed JobSubmission must be included.
+        """
+        svc = self._make_service()
+        bh = self._make_bullhorn()
+
+        with patch.object(svc, '_get_bullhorn_service', return_value=bh), \
+             patch.object(svc, '_get_last_run_timestamp', return_value=None), \
+             patch.object(svc, '_fetch_latest_job_submission',
+                          return_value=(34990, 'Lab Technician', True)), \
+             patch.object(svc, '_should_skip_candidate', return_value=False):
+            with app.app_context():
+                result = svc.detect_pandologic_candidates()
+
+        assert len(result) == 1
+        assert result[0]['_applied_job_id'] == 34990
+
+    def test_matador_no_submission_skipped(self, app):
+        """
+        Matador candidate whose lookup succeeds but returns no submission
+        must be excluded from results.
+        """
+        svc = self._make_service()
+        bh = self._make_bullhorn()
+
+        with patch.object(svc, '_get_bullhorn_service', return_value=bh), \
+             patch.object(svc, '_get_last_run_timestamp', return_value=None), \
+             patch.object(svc, '_fetch_latest_job_submission',
+                          return_value=(None, None, True)), \
+             patch.object(svc, '_should_skip_candidate', return_value=False):
+            with app.app_context():
+                result = svc.detect_matador_candidates()
+
+        assert result == [], (
+            "Matador candidate with no JobSubmission (lookup OK) should be excluded"
+        )
+
+    def test_matador_lookup_failure_passes_through(self, app):
+        """
+        Matador candidate whose lookup fails transiently must pass through.
+        """
+        svc = self._make_service()
+        bh = self._make_bullhorn()
+
+        with patch.object(svc, '_get_bullhorn_service', return_value=bh), \
+             patch.object(svc, '_get_last_run_timestamp', return_value=None), \
+             patch.object(svc, '_fetch_latest_job_submission',
+                          return_value=(None, None, False)), \
+             patch.object(svc, '_should_skip_candidate', return_value=False):
+            with app.app_context():
+                result = svc.detect_matador_candidates()
+
+        assert len(result) == 1, (
+            "Matador candidate with failed lookup should pass through (fail-open)"
+        )
+
+    def test_matador_with_submission_passes_through(self, app):
+        """
+        Matador candidate with a confirmed JobSubmission must be included.
+        """
+        svc = self._make_service()
+        bh = self._make_bullhorn()
+
+        with patch.object(svc, '_get_bullhorn_service', return_value=bh), \
+             patch.object(svc, '_get_last_run_timestamp', return_value=None), \
+             patch.object(svc, '_fetch_latest_job_submission',
+                          return_value=(43719, 'Procurement Specialist', True)), \
+             patch.object(svc, '_should_skip_candidate', return_value=False):
+            with app.app_context():
+                result = svc.detect_matador_candidates()
+
+        assert len(result) == 1
+        assert result[0]['_applied_job_id'] == 43719

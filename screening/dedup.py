@@ -45,7 +45,7 @@ class CandidateDeduplicationMixin:
           by a real human (not the API user). If found → skip with INFO log.
         - Configurable via VettingConfig:
             recruiter_activity_check_enabled  (default 'true')
-            recruiter_activity_lookback_minutes  (default '60')
+            recruiter_activity_lookback_minutes  (default '1440' = 24 hours)
         - Fails open: if the Bullhorn lookup errors out, candidate proceeds
           (we'd rather over-vet than silently drop a candidate).
 

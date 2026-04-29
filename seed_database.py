@@ -313,6 +313,7 @@ from seeding.settings import (  # noqa: E402
 from seeding.migrations import (  # noqa: E402
     run_schema_migrations,
     migrate_legacy_custom_requirements,
+    migrate_recruiter_lookback_to_24h,
     log_critical_settings_state,
 )
 
@@ -450,6 +451,7 @@ def seed_database(db, User):
         seed_builtin_automations(db)
 
         migrate_legacy_custom_requirements(db)
+        migrate_recruiter_lookback_to_24h(db)
 
         seed_support_contacts(db)
 

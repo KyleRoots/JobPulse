@@ -32,7 +32,7 @@ def vetting_settings():
         'global_custom_requirements': '',
         # Recruiter-activity gate (Task D)
         'recruiter_activity_check_enabled': True,
-        'recruiter_activity_lookback_minutes': 60,
+        'recruiter_activity_lookback_minutes': 1440,
         # Quality auditor controls (Task #11 rescope)
         'quality_auditor_model': 'gpt-5.4',
         'platform_age_ceilings': '',
@@ -59,7 +59,7 @@ def vetting_settings():
                     settings[key] = (
                         80 if key == 'match_threshold'
                         else 25 if key == 'batch_size'
-                        else 60 if key == 'recruiter_activity_lookback_minutes'
+                        else 1440 if key == 'recruiter_activity_lookback_minutes'
                         else 10
                     )
             elif key == 'embedding_similarity_threshold':

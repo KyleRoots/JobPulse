@@ -428,3 +428,34 @@ def migrate_legacy_custom_requirements(db):
     except Exception as e:
         db.session.rollback()
         logger.warning(f"⚠️ Legacy custom_requirements migration skipped: {str(e)}")
+
+
+def migrate_recruiter_lookback_to_24h(db):
+    """
+    One-time migration: upgrade recruiter_activity_lookback_minutes from the
+    old 60-minute default to 1440 (24 hours).
+
+    Only fires if the value is still exactly '60' — administrators who have
+    already customised it above 60 are left untouched.
+    Added April 2026 alongside the job-submission gate.
+    """
+    try:
+        from models import VettingConfig
+        row = VettingConfig.query.filter_by(
+            setting_key='recruiter_activity_lookback_minutes'
+        ).first()
+        if row and row.setting_value == '60':
+            row.setting_value = '1440'
+            db.session.commit()
+            logger.info(
+                "✅ Migrated recruiter_activity_lookback_minutes: 60 → 1440 (24 hours)"
+            )
+        else:
+            logger.info(
+                "ℹ️ recruiter_activity_lookback_minutes already updated or not set to legacy default"
+            )
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(
+            f"⚠️ recruiter_activity_lookback_minutes migration skipped: {str(e)}"
+        )

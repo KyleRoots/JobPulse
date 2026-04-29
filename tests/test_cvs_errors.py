@@ -718,7 +718,7 @@ class TestRecruiterActivityGate:
 
         assert paused is False
         assert bh.session.get.call_count == 0
-        self._set_config(app, 'recruiter_activity_lookback_minutes', '60')
+        self._set_config(app, 'recruiter_activity_lookback_minutes', '1440')
 
     def test_no_bullhorn_returns_false(self, app):
         """bullhorn=None → wrapper short-circuits to False."""

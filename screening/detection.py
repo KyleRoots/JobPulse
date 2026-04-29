@@ -162,6 +162,19 @@ class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMi
                 applied_job_id, applied_job_title, _lookup_ok = self._fetch_latest_job_submission(
                     bullhorn, candidate_id
                 )
+
+                # Job submission gate: skip candidates with no confirmed application.
+                # If the lookup succeeded (_lookup_ok=True) but returned no submission,
+                # the candidate was sourced/added without applying to a role — do not vet.
+                # If the lookup failed transiently (_lookup_ok=False), fail open and
+                # proceed so a Bullhorn API hiccup never silently drops an applicant.
+                if _lookup_ok and applied_job_id is None:
+                    logger.debug(
+                        f"Pandologic candidate {candidate_id} skipped — "
+                        f"no JobSubmission found (sourced, not applied)"
+                    )
+                    continue
+
                 if applied_job_id is not None:
                     candidate['_applied_job_id'] = applied_job_id
                     candidate['_applied_job_title'] = applied_job_title or ''
@@ -258,6 +271,16 @@ class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMi
                 applied_job_id, applied_job_title, _lookup_ok = self._fetch_latest_job_submission(
                     bullhorn, candidate_id
                 )
+
+                # Job submission gate: skip candidates with no confirmed application.
+                # Mirrors the identical gate in detect_pandologic_candidates.
+                if _lookup_ok and applied_job_id is None:
+                    logger.debug(
+                        f"Matador candidate {candidate_id} skipped — "
+                        f"no JobSubmission found (sourced, not applied)"
+                    )
+                    continue
+
                 if applied_job_id is not None:
                     candidate['_applied_job_id'] = applied_job_id
                     candidate['_applied_job_title'] = applied_job_title or ''

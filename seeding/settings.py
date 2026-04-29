@@ -370,7 +370,7 @@ def seed_vetting_config(db, VettingConfig):
             # recruiter has touched the candidate within the lookback window.
             # Killswitch and tunable window so admins can adjust without a deploy.
             'recruiter_activity_check_enabled': 'true',
-            'recruiter_activity_lookback_minutes': '60',
+            'recruiter_activity_lookback_minutes': '1440',
             # Global screening instructions — loaded from version-controlled config file
             # so a DB reset restores the full prompt instead of wiping it.
             'global_custom_requirements': _load_global_screening_prompt(),
