@@ -1259,19 +1259,33 @@
             var data = await resp.json();
             if (data.success) {
                 var totalFound = data.total_found || data.total || 0;
+                var cands = data.candidates || [];
                 var html = '<div style="font-size:0.8rem; color:rgba(224,220,216,0.65); margin-bottom:0.5rem;">' +
-                    '<strong>' + totalFound + '</strong> candidate(s) eligible for reassignment</div>';
-                if (data.candidates && data.candidates.length > 0) {
-                    html += '<div style="font-size:0.75rem; color:rgba(224,220,216,0.5); display:flex; flex-wrap:wrap; gap:0.35rem;">';
-                    data.candidates.forEach(function(c) {
+                    '<strong>' + totalFound + '</strong> candidate(s) eligible for reassignment';
+                if (totalFound > cands.length) html += ' (showing ' + cands.length + ')';
+                html += '</div>';
+                if (cands.length > 0) {
+                    html += '<table style="width:100%; font-size:0.75rem; border-collapse:collapse;">';
+                    html += '<thead><tr style="color:rgba(224,220,216,0.45); border-bottom:1px solid rgba(255,255,255,0.08);">' +
+                        '<th style="padding:0.3rem 0.4rem; text-align:left;">ID</th>' +
+                        '<th style="padding:0.3rem 0.4rem; text-align:left;">Candidate</th>' +
+                        '<th style="padding:0.3rem 0.4rem; text-align:left;">Current Owner</th>' +
+                        '<th style="padding:0.3rem 0.4rem; text-align:left;">Action</th>' +
+                        '</tr></thead><tbody>';
+                    cands.forEach(function(c) {
                         var cid = c.candidate_id || c.id || '?';
-                        var label = cid + (c.name ? ' — ' + escapeHtml(c.name) : '');
-                        html += '<span style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:4px; padding:0.15rem 0.45rem;">' + escapeHtml(label) + '</span>';
+                        var name = c.name || '—';
+                        var owner = c.current_owner || '—';
+                        var action = c.would_reassign
+                            ? '<span style="color:#e8a87c;">→ ' + escapeHtml(c.new_owner || ('ID ' + (c.new_owner_id || '?'))) + '</span>'
+                            : '<span style="color:rgba(224,220,216,0.35);">' + escapeHtml(c.skip_reason || 'Skip') + '</span>';
+                        html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.04);">' +
+                            '<td style="padding:0.25rem 0.4rem; color:rgba(224,220,216,0.5);">' + escapeHtml(String(cid)) + '</td>' +
+                            '<td style="padding:0.25rem 0.4rem; color:rgba(224,220,216,0.6);">' + escapeHtml(name) + '</td>' +
+                            '<td style="padding:0.25rem 0.4rem; color:rgba(224,220,216,0.5);">' + escapeHtml(owner) + '</td>' +
+                            '<td style="padding:0.25rem 0.4rem;">' + action + '</td></tr>';
                     });
-                    if (totalFound > data.candidates.length) {
-                        html += '<span style="color:rgba(224,220,216,0.35);">+ ' + (totalFound - data.candidates.length) + ' more</span>';
-                    }
-                    html += '</div>';
+                    html += '</tbody></table>';
                 }
                 results.innerHTML = html;
             } else {
