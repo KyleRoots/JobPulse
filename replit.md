@@ -60,6 +60,7 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 - **Location Review Tier**: Candidates with a small location penalty are flagged for recruiter judgment rather than auto-rejected, triggering specific Bullhorn notes and emails.
 - **PandoLogic Note-Based Re-Applicant Detector**: Detects re-applicants via PandoLogic API notes to improve deduplication.
 - **Prestige Notification Threshold Gate**: Only notifies recruiters of prestige boosts if the boosted score meets the qualifying threshold.
+- **Email Service Package Layout**: Modularized `email_service.py` (1,463 lines) into an `email_service/` package composed from focused mixins: `_EmailServiceCore` (`__init__`, `_check_recent_notification`, `_deduplicate_job_list`, `send_notification_email`, `send_html_email`, `_log_email_delivery`), `XMLNotificationsMixin` (`send_automated_upload_notification`, `send_processing_notification`, `send_processing_error_notification`, `send_reference_number_refresh_notification`, `send_new_job_notification`), and `BullhornNotificationMixin` (`send_bullhorn_notification`). Public import surface preserved (`from email_service import EmailService`). `SendGridAPIClient` re-exported at package top-level for legacy test mock paths (`mock.patch('email_service.SendGridAPIClient')`).
 - **Nightly Database Backup**: Automated daily PostgreSQL backup to OneDrive with 30-day retention, failure alerts, and an admin dashboard.
 
 ### Bullhorn Note Creation — Critical Requirements
