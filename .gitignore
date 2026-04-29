@@ -34,4 +34,9 @@ temp/
 
 # Runtime artifacts
 instance/fallback.db
+instance/fallback.db-wal
+instance/fallback.db-shm
+instance/*.db
+instance/*.db-wal
+instance/*.db-shm
 myticas-job-feed-v2.xml
