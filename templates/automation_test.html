@@ -485,18 +485,47 @@
                         to the human recruiter responsible for the job they applied to. Runs every 5 minutes when enabled.
                     </p>
 
-                    {% if not api_user_ids_configured %}
-                    <div class="alert alert-warning py-2 mb-3" role="alert">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        <strong>Setup required:</strong> No API user IDs configured. Go to
-                        <a href="{{ url_for('vetting.vetting_settings') }}" class="alert-link">Vetting Settings</a>
-                        and enter the Bullhorn CorporateUser IDs for your API accounts before running a test.
+                    <!-- Inline config: API user IDs -->
+                    <div class="mb-3 p-3 border rounded" style="border-color: rgba(255,255,255,0.08) !important;">
+                        <label class="form-label mb-1"><strong>API Service Account IDs</strong></label>
+                        <div class="d-flex gap-2 align-items-start">
+                            <div class="flex-grow-1">
+                                <input type="text" class="form-control" id="apiUserIdsInput"
+                                       value="{{ api_user_ids }}"
+                                       placeholder="e.g. 123456, 789012, 345678">
+                                <small class="text-muted">
+                                    Comma-separated Bullhorn <strong>CorporateUser IDs</strong> for your API service
+                                    accounts. Only numeric IDs are accepted. Candidates whose owner matches any of
+                                    these IDs will be eligible for reassignment.
+                                </small>
+                            </div>
+                            <button id="saveOwnerConfig" class="btn btn-primary btn-sm mt-1" style="white-space:nowrap;">
+                                <i class="fas fa-save me-1"></i>Save
+                            </button>
+                        </div>
+                        <div id="saveOwnerConfigMsg" class="mt-2" style="display:none;"></div>
+
+                        <!-- Leave a note toggle -->
+                        <div class="d-flex justify-content-between align-items-center gap-3 mt-3">
+                            <div>
+                                <label class="form-label mb-0">Leave a Bullhorn note on reassignment</label>
+                                <small class="d-block text-muted">
+                                    Adds an internal note to the candidate record documenting the ownership
+                                    change (old owner, new owner, and the job they applied to).
+                                </small>
+                            </div>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" role="switch"
+                                       id="reassignNoteToggle"
+                                       {% if reassign_owner_note_enabled %}checked{% endif %}
+                                       style="width:3em;height:1.5em;cursor:pointer;">
+                            </div>
+                        </div>
                     </div>
-                    {% endif %}
 
                     <div class="d-flex align-items-center gap-2 mb-3">
                         <button id="runOwnerPreview" class="btn btn-outline-info"
-                                {% if not api_user_ids_configured %}disabled title="Configure API user IDs in Vetting Settings first"{% endif %}>
+                                {% if not api_user_ids %}disabled{% endif %}>
                             <i class="fas fa-search me-2"></i>Preview Test Batch (5 candidates)
                         </button>
                         <span class="text-muted small">Read-only — shows what would be reassigned without making any changes</span>
@@ -737,6 +766,74 @@
             const toggle = document.getElementById('ownerReassignToggle');
             const statusBadge = document.getElementById('ownerReassignStatus');
             const previewBtn = document.getElementById('runOwnerPreview');
+            const apiIdsInput = document.getElementById('apiUserIdsInput');
+            const saveBtn = document.getElementById('saveOwnerConfig');
+            const saveMsg = document.getElementById('saveOwnerConfigMsg');
+            const noteToggle = document.getElementById('reassignNoteToggle');
+
+            // Enable/disable preview button based on IDs field value
+            function updatePreviewBtn() {
+                if (previewBtn && apiIdsInput) {
+                    previewBtn.disabled = !apiIdsInput.value.trim();
+                }
+            }
+            if (apiIdsInput) apiIdsInput.addEventListener('input', updatePreviewBtn);
+
+            // Save config button
+            if (saveBtn && apiIdsInput) {
+                saveBtn.addEventListener('click', async () => {
+                    saveBtn.disabled = true;
+                    saveMsg.style.display = 'none';
+                    try {
+                        const resp = await fetch('/automation_test', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                action: 'ownership_save_config',
+                                api_user_ids: apiIdsInput.value,
+                                reassign_owner_note_enabled: noteToggle ? noteToggle.checked : true
+                            })
+                        });
+                        const data = await resp.json();
+                        if (data.success) {
+                            saveMsg.innerHTML = '<span class="text-success"><i class="fas fa-check me-1"></i>Saved successfully.</span>';
+                            if (data.api_user_ids !== undefined) {
+                                apiIdsInput.value = data.api_user_ids;
+                            }
+                            updatePreviewBtn();
+                        } else {
+                            saveMsg.innerHTML = '<span class="text-danger"><i class="fas fa-times me-1"></i>' + (data.error || 'Save failed') + '</span>';
+                        }
+                    } catch (e) {
+                        saveMsg.innerHTML = '<span class="text-danger">Error: ' + e.message + '</span>';
+                    } finally {
+                        saveBtn.disabled = false;
+                        saveMsg.style.display = 'block';
+                    }
+                });
+            }
+
+            // Note toggle — saves instantly on change
+            if (noteToggle) {
+                noteToggle.addEventListener('change', async () => {
+                    noteToggle.disabled = true;
+                    try {
+                        await fetch('/automation_test', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                action: 'ownership_save_config',
+                                api_user_ids: apiIdsInput ? apiIdsInput.value : '',
+                                reassign_owner_note_enabled: noteToggle.checked
+                            })
+                        });
+                    } catch (e) {
+                        // silent — non-critical
+                    } finally {
+                        noteToggle.disabled = false;
+                    }
+                });
+            }
 
             if (toggle) {
                 toggle.addEventListener('change', async () => {

@@ -518,71 +518,6 @@
                         </div>
                     </div>
 
-                    <!-- Ownership Reassignment (Task #70) -->
-                    <div class="mb-4 p-3 border rounded" style="border-color: rgba(255,255,255,0.08) !important;">
-                        <div class="d-flex justify-content-between align-items-center gap-3 mb-2">
-                            <div>
-                                <h6 class="mb-1">
-                                    <i class="fas fa-user-tag me-1 text-warning"></i>API User → Recruiter Ownership Reassignment
-                                </h6>
-                                <small class="text-muted">
-                                    Automatically detects candidates owned by API service accounts
-                                    (Pandologic, Matador, Myticas, etc.) and transfers ownership to the
-                                    human recruiter responsible for the job they applied to. Runs every 5 minutes.
-                                </small>
-                            </div>
-                            <label class="toggle-switch">
-                                <input type="checkbox" name="auto_reassign_owner_enabled" id="auto_reassign_owner_enabled"
-                                       {% if settings.auto_reassign_owner_enabled %}checked{% endif %}>
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
-                        <div class="mt-3" id="reassign_owner_fields">
-                            <div class="mb-3">
-                                <label class="form-label mb-1">API Service Account IDs</label>
-                                <input type="text" class="form-control" name="api_user_ids"
-                                       value="{{ settings.api_user_ids }}"
-                                       placeholder="e.g. 123456, 789012, 345678"
-                                       {% if not settings.auto_reassign_owner_enabled %}disabled{% endif %}>
-                                <small class="text-muted">
-                                    Comma-separated Bullhorn <strong>CorporateUser IDs</strong> for your API
-                                    service accounts. Only numeric IDs are accepted. Candidates whose owner
-                                    matches any of these IDs will be eligible for reassignment.
-                                </small>
-                            </div>
-                            <div class="d-flex justify-content-between align-items-center gap-3">
-                                <div>
-                                    <label class="form-label mb-0">Leave a Bullhorn note on reassignment</label>
-                                    <small class="d-block text-muted">
-                                        Adds an internal note to the candidate record documenting the ownership
-                                        change (old owner, new owner, and the job they applied to).
-                                    </small>
-                                </div>
-                                <label class="toggle-switch">
-                                    <input type="checkbox" name="reassign_owner_note_enabled"
-                                           {% if settings.reassign_owner_note_enabled %}checked{% endif %}
-                                           {% if not settings.auto_reassign_owner_enabled %}disabled{% endif %}>
-                                    <span class="toggle-slider"></span>
-                                </label>
-                            </div>
-                            <div class="mt-2">
-                                <small class="text-info">
-                                    <i class="fas fa-info-circle me-1"></i>Currently:
-                                    {% if settings.auto_reassign_owner_enabled %}
-                                        <strong class="text-success">ON</strong>
-                                        {% if settings.api_user_ids %}
-                                            — monitoring IDs <strong>{{ settings.api_user_ids }}</strong>
-                                        {% else %}
-                                            — <span class="text-warning">no API user IDs configured</span>
-                                        {% endif %}
-                                    {% else %}
-                                        <strong class="text-secondary">OFF</strong>
-                                    {% endif %}
-                                </small>
-                            </div>
-                        </div>
-                    </div>
-
                     <div class="mb-4">
                         <label class="form-label">Match Threshold (%)</label>
                         <div class="input-group">
@@ -1424,21 +1359,6 @@
                     if (gateToggle.checked && (minutesInput.value === '0' || minutesInput.value === '')) {
                         minutesInput.value = '60';
                     }
-                });
-            }
-        })();
-
-        // Ownership Reassignment — enable/disable the IDs input and note toggle
-        // live when the master toggle changes.
-        (function () {
-            var reassignToggle = document.getElementById('auto_reassign_owner_enabled');
-            var idsInput = document.querySelector('input[name="api_user_ids"]');
-            var noteToggle = document.querySelector('input[name="reassign_owner_note_enabled"]');
-            if (reassignToggle) {
-                reassignToggle.addEventListener('change', function () {
-                    var on = reassignToggle.checked;
-                    if (idsInput) idsInput.disabled = !on;
-                    if (noteToggle) noteToggle.disabled = !on;
                 });
             }
         })();

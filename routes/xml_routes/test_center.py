@@ -23,14 +23,18 @@ def automation_test():
         row = VettingConfig.query.filter_by(setting_key='auto_reassign_owner_enabled').first()
         owner_reassign_enabled = row and row.setting_value == 'true'
         row2 = VettingConfig.query.filter_by(setting_key='api_user_ids').first()
-        api_user_ids_configured = bool(row2 and row2.setting_value and row2.setting_value.strip())
+        api_user_ids = row2.setting_value if (row2 and row2.setting_value) else ''
+        row3 = VettingConfig.query.filter_by(setting_key='reassign_owner_note_enabled').first()
+        reassign_owner_note_enabled = (row3 is None) or (row3.setting_value != 'false')
     except Exception:
         owner_reassign_enabled = False
-        api_user_ids_configured = False
+        api_user_ids = ''
+        reassign_owner_note_enabled = True
     return render_template(
         'automation_test.html',
         owner_reassign_enabled=owner_reassign_enabled,
-        api_user_ids_configured=api_user_ids_configured,
+        api_user_ids=api_user_ids,
+        reassign_owner_note_enabled=reassign_owner_note_enabled,
     )
 
 
@@ -126,6 +130,30 @@ def automation_test_action():
                 return jsonify({'success': True, **result})
             except Exception as e:
                 logger.error(f"ownership_preview error: {str(e)}")
+                return jsonify({'success': False, 'error': str(e)})
+
+        elif action == 'ownership_save_config':
+            try:
+                from models import VettingConfig
+                from extensions import db as _db
+                api_user_ids_raw = (data.get('api_user_ids') or '').strip()
+                note_enabled = bool(data.get('reassign_owner_note_enabled', True))
+                sanitized_ids = ','.join(
+                    p.strip() for p in api_user_ids_raw.split(',') if p.strip().isdigit()
+                )
+                if api_user_ids_raw and not sanitized_ids:
+                    return jsonify({'success': False, 'error': 'API user IDs must be numeric (comma-separated).'})
+                for key, value in [('api_user_ids', sanitized_ids),
+                                   ('reassign_owner_note_enabled', 'true' if note_enabled else 'false')]:
+                    row = VettingConfig.query.filter_by(setting_key=key).first()
+                    if row:
+                        row.setting_value = value
+                    else:
+                        row = VettingConfig(setting_key=key, setting_value=value)
+                        _db.session.add(row)
+                _db.session.commit()
+                return jsonify({'success': True, 'api_user_ids': sanitized_ids})
+            except Exception as e:
                 return jsonify({'success': False, 'error': str(e)})
 
         else:

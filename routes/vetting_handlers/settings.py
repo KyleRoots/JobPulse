@@ -38,10 +38,6 @@ def vetting_settings():
         'quality_auditor_model': 'gpt-5.4',
         'platform_age_ceilings': '',
         'qualified_audit_sample_rate': 10,
-        # Ownership Reassignment
-        'auto_reassign_owner_enabled': False,
-        'api_user_ids': '',
-        'reassign_owner_note_enabled': True,
     }
 
     all_configs = VettingConfig.query.filter(
@@ -54,8 +50,7 @@ def vetting_settings():
         if value is not None:
             if key in ('vetting_enabled', 'send_recruiter_emails',
                        'screening_audit_enabled', 'recruiter_activity_check_enabled',
-                       'scout_vetting_enabled',
-                       'auto_reassign_owner_enabled', 'reassign_owner_note_enabled'):
+                       'scout_vetting_enabled'):
                 settings[key] = value.lower() == 'true'
             elif key in ('match_threshold', 'batch_size',
                          'recruiter_activity_lookback_minutes',
@@ -182,11 +177,6 @@ def save_vetting_settings():
         quality_auditor_model = request.form.get('quality_auditor_model', 'gpt-5.4').strip() or 'gpt-5.4'
         platform_age_ceilings_raw = request.form.get('platform_age_ceilings', '').strip()
         qualified_audit_sample_rate_raw = request.form.get('qualified_audit_sample_rate', '10')
-        # Ownership Reassignment
-        auto_reassign_owner_enabled = 'auto_reassign_owner_enabled' in request.form
-        api_user_ids_raw = request.form.get('api_user_ids', '').strip()
-        reassign_owner_note_enabled = 'reassign_owner_note_enabled' in request.form
-
         # Validate threshold
         try:
             threshold = int(match_threshold)
@@ -302,22 +292,6 @@ def save_vetting_settings():
                 ('platform_age_ceilings', platform_age_ceilings_value),
                 ('qualified_audit_sample_rate', str(qualified_sample_rate)),
             ])
-        # Ownership Reassignment — save master toggle always; only overwrite
-        # api_user_ids and note toggle when the master toggle is ON so that
-        # turning it off (which disables and un-submits those fields) never
-        # erases a user's previously configured IDs or note preference.
-        settings_to_save.append(
-            ('auto_reassign_owner_enabled', 'true' if auto_reassign_owner_enabled else 'false')
-        )
-        if auto_reassign_owner_enabled:
-            sanitized_api_ids = ','.join(
-                p.strip() for p in api_user_ids_raw.split(',') if p.strip().isdigit()
-            )
-            settings_to_save.extend([
-                ('api_user_ids', sanitized_api_ids),
-                ('reassign_owner_note_enabled', 'true' if reassign_owner_note_enabled else 'false'),
-            ])
-
         for key, value in settings_to_save:
             config = VettingConfig.query.filter_by(setting_key=key).first()
             if config:
