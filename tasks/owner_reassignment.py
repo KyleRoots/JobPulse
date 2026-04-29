@@ -542,12 +542,25 @@ def reassign_api_user_candidates(since_minutes: int = 30) -> dict:
 def run_owner_reassignment() -> dict:
     """
     Manual trigger for the owner reassignment batch, intended for on-demand
-    use from the Automation Test Center.
+    use from the Automation Hub.
 
     Processes candidates modified in the last 30 days so it can serve as a
     backfill on day one before the scheduler takes over regular 30-minute runs.
 
     Returns a dict with keys: reassigned, skipped, failed, errors (list of str).
     """
-    logger.info("owner_reassignment: manual live batch triggered via Test Center")
+    logger.info("owner_reassignment: manual live batch triggered via Automation Hub")
     return reassign_api_user_candidates(since_minutes=43200)
+
+
+def run_owner_reassignment_daily() -> dict:
+    """
+    Daily deep sweep: re-evaluates all API-owned candidates modified in the
+    last 90 days.  This catches late follow-ups — recruiters who interact with
+    older candidates days or weeks after intake.
+
+    Registered as a separate scheduler job (owner_reassignment_daily) that runs
+    once per day.
+    """
+    logger.info("owner_reassignment_daily: starting 90-day deep sweep")
+    return reassign_api_user_candidates(since_minutes=129600)

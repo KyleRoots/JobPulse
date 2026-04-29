@@ -603,7 +603,7 @@ class TestNoteDisabled:
 
 # ─────────────────────────────────────────────────────────────────────────────
 # T014: ownership_save_config action saves api_user_ids and note toggle
-# (config now lives in the Automation Test Center, not Vetting Settings)
+# (config now lives in the Automation Hub at /automations/owner-reassign)
 # ─────────────────────────────────────────────────────────────────────────────
 class TestSettingsSave:
     def test_saves_reassignment_settings(self, app, authenticated_client):
@@ -611,7 +611,7 @@ class TestSettingsSave:
         _ensure_config(app, 'api_user_ids', '')
         _ensure_config(app, 'reassign_owner_note_enabled', 'false')
 
-        resp = authenticated_client.post('/automation_test', json={
+        resp = authenticated_client.post('/automations/owner-reassign', json={
             'action': 'ownership_save_config',
             'api_user_ids': '123456, 789012, bad_value',
             'reassign_owner_note_enabled': True,
@@ -645,50 +645,36 @@ class TestSettingsDefaults:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# T016: GET /automation_test correctly renders kill switch checked/unchecked
-# (toggle moved from Vetting Settings to Automation Test Center in Task #74)
+# T016: GET /automations correctly renders owner reassignment state
+# (controls moved from Test Center to Automation Hub in Task #82)
 # ─────────────────────────────────────────────────────────────────────────────
 class TestGetToggleRendering:
-    def test_false_value_renders_unchecked_master_toggle(self, app, authenticated_client):
-        """DB value 'false' → ownerReassignToggle must NOT have checked attribute."""
-        import re
+    def test_false_value_renders_disabled_state(self, app, authenticated_client):
+        """DB value 'false' → JS initialiser must emit 'false' for owner_reassign_enabled."""
         _ensure_config(app, 'auto_reassign_owner_enabled', 'false')
         _ensure_config(app, 'reassign_owner_note_enabled', 'true')
         _ensure_config(app, 'api_user_ids', '12345')
 
-        resp = authenticated_client.get('/automation_test', follow_redirects=True)
+        resp = authenticated_client.get('/automations', follow_redirects=True)
         assert resp.status_code == 200
         html = resp.data.decode('utf-8')
 
-        pattern = re.compile(
-            r'<input[^>]*id="ownerReassignToggle"[^>]*>',
-            re.IGNORECASE
-        )
-        match = pattern.search(html)
-        assert match is not None, "ownerReassignToggle not found in /automation_test HTML"
-        assert 'checked' not in match.group(0), (
-            "ownerReassignToggle should be unchecked when DB value is 'false'"
+        assert 'var serverEnabled = false;' in html, (
+            "owner_reassign_enabled should render as false when DB value is 'false'"
         )
 
-    def test_true_value_renders_checked_master_toggle(self, app, authenticated_client):
-        """DB value 'true' → ownerReassignToggle MUST have checked attribute."""
-        import re
+    def test_true_value_renders_enabled_state(self, app, authenticated_client):
+        """DB value 'true' → JS initialiser must emit 'true' for owner_reassign_enabled."""
         _ensure_config(app, 'auto_reassign_owner_enabled', 'true')
         _ensure_config(app, 'reassign_owner_note_enabled', 'false')
         _ensure_config(app, 'api_user_ids', '12345')
 
-        resp = authenticated_client.get('/automation_test', follow_redirects=True)
+        resp = authenticated_client.get('/automations', follow_redirects=True)
         assert resp.status_code == 200
         html = resp.data.decode('utf-8')
 
-        pattern = re.compile(
-            r'<input[^>]*id="ownerReassignToggle"[^>]*>',
-            re.IGNORECASE
-        )
-        match = pattern.search(html)
-        assert match is not None, "ownerReassignToggle not found in /automation_test HTML"
-        assert 'checked' in match.group(0), (
-            "ownerReassignToggle should be checked when DB value is 'true'"
+        assert 'var serverEnabled = true;' in html, (
+            "owner_reassign_enabled should render as true when DB value is 'true'"
         )
 
 
@@ -703,7 +689,7 @@ class TestSubSettingsPreservedOnToggleOff:
         _ensure_config(app, 'api_user_ids', '111222,333444')
         _ensure_config(app, 'reassign_owner_note_enabled', 'true')
 
-        resp = authenticated_client.post('/automation_test', json={
+        resp = authenticated_client.post('/automations/owner-reassign', json={
             'action': 'ownership_toggle',
             'enabled': False,
         })

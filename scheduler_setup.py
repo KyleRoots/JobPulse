@@ -413,6 +413,21 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
         )
         app.logger.info("🔄 Owner reassignment task registered — runs every 5 minutes (gated on auto_reassign_owner_enabled)")
 
+    # ── Ownership Reassignment — Daily 90-day Deep Sweep ───────────────────
+    if is_primary_worker:
+        from tasks import run_owner_reassignment_daily
+        from apscheduler.triggers.cron import CronTrigger
+        scheduler.add_job(
+            func=run_owner_reassignment_daily,
+            trigger=CronTrigger(hour=2, minute=0),
+            id='owner_reassignment_daily',
+            name='Owner Reassignment — 90-Day Deep Sweep (daily 2 AM)',
+            replace_existing=True,
+            misfire_grace_time=3600,
+            coalesce=True,
+        )
+        app.logger.info("🔄 Owner reassignment daily sweep registered — runs at 2:00 AM UTC (90-day lookback)")
+
     # ── Requirements Maintenance (every 5 minutes) ────────────────────────────
     if is_primary_worker:
         from tasks import run_requirements_maintenance

@@ -63,11 +63,27 @@ def automations_dashboard():
             categorized.append({'type': 'header', 'label': cat})
         categorized.append({'type': 'task', 'task': task})
 
+    try:
+        from models import VettingConfig
+        row = VettingConfig.query.filter_by(setting_key='auto_reassign_owner_enabled').first()
+        owner_reassign_enabled = row and row.setting_value == 'true'
+        row2 = VettingConfig.query.filter_by(setting_key='api_user_ids').first()
+        api_user_ids = row2.setting_value if (row2 and row2.setting_value) else ''
+        row3 = VettingConfig.query.filter_by(setting_key='reassign_owner_note_enabled').first()
+        reassign_owner_note_enabled = (row3 is None) or (row3.setting_value != 'false')
+    except Exception:
+        owner_reassign_enabled = False
+        api_user_ids = ''
+        reassign_owner_note_enabled = True
+
     from flask import make_response
     resp = make_response(render_template('automations.html',
                            active_page='automations',
                            tasks=builtin_tasks,
-                           categorized=categorized))
+                           categorized=categorized,
+                           owner_reassign_enabled=owner_reassign_enabled,
+                           api_user_ids=api_user_ids,
+                           reassign_owner_note_enabled=reassign_owner_note_enabled))
     resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     resp.headers['Pragma'] = 'no-cache'
     resp.headers['Expires'] = '0'
@@ -223,6 +239,8 @@ VISIBLE_JOBS = {
     'enforce_tearsheet_jobs_public': 'Enforce Jobs Public',
     'requirements_maintenance': 'Requirements Maintenance',
     'duplicate_merge_check': 'Duplicate Candidate Merge',
+    'owner_reassignment': 'Owner Reassignment (5 min)',
+    'owner_reassignment_daily': 'Owner Reassignment (Daily Sweep)',
 }
 
 PROTECTED_JOBS = {'process_bullhorn_monitors', 'candidate_vetting_cycle', 'vetting_health_check'}
@@ -440,3 +458,82 @@ def cleanup_settings_save():
             return jsonify({'error': 'Invalid batch_size'}), 400
     logger.info(f"Candidate cleanup settings updated: {json.dumps(data)}")
     return jsonify({'success': True})
+
+
+@automations_bp.route('/automations/owner-reassign', methods=['POST'])
+@login_required
+def owner_reassign_action():
+    _require_admin()
+    data = request.get_json() or {}
+    action = data.get('action')
+
+    if action == 'ownership_toggle':
+        new_value = data.get('enabled', False)
+        try:
+            from models import VettingConfig
+            from extensions import db as _db
+            row = VettingConfig.query.filter_by(setting_key='auto_reassign_owner_enabled').first()
+            if row:
+                row.setting_value = 'true' if new_value else 'false'
+            else:
+                row = VettingConfig(
+                    setting_key='auto_reassign_owner_enabled',
+                    setting_value='true' if new_value else 'false',
+                )
+                _db.session.add(row)
+            _db.session.commit()
+            return jsonify({'success': True, 'enabled': new_value})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)})
+
+    elif action == 'ownership_save_config':
+        try:
+            from models import VettingConfig
+            from extensions import db as _db
+            api_user_ids_raw = (data.get('api_user_ids') or '').strip()
+            note_enabled = bool(data.get('reassign_owner_note_enabled', True))
+            sanitized_ids = ','.join(
+                p.strip() for p in api_user_ids_raw.split(',') if p.strip().isdigit()
+            )
+            if api_user_ids_raw and not sanitized_ids:
+                return jsonify({'success': False, 'error': 'API user IDs must be numeric (comma-separated).'})
+            for key, value in [('api_user_ids', sanitized_ids),
+                               ('reassign_owner_note_enabled', 'true' if note_enabled else 'false')]:
+                row = VettingConfig.query.filter_by(setting_key=key).first()
+                if row:
+                    row.setting_value = value
+                else:
+                    row = VettingConfig(setting_key=key, setting_value=value)
+                    _db.session.add(row)
+            _db.session.commit()
+            return jsonify({'success': True, 'api_user_ids': sanitized_ids})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)})
+
+    elif action == 'ownership_preview':
+        try:
+            from tasks.owner_reassignment import preview_reassign_candidates
+            result = preview_reassign_candidates(limit=5)
+            return jsonify({'success': True, **result})
+        except Exception as e:
+            logger.error(f"ownership_preview error: {str(e)}")
+            return jsonify({'success': False, 'error': str(e)})
+
+    elif action == 'ownership_run_live':
+        import threading
+        try:
+            from tasks.owner_reassignment import run_owner_reassignment
+            thread = threading.Thread(
+                target=run_owner_reassignment,
+                name='owner_reassignment_live_batch',
+                daemon=True,
+            )
+            thread.start()
+            logger.info("owner_reassignment: live batch started in background thread")
+            return jsonify({'success': True, 'started': True,
+                            'message': 'Live batch started in background. Check the scheduled jobs grid or production logs for progress.'})
+        except Exception as e:
+            logger.error(f"ownership_run_live error: {str(e)}")
+            return jsonify({'success': False, 'error': str(e)})
+
+    return jsonify({'success': False, 'error': 'Unknown action'}), 400
