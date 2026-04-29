@@ -1,35 +1,4 @@
-2026-04-29 20:35:13,767 - seeding.settings - INFO - ℹ️ Preserving user setting: candidate_cleanup_enabled=false
-2026-04-29 20:35:13,920 - seeding.settings - INFO - ℹ️ Preserving user setting: candidate_cleanup_batch_size=50
-2026-04-29 20:35:14,051 - seeding.settings - INFO - ✅ Global settings already up to date
-2026-04-29 20:35:14,058 - seeding.settings - INFO - ✅ All 5 Bullhorn monitors already configured correctly
-2026-04-29 20:35:14,061 - seeding.settings - INFO - ✅ Production environment monitoring already configured
-2026-04-29 20:35:14,065 - seeding.settings - INFO - ✅ RefreshLog has 2 entries (most recent: 2026-04-28 15:33:27.697635 UTC) - preserving history
-2026-04-29 20:35:14,085 - seeding.settings - INFO - ✅ All 40 recruiter mappings already up to date
-2026-04-29 20:35:14,117 - seeding.settings - INFO - ✅ Loaded global screening prompt from /home/runner/workspace/config/global_screening_prompt.txt (6946 chars)
-2026-04-29 20:35:14,120 - seeding.settings - INFO - ℹ️ Preserving vetting setting: vetting_enabled=false
-2026-04-29 20:35:14,121 - seeding.settings - INFO - ℹ️ Preserving vetting setting: match_threshold=80
-2026-04-29 20:35:14,121 - seeding.settings - INFO - ℹ️ Preserving vetting setting: batch_size=25
-2026-04-29 20:35:14,122 - seeding.settings - INFO - ℹ️ Preserving vetting setting: admin_notification_email=kroots@myticas.com
-2026-04-29 20:35:14,123 - seeding.settings - INFO - ℹ️ Preserving vetting setting: health_alert_email=kroots@myticas.com
-2026-04-29 20:35:14,123 - seeding.settings - INFO - ℹ️ Preserving vetting setting: send_recruiter_emails=false
-2026-04-29 20:35:14,124 - seeding.settings - INFO - ℹ️ Preserving vetting setting: embedding_filter_enabled=true
-2026-04-29 20:35:14,125 - seeding.settings - INFO - ℹ️ Preserving vetting setting: embedding_similarity_threshold=0.25
-2026-04-29 20:35:14,126 - seeding.settings - INFO - ℹ️ Preserving vetting setting: escalation_low=60
-2026-04-29 20:35:14,126 - seeding.settings - INFO - ℹ️ Preserving vetting setting: escalation_high=85
-2026-04-29 20:35:14,127 - seeding.settings - INFO - ℹ️ Preserving vetting setting: layer2_model=gpt-5.4
-2026-04-29 20:35:14,128 - seeding.settings - INFO - ℹ️ Preserving vetting setting: vetting_cutoff_date=
-2026-04-29 20:35:14,128 - seeding.settings - INFO - ℹ️ Preserving vetting setting: screening_audit_enabled=false
-2026-04-29 20:35:14,129 - seeding.settings - INFO - ℹ️ Preserving vetting setting: quality_auditor_model=gpt-5.4
-2026-04-29 20:35:14,129 - seeding.settings - INFO - ℹ️ Preserving vetting setting: platform_age_ceilings={"databricks": 8.0, "delta lake": 7.0, "azure synapse": 6.0, "azure synapse analytics": 6.0, "microsoft fabric": 3.0, "snowflake": 10.0, "dbt": 8.0, "data build tool": 8.0, "apache flink": 10.0, "kubernetes": 10.0, "apache kafka": 14.0, "terraform": 10.0, "docker": 12.0}
-2026-04-29 20:35:14,130 - seeding.settings - INFO - ℹ️ Preserving vetting setting: qualified_audit_sample_rate=10
-2026-04-29 20:35:14,131 - seeding.settings - INFO - ℹ️ Preserving vetting setting: auditor_cooldown_hours=6
-2026-04-29 20:35:14,131 - seeding.settings - INFO - ℹ️ Preserving vetting setting: recruiter_activity_check_enabled=true
-2026-04-29 20:35:14,132 - seeding.settings - INFO - ℹ️ Preserving vetting setting: recruiter_activity_lookback_minutes=1440
-2026-04-29 20:35:14,133 - seeding.settings - INFO - ℹ️ Preserving vetting setting: scout_vetting_enabled=true
-2026-04-29 20:35:14,133 - seeding.settings - INFO - ℹ️ Preserving vetting setting: auto_reassign_owner_enabled=false
-2026-04-29 20:35:14,134 - seeding.settings - INFO - ℹ️ Preserving vetting setting: api_user_ids=
-2026-04-29 20:35:14,134 - seeding.settings - INFO - ℹ️ Preserving vetting setting: reassign_owner_note_enabled=true
-2026-04-29 20:35:14,135 - seeding.settings - INFO - ℹ️ Preserving vetting setting: global_custom_requirements=WORK AUTHORIZATION & SECURITY CLEARANCE INFERENCE RULES
+2026-04-29 21:01:35,972 - seeding.settings - INFO - ℹ️ Preserving vetting setting: global_custom_requirements=WORK AUTHORIZATION & SECURITY CLEARANCE INFERENCE RULES
 
 These rules supplement — never override — the core scoring guidelines above.
 These rules are purely reactive: they ONLY activate when the job description explicitly contains trigger language. If a job makes no mention of work authorization or clearance, ignore these rules entirely.
@@ -98,234 +67,27 @@ Inference tiers (based on TOTAL Canadian work experience calculated above):
 • Canadian clearance rules activate ONLY when the job description contains clearance trigger language AND the job is Canadian-based (not US-based — see geographic guard above).
 • NEVER cross-apply rules (e.g., do not apply US authorization logic when clearance language is present, or vice versa).
 • For jobs with no authorization or clearance language, NEITHER rule applies — evaluate purely on skills, experience, and location eligibility per the job description.
-2026-04-29 20:35:14,135 - seeding.settings - INFO - ✅ Vetting settings already up to date
-2026-04-29 20:35:14,193 - bullhorn_service.auth - INFO - Bullhorn authentication successful. Base URL: https://rest45.bullhornstaffing.com/rest-services/dcc900/
-2026-04-29 20:35:14,195 - seeding.settings - INFO - ℹ️ Preserving vetting setting: vetting_enabled=false
-2026-04-29 20:35:14,254 - bullhorn_service.auth - INFO - REST Token: ***cdd9
-2026-04-29 20:35:14,255 - bullhorn_service.auth - WARNING - ⚠️ No userId in REST response, querying current user...
-2026-04-29 20:35:14,256 - seeding.settings - INFO - ℹ️ Preserving vetting setting: match_threshold=80
-2026-04-29 20:35:14,257 - seeding.settings - INFO - ℹ️ Preserving vetting setting: batch_size=25
-2026-04-29 20:35:14,257 - seeding.settings - INFO - ℹ️ Preserving vetting setting: admin_notification_email=kroots@myticas.com
-2026-04-29 20:35:14,258 - seeding.settings - INFO - ℹ️ Preserving vetting setting: health_alert_email=kroots@myticas.com
-2026-04-29 20:35:14,259 - seeding.settings - INFO - ℹ️ Preserving vetting setting: send_recruiter_emails=false
-2026-04-29 20:35:14,259 - seeding.settings - INFO - ℹ️ Preserving vetting setting: embedding_filter_enabled=true
-2026-04-29 20:35:14,260 - seeding.settings - INFO - ℹ️ Preserving vetting setting: embedding_similarity_threshold=0.25
-2026-04-29 20:35:14,261 - seeding.migrations - INFO - 🔒 STARTUP AUDIT — critical settings: vetting_enabled=false | send_recruiter_emails=false | embedding_filter_enabled=true | embedding_similarity_threshold=0.25 | vetting_cutoff_date= | match_threshold=80 | batch_size=25 | layer2_model=gpt-5.4 | sftp_enabled=false | automated_uploads_enabled=false
-2026-04-29 20:35:14,325 - seeding.settings - INFO - ℹ️ Preserving vetting setting: escalation_low=60
-2026-04-29 20:35:14,326 - seeding.settings - INFO - ℹ️ Preserving vetting setting: escalation_high=85
-2026-04-29 20:35:14,327 - seeding.settings - INFO - ℹ️ Preserving vetting setting: layer2_model=gpt-5.4
-2026-04-29 20:35:14,328 - seeding.settings - INFO - ℹ️ Preserving vetting setting: vetting_cutoff_date=
-2026-04-29 20:35:14,328 - seeding.settings - INFO - ✅ All 12 built-in automations already exist
-2026-04-29 20:35:14,328 - seeding.settings - INFO - ℹ️ Preserving vetting setting: screening_audit_enabled=false
-2026-04-29 20:35:14,329 - seeding.migrations - INFO - ℹ️ No legacy custom_requirements rows needed migration
-2026-04-29 20:35:14,329 - seeding.settings - INFO - ℹ️ Preserving vetting setting: quality_auditor_model=gpt-5.4
-2026-04-29 20:35:14,330 - seeding.settings - INFO - ℹ️ Preserving vetting setting: platform_age_ceilings={"databricks": 8.0, "delta lake": 7.0, "azure synapse": 6.0, "azure synapse analytics": 6.0, "microsoft fabric": 3.0, "snowflake": 10.0, "dbt": 8.0, "data build tool": 8.0, "apache flink": 10.0, "kubernetes": 10.0, "apache kafka": 14.0, "terraform": 10.0, "docker": 12.0}
-2026-04-29 20:35:14,330 - seeding.migrations - INFO - ℹ️ recruiter_activity_lookback_minutes already updated or not set to legacy default
-2026-04-29 20:35:14,330 - seeding.settings - INFO - ℹ️ Preserving vetting setting: qualified_audit_sample_rate=10
-2026-04-29 20:35:14,331 - seeding.settings - INFO - ℹ️ Preserving vetting setting: auditor_cooldown_hours=6
-2026-04-29 20:35:14,332 - seeding.settings - INFO - ℹ️ Preserving vetting setting: recruiter_activity_check_enabled=true
-2026-04-29 20:35:14,332 - seeding.users - INFO - ✅ All 24 Myticas support contacts already up to date
-2026-04-29 20:35:14,332 - seeding.settings - INFO - ℹ️ Preserving vetting setting: recruiter_activity_lookback_minutes=1440
-2026-04-29 20:35:14,333 - seeding.users - INFO - ✅ All 14 STSI support contacts already up to date
-2026-04-29 20:35:14,333 - seeding.settings - INFO - ℹ️ Preserving vetting setting: scout_vetting_enabled=true
-2026-04-29 20:35:14,334 - seeding.settings - INFO - ℹ️ Preserving vetting setting: auto_reassign_owner_enabled=false
-2026-04-29 20:35:14,334 - seeding.settings - INFO - ℹ️ Preserving vetting setting: api_user_ids=
-2026-04-29 20:35:14,335 - seeding.settings - INFO - ℹ️ Preserving vetting setting: reassign_owner_note_enabled=true
-2026-04-29 20:35:14,335 - seeding.users - INFO - ✅ All STSI user accounts already exist
-2026-04-29 20:35:14,336 - seeding.settings - INFO - ℹ️ Preserving vetting setting: global_custom_requirements=WORK AUTHORIZATION & SECURITY CLEARANCE INFERENCE RULES
-
-These rules supplement — never override — the core scoring guidelines above.
-These rules are purely reactive: they ONLY activate when the job description explicitly contains trigger language. If a job makes no mention of work authorization or clearance, ignore these rules entirely.
-
-=== RULE 0: EXPLICIT AUTHORIZATION STATEMENTS (HIGHEST PRIORITY) ===
-If the resume or candidate profile explicitly states work authorization status — for example: "Green Card", "Permanent Resident", "US Citizen", "Authorized to work in the US", "WA: Green Card", "H-1B", "EAD", "Canadian Citizen", "PR" — this OVERRIDES the inference tiers in Rules 1 and 2 below.
-• Accept the stated authorization at face value with NO score penalty.
-• Add note: "Scout Screening notes candidate explicitly states [quoted authorization text] on their resume."
-• Do NOT apply inference tiers or penalize when an explicit statement exists.
-• This rule takes absolute precedence over Rules 1 and 2.
-
-=== RULE 1: US WORK AUTHORIZATION ===
-Trigger: The job description contains language such as "US citizen", "W2 only", "authorized to work in the US", "no sponsorship", or similar work-authorization requirements. The job description language is the primary trigger; job location metadata (if US) is a confirming signal but is NOT required. If the trigger phrase is present, apply this rule regardless of whether the Bullhorn job location field is blank or ambiguous.
-Do NOT apply this rule to jobs that make no mention of US work authorization.
-
-Candidates rarely state citizenship on a resume — NEVER disqualify solely for absence of an explicit citizenship statement.
-
-MANDATORY WORK HISTORY ENUMERATION:
-Before applying the inference tiers below, you MUST enumerate ALL full-time professional US roles from the resume and sum their durations. Do NOT count only the most recent role.
-
-Step 1: List every full-time US-based role with start and end dates
-Step 2: Calculate months for each role: (end_year - start_year) × 12 + (end_month - start_month)
-Step 3: Sum total months across ALL US roles
-Step 4: Convert total months to years (total_months / 12)
-Step 5: Apply the appropriate inference tier based on total years
-
-Example:
-- Role 1: Software Engineer at Acme Corp (08/2016 – 02/2023) = (2023-2016)×12 + (2-8) = 78 months
-- Role 2: Senior Engineer at Beta Inc (03/2023 – 02/2026) = (2026-2023)×12 + (2-3) = 35 months
-- Total: 78 + 35 = 113 months = 9.4 years → 5+ tier, no score penalty
-
-CRITICAL: You MUST sum ALL roles, not just the most recent one. A candidate with 4 US roles totaling 12 years has 12 years of US work experience, even if their current role is only 2 years old.
-
-Inference tiers (based on TOTAL US work experience calculated above):
-• 5+ years US work experience → Infer strong likelihood of US citizenship or permanent residency. No score penalty. Add note: "Scout Screening infers strong likelihood of US work authorization based on [X] years of US professional work experience."
-• 3–4 years US work experience → Treat as a soft gap. Apply a minor score reduction (3-5 points). Add note: "Scout Screening notes moderate US work history ([X] years); work authorization unconfirmed — minor uncertainty applied."
-• Under 3 years US work experience → Flag as a gap. Apply standard gap scoring. Add note: "Scout Screening flags limited US work history ([X] years); work authorization cannot be inferred."
-
-=== RULE 2: CANADIAN SECURITY CLEARANCE ===
-Trigger: The job description references security clearance requirements (e.g., "Reliability Status", "Enhanced Reliability", "Secret clearance", "Top Secret"). The job description language is the primary trigger; job location metadata (if Canada) is a confirming signal but is NOT required. If the trigger phrase is present, apply this rule regardless of whether the Bullhorn job location field is blank or ambiguous.
-Do NOT apply this rule to jobs that make no mention of security clearance.
-
-IMPORTANT GEOGRAPHIC GUARD: This rule applies to Canadian clearance eligibility inference only. If a US-based job mentions security clearance requirements (e.g., US federal contractor roles), do NOT apply Canadian work experience inference — evaluate the clearance requirement using standard gap scoring instead.
-
-Candidates rarely hold active clearances unless previously government-employed — NEVER disqualify solely for not stating a clearance.
-
-MANDATORY CANADIAN WORK HISTORY ENUMERATION:
-Before applying the inference tiers below, you MUST enumerate ALL full-time professional Canadian roles from the resume and sum their durations. Do NOT count only the most recent role.
-
-Step 1: List every full-time Canadian-based role with start and end dates
-Step 2: Calculate months for each role: (end_year - start_year) × 12 + (end_month - start_month)
-Step 3: Sum total months across ALL Canadian roles
-Step 4: Convert total months to years (total_months / 12)
-Step 5: Apply the appropriate inference tier based on total years
-
-CRITICAL: You MUST sum ALL Canadian roles, not just the most recent one.
-
-Inference tiers (based on TOTAL Canadian work experience calculated above):
-• Enhanced Reliability / Reliability Status required + candidate has 5+ years Canadian work experience → Eligible to obtain. No score penalty. Add note: "Scout Screening notes candidate is likely eligible to obtain Enhanced Reliability clearance based on [X] years of Canadian professional work experience."
-• Secret-level clearance required + candidate has 10+ years Canadian work experience → Eligible to obtain. No score penalty. Add note: "Scout Screening notes candidate is likely eligible to obtain Secret clearance based on [X] years of Canadian professional work experience."
-• Top Secret clearance required + candidate has 15+ years Canadian work experience → Eligible to obtain. No score penalty. Add note: "Scout Screening notes candidate is likely eligible to obtain Top Secret clearance based on [X] years of Canadian professional work experience."
-• Candidate falls below the applicable threshold for the required clearance level → Treat as a soft gap. Apply a minor score reduction (3-5 points). Add note: "Scout Screening notes candidate has [X] years of Canadian work experience; clearance eligibility is uncertain for [clearance level]."
-
-=== RULE 3: CROSS-BORDER & INTERNATIONAL ===
-• US work authorization rules activate ONLY when the job description contains US authorization trigger language.
-• Canadian clearance rules activate ONLY when the job description contains clearance trigger language AND the job is Canadian-based (not US-based — see geographic guard above).
-• NEVER cross-apply rules (e.g., do not apply US authorization logic when clearance language is present, or vice versa).
-• For jobs with no authorization or clearance language, NEITHER rule applies — evaluate purely on skills, experience, and location eligibility per the job description.
-2026-04-29 20:35:14,336 - seeding.settings - INFO - ✅ Vetting settings already up to date
-2026-04-29 20:35:14,337 - seeding.users - INFO - ✅ All Myticas user accounts already exist
-2026-04-29 20:35:14,391 - bullhorn_service.auth - INFO - Got user ID from settings endpoint: 1147490
-2026-04-29 20:35:14,462 - bullhorn_service.auth - INFO - User ID for note creation: 1147490
-2026-04-29 20:35:14,464 - seeding.users - INFO - ✅ Myticas user restoration verified: all 24 contacts have an account (by email)
-2026-04-29 20:35:14,466 - seeding.users - INFO - ✅ All users already have correct module subscriptions
-2026-04-29 20:35:14,466 - seed_database - INFO - ✅ Database seeding completed successfully for production
-2026-04-29 20:35:14,466 - extensions - INFO - 🌱 Database seeding: Admin user already exists (admin)
-2026-04-29 20:35:14,467 - scheduler_setup - INFO - ⚠️ Process 1574 could not acquire scheduler lock - another scheduler is already running
-2026-04-29 20:35:14,468 - extensions - INFO - 📌 Process Scheduled XML Files job DISABLED - Enhanced 8-Step Monitor handles all XML updates
-2026-04-29 20:35:14,468 - extensions - INFO - ⚠️ Process 1574 skipping scheduler setup - another worker handles scheduling
-2026-04-29 20:35:14,468 - main - INFO - Flask application imported successfully
-2026-04-29 20:35:14,469 - seeding.migrations - INFO - 🔒 STARTUP AUDIT — critical settings: vetting_enabled=false | send_recruiter_emails=false | embedding_filter_enabled=true | embedding_similarity_threshold=0.25 | vetting_cutoff_date= | match_threshold=80 | batch_size=25 | layer2_model=gpt-5.4 | sftp_enabled=false | automated_uploads_enabled=false
-2026-04-29 20:35:14,471 - main - INFO - Health check passed during startup
-2026-04-29 20:35:14,472 - apscheduler.scheduler - INFO - Scheduler started
-2026-04-29 20:35:14,472 - extensions - INFO - Background scheduler started/restarted successfully
-2026-04-29 20:35:14,472 - extensions - INFO - 📡 Scheduler job execution listeners registered
-2026-04-29 20:35:14,473 - seeding.settings - INFO - ✅ All 12 built-in automations already exist
-2026-04-29 20:35:14,473 - seeding.migrations - INFO - ℹ️ No legacy custom_requirements rows needed migration
-2026-04-29 20:35:14,474 - seeding.migrations - INFO - ℹ️ recruiter_activity_lookback_minutes already updated or not set to legacy default
-2026-04-29 20:35:14,476 - seeding.users - INFO - ✅ All 24 Myticas support contacts already up to date
-2026-04-29 20:35:14,477 - seeding.users - INFO - ✅ All 14 STSI support contacts already up to date
-2026-04-29 20:35:14,477 - extensions - INFO - Forced immediate check for 6 monitors after restart
-2026-04-29 20:35:14,478 - main - INFO - Monitoring system auto-started successfully on boot
-2026-04-29 20:35:14,479 - seeding.users - INFO - ✅ All STSI user accounts already exist
-2026-04-29 20:35:14,480 - seeding.users - INFO - ✅ All Myticas user accounts already exist
-2026-04-29 20:35:14,482 - seeding.users - INFO - ✅ Myticas user restoration verified: all 24 contacts have an account (by email)
-2026-04-29 20:35:14,483 - seeding.users - INFO - ✅ All users already have correct module subscriptions
-2026-04-29 20:35:14,484 - seed_database - INFO - ✅ Database seeding completed successfully for production
-2026-04-29 20:35:14,484 - extensions - INFO - 🌱 Database seeding: Admin user already exists (admin)
-2026-04-29 20:35:14,486 - scheduler_setup - INFO - ⚠️ Process 1573 could not acquire scheduler lock - another scheduler is already running
-2026-04-29 20:35:14,486 - extensions - INFO - 📌 Process Scheduled XML Files job DISABLED - Enhanced 8-Step Monitor handles all XML updates
-2026-04-29 20:35:14,486 - extensions - INFO - ⚠️ Process 1573 skipping scheduler setup - another worker handles scheduling
-2026-04-29 20:35:14,486 - main - INFO - Flask application imported successfully
-2026-04-29 20:35:14,490 - main - INFO - Health check passed during startup
-2026-04-29 20:35:14,490 - apscheduler.scheduler - INFO - Scheduler started
-2026-04-29 20:35:14,491 - extensions - INFO - Background scheduler started/restarted successfully
-2026-04-29 20:35:14,491 - extensions - INFO - 📡 Scheduler job execution listeners registered
-2026-04-29 20:35:14,496 - extensions - INFO - Forced immediate check for 6 monitors after restart
-2026-04-29 20:35:14,496 - main - INFO - Monitoring system auto-started successfully on boot
-2026-04-29 20:35:14,810 - bullhorn_service.jobs - INFO - Tearsheet 1231: Entity API reports 46 total jobs
-2026-04-29 20:35:15,394 - bullhorn_service.jobs - WARNING - Tearsheet 1231: Entity API reports 46 jobs but Search API returned 48. Using Search API results (authoritative for tearsheet membership).
-2026-04-29 20:35:15,701 - bullhorn_service.jobs - INFO - Tearsheet 1232: Entity API reports 1 total jobs
-2026-04-29 20:35:15,903 - bullhorn_service.jobs - INFO - Tearsheet 1233: Entity API reports 0 total jobs
-2026-04-29 20:35:16,174 - bullhorn_service.jobs - INFO - Tearsheet 1239: Entity API reports 5 total jobs
-2026-04-29 20:35:16,515 - bullhorn_service.jobs - INFO - Tearsheet 1531: Entity API reports 14 total jobs
-2026-04-29 20:35:17,015 - bullhorn_service.jobs - WARNING - Tearsheet 1531: Entity API reports 14 jobs but Search API returned 16. Using Search API results (authoritative for tearsheet membership).
-2026-04-29 20:35:17,268 - bullhorn_service.jobs - INFO - Tearsheet 1474: Entity API reports 5 total jobs
-2026-04-29 20:35:19,318 - bullhorn_service.jobs - INFO - 📧 Fetched emails for 19/19 users
-2026-04-29 20:35:19,318 - screening.job_management - INFO - Loaded 75 jobs from 6 tearsheets with 19 user emails
-2026-04-29 20:35:19,321 - extensions - INFO - 🔄 Active job IDs cache refreshed: 75 jobs
-2026-04-29 20:35:19,327 - extensions - INFO - Active job IDs background cache refresh enabled (5-min interval)
-2026-04-29 20:35:19,329 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-29 20:35:19,329 - extensions - INFO - 📋 Scheduled activity retention cleanup (15 days)
-2026-04-29 20:35:19,329 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-29 20:35:19,330 - extensions - INFO - 📦 Scheduled nightly database backup (2 AM UTC → OneDrive)
-2026-04-29 20:35:19,330 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-29 20:35:19,330 - extensions - INFO - 📊 Log monitoring enabled - checking Render logs every 15 minutes
-2026-04-29 20:35:19,330 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-29 20:35:19,330 - extensions - INFO - 📧 Scheduled email parsing timeout cleanup (10 min threshold, every 5 min)
-2026-04-29 20:35:19,330 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-29 20:35:19,330 - extensions - INFO - 🧹 Scheduled data retention cleanup (daily at 3 AM UTC)
-2026-04-29 20:35:19,330 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-29 20:35:19,331 - extensions - INFO - 🩺 Scheduled vetting system health check (every 10 minutes)
-2026-04-29 20:35:19,331 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-29 20:35:19,331 - extensions - INFO - 🎯 Scheduled AI candidate vetting cycle (every 1 minute)
-2026-04-29 20:35:19,331 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-29 20:35:19,331 - extensions - INFO - 📤 Scheduled automated uploads every 30 minutes
-2026-04-29 20:35:19,335 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-29 20:35:19,335 - extensions - INFO - 🔗 LinkedIn source cleanup enabled — runs hourly to update stale source tags
-2026-04-29 20:35:19,335 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-29 20:35:19,335 - extensions - INFO - 🌐 Enforce tearsheet jobs public enabled — runs every 30 minutes to set isPublic=true on all active tearsheet jobs
-2026-04-29 20:35:19,335 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-29 20:35:19,335 - extensions - INFO - 🔄 Owner reassignment task registered — runs every 5 minutes (gated on auto_reassign_owner_enabled)
-2026-04-29 20:35:19,335 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-29 20:35:19,336 - extensions - INFO - 🔍 Requirements maintenance enabled — auto-extracts for new jobs and re-interprets modified descriptions every 5 minutes
-2026-04-29 20:35:19,336 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-29 20:35:19,336 - extensions - INFO - 🏢 Scheduled Sales Rep display name sync every 30 minutes
-2026-04-29 20:35:19,336 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-29 20:35:19,336 - extensions - INFO - ⏰ Scheduled stale platform ticket escalation check every 6 hours
-2026-04-29 20:35:19,336 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-29 20:35:19,336 - extensions - INFO - 🔀 Scheduled duplicate candidate merge check every 60 minutes
-2026-04-29 20:35:19,336 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-29 20:35:19,337 - extensions - INFO - ☁️ Scheduled OneDrive knowledge sync every 4 hours
-2026-04-29 20:35:19,338 - extensions - INFO - 📝 Reference refresh: last_run=2026-04-28 15:33:27 UTC, next_run=2026-05-03 15:33:27 UTC, overdue=false (91.0h remaining)
-2026-04-29 20:35:19,338 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-29 20:35:19,339 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-29 20:35:19,339 - extensions - INFO - 🧹 Candidate data cleanup scheduled — runs every 15 minutes when enabled
-2026-04-29 20:35:19,339 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-29 20:35:19,339 - extensions - INFO - ♻️  Incomplete rescreen job scheduled — runs every 15 minutes when enabled
-2026-04-29 20:35:19,339 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-29 20:35:19,339 - extensions - INFO - 🔍 Screening quality audit job scheduled — runs every 15 minutes when enabled
-2026-04-29 20:35:19,340 - extensions - INFO - 📧 XML Change Monitor: Auto-notifications DISABLED - notifications now sent only during manual downloads
-2026-04-29 20:35:19,340 - main - INFO - Flask application imported successfully
-2026-04-29 20:35:19,343 - main - INFO - Health check passed during startup
-2026-04-29 20:35:19,343 - apscheduler.scheduler - INFO - Added job "5-Minute Tearsheet Monitor with Keyword Classification" to job store "default"
-2026-04-29 20:35:19,343 - apscheduler.scheduler - INFO - Added job "Monitor Health Check (Manual Workflow)" to job store "default"
-2026-04-29 20:35:19,343 - apscheduler.scheduler - INFO - Added job "Production Environment Monitoring" to job store "default"
-2026-04-29 20:35:19,343 - apscheduler.scheduler - INFO - Added job "Active Job IDs Cache Refresh (5 min)" to job store "default"
-2026-04-29 20:35:19,344 - apscheduler.scheduler - INFO - Added job "Activity Retention Cleanup (15 days)" to job store "default"
-2026-04-29 20:35:19,344 - apscheduler.scheduler - INFO - Added job "Nightly Database Backup (2 AM UTC)" to job store "default"
-2026-04-29 20:35:19,344 - apscheduler.scheduler - INFO - Added job "Render Log Monitoring (Self-Healing) - 15min" to job store "default"
-2026-04-29 20:35:19,344 - apscheduler.scheduler - INFO - Added job "Email Parsing Timeout Cleanup (10 min)" to job store "default"
-2026-04-29 20:35:19,344 - apscheduler.scheduler - INFO - Added job "Data Retention Cleanup (Daily)" to job store "default"
-2026-04-29 20:35:19,344 - apscheduler.scheduler - INFO - Added job "Vetting System Health Check" to job store "default"
-2026-04-29 20:35:19,344 - apscheduler.scheduler - INFO - Added job "AI Candidate Vetting Cycle" to job store "default"
-2026-04-29 20:35:19,344 - apscheduler.scheduler - INFO - Added job "Automated Upload (Every 30 Minutes)" to job store "default"
-2026-04-29 20:35:19,344 - apscheduler.scheduler - INFO - Added job "LinkedIn Source Cleanup (hourly)" to job store "default"
-2026-04-29 20:35:19,344 - apscheduler.scheduler - INFO - Added job "Enforce Tearsheet Jobs Public (Every 30 Minutes)" to job store "default"
-2026-04-29 20:35:19,345 - apscheduler.scheduler - INFO - Added job "API User → Recruiter Ownership Reassignment (5 min)" to job store "default"
-2026-04-29 20:35:19,345 - apscheduler.scheduler - INFO - Added job "Requirements Maintenance — New & Modified Jobs (5 min)" to job store "default"
-2026-04-29 20:35:19,345 - apscheduler.scheduler - INFO - Added job "Sales Rep Display Name Sync (Every 30 Minutes)" to job store "default"
-2026-04-29 20:35:19,345 - apscheduler.scheduler - INFO - Added job "Stale Platform Ticket Escalation Check (Every 6 Hours)" to job store "default"
-2026-04-29 20:35:19,345 - apscheduler.scheduler - INFO - Added job "Duplicate Candidate Merge Check (Every 60 Minutes)" to job store "default"
-2026-04-29 20:35:19,345 - apscheduler.scheduler - INFO - Added job "OneDrive Knowledge Sync (Every 4 Hours)" to job store "default"
-2026-04-29 20:35:19,345 - apscheduler.scheduler - INFO - Added job "120-Hour Reference Number Refresh" to job store "default"
-2026-04-29 20:35:19,345 - apscheduler.scheduler - INFO - Added job "Candidate Data Cleanup (Every 15 Minutes)" to job store "default"
-2026-04-29 20:35:19,345 - apscheduler.scheduler - INFO - Added job "Incomplete Candidate Rescreen (Every 15 Minutes)" to job store "default"
-2026-04-29 20:35:19,345 - apscheduler.scheduler - INFO - Added job "Scout Screening Quality Audit (15 min)" to job store "default"
-2026-04-29 20:35:19,346 - apscheduler.scheduler - INFO - Scheduler started
-2026-04-29 20:35:19,346 - extensions - INFO - Background scheduler started/restarted successfully
-2026-04-29 20:35:19,346 - extensions - INFO - 📡 Scheduler job execution listeners registered
-2026-04-29 20:35:19,349 - extensions - INFO - Forced immediate check for 6 monitors after restart
-2026-04-29 20:35:19,349 - main - INFO - Monitoring system auto-started successfully on boot
-2026-04-29 20:36:19,331 - apscheduler.executors.default - INFO - Running job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-04-29 20:37:19 UTC)" (scheduled at 2026-04-29 20:36:19.331161+00:00)
-2026-04-29 20:36:19,333 - apscheduler.executors.default - INFO - Job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-04-29 20:37:19 UTC)" executed successfully
-2026-04-29 20:37:19,331 - apscheduler.executors.default - INFO - Running job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-04-29 20:38:19 UTC)" (scheduled at 2026-04-29 20:37:19.331161+00:00)
-2026-04-29 20:37:19,342 - apscheduler.executors.default - INFO - Job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-04-29 20:38:19 UTC)" executed successfully
+2026-04-29 21:01:35,976 - seeding.settings - INFO - ✅ Vetting settings already up to date
+2026-04-29 21:01:35,984 - seeding.migrations - INFO - 🔒 STARTUP AUDIT — critical settings: vetting_enabled=false | send_recruiter_emails=false | embedding_filter_enabled=true | embedding_similarity_threshold=0.25 | vetting_cutoff_date= | match_threshold=80 | batch_size=25 | layer2_model=gpt-5.4 | sftp_enabled=false | automated_uploads_enabled=false
+2026-04-29 21:01:35,988 - seeding.settings - INFO - ✅ All 12 built-in automations already exist
+2026-04-29 21:01:35,989 - seeding.migrations - INFO - ℹ️ No legacy custom_requirements rows needed migration
+2026-04-29 21:01:35,989 - seeding.migrations - INFO - ℹ️ recruiter_activity_lookback_minutes already updated or not set to legacy default
+2026-04-29 21:01:35,991 - seeding.users - INFO - ✅ All 24 Myticas support contacts already up to date
+2026-04-29 21:01:35,992 - seeding.users - INFO - ✅ All 14 STSI support contacts already up to date
+2026-04-29 21:01:35,994 - seeding.users - INFO - ✅ All STSI user accounts already exist
+2026-04-29 21:01:35,996 - seeding.users - INFO - ✅ All Myticas user accounts already exist
+2026-04-29 21:01:35,997 - seeding.users - INFO - ✅ Myticas user restoration verified: all 24 contacts have an account (by email)
+2026-04-29 21:01:35,999 - seeding.users - INFO - ✅ All users already have correct module subscriptions
+2026-04-29 21:01:36,000 - seed_database - INFO - ✅ Database seeding completed successfully for production
+2026-04-29 21:01:36,000 - extensions - INFO - 🌱 Database seeding: Admin user already exists (admin)
+2026-04-29 21:01:36,001 - scheduler_setup - INFO - ⚠️ Process 12706 could not acquire scheduler lock - another scheduler is already running
+2026-04-29 21:01:36,001 - extensions - INFO - 📌 Process Scheduled XML Files job DISABLED - Enhanced 8-Step Monitor handles all XML updates
+2026-04-29 21:01:36,002 - extensions - INFO - ⚠️ Process 12706 skipping scheduler setup - another worker handles scheduling
+2026-04-29 21:01:36,002 - main - INFO - Flask application imported successfully
+2026-04-29 21:01:36,005 - main - INFO - Health check passed during startup
+2026-04-29 21:01:36,006 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-29 21:01:36,006 - extensions - INFO - Background scheduler started/restarted successfully
+2026-04-29 21:01:36,006 - extensions - INFO - 📡 Scheduler job execution listeners registered
+2026-04-29 21:01:36,011 - extensions - INFO - Forced immediate check for 6 monitors after restart
+2026-04-29 21:01:36,011 - main - INFO - Monitoring system auto-started successfully on boot
+2026-04-29 21:03:27,588 - apscheduler.scheduler - INFO - Scheduler has been shut down

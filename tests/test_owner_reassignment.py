@@ -15,8 +15,10 @@ Coverage:
   T011 — multiple API user IDs produce correct OR-joined query
   T012 — _parse_api_user_ids strips non-numeric values
   T013 — reassign_owner_note_enabled=false skips note creation
-  T014 — settings handler saves the 3 new keys correctly
+  T014 — ownership_save_config action saves api_user_ids and note toggle correctly
   T015 — settings defaults are present when keys are missing
+  T016 — GET /automation_test renders toggle checked/unchecked state
+  T017 — ownership_toggle action does not erase api_user_ids or note toggle
 """
 import pytest
 from unittest.mock import patch, MagicMock, call
@@ -515,30 +517,28 @@ class TestNoteDisabled:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# T014: settings handler saves 3 new keys
+# T014: ownership_save_config action saves api_user_ids and note toggle
+# (config now lives in the Automation Test Center, not Vetting Settings)
 # ─────────────────────────────────────────────────────────────────────────────
 class TestSettingsSave:
     def test_saves_reassignment_settings(self, app, authenticated_client):
         from models import VettingConfig
-        _ensure_config(app, 'auto_reassign_owner_enabled', 'false')
         _ensure_config(app, 'api_user_ids', '')
-        _ensure_config(app, 'reassign_owner_note_enabled', 'true')
+        _ensure_config(app, 'reassign_owner_note_enabled', 'false')
 
-        resp = authenticated_client.post('/screening/save', data={
-            'auto_reassign_owner_enabled': 'on',
+        resp = authenticated_client.post('/automation_test', json={
+            'action': 'ownership_save_config',
             'api_user_ids': '123456, 789012, bad_value',
-            'reassign_owner_note_enabled': 'on',
-            'match_threshold': '80',
-            'batch_size': '25',
-        }, follow_redirects=False)
+            'reassign_owner_note_enabled': True,
+        })
 
-        assert resp.status_code in (302, 200)
+        assert resp.status_code == 200
+        body = resp.get_json()
+        assert body and body.get('success') is True
 
         with app.app_context():
-            r1 = VettingConfig.query.filter_by(setting_key='auto_reassign_owner_enabled').first()
             r2 = VettingConfig.query.filter_by(setting_key='api_user_ids').first()
             r3 = VettingConfig.query.filter_by(setting_key='reassign_owner_note_enabled').first()
-            assert r1 and r1.setting_value == 'true'
             assert r2 and r2.setting_value == '123456,789012'
             assert r3 and r3.setting_value == 'true'
 
@@ -560,70 +560,72 @@ class TestSettingsDefaults:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# T016: GET /screening correctly renders toggle checked/unchecked state
+# T016: GET /automation_test correctly renders kill switch checked/unchecked
+# (toggle moved from Vetting Settings to Automation Test Center in Task #74)
 # ─────────────────────────────────────────────────────────────────────────────
 class TestGetToggleRendering:
     def test_false_value_renders_unchecked_master_toggle(self, app, authenticated_client):
-        """DB value 'false' → toggle must NOT have checked attribute."""
+        """DB value 'false' → ownerReassignToggle must NOT have checked attribute."""
+        import re
         _ensure_config(app, 'auto_reassign_owner_enabled', 'false')
         _ensure_config(app, 'reassign_owner_note_enabled', 'true')
         _ensure_config(app, 'api_user_ids', '12345')
 
-        resp = authenticated_client.get('/screening', follow_redirects=True)
+        resp = authenticated_client.get('/automation_test', follow_redirects=True)
         assert resp.status_code == 200
         html = resp.data.decode('utf-8')
 
-        assert 'name="auto_reassign_owner_enabled"' in html
-        import re
-        master_pattern = re.compile(
-            r'<input[^>]*name="auto_reassign_owner_enabled"[^>]*>',
+        pattern = re.compile(
+            r'<input[^>]*id="ownerReassignToggle"[^>]*>',
             re.IGNORECASE
         )
-        match = master_pattern.search(html)
-        assert match is not None, "auto_reassign_owner_enabled checkbox not found in HTML"
+        match = pattern.search(html)
+        assert match is not None, "ownerReassignToggle not found in /automation_test HTML"
         assert 'checked' not in match.group(0), (
-            "auto_reassign_owner_enabled toggle should be unchecked when DB value is 'false'"
+            "ownerReassignToggle should be unchecked when DB value is 'false'"
         )
 
     def test_true_value_renders_checked_master_toggle(self, app, authenticated_client):
-        """DB value 'true' → toggle MUST have checked attribute."""
+        """DB value 'true' → ownerReassignToggle MUST have checked attribute."""
+        import re
         _ensure_config(app, 'auto_reassign_owner_enabled', 'true')
         _ensure_config(app, 'reassign_owner_note_enabled', 'false')
         _ensure_config(app, 'api_user_ids', '12345')
 
-        resp = authenticated_client.get('/screening', follow_redirects=True)
+        resp = authenticated_client.get('/automation_test', follow_redirects=True)
         assert resp.status_code == 200
         html = resp.data.decode('utf-8')
 
-        import re
-        master_pattern = re.compile(
-            r'<input[^>]*name="auto_reassign_owner_enabled"[^>]*>',
+        pattern = re.compile(
+            r'<input[^>]*id="ownerReassignToggle"[^>]*>',
             re.IGNORECASE
         )
-        match = master_pattern.search(html)
-        assert match is not None, "auto_reassign_owner_enabled checkbox not found in HTML"
+        match = pattern.search(html)
+        assert match is not None, "ownerReassignToggle not found in /automation_test HTML"
         assert 'checked' in match.group(0), (
-            "auto_reassign_owner_enabled toggle should be checked when DB value is 'true'"
+            "ownerReassignToggle should be checked when DB value is 'true'"
         )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# T017: sub-settings preserved when master toggle is turned OFF
+# T017: ownership_toggle action does not touch api_user_ids or note toggle
 # ─────────────────────────────────────────────────────────────────────────────
 class TestSubSettingsPreservedOnToggleOff:
     def test_api_user_ids_preserved_when_toggle_off(self, app, authenticated_client):
-        """Turning master toggle OFF must not erase previously configured IDs."""
+        """Disabling the kill switch via ownership_toggle must not erase IDs or note pref."""
         from models import VettingConfig
         _ensure_config(app, 'auto_reassign_owner_enabled', 'true')
         _ensure_config(app, 'api_user_ids', '111222,333444')
         _ensure_config(app, 'reassign_owner_note_enabled', 'true')
 
-        resp = authenticated_client.post('/screening/save', data={
-            'match_threshold': '80',
-            'batch_size': '25',
-        }, follow_redirects=False)
+        resp = authenticated_client.post('/automation_test', json={
+            'action': 'ownership_toggle',
+            'enabled': False,
+        })
 
-        assert resp.status_code in (302, 200)
+        assert resp.status_code == 200
+        body = resp.get_json()
+        assert body and body.get('success') is True
 
         with app.app_context():
             r_toggle = VettingConfig.query.filter_by(setting_key='auto_reassign_owner_enabled').first()
@@ -631,8 +633,8 @@ class TestSubSettingsPreservedOnToggleOff:
             r_note = VettingConfig.query.filter_by(setting_key='reassign_owner_note_enabled').first()
             assert r_toggle and r_toggle.setting_value == 'false', "Master toggle should be false"
             assert r_ids and r_ids.setting_value == '111222,333444', (
-                "api_user_ids must be preserved when master toggle is turned off"
+                "api_user_ids must be preserved when kill switch is turned off"
             )
             assert r_note and r_note.setting_value == 'true', (
-                "reassign_owner_note_enabled must be preserved when master toggle is turned off"
+                "reassign_owner_note_enabled must be preserved when kill switch is turned off"
             )

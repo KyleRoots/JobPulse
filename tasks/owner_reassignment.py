@@ -505,7 +505,7 @@ def reassign_api_user_candidates(since_minutes: int = 30) -> dict:
                                 note_url = f"{base_url}entity/Note"
                                 note_data = {
                                     'personReference': {'id': int(candidate_id)},
-                                    'action': 'AI Resume Summary',
+                                    'action': 'Owner Reassignment',
                                     'comments': note_text,
                                     'isDeleted': False,
                                     'candidates': [{'id': int(candidate_id)}],
