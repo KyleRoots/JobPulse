@@ -371,7 +371,7 @@ class TestJobSubmissionLookupRetry:
             ]}),
         ]
 
-        with patch('screening.detection.time.sleep') as mock_sleep:
+        with patch('screening.candidate_data.time.sleep') as mock_sleep:
             job_id, title, ok = cvs._fetch_latest_job_submission(bh, 99)
 
         assert job_id == 777
@@ -387,7 +387,7 @@ class TestJobSubmissionLookupRetry:
         bh = self._make_bullhorn()
         bh.session.get.return_value = self._make_response(502)
 
-        with patch('screening.detection.time.sleep'):
+        with patch('screening.candidate_data.time.sleep'):
             with caplog.at_level(logging.WARNING, logger='root'):
                 job_id, title, ok = cvs._fetch_latest_job_submission(bh, 4242)
 
@@ -413,7 +413,7 @@ class TestJobSubmissionLookupRetry:
             ]}),
         ]
 
-        with patch('screening.detection.time.sleep'):
+        with patch('screening.candidate_data.time.sleep'):
             job_id, title, ok = cvs._fetch_latest_job_submission(bh, 7)
 
         assert job_id == 888
@@ -429,7 +429,7 @@ class TestJobSubmissionLookupRetry:
         bh = self._make_bullhorn()
         bh.session.get.side_effect = requests.Timeout("timed out")
 
-        with patch('screening.detection.time.sleep'):
+        with patch('screening.candidate_data.time.sleep'):
             with caplog.at_level(logging.WARNING, logger='root'):
                 job_id, title, ok = cvs._fetch_latest_job_submission(bh, 8888)
 
@@ -456,7 +456,7 @@ class TestJobSubmissionLookupRetry:
             ]}),
         ]
 
-        with patch('screening.detection.time.sleep'):
+        with patch('screening.candidate_data.time.sleep'):
             job_id, title, ok = cvs._fetch_latest_job_submission(bh, 11)
 
         assert job_id == 111
@@ -469,7 +469,7 @@ class TestJobSubmissionLookupRetry:
         bh = self._make_bullhorn()
         bh.session.get.return_value = self._make_response(401)
 
-        with patch('screening.detection.time.sleep') as mock_sleep:
+        with patch('screening.candidate_data.time.sleep') as mock_sleep:
             job_id, title, ok = cvs._fetch_latest_job_submission(bh, 333)
 
         assert ok is False
@@ -487,7 +487,7 @@ class TestJobSubmissionLookupRetry:
             ]}),
         ]
 
-        with patch('screening.detection.time.sleep'):
+        with patch('screening.candidate_data.time.sleep'):
             job_id, title, ok = cvs._fetch_latest_job_submission(bh, 44)
 
         assert job_id == 222
@@ -640,7 +640,7 @@ class TestRecruiterActivityGate:
             ]}),
         ]
 
-        with patch('screening.detection.time.sleep'):
+        with patch('screening.dedup.time.sleep'):
             with app.app_context():
                 active, _ = cvs._has_recent_recruiter_activity(bh, 1, 60)
 
@@ -654,7 +654,7 @@ class TestRecruiterActivityGate:
         bh = self._make_bullhorn()
         bh.session.get.return_value = self._make_response(502)
 
-        with patch('screening.detection.time.sleep'):
+        with patch('screening.dedup.time.sleep'):
             with app.app_context():
                 with caplog.at_level(logging.WARNING, logger='root'):
                     active, _ = cvs._has_recent_recruiter_activity(bh, 7777, 60)
@@ -672,7 +672,7 @@ class TestRecruiterActivityGate:
         bh = self._make_bullhorn()
         bh.session.get.return_value = self._make_response(401)
 
-        with patch('screening.detection.time.sleep') as mock_sleep:
+        with patch('screening.dedup.time.sleep') as mock_sleep:
             with app.app_context():
                 active, _ = cvs._has_recent_recruiter_activity(bh, 1, 60)
 
