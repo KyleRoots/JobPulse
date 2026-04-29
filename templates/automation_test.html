@@ -483,7 +483,7 @@
 
                     <p class="text-muted small mb-3">
                         Automatically transfers candidate ownership from API service accounts (Pandologic, Matador, etc.)
-                        to the human recruiter responsible for the job they applied to. Runs every 5 minutes when enabled.
+                        to the first human recruiter who interacted with the candidate. Runs every 5 minutes when enabled.
                     </p>
 
                     <!-- Inline config: API user IDs -->
@@ -512,7 +512,7 @@
                                 <label class="form-label mb-0">Leave a Bullhorn note on reassignment</label>
                                 <small class="d-block text-muted">
                                     Adds an internal note to the candidate record documenting the ownership
-                                    change (old owner, new owner, and the job they applied to).
+                                    change (old owner and new owner).
                                 </small>
                             </div>
                             <div class="form-check form-switch mb-0">
@@ -565,7 +565,6 @@
                                     <tr>
                                         <th>Candidate</th>
                                         <th>Current Owner</th>
-                                        <th>Applied Job</th>
                                         <th>Would Reassign To</th>
                                         <th>Action</th>
                                     </tr>
@@ -1016,7 +1015,7 @@
 
                         tbody.innerHTML = '';
                         if (candidates.length === 0) {
-                            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No API-owned candidates found in the last 30 days.</td></tr>';
+                            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No API-owned candidates found in the last 30 days.</td></tr>';
                         } else {
                             candidates.forEach(c => {
                                 const tr = document.createElement('tr');
@@ -1029,7 +1028,6 @@
                                 tr.innerHTML = `
                                     <td><small>${c.name || ('ID ' + c.candidate_id)}</small></td>
                                     <td><small>${c.current_owner}</small></td>
-                                    <td><small>${c.job_title || (c.job_id ? 'Job ' + c.job_id : '—')}</small></td>
                                     ${toCell}
                                     ${actionCell}
                                 `;

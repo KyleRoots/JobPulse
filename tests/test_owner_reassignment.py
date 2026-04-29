@@ -1,14 +1,14 @@
 """
-Tests for the API User → Recruiter Ownership Reassignment task (Task #70).
+Tests for the API User → Recruiter Ownership Reassignment task (Task #70 / #83).
 
 Coverage:
   T001 — disabled toggle exits immediately
   T002 — empty api_user_ids exits with a log
   T003 — no candidates found exits cleanly
-  T004 — candidate with job submission is reassigned
-  T005 — candidate with no job submission is skipped
-  T006 — candidate whose job has no recruiter is skipped
-  T007 — candidate whose job owner is ALSO an API user is skipped
+  T004 — candidate with human note activity is reassigned
+  T005 — candidate with no human activity is skipped
+  T006 — (removed — job-owner logic replaced by note-based lookup)
+  T007 — all note authors are API users → candidate is skipped
   T008 — Bullhorn update failure is counted as failed, not reassigned
   T009 — Bullhorn auth failure exits early
   T010 — note creation failure does not abort the reassignment
@@ -59,19 +59,16 @@ def _make_candidate(cid=1001, first='John', last='Doe',
     }
 
 
-def _make_submission_resp(job_id=42, job_title='Dev', owner_id=777):
-    return {
-        'data': [{
-            'id': 1,
-            'jobOrder': {
-                'id': job_id,
-                'title': job_title,
-                'owner': {'id': owner_id, 'firstName': 'Bob', 'lastName': 'Smith'},
-                'assignedUsers': {'data': []},
-            },
-            'dateAdded': 1700000000000,
-        }]
-    }
+def _make_note_resp(person_id=777, first='Bob', last='Smith', extra_notes=None):
+    notes = extra_notes or []
+    notes.append({
+        'id': 1,
+        'commentingPerson': {'id': person_id, 'firstName': first, 'lastName': last},
+        'dateAdded': 1700000000000,
+        'action': 'General',
+    })
+    notes.sort(key=lambda n: n['dateAdded'])
+    return {'data': notes}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -130,7 +127,7 @@ class TestNoCandidates:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# T004: successful reassignment
+# T004: successful reassignment (note-based)
 # ─────────────────────────────────────────────────────────────────────────────
 class TestSuccessfulReassignment:
     def test_candidate_is_reassigned(self, app):
@@ -143,17 +140,13 @@ class TestSuccessfulReassignment:
         search_resp.status_code = 200
         search_resp.json.return_value = {'data': [candidate]}
 
-        sub_resp = MagicMock()
-        sub_resp.status_code = 200
-        sub_resp.json.return_value = _make_submission_resp(job_id=42, owner_id=777)
+        note_resp = MagicMock()
+        note_resp.status_code = 200
+        note_resp.json.return_value = _make_note_resp(person_id=777)
 
         update_resp = MagicMock()
         update_resp.status_code = 200
         update_resp.json.return_value = {'changeType': 'UPDATE', 'changedEntityId': 1001}
-
-        user_resp = MagicMock()
-        user_resp.status_code = 200
-        user_resp.json.return_value = {'data': {'id': 777, 'firstName': 'Bob', 'lastName': 'Smith'}}
 
         with app.app_context():
             from tasks.owner_reassignment import reassign_api_user_candidates
@@ -165,7 +158,7 @@ class TestSuccessfulReassignment:
                 mock_bh_cls.return_value = bh
 
                 with patch('tasks.owner_reassignment._requests') as mock_req:
-                    mock_req.get.side_effect = [search_resp, sub_resp, user_resp]
+                    mock_req.get.side_effect = [search_resp, note_resp]
                     mock_req.post.return_value = update_resp
                     reassign_api_user_candidates(since_minutes=30)
 
@@ -179,10 +172,10 @@ class TestSuccessfulReassignment:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# T005: candidate with no job submission skipped
+# T005: candidate with no human activity is skipped
 # ─────────────────────────────────────────────────────────────────────────────
-class TestNoJobSubmission:
-    def test_candidate_without_submission_is_skipped(self, app):
+class TestNoHumanActivity:
+    def test_candidate_without_human_notes_is_skipped(self, app):
         _ensure_config(app, 'auto_reassign_owner_enabled', 'true')
         _ensure_config(app, 'api_user_ids', '9999')
         _ensure_config(app, 'reassign_owner_note_enabled', 'false')
@@ -192,9 +185,9 @@ class TestNoJobSubmission:
         search_resp.status_code = 200
         search_resp.json.return_value = {'data': [candidate]}
 
-        no_sub_resp = MagicMock()
-        no_sub_resp.status_code = 200
-        no_sub_resp.json.return_value = {'data': []}
+        no_notes_resp = MagicMock()
+        no_notes_resp.status_code = 200
+        no_notes_resp.json.return_value = {'data': []}
 
         with app.app_context():
             from tasks.owner_reassignment import reassign_api_user_candidates
@@ -206,16 +199,16 @@ class TestNoJobSubmission:
                 mock_bh_cls.return_value = bh
 
                 with patch('tasks.owner_reassignment._requests') as mock_req:
-                    mock_req.get.side_effect = [search_resp, no_sub_resp]
+                    mock_req.get.side_effect = [search_resp, no_notes_resp]
                     reassign_api_user_candidates(since_minutes=30)
                     assert mock_req.post.call_count == 0
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# T006: job has no owner
+# T006: only API-user notes → no human interactor → skipped
 # ─────────────────────────────────────────────────────────────────────────────
-class TestJobHasNoOwner:
-    def test_skipped_when_job_owner_missing(self, app):
+class TestOnlyApiUserNotes:
+    def test_skipped_when_only_api_users_noted(self, app):
         _ensure_config(app, 'auto_reassign_owner_enabled', 'true')
         _ensure_config(app, 'api_user_ids', '9999')
         _ensure_config(app, 'reassign_owner_note_enabled', 'false')
@@ -225,18 +218,14 @@ class TestJobHasNoOwner:
         search_resp.status_code = 200
         search_resp.json.return_value = {'data': [candidate]}
 
-        sub_no_owner = MagicMock()
-        sub_no_owner.status_code = 200
-        sub_no_owner.json.return_value = {
+        api_only_notes = MagicMock()
+        api_only_notes.status_code = 200
+        api_only_notes.json.return_value = {
             'data': [{
                 'id': 1,
-                'jobOrder': {
-                    'id': 42,
-                    'title': 'Dev',
-                    'owner': {},
-                    'assignedUsers': {'data': []},
-                },
+                'commentingPerson': {'id': 9999, 'firstName': 'API', 'lastName': 'Bot'},
                 'dateAdded': 1700000000000,
+                'action': 'General',
             }]
         }
 
@@ -250,16 +239,16 @@ class TestJobHasNoOwner:
                 mock_bh_cls.return_value = bh
 
                 with patch('tasks.owner_reassignment._requests') as mock_req:
-                    mock_req.get.side_effect = [search_resp, sub_no_owner]
+                    mock_req.get.side_effect = [search_resp, api_only_notes]
                     reassign_api_user_candidates(since_minutes=30)
                     assert mock_req.post.call_count == 0
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# T007: job owner is also an API user
+# T007: first human interactor is picked from mixed notes
 # ─────────────────────────────────────────────────────────────────────────────
-class TestJobOwnerIsApiUser:
-    def test_skipped_when_job_owner_is_api_user(self, app):
+class TestFirstHumanPicked:
+    def test_first_human_among_mixed_notes(self, app):
         _ensure_config(app, 'auto_reassign_owner_enabled', 'true')
         _ensure_config(app, 'api_user_ids', '9999')
         _ensure_config(app, 'reassign_owner_note_enabled', 'false')
@@ -269,9 +258,34 @@ class TestJobOwnerIsApiUser:
         search_resp.status_code = 200
         search_resp.json.return_value = {'data': [candidate]}
 
-        sub_resp = MagicMock()
-        sub_resp.status_code = 200
-        sub_resp.json.return_value = _make_submission_resp(owner_id=9999)
+        mixed_notes = MagicMock()
+        mixed_notes.status_code = 200
+        mixed_notes.json.return_value = {
+            'data': [
+                {
+                    'id': 1,
+                    'commentingPerson': {'id': 9999, 'firstName': 'API', 'lastName': 'Bot'},
+                    'dateAdded': 1700000000000,
+                    'action': 'General',
+                },
+                {
+                    'id': 2,
+                    'commentingPerson': {'id': 555, 'firstName': 'Alice', 'lastName': 'Jones'},
+                    'dateAdded': 1700001000000,
+                    'action': 'General',
+                },
+                {
+                    'id': 3,
+                    'commentingPerson': {'id': 666, 'firstName': 'Bob', 'lastName': 'Lee'},
+                    'dateAdded': 1700002000000,
+                    'action': 'General',
+                },
+            ]
+        }
+
+        update_resp = MagicMock()
+        update_resp.status_code = 200
+        update_resp.json.return_value = {'changeType': 'UPDATE', 'changedEntityId': 1001}
 
         with app.app_context():
             from tasks.owner_reassignment import reassign_api_user_candidates
@@ -283,9 +297,17 @@ class TestJobOwnerIsApiUser:
                 mock_bh_cls.return_value = bh
 
                 with patch('tasks.owner_reassignment._requests') as mock_req:
-                    mock_req.get.side_effect = [search_resp, sub_resp]
+                    mock_req.get.side_effect = [search_resp, mixed_notes]
+                    mock_req.post.return_value = update_resp
                     reassign_api_user_candidates(since_minutes=30)
-                    assert mock_req.post.call_count == 0
+
+                    update_calls = [
+                        c for c in mock_req.post.call_args_list
+                        if 'entity/Candidate' in str(c)
+                    ]
+                    assert len(update_calls) == 1
+                    posted_json = update_calls[0].kwargs.get('json', {})
+                    assert posted_json['owner']['id'] == 555
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -302,9 +324,9 @@ class TestBullhornUpdateFailure:
         search_resp.status_code = 200
         search_resp.json.return_value = {'data': [candidate]}
 
-        sub_resp = MagicMock()
-        sub_resp.status_code = 200
-        sub_resp.json.return_value = _make_submission_resp(owner_id=777)
+        note_resp = MagicMock()
+        note_resp.status_code = 200
+        note_resp.json.return_value = _make_note_resp(person_id=777)
 
         fail_resp = MagicMock()
         fail_resp.status_code = 400
@@ -320,7 +342,7 @@ class TestBullhornUpdateFailure:
                 mock_bh_cls.return_value = bh
 
                 with patch('tasks.owner_reassignment._requests') as mock_req:
-                    mock_req.get.side_effect = [search_resp, sub_resp]
+                    mock_req.get.side_effect = [search_resp, note_resp]
                     mock_req.post.return_value = fail_resp
                     reassign_api_user_candidates(since_minutes=30)
 
@@ -362,30 +384,21 @@ class TestNoteCreationFailure:
         search_resp.status_code = 200
         search_resp.json.return_value = {'data': [candidate]}
 
-        sub_resp = MagicMock()
-        sub_resp.status_code = 200
-        sub_resp.json.return_value = _make_submission_resp(owner_id=777)
+        note_resp = MagicMock()
+        note_resp.status_code = 200
+        note_resp.json.return_value = _make_note_resp(person_id=777)
 
         update_resp = MagicMock()
         update_resp.status_code = 200
         update_resp.json.return_value = {'changeType': 'UPDATE', 'changedEntityId': 1001}
 
-        user_resp = MagicMock()
-        user_resp.status_code = 200
-        user_resp.json.return_value = {'data': {'id': 777, 'firstName': 'Bob', 'lastName': 'Smith'}}
-
         def get_side_effect(*args, **kwargs):
             url = args[0] if args else kwargs.get('url', '')
             if 'search/Candidate' in url:
                 return search_resp
-            if 'search/JobSubmission' in url:
-                return sub_resp
-            if 'CorporateUser' in url:
-                return user_resp
+            if 'search/Note' in url:
+                return note_resp
             return MagicMock(status_code=404)
-
-        note_resp = MagicMock()
-        note_resp.status_code = 500
 
         def put_side_effect(*args, **kwargs):
             raise Exception("Note API exploded")
@@ -465,6 +478,84 @@ class TestParseApiUserIds:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# T012b: pagination — human note on page 2
+# ─────────────────────────────────────────────────────────────────────────────
+class TestNotePagination:
+    def test_human_found_on_second_page(self, app):
+        _ensure_config(app, 'auto_reassign_owner_enabled', 'true')
+        _ensure_config(app, 'api_user_ids', '9999')
+        _ensure_config(app, 'reassign_owner_note_enabled', 'false')
+
+        candidate = _make_candidate()
+        search_resp = MagicMock()
+        search_resp.status_code = 200
+        search_resp.json.return_value = {'data': [candidate]}
+
+        page1_notes = [
+            {
+                'id': i,
+                'commentingPerson': {'id': 9999, 'firstName': 'API', 'lastName': 'Bot'},
+                'dateAdded': 1700000000000 + i,
+                'action': 'General',
+            }
+            for i in range(50)
+        ]
+        page1_resp = MagicMock()
+        page1_resp.status_code = 200
+        page1_resp.json.return_value = {'data': page1_notes, 'total': 51}
+
+        page2_resp = MagicMock()
+        page2_resp.status_code = 200
+        page2_resp.json.return_value = {
+            'data': [{
+                'id': 50,
+                'commentingPerson': {'id': 888, 'firstName': 'Jane', 'lastName': 'Doe'},
+                'dateAdded': 1700000100000,
+                'action': 'General',
+            }],
+            'total': 51,
+        }
+
+        update_resp = MagicMock()
+        update_resp.status_code = 200
+        update_resp.json.return_value = {'changeType': 'UPDATE', 'changedEntityId': 1001}
+
+        call_count = {'n': 0}
+        def get_side_effect(*args, **kwargs):
+            url = args[0] if args else kwargs.get('url', '')
+            if 'search/Candidate' in url:
+                return search_resp
+            if 'search/Note' in url:
+                call_count['n'] += 1
+                if call_count['n'] == 1:
+                    return page1_resp
+                return page2_resp
+            return MagicMock(status_code=404)
+
+        with app.app_context():
+            from tasks.owner_reassignment import reassign_api_user_candidates
+            with patch('tasks.owner_reassignment.BullhornService') as mock_bh_cls:
+                bh = MagicMock()
+                bh.authenticate.return_value = True
+                bh.base_url = 'https://rest.bullhorn.com/'
+                bh.rest_token = 'test-token'
+                mock_bh_cls.return_value = bh
+
+                with patch('tasks.owner_reassignment._requests') as mock_req:
+                    mock_req.get.side_effect = get_side_effect
+                    mock_req.post.return_value = update_resp
+                    reassign_api_user_candidates(since_minutes=30)
+
+                    update_calls = [
+                        c for c in mock_req.post.call_args_list
+                        if 'entity/Candidate' in str(c)
+                    ]
+                    assert len(update_calls) == 1
+                    posted_json = update_calls[0].kwargs.get('json', {})
+                    assert posted_json['owner']['id'] == 888
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # T013: note disabled
 # ─────────────────────────────────────────────────────────────────────────────
 class TestNoteDisabled:
@@ -478,26 +569,20 @@ class TestNoteDisabled:
         search_resp.status_code = 200
         search_resp.json.return_value = {'data': [candidate]}
 
-        sub_resp = MagicMock()
-        sub_resp.status_code = 200
-        sub_resp.json.return_value = _make_submission_resp(owner_id=777)
+        note_resp = MagicMock()
+        note_resp.status_code = 200
+        note_resp.json.return_value = _make_note_resp(person_id=777)
 
         update_resp = MagicMock()
         update_resp.status_code = 200
         update_resp.json.return_value = {'changeType': 'UPDATE', 'changedEntityId': 1001}
 
-        user_resp = MagicMock()
-        user_resp.status_code = 200
-        user_resp.json.return_value = {'data': {'id': 777, 'firstName': 'Bob', 'lastName': 'Smith'}}
-
         def get_side_effect(*args, **kwargs):
             url = args[0] if args else ''
             if 'search/Candidate' in url:
                 return search_resp
-            if 'search/JobSubmission' in url:
-                return sub_resp
-            if 'CorporateUser' in url:
-                return user_resp
+            if 'search/Note' in url:
+                return note_resp
             return MagicMock(status_code=404)
 
         with app.app_context():

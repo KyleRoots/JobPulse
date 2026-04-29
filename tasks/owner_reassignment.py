@@ -3,7 +3,8 @@ Owner Reassignment Task
 =======================
 Scheduled task: find Bullhorn Candidate records whose owner is a known API
 service account (Pandologic, Matador, Myticas, etc.) and reassign ownership to
-the human recruiter responsible for the job the candidate applied to.
+the first human recruiter who interacted with the candidate (via notes or
+other activity).
 
 Configuration is read from VettingConfig at runtime:
   - auto_reassign_owner_enabled  bool   master toggle (default false)
@@ -27,9 +28,8 @@ logger = logging.getLogger(__name__)
 _CANDIDATE_FIELDS = (
     'id,firstName,lastName,email,owner(id,firstName,lastName)'
 )
-_JOB_FIELDS = (
-    'id,title,owner(id,firstName,lastName),'
-    'assignedUsers(id,firstName,lastName)'
+_NOTE_FIELDS = (
+    'id,commentingPerson(id,firstName,lastName),dateAdded,action'
 )
 
 
@@ -53,59 +53,81 @@ def _parse_api_user_ids(raw: str) -> List[int]:
     return ids
 
 
-def _fetch_candidate_job(
+def _find_first_human_interactor(
     base_url: str,
     headers: dict,
     candidate_id: int,
-) -> Tuple[Optional[int], Optional[str], Optional[int]]:
+    api_user_ids: List[int],
+) -> Tuple[Optional[int], Optional[str], Optional[str]]:
     """
-    Find the most recent job a candidate applied to and return:
-      (job_id, job_title, job_owner_corporate_user_id)
+    Search the candidate's Bullhorn Notes for the earliest note written by a
+    human (non-API) user and return:
+      (corporateUser_id, firstName, lastName)
 
-    Returns (None, None, None) if no submission is found or the lookup fails.
+    Paginates through all notes (sorted by dateAdded ascending) so the first
+    human interactor is found even when early pages contain only API-authored
+    notes.
+
+    Returns (None, None, None) if no human activity is found.
     """
-    sub_url = f"{base_url}search/JobSubmission"
-    params = {
-        'query': f'candidate.id:{candidate_id}',
-        'fields': f'id,jobOrder({_JOB_FIELDS}),dateAdded',
-        'count': 1,
-        'sort': '-dateAdded',
-    }
+    note_url = f"{base_url}search/Note"
+    page_size = 50
+    start = 0
 
-    for attempt in range(2):
-        try:
-            resp = _requests.get(sub_url, headers=headers, params=params, timeout=15)
-            if resp.status_code == 200:
-                submissions = resp.json().get('data', [])
-                if not submissions:
-                    return (None, None, None)
-                job = submissions[0].get('jobOrder') or {}
-                job_id = job.get('id')
-                job_title = job.get('title', '')
-                owner = job.get('owner') or {}
-                owner_id = owner.get('id')
-                if not owner_id:
-                    assigned = job.get('assignedUsers', {})
-                    users = assigned.get('data', []) if isinstance(assigned, dict) else assigned
-                    if users:
-                        owner_id = users[0].get('id')
-                return (job_id, job_title, owner_id)
-            if 500 <= resp.status_code < 600 and attempt == 0:
-                time.sleep(1)
-                continue
-            logger.warning(
-                f"Job submission lookup for candidate {candidate_id}: "
-                f"HTTP {resp.status_code}"
-            )
+    while True:
+        params = {
+            'query': f'candidates.id:{candidate_id}',
+            'fields': _NOTE_FIELDS,
+            'count': page_size,
+            'start': start,
+            'sort': 'dateAdded',
+        }
+
+        resp = None
+        for attempt in range(2):
+            try:
+                resp = _requests.get(note_url, headers=headers, params=params, timeout=15)
+                if resp.status_code == 200:
+                    break
+                if 500 <= resp.status_code < 600 and attempt == 0:
+                    time.sleep(1)
+                    continue
+                logger.warning(
+                    f"Note lookup for candidate {candidate_id}: "
+                    f"HTTP {resp.status_code}"
+                )
+                return (None, None, None)
+            except Exception as exc:
+                if attempt == 0:
+                    time.sleep(1)
+                    continue
+                logger.warning(
+                    f"Note lookup exception for candidate {candidate_id}: {exc}"
+                )
+                return (None, None, None)
+
+        if resp is None or resp.status_code != 200:
             return (None, None, None)
-        except Exception as exc:
-            if attempt == 0:
-                time.sleep(1)
-                continue
-            logger.warning(
-                f"Job submission lookup exception for candidate {candidate_id}: {exc}"
-            )
-            return (None, None, None)
+
+        page_data = resp.json()
+        notes = page_data.get('data', [])
+
+        for note in notes:
+            person = note.get('commentingPerson') or {}
+            person_id = person.get('id')
+            if person_id and int(person_id) not in api_user_ids:
+                return (
+                    int(person_id),
+                    person.get('firstName', ''),
+                    person.get('lastName', ''),
+                )
+
+        total = page_data.get('total', len(notes))
+        start += len(notes)
+        if start >= total or len(notes) < page_size:
+            break
+
+        time.sleep(0.05)
 
     return (None, None, None)
 
@@ -117,18 +139,15 @@ def _build_note_text(
     old_owner_last: str,
     new_owner_first: str,
     new_owner_last: str,
-    job_title: str,
-    job_id: Optional[int],
 ) -> str:
     old_name = f"{old_owner_first} {old_owner_last}".strip() or "API User"
     new_name = f"{new_owner_first} {new_owner_last}".strip() or "Unknown Recruiter"
-    job_ref = f"{job_title} (ID: {job_id})" if job_id else job_title or "their applied job"
     return (
         f"Owner Reassigned — {candidate_first} {candidate_last}\n\n"
         f"Previous owner: {old_name}\n"
         f"New owner: {new_name}\n"
         f"Reason: API service account detected; ownership transferred to the "
-        f"recruiter responsible for {job_ref}.\n\n"
+        f"first recruiter who interacted with this candidate.\n\n"
         f"This change was made automatically by Scout Genius."
     )
 
@@ -143,8 +162,9 @@ def preview_reassign_candidates(limit: int = 5) -> dict:
     Returns a dict with keys:
       enabled         bool    whether the feature toggle is on
       api_user_ids    list    configured API user IDs
-      candidates      list    [{candidate_id, name, current_owner, job_title, job_id,
-                               resolved_recruiter_id, would_reassign: bool, skip_reason}]
+      candidates      list    [{candidate_id, name, current_owner,
+                               would_reassign: bool, skip_reason,
+                               new_owner, new_owner_id}]
       total_found     int     total API-owned candidates found (may exceed limit)
       error           str     only present on failure
     """
@@ -231,42 +251,25 @@ def preview_reassign_candidates(limit: int = 5) -> dict:
                 old_owner_id = old_owner.get('id')
                 old_owner_name = f"{old_owner.get('firstName', '')} {old_owner.get('lastName', '')}".strip() or 'API User'
 
-                job_id, job_title, recruiter_id = _fetch_candidate_job(base_url, headers, candidate_id)
+                recruiter_id, rec_first, rec_last = _find_first_human_interactor(
+                    base_url, headers, candidate_id, api_user_ids
+                )
 
                 entry = {
                     'candidate_id': candidate_id,
                     'name': f"{c_first} {c_last}".strip(),
                     'current_owner': old_owner_name,
                     'current_owner_id': old_owner_id,
-                    'job_id': job_id,
-                    'job_title': job_title or '',
-                    'resolved_recruiter_id': recruiter_id,
                     'would_reassign': False,
                     'skip_reason': None,
                 }
 
-                if job_id is None:
-                    entry['skip_reason'] = 'No job submission found'
-                elif not recruiter_id:
-                    entry['skip_reason'] = 'Job has no resolvable owner'
-                elif int(recruiter_id) in api_user_ids:
-                    entry['skip_reason'] = f'Job owner is also an API user (ID {recruiter_id})'
+                if recruiter_id is None:
+                    entry['skip_reason'] = 'No human activity found'
                 elif old_owner_id and int(old_owner_id) == int(recruiter_id):
-                    entry['skip_reason'] = 'Already assigned to correct recruiter'
+                    entry['skip_reason'] = 'Already assigned to correct user'
                 else:
-                    new_owner_name = str(recruiter_id)
-                    try:
-                        user_resp = _requests.get(
-                            f"{base_url}entity/CorporateUser/{recruiter_id}",
-                            headers=headers,
-                            params={'fields': 'id,firstName,lastName'},
-                            timeout=10,
-                        )
-                        if user_resp.status_code == 200:
-                            ud = user_resp.json().get('data', {})
-                            new_owner_name = f"{ud.get('firstName', '')} {ud.get('lastName', '')}".strip() or str(recruiter_id)
-                    except Exception:
-                        pass
+                    new_owner_name = f"{rec_first} {rec_last}".strip() or str(recruiter_id)
                     entry['would_reassign'] = True
                     entry['new_owner'] = new_owner_name
                     entry['new_owner_id'] = recruiter_id
@@ -298,8 +301,8 @@ def reassign_api_user_candidates(since_minutes: int = 30) -> dict:
 
     Runs inside an app context (APScheduler worker). Reads VettingConfig for
     the toggle, the configured API user IDs, and the note toggle. For each
-    candidate owned by an API user account, derives the correct human recruiter
-    from their most recent job submission and updates the Bullhorn record.
+    candidate owned by an API user account, finds the first human recruiter
+    who interacted (via Bullhorn Notes) and updates the ownership record.
 
     Returns a dict with keys: reassigned, skipped, failed, errors (list of str).
     """
@@ -395,8 +398,7 @@ def reassign_api_user_candidates(since_minutes: int = 30) -> dict:
             )
 
             reassigned = 0
-            skipped_no_job = 0
-            skipped_no_recruiter = 0
+            skipped_no_activity = 0
             skipped_already_correct = 0
             failed = 0
             errors: list = []
@@ -412,39 +414,23 @@ def reassign_api_user_candidates(since_minutes: int = 30) -> dict:
                 old_owner_first = old_owner.get('firstName', '')
                 old_owner_last = old_owner.get('lastName', '')
 
-                job_id, job_title, recruiter_id = _fetch_candidate_job(
-                    base_url, headers, candidate_id
+                recruiter_id, rec_first, rec_last = _find_first_human_interactor(
+                    base_url, headers, candidate_id, api_user_ids
                 )
 
-                if job_id is None:
+                if recruiter_id is None:
                     logger.info(
                         f"owner_reassignment: skipping candidate {candidate_id} "
-                        f"({c_first} {c_last}) — no job submission found"
+                        f"({c_first} {c_last}) — no human activity found"
                     )
-                    skipped_no_job += 1
-                    continue
-
-                if not recruiter_id:
-                    logger.info(
-                        f"owner_reassignment: skipping candidate {candidate_id} "
-                        f"({c_first} {c_last}) — job {job_id} has no resolvable owner"
-                    )
-                    skipped_no_recruiter += 1
-                    continue
-
-                if int(recruiter_id) in api_user_ids:
-                    logger.info(
-                        f"owner_reassignment: skipping candidate {candidate_id} "
-                        f"({c_first} {c_last}) — job owner is also an API user ({recruiter_id})"
-                    )
-                    skipped_no_recruiter += 1
+                    skipped_no_activity += 1
                     continue
 
                 old_owner_id = old_owner.get('id')
                 if old_owner_id and int(old_owner_id) == int(recruiter_id):
                     logger.debug(
                         f"owner_reassignment: skipping candidate {candidate_id} "
-                        f"({c_first} {c_last}) — already owned by correct recruiter ({recruiter_id})"
+                        f"({c_first} {c_last}) — already owned by correct user ({recruiter_id})"
                     )
                     skipped_already_correct += 1
                     continue
@@ -468,29 +454,29 @@ def reassign_api_user_candidates(since_minutes: int = 30) -> dict:
                             and (body.get('changeType') == 'UPDATE'
                                  or body.get('changedEntityId') is not None)):
 
-                        new_owner_first = ''
-                        new_owner_last = ''
-                        try:
-                            user_resp = _requests.get(
-                                f"{base_url}entity/CorporateUser/{recruiter_id}",
-                                headers=headers,
-                                params={'fields': 'id,firstName,lastName'},
-                                timeout=10,
-                            )
-                            if user_resp.status_code == 200:
-                                ud = user_resp.json().get('data', {})
-                                new_owner_first = ud.get('firstName', '')
-                                new_owner_last = ud.get('lastName', '')
-                        except Exception:
-                            pass
+                        new_owner_first = rec_first or ''
+                        new_owner_last = rec_last or ''
+                        if not new_owner_first and not new_owner_last:
+                            try:
+                                user_resp = _requests.get(
+                                    f"{base_url}entity/CorporateUser/{recruiter_id}",
+                                    headers=headers,
+                                    params={'fields': 'id,firstName,lastName'},
+                                    timeout=10,
+                                )
+                                if user_resp.status_code == 200:
+                                    ud = user_resp.json().get('data', {})
+                                    new_owner_first = ud.get('firstName', '')
+                                    new_owner_last = ud.get('lastName', '')
+                            except Exception:
+                                pass
 
                         old_name = f"{old_owner_first} {old_owner_last}".strip() or "API User"
                         new_name = f"{new_owner_first} {new_owner_last}".strip() or str(recruiter_id)
                         logger.info(
                             f"✅ owner_reassignment: candidate {candidate_id} "
                             f"({c_first} {c_last}) reassigned "
-                            f"{old_name} → {new_name} "
-                            f"(job: {job_title or job_id})"
+                            f"{old_name} → {new_name}"
                         )
                         reassigned += 1
 
@@ -500,7 +486,6 @@ def reassign_api_user_candidates(since_minutes: int = 30) -> dict:
                                     c_first, c_last,
                                     old_owner_first, old_owner_last,
                                     new_owner_first, new_owner_last,
-                                    job_title or '', job_id,
                                 )
                                 note_url = f"{base_url}entity/Note"
                                 note_data = {
@@ -535,11 +520,10 @@ def reassign_api_user_candidates(since_minutes: int = 30) -> dict:
 
                 time.sleep(0.1)
 
-            skipped_total = skipped_no_job + skipped_no_recruiter + skipped_already_correct
+            skipped_total = skipped_no_activity + skipped_already_correct
             logger.info(
                 f"owner_reassignment: complete — {reassigned} reassigned, "
-                f"{skipped_no_job} skipped (no job), "
-                f"{skipped_no_recruiter} skipped (no recruiter), "
+                f"{skipped_no_activity} skipped (no human activity), "
                 f"{skipped_already_correct} skipped (already correct), "
                 f"{failed} failed"
             )

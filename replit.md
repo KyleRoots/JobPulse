@@ -58,7 +58,7 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 - **Prestige Notification Threshold Gate**: Notifies recruiters of prestige boosts only if the boosted score meets qualifying thresholds.
 - **Nightly Database Backup**: Automated daily PostgreSQL backup to OneDrive with 30-day retention.
 - **Audit Cooldown**: Quality Auditor skips re-examining the same (candidate, job) pair within a configurable window under specific conditions.
-- **API User → Recruiter Ownership Reassignment**: Scheduled task to reassign candidate ownership in Bullhorn from API users to human recruiters based on job submissions. Includes a preview function and kill switch.
+- **API User → Recruiter Ownership Reassignment**: Scheduled task to reassign candidate ownership in Bullhorn from API users to the first human recruiter who interacted with the candidate (via Bullhorn Notes). Includes paginated note search, a preview function, and kill switch.
 - **Scout Vetting Pre-Launch Hardening**: Implemented staggered outreach for vetting sessions, a global toggle for Scout Vetting, cross-session availability answer sharing, mid-conversation requirements-change flag, and improved test coverage for inbound replies.
 - **Bullhorn Note Creation**: Critical requirements for Bullhorn note creation include `personReference`, entity-specific payloads, handling to-many fields, and standard fields like `commentingPerson`, `action`, and `isDeleted`.
 
