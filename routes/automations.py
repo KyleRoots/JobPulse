@@ -522,6 +522,13 @@ def owner_reassign_action():
     elif action == 'ownership_run_live':
         import threading
         try:
+            from models import VettingConfig
+            row = VettingConfig.query.filter_by(setting_key='auto_reassign_owner_enabled').first()
+            if not (row and row.setting_value == 'true'):
+                return jsonify({'success': False, 'error': 'Owner reassignment is disabled. Enable it first.'})
+            row2 = VettingConfig.query.filter_by(setting_key='api_user_ids').first()
+            if not (row2 and row2.setting_value and row2.setting_value.strip()):
+                return jsonify({'success': False, 'error': 'No API user IDs configured. Add them in the config panel above.'})
             from tasks.owner_reassignment import run_owner_reassignment
             thread = threading.Thread(
                 target=run_owner_reassignment,

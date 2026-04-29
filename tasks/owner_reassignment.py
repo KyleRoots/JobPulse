@@ -181,7 +181,7 @@ def preview_reassign_candidates(limit: int = 5) -> dict:
                     'api_user_ids': [],
                     'candidates': [],
                     'total_found': 0,
-                    'error': 'No API user IDs configured. Add Bullhorn CorporateUser IDs in Vetting Settings.',
+                    'error': 'No API user IDs configured. Add Bullhorn CorporateUser IDs in the Automation Hub.',
                 }
 
             bh = BullhornService()

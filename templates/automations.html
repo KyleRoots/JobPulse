@@ -546,6 +546,7 @@
                     <label style="font-size: 0.8rem; font-weight: 600; color: rgba(224,220,216,0.7); margin-bottom: 0.3rem; display: block;">API Service Account IDs</label>
                     <div style="display: flex; gap: 0.5rem; align-items: center;">
                         <input type="text" id="hubApiUserIds" value="{{ api_user_ids }}" placeholder="e.g. 123456, 789012"
+                               oninput="updateOwnerActionBtns()"
                                style="flex: 1; font-size: 0.8rem; padding: 0.35rem 0.6rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); border-radius: 5px; color: #e0dcd8;">
                         <button onclick="saveOwnerConfig()" style="font-size: 0.75rem; padding: 0.35rem 0.75rem; border-radius: 5px; border: 1px solid rgba(232,168,124,0.3); background: rgba(232,168,124,0.1); color: #e8a87c; cursor: pointer; white-space: nowrap;">Save</button>
                         <span id="hubSaveMsg" style="font-size: 0.72rem; color: #34d399; display: none;">Saved</span>
@@ -1182,6 +1183,17 @@
     function loadOwnerReassignSettings() {
         var serverEnabled = {{ 'true' if owner_reassign_enabled else 'false' }};
         updateOwnerReassignUI(serverEnabled);
+        updateOwnerActionBtns();
+    }
+
+    function updateOwnerActionBtns() {
+        var btn = document.getElementById('ownerReassignToggleBtn');
+        var hasIds = !!(document.getElementById('hubApiUserIds') && document.getElementById('hubApiUserIds').value.trim());
+        var toggleOn = btn && btn._ownerEnabled;
+        var previewBtn = document.getElementById('hubPreviewBtn');
+        var liveBtn = document.getElementById('hubLiveBatchBtn');
+        if (previewBtn) previewBtn.disabled = !hasIds;
+        if (liveBtn) liveBtn.disabled = !(hasIds && toggleOn);
     }
 
     async function toggleOwnerReassign() {
@@ -1200,6 +1212,7 @@
             var data = await resp.json();
             if (data.success) {
                 updateOwnerReassignUI(newEnabled);
+                updateOwnerActionBtns();
             } else {
                 alert('Toggle failed: ' + (data.error || 'Unknown'));
                 btn.disabled = false;
