@@ -8,7 +8,7 @@ from typing import Dict, List, Optional
 
 import requests
 
-from .helpers import get_qualified_sample_rate
+from .helpers import get_qualified_sample_rate, get_audit_cooldown_hours
 
 logger = logging.getLogger(__name__)
 
@@ -210,6 +210,61 @@ class OrchestrationMixin:
             return True
         return False
 
+    def _check_audit_cooldown(
+        self,
+        candidate_id: int,
+        job_id,
+    ) -> Optional[str]:
+        """Return a human-readable reason string if the (candidate, job) pair
+        is still within the audit cooldown window, or None if the audit should
+        proceed.
+
+        The cooldown applies only to non-actionable prior outcomes
+        (no_action, revet_skipped_capped, revet_skipped_stable). Actionable
+        outcomes (revet_triggered, flagged_for_review) are never subject to
+        the cooldown so the auditor can follow up on in-progress re-vets.
+
+        A configured cooldown of 0 disables the feature entirely.
+        """
+        from models import VettingAuditLog
+
+        cooldown_hours = get_audit_cooldown_hours()
+        if cooldown_hours <= 0:
+            return None
+
+        non_actionable = {'no_action', 'revet_skipped_capped', 'revet_skipped_stable'}
+
+        try:
+            cutoff = datetime.utcnow() - timedelta(hours=cooldown_hours)
+            recent = (
+                VettingAuditLog.query
+                .filter(
+                    VettingAuditLog.bullhorn_candidate_id == candidate_id,
+                    VettingAuditLog.job_id == job_id,
+                    VettingAuditLog.action_taken.in_(list(non_actionable)),
+                    VettingAuditLog.created_at >= cutoff,
+                )
+                .order_by(VettingAuditLog.created_at.desc())
+                .first()
+            )
+            if recent is None:
+                return None
+
+            next_eligible = recent.created_at + timedelta(hours=cooldown_hours)
+            reason = (
+                f"audit cooldown active — last audit {recent.created_at.strftime('%Y-%m-%d %H:%M:%S')} UTC "
+                f"resulted in '{recent.action_taken}'; "
+                f"next eligible at {next_eligible.strftime('%Y-%m-%d %H:%M:%S')} UTC"
+            )
+            return reason
+
+        except Exception as e:
+            logger.warning(
+                f"⚠️ _check_audit_cooldown failed for candidate {candidate_id} / "
+                f"job {job_id} ({e!r}) — proceeding with audit"
+            )
+            return None
+
     def _process_candidate_audit(self, vetting_log, mode: str, summary: Dict):
         """Audit a single candidate. Handles applied_match lookup, heuristic
         checks, AI confirmation, action decision, and audit log persistence.
@@ -249,6 +304,18 @@ class OrchestrationMixin:
                     summary['total_audited'] += 1
                     if is_qualified_audit:
                         summary['qualified_audited'] += 1
+                return
+
+            cooldown_reason = self._check_audit_cooldown(
+                vetting_log.bullhorn_candidate_id,
+                applied_match.bullhorn_job_id,
+            )
+            if cooldown_reason:
+                logger.info(
+                    f"🛑 Screening audit ({mode}): skipping candidate "
+                    f"{vetting_log.bullhorn_candidate_id} ({vetting_log.candidate_name}) "
+                    f"/ job {applied_match.bullhorn_job_id} — {cooldown_reason}"
+                )
                 return
 
             if is_qualified_audit:

@@ -40,7 +40,7 @@ The tests do NOT call OpenAI; the AI confirmation step is mocked.
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytest
 from unittest.mock import patch, MagicMock
 
@@ -2997,3 +2997,301 @@ class TestFalsePositiveHeuristicsExtended:
         issues = VettingAuditService()._run_false_positive_checks(None, match)
         check_types = [i['check_type'] for i in issues]
         assert 'false_positive_experience_short' not in check_types
+
+
+# ---------------------------------------------------------------------------
+# Task #56 — Audit cooldown: skip re-examining non-actionable (candidate, job)
+#            pairs within the configured window.
+# ---------------------------------------------------------------------------
+
+_COOLDOWN_CANDIDATE_ID = 997001
+_COOLDOWN_JOB_ID = 997099
+
+
+def _seed_audit_row_with_ts(app, *, candidate_id, job_id, action_taken, created_at, vlog_id):
+    """Insert a VettingAuditLog row with an explicit created_at timestamp."""
+    from app import db
+    from models import VettingAuditLog
+    with app.app_context():
+        row = VettingAuditLog(
+            candidate_vetting_log_id=vlog_id,
+            bullhorn_candidate_id=candidate_id,
+            candidate_name='Cooldown Test Candidate',
+            job_id=job_id,
+            job_title='Cooldown Test Role',
+            original_score=45.0,
+            finding_type='no_issue',
+            confidence='high',
+            action_taken=action_taken,
+            audit_finding='Cooldown test row',
+        )
+        row.created_at = created_at
+        db.session.add(row)
+        db.session.commit()
+        return row.id
+
+
+def _cleanup_cooldown_rows(app, candidate_id=_COOLDOWN_CANDIDATE_ID):
+    from app import db
+    from models import VettingAuditLog
+    with app.app_context():
+        VettingAuditLog.query.filter_by(
+            bullhorn_candidate_id=candidate_id
+        ).delete()
+        db.session.commit()
+
+
+class TestAuditCooldownConfig:
+    """get_audit_cooldown_hours() reads from VettingConfig with safe fallback."""
+
+    def test_default_when_unset(self, app):
+        """Returns DEFAULT_AUDIT_COOLDOWN_HOURS when no row exists."""
+        from vetting_audit_service import get_audit_cooldown_hours, DEFAULT_AUDIT_COOLDOWN_HOURS
+        with app.app_context():
+            assert get_audit_cooldown_hours() == DEFAULT_AUDIT_COOLDOWN_HOURS
+
+    def test_uses_config_value(self, app):
+        """Returns the configured integer when a valid row exists."""
+        from app import db
+        from models import VettingConfig
+        from vetting_audit_service import get_audit_cooldown_hours
+        with app.app_context():
+            _set_config(VettingConfig, db, 'auditor_cooldown_hours', '12')
+            assert get_audit_cooldown_hours() == 12
+
+    def test_zero_is_valid(self, app):
+        """A value of 0 (disable cooldown) is accepted and returned as-is."""
+        from app import db
+        from models import VettingConfig
+        from vetting_audit_service import get_audit_cooldown_hours
+        with app.app_context():
+            _set_config(VettingConfig, db, 'auditor_cooldown_hours', '0')
+            assert get_audit_cooldown_hours() == 0
+
+    def test_malformed_falls_back(self, app):
+        """Non-integer value falls back to DEFAULT_AUDIT_COOLDOWN_HOURS."""
+        from app import db
+        from models import VettingConfig
+        from vetting_audit_service import get_audit_cooldown_hours, DEFAULT_AUDIT_COOLDOWN_HOURS
+        with app.app_context():
+            _set_config(VettingConfig, db, 'auditor_cooldown_hours', 'banana')
+            assert get_audit_cooldown_hours() == DEFAULT_AUDIT_COOLDOWN_HOURS
+
+    def test_empty_string_falls_back(self, app):
+        """Empty string falls back to DEFAULT_AUDIT_COOLDOWN_HOURS."""
+        from app import db
+        from models import VettingConfig
+        from vetting_audit_service import get_audit_cooldown_hours, DEFAULT_AUDIT_COOLDOWN_HOURS
+        with app.app_context():
+            _set_config(VettingConfig, db, 'auditor_cooldown_hours', '')
+            assert get_audit_cooldown_hours() == DEFAULT_AUDIT_COOLDOWN_HOURS
+
+
+class TestCheckAuditCooldown:
+    """_check_audit_cooldown() returns None (proceed) or a reason string (skip)."""
+
+    def test_no_prior_audit_proceeds(self, app):
+        """No prior audit rows → cooldown is not active → returns None."""
+        from vetting_audit_service import VettingAuditService
+        _cleanup_cooldown_rows(app)
+        try:
+            with app.app_context():
+                result = VettingAuditService()._check_audit_cooldown(
+                    _COOLDOWN_CANDIDATE_ID, _COOLDOWN_JOB_ID
+                )
+            assert result is None
+        finally:
+            _cleanup_cooldown_rows(app)
+
+    def test_recent_no_action_blocks(self, app):
+        """A recent no_action audit within the cooldown window → returns reason string."""
+        from vetting_audit_service import VettingAuditService
+        _cleanup_cooldown_rows(app)
+        try:
+            recent_ts = datetime.utcnow() - timedelta(hours=1)
+            _seed_audit_row_with_ts(
+                app,
+                candidate_id=_COOLDOWN_CANDIDATE_ID,
+                job_id=_COOLDOWN_JOB_ID,
+                action_taken='no_action',
+                created_at=recent_ts,
+                vlog_id=997101,
+            )
+            with app.app_context():
+                result = VettingAuditService()._check_audit_cooldown(
+                    _COOLDOWN_CANDIDATE_ID, _COOLDOWN_JOB_ID
+                )
+            assert result is not None
+            assert 'no_action' in result
+            assert 'cooldown' in result.lower()
+        finally:
+            _cleanup_cooldown_rows(app)
+
+    def test_recent_revet_skipped_capped_blocks(self, app):
+        """A recent revet_skipped_capped within the window → cooldown active."""
+        from vetting_audit_service import VettingAuditService
+        _cleanup_cooldown_rows(app)
+        try:
+            recent_ts = datetime.utcnow() - timedelta(hours=2)
+            _seed_audit_row_with_ts(
+                app,
+                candidate_id=_COOLDOWN_CANDIDATE_ID,
+                job_id=_COOLDOWN_JOB_ID,
+                action_taken='revet_skipped_capped',
+                created_at=recent_ts,
+                vlog_id=997102,
+            )
+            with app.app_context():
+                result = VettingAuditService()._check_audit_cooldown(
+                    _COOLDOWN_CANDIDATE_ID, _COOLDOWN_JOB_ID
+                )
+            assert result is not None
+            assert 'revet_skipped_capped' in result
+        finally:
+            _cleanup_cooldown_rows(app)
+
+    def test_recent_revet_skipped_stable_blocks(self, app):
+        """A recent revet_skipped_stable within the window → cooldown active."""
+        from vetting_audit_service import VettingAuditService
+        _cleanup_cooldown_rows(app)
+        try:
+            recent_ts = datetime.utcnow() - timedelta(hours=3)
+            _seed_audit_row_with_ts(
+                app,
+                candidate_id=_COOLDOWN_CANDIDATE_ID,
+                job_id=_COOLDOWN_JOB_ID,
+                action_taken='revet_skipped_stable',
+                created_at=recent_ts,
+                vlog_id=997103,
+            )
+            with app.app_context():
+                result = VettingAuditService()._check_audit_cooldown(
+                    _COOLDOWN_CANDIDATE_ID, _COOLDOWN_JOB_ID
+                )
+            assert result is not None
+            assert 'revet_skipped_stable' in result
+        finally:
+            _cleanup_cooldown_rows(app)
+
+    def test_expired_cooldown_proceeds(self, app):
+        """A prior no_action audit older than the cooldown window → proceeds (None)."""
+        from vetting_audit_service import VettingAuditService
+        _cleanup_cooldown_rows(app)
+        try:
+            old_ts = datetime.utcnow() - timedelta(hours=10)
+            _seed_audit_row_with_ts(
+                app,
+                candidate_id=_COOLDOWN_CANDIDATE_ID,
+                job_id=_COOLDOWN_JOB_ID,
+                action_taken='no_action',
+                created_at=old_ts,
+                vlog_id=997104,
+            )
+            with app.app_context():
+                result = VettingAuditService()._check_audit_cooldown(
+                    _COOLDOWN_CANDIDATE_ID, _COOLDOWN_JOB_ID
+                )
+            assert result is None, (
+                "Audit older than cooldown window should not block re-examination"
+            )
+        finally:
+            _cleanup_cooldown_rows(app)
+
+    def test_revet_triggered_does_not_block(self, app):
+        """A recent revet_triggered outcome is actionable — cooldown must NOT apply."""
+        from vetting_audit_service import VettingAuditService
+        _cleanup_cooldown_rows(app)
+        try:
+            recent_ts = datetime.utcnow() - timedelta(hours=1)
+            _seed_audit_row_with_ts(
+                app,
+                candidate_id=_COOLDOWN_CANDIDATE_ID,
+                job_id=_COOLDOWN_JOB_ID,
+                action_taken='revet_triggered',
+                created_at=recent_ts,
+                vlog_id=997105,
+            )
+            with app.app_context():
+                result = VettingAuditService()._check_audit_cooldown(
+                    _COOLDOWN_CANDIDATE_ID, _COOLDOWN_JOB_ID
+                )
+            assert result is None, (
+                "revet_triggered is actionable — should never trigger cooldown"
+            )
+        finally:
+            _cleanup_cooldown_rows(app)
+
+    def test_flagged_for_review_does_not_block(self, app):
+        """A recent flagged_for_review outcome is actionable — cooldown must NOT apply."""
+        from vetting_audit_service import VettingAuditService
+        _cleanup_cooldown_rows(app)
+        try:
+            recent_ts = datetime.utcnow() - timedelta(hours=1)
+            _seed_audit_row_with_ts(
+                app,
+                candidate_id=_COOLDOWN_CANDIDATE_ID,
+                job_id=_COOLDOWN_JOB_ID,
+                action_taken='flagged_for_review',
+                created_at=recent_ts,
+                vlog_id=997106,
+            )
+            with app.app_context():
+                result = VettingAuditService()._check_audit_cooldown(
+                    _COOLDOWN_CANDIDATE_ID, _COOLDOWN_JOB_ID
+                )
+            assert result is None, (
+                "flagged_for_review is actionable — should never trigger cooldown"
+            )
+        finally:
+            _cleanup_cooldown_rows(app)
+
+    def test_cooldown_disabled_when_zero(self, app):
+        """auditor_cooldown_hours=0 disables the feature — always returns None."""
+        from app import db
+        from models import VettingConfig
+        from vetting_audit_service import VettingAuditService
+        _cleanup_cooldown_rows(app)
+        try:
+            recent_ts = datetime.utcnow() - timedelta(minutes=5)
+            _seed_audit_row_with_ts(
+                app,
+                candidate_id=_COOLDOWN_CANDIDATE_ID,
+                job_id=_COOLDOWN_JOB_ID,
+                action_taken='no_action',
+                created_at=recent_ts,
+                vlog_id=997107,
+            )
+            with app.app_context():
+                _set_config(VettingConfig, db, 'auditor_cooldown_hours', '0')
+                result = VettingAuditService()._check_audit_cooldown(
+                    _COOLDOWN_CANDIDATE_ID, _COOLDOWN_JOB_ID
+                )
+            assert result is None, (
+                "cooldown_hours=0 must disable the feature entirely"
+            )
+        finally:
+            _cleanup_cooldown_rows(app)
+
+    def test_different_job_does_not_block(self, app):
+        """Cooldown is per-(candidate, job) pair — a different job must not block."""
+        from vetting_audit_service import VettingAuditService
+        _cleanup_cooldown_rows(app)
+        try:
+            recent_ts = datetime.utcnow() - timedelta(hours=1)
+            _seed_audit_row_with_ts(
+                app,
+                candidate_id=_COOLDOWN_CANDIDATE_ID,
+                job_id=997099,
+                action_taken='no_action',
+                created_at=recent_ts,
+                vlog_id=997108,
+            )
+            with app.app_context():
+                result = VettingAuditService()._check_audit_cooldown(
+                    _COOLDOWN_CANDIDATE_ID, 997088
+                )
+            assert result is None, (
+                "Cooldown on job 997099 must not block audit for a different job 997088"
+            )
+        finally:
+            _cleanup_cooldown_rows(app)

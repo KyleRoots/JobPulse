@@ -9,11 +9,13 @@ Public import surface preserved:
         get_qualified_sample_rate,
         get_revet_cap_per_24h,
         get_revet_score_tolerance,
+        get_audit_cooldown_hours,
         DEFAULT_PLATFORM_AGE_CEILINGS,
         DEFAULT_AUDITOR_MODEL,
         DEFAULT_QUALIFIED_SAMPLE_RATE,
         DEFAULT_REVET_CAP_PER_24H,
         DEFAULT_REVET_SCORE_TOLERANCE,
+        DEFAULT_AUDIT_COOLDOWN_HOURS,
         PLATFORM_AGE_CEILINGS,
         DOMAIN_KEYWORDS,
     )
@@ -24,6 +26,7 @@ from .helpers import (
     DEFAULT_QUALIFIED_SAMPLE_RATE,
     DEFAULT_REVET_CAP_PER_24H,
     DEFAULT_REVET_SCORE_TOLERANCE,
+    DEFAULT_AUDIT_COOLDOWN_HOURS,
     PLATFORM_AGE_CEILINGS,
     DOMAIN_KEYWORDS,
     get_platform_age_ceilings,
@@ -32,6 +35,7 @@ from .helpers import (
     get_qualified_sample_rate,
     get_revet_cap_per_24h,
     get_revet_score_tolerance,
+    get_audit_cooldown_hours,
 )
 from ._core import _AuditCore
 from .orchestration_mixin import OrchestrationMixin
@@ -65,11 +69,13 @@ __all__ = [
     "get_qualified_sample_rate",
     "get_revet_cap_per_24h",
     "get_revet_score_tolerance",
+    "get_audit_cooldown_hours",
     "DEFAULT_PLATFORM_AGE_CEILINGS",
     "DEFAULT_AUDITOR_MODEL",
     "DEFAULT_QUALIFIED_SAMPLE_RATE",
     "DEFAULT_REVET_CAP_PER_24H",
     "DEFAULT_REVET_SCORE_TOLERANCE",
+    "DEFAULT_AUDIT_COOLDOWN_HOURS",
     "PLATFORM_AGE_CEILINGS",
     "DOMAIN_KEYWORDS",
 ]

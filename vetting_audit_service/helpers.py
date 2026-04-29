@@ -28,6 +28,7 @@ DEFAULT_AUDITOR_MODEL = 'gpt-5.4'
 DEFAULT_QUALIFIED_SAMPLE_RATE = 10
 DEFAULT_REVET_CAP_PER_24H = 2
 DEFAULT_REVET_SCORE_TOLERANCE = 5.0
+DEFAULT_AUDIT_COOLDOWN_HOURS = 6
 
 
 def get_platform_age_ceilings() -> Dict[str, float]:
@@ -227,6 +228,29 @@ def get_revet_cap_per_24h() -> int:
             f"⚠️ auditor_revet_cap_per_24h load failed ({e!r}) — using default"
         )
     return DEFAULT_REVET_CAP_PER_24H
+
+
+def get_audit_cooldown_hours() -> int:
+    """Minimum hours that must elapse before the auditor re-examines the same
+    (candidate, job) pair after a non-actionable outcome (no_action or any
+    revet_skipped_* result).
+
+    Reads ``auditor_cooldown_hours`` from VettingConfig. Falls back to
+    ``DEFAULT_AUDIT_COOLDOWN_HOURS`` (6) when missing or malformed.
+    A value of 0 disables the cooldown entirely.
+    """
+    try:
+        from models import VettingConfig
+        raw = VettingConfig.get_value('auditor_cooldown_hours', None)
+        if raw is not None:
+            value = int(str(raw).strip())
+            if value >= 0:
+                return value
+    except (ValueError, TypeError, Exception) as e:
+        logger.warning(
+            f"⚠️ auditor_cooldown_hours load failed ({e!r}) — using default"
+        )
+    return DEFAULT_AUDIT_COOLDOWN_HOURS
 
 
 def get_revet_score_tolerance() -> float:

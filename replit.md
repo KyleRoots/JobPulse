@@ -61,6 +61,7 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 - **PandoLogic Note-Based Re-Applicant Detector**: Detects re-applicants via PandoLogic API notes to improve deduplication.
 - **Prestige Notification Threshold Gate**: Only notifies recruiters of prestige boosts if the boosted score meets the qualifying threshold.
 - **Nightly Database Backup**: Automated daily PostgreSQL backup to OneDrive with 30-day retention, failure alerts, and an admin dashboard.
+- **Audit Cooldown**: Quality Auditor skips re-examining the same (candidate, job) pair within a configurable window (default 6h, `auditor_cooldown_hours` in VettingConfig) when the prior audit produced a non-actionable outcome (`no_action`, `revet_skipped_*`). Actionable outcomes (`revet_triggered`, `flagged_for_review`) are never subject to the cooldown. Implemented in `vetting_audit_service/orchestration_mixin.py` (`_check_audit_cooldown`), getter in `helpers.py`.
 
 ### Bullhorn Note Creation — Critical Requirements
 - **`personReference`**: Must point to a Person entity (Candidate or ClientContact).

@@ -134,6 +134,7 @@ class TestMissingKeysCreatedBySeed:
             'quality_auditor_model',
             'platform_age_ceilings',
             'qualified_audit_sample_rate',
+            'auditor_cooldown_hours',
             'recruiter_activity_check_enabled',
             'recruiter_activity_lookback_minutes',
         }

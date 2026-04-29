@@ -362,6 +362,10 @@ def seed_vetting_config(db, VettingConfig):
             # audit phase. 0 disables it; 10 means 10% of recent Qualified
             # results are sampled per cycle.
             'qualified_audit_sample_rate': '10',
+            # Audit cooldown: skip re-examining a (candidate, job) pair within
+            # this many hours when the prior audit produced a non-actionable
+            # outcome (no_action, revet_skipped_*). Set to 0 to disable.
+            'auditor_cooldown_hours': '6',
             # Recruiter-activity gate (Task D) — pause auto-vet when a human
             # recruiter has touched the candidate within the lookback window.
             # Killswitch and tunable window so admins can adjust without a deploy.

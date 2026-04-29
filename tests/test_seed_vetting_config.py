@@ -43,6 +43,8 @@ def clean_vetting_config(app):
 #   - screening_audit_enabled         (Scout Screening Quality Auditor)
 #   - recruiter_activity_check_enabled  (Recruiter-Activity Pause Gate)
 #   - recruiter_activity_lookback_minutes (lookback window for the pause gate)
+# Updated 2026-04-29 (Task #56) to include:
+#   - auditor_cooldown_hours          (min hours before re-examining non-actionable pair)
 # All features are documented in replit.md and seeded by seed_vetting_config.
 EXPECTED_KEYS = {
     'vetting_enabled',
@@ -62,6 +64,7 @@ EXPECTED_KEYS = {
     'quality_auditor_model',
     'platform_age_ceilings',
     'qualified_audit_sample_rate',
+    'auditor_cooldown_hours',
     'recruiter_activity_check_enabled',
     'recruiter_activity_lookback_minutes',
 }
