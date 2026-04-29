@@ -313,7 +313,6 @@ from seeding.settings import (  # noqa: E402
 from seeding.migrations import (  # noqa: E402
     run_schema_migrations,
     migrate_legacy_custom_requirements,
-    run_vetting_clean_slate,
     log_critical_settings_state,
 )
 
@@ -428,13 +427,6 @@ def seed_database(db, User):
             logger.debug("ℹ️ VettingConfig model not found - skipping vetting config seeding")
         except Exception as e:
             logger.warning(f"⚠️ Failed to seed vetting config: {str(e)}")
-
-        # ONE-TIME CLEAN SLATE: Reset vetting data for fresh start
-        # This runs once and sets a flag to prevent re-running
-        try:
-            run_vetting_clean_slate(db)
-        except Exception as e:
-            logger.warning(f"⚠️ Vetting clean slate check failed: {str(e)}")
 
         # Startup audit: log current values of all critical flags
         # This runs AFTER all seeding is complete, so any unexpected changes
