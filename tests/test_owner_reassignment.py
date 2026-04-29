@@ -557,3 +557,51 @@ class TestSettingsDefaults:
             assert _get_vetting_config('auto_reassign_owner_enabled', 'false') == 'false'
             assert _get_vetting_config('api_user_ids', '') == ''
             assert _get_vetting_config('reassign_owner_note_enabled', 'true') == 'true'
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# T016: GET /screening correctly renders toggle checked/unchecked state
+# ─────────────────────────────────────────────────────────────────────────────
+class TestGetToggleRendering:
+    def test_false_value_renders_unchecked_master_toggle(self, app, authenticated_client):
+        """DB value 'false' → toggle must NOT have checked attribute."""
+        _ensure_config(app, 'auto_reassign_owner_enabled', 'false')
+        _ensure_config(app, 'reassign_owner_note_enabled', 'true')
+        _ensure_config(app, 'api_user_ids', '12345')
+
+        resp = authenticated_client.get('/screening', follow_redirects=True)
+        assert resp.status_code == 200
+        html = resp.data.decode('utf-8')
+
+        assert 'name="auto_reassign_owner_enabled"' in html
+        import re
+        master_pattern = re.compile(
+            r'<input[^>]*name="auto_reassign_owner_enabled"[^>]*>',
+            re.IGNORECASE
+        )
+        match = master_pattern.search(html)
+        assert match is not None, "auto_reassign_owner_enabled checkbox not found in HTML"
+        assert 'checked' not in match.group(0), (
+            "auto_reassign_owner_enabled toggle should be unchecked when DB value is 'false'"
+        )
+
+    def test_true_value_renders_checked_master_toggle(self, app, authenticated_client):
+        """DB value 'true' → toggle MUST have checked attribute."""
+        _ensure_config(app, 'auto_reassign_owner_enabled', 'true')
+        _ensure_config(app, 'reassign_owner_note_enabled', 'false')
+        _ensure_config(app, 'api_user_ids', '12345')
+
+        resp = authenticated_client.get('/screening', follow_redirects=True)
+        assert resp.status_code == 200
+        html = resp.data.decode('utf-8')
+
+        import re
+        master_pattern = re.compile(
+            r'<input[^>]*name="auto_reassign_owner_enabled"[^>]*>',
+            re.IGNORECASE
+        )
+        match = master_pattern.search(html)
+        assert match is not None, "auto_reassign_owner_enabled checkbox not found in HTML"
+        assert 'checked' in match.group(0), (
+            "auto_reassign_owner_enabled toggle should be checked when DB value is 'true'"
+        )

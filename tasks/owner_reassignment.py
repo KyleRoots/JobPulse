@@ -188,24 +188,39 @@ def reassign_api_user_candidates(since_minutes: int = 30) -> None:
             query = f'{owner_clause} AND dateLastModified:[{since_ts} TO *]'
 
             search_url = f"{base_url}search/Candidate"
-            search_params = {
-                'query': query,
-                'fields': _CANDIDATE_FIELDS,
-                'count': 100,
-                'sort': '-dateLastModified',
-            }
+            page_size = 100
+            start = 0
+            candidates: list = []
 
-            resp = _requests.get(
-                search_url, headers=headers, params=search_params, timeout=30
-            )
-            if resp.status_code != 200:
-                logger.error(
-                    f"owner_reassignment: candidate search failed "
-                    f"HTTP {resp.status_code}: {resp.text[:300]}"
+            while True:
+                search_params = {
+                    'query': query,
+                    'fields': _CANDIDATE_FIELDS,
+                    'count': page_size,
+                    'start': start,
+                    'sort': '-dateLastModified',
+                }
+                resp = _requests.get(
+                    search_url, headers=headers, params=search_params, timeout=30
                 )
-                return
+                if resp.status_code != 200:
+                    logger.error(
+                        f"owner_reassignment: candidate search failed "
+                        f"HTTP {resp.status_code}: {resp.text[:300]}"
+                    )
+                    return
 
-            candidates = resp.json().get('data', [])
+                page_data = resp.json()
+                page_candidates = page_data.get('data', [])
+                candidates.extend(page_candidates)
+
+                total = page_data.get('total', len(candidates))
+                start += len(page_candidates)
+                if start >= total or len(page_candidates) < page_size:
+                    break
+
+                time.sleep(0.1)
+
             if not candidates:
                 logger.info(
                     f"owner_reassignment: no API-owned candidates found in the last "

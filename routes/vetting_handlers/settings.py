@@ -54,7 +54,8 @@ def vetting_settings():
         if value is not None:
             if key in ('vetting_enabled', 'send_recruiter_emails',
                        'screening_audit_enabled', 'recruiter_activity_check_enabled',
-                       'scout_vetting_enabled'):
+                       'scout_vetting_enabled',
+                       'auto_reassign_owner_enabled', 'reassign_owner_note_enabled'):
                 settings[key] = value.lower() == 'true'
             elif key in ('match_threshold', 'batch_size',
                          'recruiter_activity_lookback_minutes',
