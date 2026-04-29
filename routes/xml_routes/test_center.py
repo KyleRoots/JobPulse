@@ -132,6 +132,17 @@ def automation_test_action():
                 logger.error(f"ownership_preview error: {str(e)}")
                 return jsonify({'success': False, 'error': str(e)})
 
+        elif action == 'ownership_run_live':
+            try:
+                from tasks.owner_reassignment import run_owner_reassignment
+                result = run_owner_reassignment()
+                if result is None:
+                    result = {'reassigned': 0, 'skipped': 0, 'failed': 0, 'errors': []}
+                return jsonify({'success': True, **result})
+            except Exception as e:
+                logger.error(f"ownership_run_live error: {str(e)}")
+                return jsonify({'success': False, 'error': str(e)})
+
         elif action == 'ownership_save_config':
             try:
                 from models import VettingConfig

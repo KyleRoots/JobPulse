@@ -523,13 +523,38 @@
                         </div>
                     </div>
 
-                    <div class="d-flex align-items-center gap-2 mb-3">
+                    <div class="d-flex align-items-center gap-2 mb-2">
                         <button id="runOwnerPreview" class="btn btn-outline-info"
                                 {% if not api_user_ids %}disabled{% endif %}>
                             <i class="fas fa-search me-2"></i>Preview Test Batch (5 candidates)
                         </button>
                         <span class="text-muted small">Read-only — shows what would be reassigned without making any changes</span>
                     </div>
+
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <button id="runLiveBatch" class="btn btn-outline-warning"
+                                {% if not owner_reassign_enabled or not api_user_ids %}disabled{% endif %}>
+                            <i class="fas fa-bolt me-2"></i>Run Live Batch Now
+                        </button>
+                        <span class="text-muted small">Executes reassignments immediately — changes are live and irreversible per cycle</span>
+                    </div>
+
+                    <!-- Live batch inline confirmation -->
+                    <div id="liveBatchConfirm" class="alert alert-warning d-none mb-3" role="alert">
+                        <strong><i class="fas fa-exclamation-triangle me-2"></i>Are you sure?</strong>
+                        <p class="mb-2 mt-1 small">This will immediately reassign ownership of all eligible candidates in Bullhorn (last 30 days). Changes are live and cannot be undone by this tool.</p>
+                        <div class="d-flex gap-2">
+                            <button id="liveBatchConfirmYes" class="btn btn-warning btn-sm">
+                                <i class="fas fa-check me-1"></i>Yes, run it
+                            </button>
+                            <button id="liveBatchConfirmNo" class="btn btn-secondary btn-sm">
+                                <i class="fas fa-times me-1"></i>Cancel
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Live batch result panel -->
+                    <div id="liveBatchResult" class="d-none mb-3"></div>
 
                     <div id="ownerPreviewResults" style="display:none;">
                         <div id="ownerPreviewSummary" class="mb-2 small text-muted"></div>
@@ -766,18 +791,105 @@
             const toggle = document.getElementById('ownerReassignToggle');
             const statusBadge = document.getElementById('ownerReassignStatus');
             const previewBtn = document.getElementById('runOwnerPreview');
+            const liveBatchBtn = document.getElementById('runLiveBatch');
+            const liveBatchConfirm = document.getElementById('liveBatchConfirm');
+            const liveBatchConfirmYes = document.getElementById('liveBatchConfirmYes');
+            const liveBatchConfirmNo = document.getElementById('liveBatchConfirmNo');
+            const liveBatchResult = document.getElementById('liveBatchResult');
             const apiIdsInput = document.getElementById('apiUserIdsInput');
             const saveBtn = document.getElementById('saveOwnerConfig');
             const saveMsg = document.getElementById('saveOwnerConfigMsg');
             const noteToggle = document.getElementById('reassignNoteToggle');
 
-            // Enable/disable preview button based on IDs field value
-            function updatePreviewBtn() {
-                if (previewBtn && apiIdsInput) {
-                    previewBtn.disabled = !apiIdsInput.value.trim();
-                }
+            // Track toggle state for live batch gate
+            let toggleEnabled = toggle ? toggle.checked : false;
+
+            // Enable/disable preview and live batch buttons based on IDs field and toggle
+            function updateActionBtns() {
+                const hasIds = apiIdsInput ? !!apiIdsInput.value.trim() : false;
+                if (previewBtn) previewBtn.disabled = !hasIds;
+                if (liveBatchBtn) liveBatchBtn.disabled = !(hasIds && toggleEnabled);
             }
-            if (apiIdsInput) apiIdsInput.addEventListener('input', updatePreviewBtn);
+            if (apiIdsInput) apiIdsInput.addEventListener('input', updateActionBtns);
+
+            // Live batch: show confirmation prompt
+            if (liveBatchBtn) {
+                liveBatchBtn.addEventListener('click', () => {
+                    liveBatchConfirm.classList.remove('d-none');
+                    liveBatchResult.classList.add('d-none');
+                    liveBatchBtn.disabled = true;
+                });
+            }
+
+            if (liveBatchConfirmNo) {
+                liveBatchConfirmNo.addEventListener('click', () => {
+                    liveBatchConfirm.classList.add('d-none');
+                    updateActionBtns();
+                });
+            }
+
+            if (liveBatchConfirmYes) {
+                liveBatchConfirmYes.addEventListener('click', async () => {
+                    liveBatchConfirmYes.disabled = true;
+                    liveBatchConfirmNo.disabled = true;
+                    liveBatchConfirm.classList.add('d-none');
+
+                    // Show spinner on button
+                    if (liveBatchBtn) {
+                        liveBatchBtn.disabled = true;
+                        liveBatchBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Running batch...';
+                    }
+                    liveBatchResult.classList.add('d-none');
+
+                    try {
+                        const resp = await fetch('/automation_test', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: 'ownership_run_live' })
+                        });
+                        const data = await resp.json();
+
+                        if (!data.success) {
+                            liveBatchResult.innerHTML = `
+                                <div class="alert alert-danger mb-0">
+                                    <i class="fas fa-times-circle me-2"></i>
+                                    <strong>Batch failed:</strong> ${data.error || 'Unknown error'}
+                                </div>`;
+                        } else {
+                            const errList = (data.errors && data.errors.length)
+                                ? `<ul class="mb-0 mt-2 small">${data.errors.slice(0, 5).map(e => `<li>${e}</li>`).join('')}</ul>`
+                                : '';
+                            liveBatchResult.innerHTML = `
+                                <div class="alert alert-success mb-0">
+                                    <i class="fas fa-check-circle me-2"></i>
+                                    <strong>Batch complete.</strong>
+                                    <div class="mt-2 d-flex gap-4 flex-wrap">
+                                        <span><i class="fas fa-exchange-alt me-1 text-warning"></i><strong>${data.reassigned}</strong> reassigned</span>
+                                        <span><i class="fas fa-forward me-1 text-secondary"></i><strong>${data.skipped}</strong> skipped</span>
+                                        <span><i class="fas fa-exclamation-circle me-1 text-danger"></i><strong>${data.failed}</strong> failed</span>
+                                    </div>
+                                    ${errList}
+                                </div>`;
+                        }
+                        liveBatchResult.classList.remove('d-none');
+                    } catch (e) {
+                        liveBatchResult.innerHTML = `
+                            <div class="alert alert-danger mb-0">
+                                <i class="fas fa-times-circle me-2"></i>
+                                <strong>Error:</strong> ${e.message}
+                            </div>`;
+                        liveBatchResult.classList.remove('d-none');
+                    } finally {
+                        liveBatchConfirmYes.disabled = false;
+                        liveBatchConfirmNo.disabled = false;
+                        if (liveBatchBtn) {
+                            liveBatchBtn.innerHTML = '<i class="fas fa-bolt me-2"></i>Run Live Batch Now';
+                            updateActionBtns();
+                        }
+                    }
+                });
+            }
+
 
             // Save config button
             if (saveBtn && apiIdsInput) {
@@ -800,7 +912,7 @@
                             if (data.api_user_ids !== undefined) {
                                 apiIdsInput.value = data.api_user_ids;
                             }
-                            updatePreviewBtn();
+                            updateActionBtns();
                         } else {
                             saveMsg.innerHTML = '<span class="text-danger"><i class="fas fa-times me-1"></i>' + (data.error || 'Save failed') + '</span>';
                         }
@@ -849,6 +961,8 @@
                         if (data.success) {
                             statusBadge.textContent = enabled ? 'Active' : 'Paused';
                             statusBadge.className = 'badge fs-6 ' + (enabled ? 'bg-success' : 'bg-secondary');
+                            toggleEnabled = enabled;
+                            updateActionBtns();
                         } else {
                             toggle.checked = !enabled;
                             alert('Failed to update toggle: ' + (data.error || 'Unknown error'));

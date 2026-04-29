@@ -292,7 +292,7 @@ def preview_reassign_candidates(limit: int = 5) -> dict:
             }
 
 
-def reassign_api_user_candidates(since_minutes: int = 30) -> None:
+def reassign_api_user_candidates(since_minutes: int = 30) -> dict:
     """
     Main entry point for the scheduled task.
 
@@ -300,6 +300,8 @@ def reassign_api_user_candidates(since_minutes: int = 30) -> None:
     the toggle, the configured API user IDs, and the note toggle. For each
     candidate owned by an API user account, derives the correct human recruiter
     from their most recent job submission and updates the Bullhorn record.
+
+    Returns a dict with keys: reassigned, skipped, failed, errors (list of str).
     """
     from app import app
 
@@ -307,7 +309,7 @@ def reassign_api_user_candidates(since_minutes: int = 30) -> None:
         try:
             if _get_vetting_config('auto_reassign_owner_enabled', 'false').lower() != 'true':
                 logger.debug("owner_reassignment: feature disabled — skipping run")
-                return
+                return {'reassigned': 0, 'skipped': 0, 'failed': 0, 'errors': ['Feature is disabled. Enable the automation toggle first.']}
 
             api_user_ids = _parse_api_user_ids(
                 _get_vetting_config('api_user_ids', '')
@@ -317,7 +319,7 @@ def reassign_api_user_candidates(since_minutes: int = 30) -> None:
                     "owner_reassignment: no API user IDs configured — skipping run. "
                     "Add Bullhorn CorporateUser IDs to the 'api_user_ids' setting."
                 )
-                return
+                return {'reassigned': 0, 'skipped': 0, 'failed': 0, 'errors': ['No API user IDs configured.']}
 
             note_enabled = (
                 _get_vetting_config('reassign_owner_note_enabled', 'true').lower() == 'true'
@@ -326,7 +328,7 @@ def reassign_api_user_candidates(since_minutes: int = 30) -> None:
             bh = BullhornService()
             if not bh.authenticate():
                 logger.warning("owner_reassignment: Bullhorn authentication failed — skipping run")
-                return
+                return {'reassigned': 0, 'skipped': 0, 'failed': 0, 'errors': ['Bullhorn authentication failed.']}
 
             base_url = bh.base_url
             rest_token = bh.rest_token
@@ -367,7 +369,7 @@ def reassign_api_user_candidates(since_minutes: int = 30) -> None:
                         f"owner_reassignment: candidate search failed "
                         f"HTTP {resp.status_code}: {resp.text[:300]}"
                     )
-                    return
+                    return {'reassigned': 0, 'skipped': 0, 'failed': 0, 'errors': [f'Candidate search failed: HTTP {resp.status_code}']}
 
                 page_data = resp.json()
                 page_candidates = page_data.get('data', [])
@@ -385,7 +387,7 @@ def reassign_api_user_candidates(since_minutes: int = 30) -> None:
                     f"owner_reassignment: no API-owned candidates found in the last "
                     f"{since_minutes} minutes — nothing to do"
                 )
-                return
+                return {'reassigned': 0, 'skipped': 0, 'failed': 0, 'errors': []}
 
             logger.info(
                 f"owner_reassignment: found {len(candidates)} API-owned candidate(s) "
@@ -395,7 +397,9 @@ def reassign_api_user_candidates(since_minutes: int = 30) -> None:
             reassigned = 0
             skipped_no_job = 0
             skipped_no_recruiter = 0
+            skipped_already_correct = 0
             failed = 0
+            errors: list = []
 
             for candidate in candidates:
                 candidate_id = candidate.get('id')
@@ -442,6 +446,7 @@ def reassign_api_user_candidates(since_minutes: int = 30) -> None:
                         f"owner_reassignment: skipping candidate {candidate_id} "
                         f"({c_first} {c_last}) — already owned by correct recruiter ({recruiter_id})"
                     )
+                    skipped_already_correct += 1
                     continue
 
                 try:
@@ -517,26 +522,48 @@ def reassign_api_user_candidates(since_minutes: int = 30) -> None:
                                     f"candidate {candidate_id}: {note_err}"
                                 )
                     else:
-                        logger.warning(
-                            f"owner_reassignment: update failed for candidate {candidate_id}: "
-                            f"HTTP {upd.status_code} — {body}"
-                        )
+                        err_msg = f"Candidate {candidate_id}: HTTP {upd.status_code} — {body}"
+                        logger.warning(f"owner_reassignment: update failed for candidate {candidate_id}: HTTP {upd.status_code} — {body}")
                         failed += 1
+                        errors.append(err_msg)
 
                 except Exception as rec_err:
-                    logger.error(
-                        f"owner_reassignment: error processing candidate {candidate_id}: {rec_err}"
-                    )
+                    err_msg = f"Candidate {candidate_id}: {rec_err}"
+                    logger.error(f"owner_reassignment: error processing candidate {candidate_id}: {rec_err}")
                     failed += 1
+                    errors.append(err_msg)
 
                 time.sleep(0.1)
 
+            skipped_total = skipped_no_job + skipped_no_recruiter + skipped_already_correct
             logger.info(
                 f"owner_reassignment: complete — {reassigned} reassigned, "
                 f"{skipped_no_job} skipped (no job), "
                 f"{skipped_no_recruiter} skipped (no recruiter), "
+                f"{skipped_already_correct} skipped (already correct), "
                 f"{failed} failed"
             )
+            return {
+                'reassigned': reassigned,
+                'skipped': skipped_total,
+                'failed': failed,
+                'errors': errors,
+            }
 
         except Exception as e:
             logger.error(f"owner_reassignment: unexpected error — {e}", exc_info=True)
+            return {'reassigned': 0, 'skipped': 0, 'failed': 0, 'errors': [str(e)]}
+
+
+def run_owner_reassignment() -> dict:
+    """
+    Manual trigger for the owner reassignment batch, intended for on-demand
+    use from the Automation Test Center.
+
+    Processes candidates modified in the last 30 days so it can serve as a
+    backfill on day one before the scheduler takes over regular 30-minute runs.
+
+    Returns a dict with keys: reassigned, skipped, failed, errors (list of str).
+    """
+    logger.info("owner_reassignment: manual live batch triggered via Test Center")
+    return reassign_api_user_candidates(since_minutes=43200)
