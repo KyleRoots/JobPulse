@@ -1,4 +1,4 @@
-2026-04-29 21:01:35,972 - seeding.settings - INFO - ℹ️ Preserving vetting setting: global_custom_requirements=WORK AUTHORIZATION & SECURITY CLEARANCE INFERENCE RULES
+2026-04-30 13:35:16,201 - seeding.settings - INFO - ℹ️ Preserving vetting setting: global_custom_requirements=WORK AUTHORIZATION & SECURITY CLEARANCE INFERENCE RULES
 
 These rules supplement — never override — the core scoring guidelines above.
 These rules are purely reactive: they ONLY activate when the job description explicitly contains trigger language. If a job makes no mention of work authorization or clearance, ignore these rules entirely.
@@ -67,27 +67,26 @@ Inference tiers (based on TOTAL Canadian work experience calculated above):
 • Canadian clearance rules activate ONLY when the job description contains clearance trigger language AND the job is Canadian-based (not US-based — see geographic guard above).
 • NEVER cross-apply rules (e.g., do not apply US authorization logic when clearance language is present, or vice versa).
 • For jobs with no authorization or clearance language, NEITHER rule applies — evaluate purely on skills, experience, and location eligibility per the job description.
-2026-04-29 21:01:35,976 - seeding.settings - INFO - ✅ Vetting settings already up to date
-2026-04-29 21:01:35,984 - seeding.migrations - INFO - 🔒 STARTUP AUDIT — critical settings: vetting_enabled=false | send_recruiter_emails=false | embedding_filter_enabled=true | embedding_similarity_threshold=0.25 | vetting_cutoff_date= | match_threshold=80 | batch_size=25 | layer2_model=gpt-5.4 | sftp_enabled=false | automated_uploads_enabled=false
-2026-04-29 21:01:35,988 - seeding.settings - INFO - ✅ All 12 built-in automations already exist
-2026-04-29 21:01:35,989 - seeding.migrations - INFO - ℹ️ No legacy custom_requirements rows needed migration
-2026-04-29 21:01:35,989 - seeding.migrations - INFO - ℹ️ recruiter_activity_lookback_minutes already updated or not set to legacy default
-2026-04-29 21:01:35,991 - seeding.users - INFO - ✅ All 24 Myticas support contacts already up to date
-2026-04-29 21:01:35,992 - seeding.users - INFO - ✅ All 14 STSI support contacts already up to date
-2026-04-29 21:01:35,994 - seeding.users - INFO - ✅ All STSI user accounts already exist
-2026-04-29 21:01:35,996 - seeding.users - INFO - ✅ All Myticas user accounts already exist
-2026-04-29 21:01:35,997 - seeding.users - INFO - ✅ Myticas user restoration verified: all 24 contacts have an account (by email)
-2026-04-29 21:01:35,999 - seeding.users - INFO - ✅ All users already have correct module subscriptions
-2026-04-29 21:01:36,000 - seed_database - INFO - ✅ Database seeding completed successfully for production
-2026-04-29 21:01:36,000 - extensions - INFO - 🌱 Database seeding: Admin user already exists (admin)
-2026-04-29 21:01:36,001 - scheduler_setup - INFO - ⚠️ Process 12706 could not acquire scheduler lock - another scheduler is already running
-2026-04-29 21:01:36,001 - extensions - INFO - 📌 Process Scheduled XML Files job DISABLED - Enhanced 8-Step Monitor handles all XML updates
-2026-04-29 21:01:36,002 - extensions - INFO - ⚠️ Process 12706 skipping scheduler setup - another worker handles scheduling
-2026-04-29 21:01:36,002 - main - INFO - Flask application imported successfully
-2026-04-29 21:01:36,005 - main - INFO - Health check passed during startup
-2026-04-29 21:01:36,006 - apscheduler.scheduler - INFO - Scheduler started
-2026-04-29 21:01:36,006 - extensions - INFO - Background scheduler started/restarted successfully
-2026-04-29 21:01:36,006 - extensions - INFO - 📡 Scheduler job execution listeners registered
-2026-04-29 21:01:36,011 - extensions - INFO - Forced immediate check for 6 monitors after restart
-2026-04-29 21:01:36,011 - main - INFO - Monitoring system auto-started successfully on boot
-2026-04-29 21:03:27,588 - apscheduler.scheduler - INFO - Scheduler has been shut down
+2026-04-30 13:35:16,536 - seeding.settings - INFO - ✅ Vetting settings already up to date
+2026-04-30 13:35:16,546 - seeding.migrations - INFO - 🔒 STARTUP AUDIT — critical settings: vetting_enabled=false | send_recruiter_emails=false | embedding_filter_enabled=true | embedding_similarity_threshold=0.25 | vetting_cutoff_date= | match_threshold=80 | batch_size=25 | layer2_model=gpt-5.4 | sftp_enabled=false | automated_uploads_enabled=false
+2026-04-30 13:35:16,550 - seeding.settings - INFO - ✅ All 12 built-in automations already exist
+2026-04-30 13:35:16,551 - seeding.migrations - INFO - ℹ️ No legacy custom_requirements rows needed migration
+2026-04-30 13:35:16,551 - seeding.migrations - INFO - ℹ️ recruiter_activity_lookback_minutes already updated or not set to legacy default
+2026-04-30 13:35:16,554 - seeding.users - INFO - ✅ All 24 Myticas support contacts already up to date
+2026-04-30 13:35:16,555 - seeding.users - INFO - ✅ All 14 STSI support contacts already up to date
+2026-04-30 13:35:16,557 - seeding.users - INFO - ✅ All STSI user accounts already exist
+2026-04-30 13:35:16,559 - seeding.users - INFO - ✅ All Myticas user accounts already exist
+2026-04-30 13:35:16,561 - seeding.users - INFO - ✅ Myticas user restoration verified: all 24 contacts have an account (by email)
+2026-04-30 13:35:16,563 - seeding.users - INFO - ✅ All users already have correct module subscriptions
+2026-04-30 13:35:16,563 - seed_database - INFO - ✅ Database seeding completed successfully for production
+2026-04-30 13:35:16,563 - extensions - INFO - 🌱 Database seeding: Admin user already exists (admin)
+2026-04-30 13:35:16,564 - scheduler_setup - INFO - ⚠️ Process 3332 could not acquire scheduler lock - another scheduler is already running
+2026-04-30 13:35:16,564 - extensions - INFO - 📌 Process Scheduled XML Files job DISABLED - Enhanced 8-Step Monitor handles all XML updates
+2026-04-30 13:35:16,565 - extensions - INFO - ⚠️ Process 3332 skipping scheduler setup - another worker handles scheduling
+2026-04-30 13:35:16,565 - main - INFO - Flask application imported successfully
+2026-04-30 13:35:16,568 - main - INFO - Health check passed during startup
+2026-04-30 13:35:16,569 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-30 13:35:16,569 - extensions - INFO - Background scheduler started/restarted successfully
+2026-04-30 13:35:16,569 - extensions - INFO - 📡 Scheduler job execution listeners registered
+2026-04-30 13:35:16,575 - extensions - INFO - Forced immediate check for 6 monitors after restart
+2026-04-30 13:35:16,575 - main - INFO - Monitoring system auto-started successfully on boot
