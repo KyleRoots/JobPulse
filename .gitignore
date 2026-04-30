@@ -39,4 +39,14 @@ instance/fallback.db-shm
 instance/*.db
 instance/*.db-wal
 instance/*.db-shm
-myticas-job-feed-v2.xml
+myticas-job-feed*.xml
+myticas-job-feed*.xml.backup_*
+
+# Scratch / one-off output files
+attached_assets/
+misnamed_candidates_*.csv
+xml_backups/
+exports/*.csv
+
+# Old branding artifacts (do not re-commit)
+JOBPULSE*.md
