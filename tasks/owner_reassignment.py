@@ -860,7 +860,21 @@ def reassign_api_user_candidates(
             # bandage that prevents the 5-min cycle from re-walking the
             # same ~5,000 records every time. Fail-open: any DB error
             # returns an empty cooldown set so the legitimate work proceeds.
+            #
+            # Stale-connection guard: the Bullhorn search loop above can
+            # take 30+ seconds across many pages, during which the long-
+            # lived request-scoped session may have its underlying
+            # connection invalidated by the pool. Drop the session before
+            # the cooldown IN-query so it runs on a fresh connection.
+            # (Mirrors the pattern at the cooldown flush site below and
+            # in scheduler_setup.py long-running jobs.)
             # ──────────────────────────────────────────────────────────────
+            try:
+                from app import db as _db_pre_filter
+                _db_pre_filter.session.remove()
+            except Exception:
+                pass
+
             cooldown_skipped_count = 0
             if _cooldown_enabled():
                 all_ids = [c.get('id') for c in candidates if c.get('id')]
@@ -880,9 +894,11 @@ def reassign_api_user_candidates(
                         f"{len(candidates):,} remain to evaluate"
                     )
                 else:
-                    logger.debug(
-                        "owner_reassignment: cooldown filter — no active "
-                        "cooldown rows touched this batch"
+                    logger.info(
+                        f"owner_reassignment: cooldown filter — no active "
+                        f"cooldown rows touched this batch of "
+                        f"{len(candidates):,} candidate(s) "
+                        f"(window: {_cooldown_hours()} h)"
                     )
             else:
                 logger.info(
@@ -890,6 +906,32 @@ def reassign_api_user_candidates(
                     "owner_reassignment_cooldown_enabled=false — evaluating "
                     "all candidates"
                 )
+
+            # If the cooldown filter eliminated everything, short-circuit
+            # the rest of the cycle. Without this, the per-candidate loop
+            # iterates zero times silently and we never emit the
+            # `complete —` summary log or write a run-history row, which
+            # makes the cycle look hung from operator view. Surface the
+            # cooldown_skipped count so the run-history panel still tells
+            # the story.
+            if not candidates:
+                logger.info(
+                    f"owner_reassignment: complete — 0 reassigned, "
+                    f"0 skipped (no human activity), "
+                    f"0 skipped (already correct), "
+                    f"{cooldown_skipped_count} cooldown-skipped, 0 failed "
+                    f"(all candidates filtered by cooldown)"
+                )
+                empty_result = {
+                    'reassigned': 0,
+                    'skipped': 0,
+                    'cooldown_skipped': cooldown_skipped_count,
+                    'failed': 0,
+                    'errors': [],
+                    'reassigned_ids': [],
+                }
+                _write_run_history(empty_result, source)
+                return empty_result
 
             # ──────────────────────────────────────────────────────────────
             # [diagnostic] Owner breakdown + cycle-over-cycle overlap.
@@ -1128,10 +1170,18 @@ def reassign_api_user_candidates(
                     pass
 
                 if cooldown_outcomes:
+                    # Capture count BEFORE flush — `_flush_cooldown_outcomes`
+                    # iterates the list and the prior misleading log
+                    # ("recorded 2 no-op outcome(s)" when 4,962 were
+                    # actually written) was caused by reading
+                    # len(cooldown_outcomes) after the flush had logically
+                    # consumed it. Snapshot the count up front so the log
+                    # always tells the truth.
+                    outcomes_to_flush = len(cooldown_outcomes)
                     _flush_cooldown_outcomes(cooldown_outcomes)
                     logger.info(
                         f"owner_reassignment: cooldown flush — recorded "
-                        f"{len(cooldown_outcomes):,} no-op outcome(s) "
+                        f"{outcomes_to_flush:,} no-op outcome(s) "
                         f"(window: {_cooldown_hours()} h)"
                     )
                 for cid in successful_reassign_ids:
