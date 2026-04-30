@@ -149,6 +149,19 @@ def _write_run_history(result: dict, source: str) -> None:
         if not (is_signal or always_write):
             return
 
+        # The candidate-processing loop can run for 15-20+ minutes between the
+        # initial VettingConfig reads and this write. By that time PostgreSQL
+        # has typically closed the idle SSL connection, so the next DB op
+        # would fail with "SSL connection has been closed unexpectedly". Drop
+        # the stale session here so the write below pulls a fresh connection
+        # from the pool. Without this, daily-sweep + manual-batch Run History
+        # rows silently fail to commit.
+        from app import db as _db_pre
+        try:
+            _db_pre.session.remove()
+        except Exception:
+            pass
+
         task_id = _get_or_create_owner_task_id()
         if task_id is None:
             return
@@ -775,6 +788,18 @@ def reassign_api_user_candidates(
             }
             _write_run_history(error_result, source)
             return error_result
+        finally:
+            # The candidate loop can run far longer than PostgreSQL's idle
+            # connection timeout, leaving any session opened during the
+            # initial VettingConfig reads in a half-dead state. Without this
+            # explicit cleanup, Flask-SQLAlchemy's app-context teardown
+            # triggers do_rollback() on a closed SSL connection, which
+            # APScheduler logs as "raised an exception" after every cycle.
+            try:
+                from app import db as _db_post
+                _db_post.session.remove()
+            except Exception:
+                pass
 
 
 def run_owner_reassignment() -> dict:

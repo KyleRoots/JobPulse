@@ -1071,3 +1071,91 @@ class TestRunHistoryCapturesAllReassignedIds:
         details = json.loads(logs[0].details_json)
         assert sorted(details['reassigned_candidate_ids']) == [4500001, 4500002, 4500003]
         assert details['reassigned'] == 3
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# T023: stale-connection hardening — db.session.remove() is called so the
+#       17-minute candidate loop doesn't leave a closed SSL connection in the
+#       session, which previously caused APScheduler "raised an exception"
+#       spam after every cycle and silently dropped daily-sweep Run History
+#       rows on commit.
+# ─────────────────────────────────────────────────────────────────────────────
+class TestStaleConnectionCleanup:
+    def test_session_remove_called_in_finally_after_run(self, app):
+        """The outer finally clause must always call db.session.remove(), even
+        on the noise-filtered 5-min noop path that doesn't write to the DB.
+        Without this, the app-context teardown fires do_rollback() on the
+        stale SSL connection and APScheduler logs an exception every cycle."""
+        _ensure_config(app, 'auto_reassign_owner_enabled', 'true')
+        _ensure_config(app, 'api_user_ids', '9999')
+
+        empty_search = MagicMock()
+        empty_search.status_code = 200
+        empty_search.json.return_value = {'data': [], 'total': 0}
+
+        from app import db as real_db
+        from tasks.owner_reassignment import (
+            reassign_api_user_candidates,
+            SOURCE_SCHEDULED_5MIN,
+        )
+
+        with patch.object(real_db, 'session') as mock_session, \
+             patch('tasks.owner_reassignment.BullhornService') as mock_bh_cls, \
+             patch('tasks.owner_reassignment._requests') as mock_req, \
+             patch('tasks.owner_reassignment._get_vetting_config') as mock_cfg:
+            # Bypass the real DB-backed config lookups so the mocked session
+            # doesn't break the function before it reaches the loop + finally.
+            mock_cfg.side_effect = lambda key, default='': {
+                'auto_reassign_owner_enabled': 'true',
+                'api_user_ids': '9999',
+                'reassign_owner_note_enabled': 'false',
+            }.get(key, default)
+
+            bh = MagicMock()
+            bh.authenticate.return_value = True
+            bh.base_url = 'https://example/'
+            bh.rest_token = 'tok'
+            mock_bh_cls.return_value = bh
+            mock_req.get.return_value = empty_search
+
+            reassign_api_user_candidates(
+                since_minutes=30, source=SOURCE_SCHEDULED_5MIN
+            )
+
+            assert mock_session.remove.called, (
+                "db.session.remove() must be called from the finally clause "
+                "to drop any stale SSL connection before the app context "
+                "tears down"
+            )
+
+    def test_session_remove_called_before_run_history_write(self, app):
+        """For paths that DO write Run History (daily/manual/signal), the
+        write must be preceded by db.session.remove() so the commit pulls a
+        fresh connection from the pool instead of using the stale one held
+        across the long candidate loop."""
+        from app import db as real_db
+        from tasks.owner_reassignment import (
+            _write_run_history,
+            SOURCE_SCHEDULED_DAILY,
+        )
+
+        with app.app_context():
+            with patch.object(real_db, 'session') as mock_session, \
+                 patch('tasks.owner_reassignment._get_or_create_owner_task_id') as mock_get_task:
+                # Short-circuit after the session refresh so we isolate the
+                # check to "was remove() called before the write path?".
+                mock_get_task.return_value = None
+
+                _write_run_history(
+                    {
+                        'reassigned': 0, 'skipped': 100, 'failed': 0,
+                        'errors': [], 'reassigned_ids': [],
+                    },
+                    SOURCE_SCHEDULED_DAILY,
+                )
+
+                assert mock_session.remove.called, (
+                    "db.session.remove() must be called before the Run "
+                    "History write so a stale SSL connection from the long "
+                    "candidate loop doesn't sink the commit"
+                )
