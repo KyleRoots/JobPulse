@@ -41,3 +41,9 @@ id = "hcPH1NwoA10DLNq1034bL"
 uri = "file://static/images/scout-prospector-icon.png"
 type = "image"
 title = "Scout Prospector - App Icon"
+
+[[outputs]]
+id = "zueAcTrrzb89y4naVq_li"
+uri = "file://.local/sentinel_blueprint.md"
+type = "text"
+title = "Sentinel Blueprint v0.1"
