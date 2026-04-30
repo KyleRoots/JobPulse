@@ -1159,3 +1159,376 @@ class TestStaleConnectionCleanup:
                     "History write so a stale SSL connection from the long "
                     "candidate loop doesn't sink the commit"
                 )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# T023–T028: Per-candidate cooldown bandage
+# ─────────────────────────────────────────────────────────────────────────────
+class TestCooldownDefaultsAndKillSwitch:
+    """Cooldown reads from VettingConfig with sensible defaults and a kill switch."""
+
+    def test_default_enabled_and_24_hours_when_keys_missing(self, app):
+        _delete_config(app, 'owner_reassignment_cooldown_enabled')
+        _delete_config(app, 'owner_reassignment_cooldown_hours')
+        with app.app_context():
+            from tasks.owner_reassignment import _cooldown_enabled, _cooldown_hours
+            assert _cooldown_enabled() is True
+            assert _cooldown_hours() == 24
+
+    def test_kill_switch_disables_cooldown(self, app):
+        _ensure_config(app, 'owner_reassignment_cooldown_enabled', 'false')
+        with app.app_context():
+            from tasks.owner_reassignment import _cooldown_enabled
+            assert _cooldown_enabled() is False
+
+    def test_window_clamped_to_safe_range(self, app):
+        from tasks.owner_reassignment import _cooldown_hours
+        with app.app_context():
+            _ensure_config(app, 'owner_reassignment_cooldown_hours', '0')
+            assert _cooldown_hours() == 1
+            _ensure_config(app, 'owner_reassignment_cooldown_hours', '99999')
+            assert _cooldown_hours() == 720
+            _ensure_config(app, 'owner_reassignment_cooldown_hours', 'garbage')
+            assert _cooldown_hours() == 24
+
+
+class TestCooldownFiltersRepeatNoOps:
+    """A candidate with an active cooldown row is skipped before we pay the
+    Bullhorn-Notes-search cost. This is the whole point of the bandage."""
+
+    def test_candidate_in_cooldown_is_skipped(self, app):
+        _ensure_config(app, 'auto_reassign_owner_enabled', 'true')
+        _ensure_config(app, 'api_user_ids', '9999')
+        _ensure_config(app, 'reassign_owner_note_enabled', 'false')
+        _ensure_config(app, 'owner_reassignment_cooldown_enabled', 'true')
+        _ensure_config(app, 'owner_reassignment_cooldown_hours', '24')
+
+        # Pre-populate cooldown for candidate 1001
+        from app import db
+        from models import OwnerReassignmentCooldown
+        from datetime import datetime
+        with app.app_context():
+            db.session.add(OwnerReassignmentCooldown(
+                candidate_id=1001,
+                last_evaluated_at=datetime.utcnow(),
+                last_outcome='no_human_activity',
+                evaluation_count=1,
+            ))
+            db.session.commit()
+
+        candidate = _make_candidate(cid=1001)
+        search_resp = MagicMock()
+        search_resp.status_code = 200
+        search_resp.json.return_value = {'data': [candidate]}
+
+        with app.app_context():
+            from tasks.owner_reassignment import reassign_api_user_candidates
+            with patch('tasks.owner_reassignment.BullhornService') as mock_bh_cls:
+                bh = MagicMock()
+                bh.authenticate.return_value = True
+                bh.base_url = 'https://rest.bullhorn.com/'
+                bh.rest_token = 'test-token'
+                mock_bh_cls.return_value = bh
+
+                with patch('tasks.owner_reassignment._requests') as mock_req:
+                    mock_req.get.return_value = search_resp
+                    result = reassign_api_user_candidates(since_minutes=30)
+
+                    # Only the candidate-search GET should fire — no per-
+                    # candidate Notes lookup, because the cooldown short-
+                    # circuited before the loop.
+                    assert mock_req.get.call_count == 1
+                    assert mock_req.post.call_count == 0
+                    assert result['cooldown_skipped'] == 1
+                    assert result['reassigned'] == 0
+
+    def test_kill_switch_off_evaluates_even_cooldowned_candidates(self, app):
+        _ensure_config(app, 'auto_reassign_owner_enabled', 'true')
+        _ensure_config(app, 'api_user_ids', '9999')
+        _ensure_config(app, 'reassign_owner_note_enabled', 'false')
+        _ensure_config(app, 'owner_reassignment_cooldown_enabled', 'false')
+
+        from app import db
+        from models import OwnerReassignmentCooldown
+        from datetime import datetime
+        with app.app_context():
+            db.session.add(OwnerReassignmentCooldown(
+                candidate_id=1001,
+                last_evaluated_at=datetime.utcnow(),
+                last_outcome='no_human_activity',
+                evaluation_count=1,
+            ))
+            db.session.commit()
+
+        candidate = _make_candidate(cid=1001)
+        search_resp = MagicMock()
+        search_resp.status_code = 200
+        search_resp.json.return_value = {'data': [candidate]}
+        no_notes_resp = MagicMock()
+        no_notes_resp.status_code = 200
+        no_notes_resp.json.return_value = {'data': []}
+
+        with app.app_context():
+            from tasks.owner_reassignment import reassign_api_user_candidates
+            with patch('tasks.owner_reassignment.BullhornService') as mock_bh_cls:
+                bh = MagicMock()
+                bh.authenticate.return_value = True
+                bh.base_url = 'https://rest.bullhorn.com/'
+                bh.rest_token = 'test-token'
+                mock_bh_cls.return_value = bh
+
+                with patch('tasks.owner_reassignment._requests') as mock_req:
+                    mock_req.get.side_effect = [search_resp, no_notes_resp]
+                    result = reassign_api_user_candidates(since_minutes=30)
+
+                    # Notes lookup MUST happen because the kill switch is off.
+                    assert mock_req.get.call_count == 2
+                    assert result['cooldown_skipped'] == 0
+
+
+class TestCooldownRecordsNoOpOutcomes:
+    """A no-op outcome (no human activity / already correct) lands in the
+    cooldown table so the next cycle can short-circuit."""
+
+    def test_no_human_activity_writes_cooldown_row(self, app):
+        _ensure_config(app, 'auto_reassign_owner_enabled', 'true')
+        _ensure_config(app, 'api_user_ids', '9999')
+        _ensure_config(app, 'reassign_owner_note_enabled', 'false')
+        _ensure_config(app, 'owner_reassignment_cooldown_enabled', 'true')
+
+        candidate = _make_candidate(cid=2001)
+        search_resp = MagicMock()
+        search_resp.status_code = 200
+        search_resp.json.return_value = {'data': [candidate]}
+
+        no_notes_resp = MagicMock()
+        no_notes_resp.status_code = 200
+        no_notes_resp.json.return_value = {'data': []}
+
+        with app.app_context():
+            from tasks.owner_reassignment import reassign_api_user_candidates
+            with patch('tasks.owner_reassignment.BullhornService') as mock_bh_cls:
+                bh = MagicMock()
+                bh.authenticate.return_value = True
+                bh.base_url = 'https://rest.bullhorn.com/'
+                bh.rest_token = 'test-token'
+                mock_bh_cls.return_value = bh
+
+                with patch('tasks.owner_reassignment._requests') as mock_req:
+                    mock_req.get.side_effect = [search_resp, no_notes_resp]
+                    reassign_api_user_candidates(since_minutes=30)
+
+            from models import OwnerReassignmentCooldown
+            row = OwnerReassignmentCooldown.query.filter_by(
+                candidate_id=2001
+            ).first()
+            assert row is not None
+            assert row.last_outcome == 'no_human_activity'
+
+    def test_already_correct_writes_cooldown_row(self, app):
+        _ensure_config(app, 'auto_reassign_owner_enabled', 'true')
+        _ensure_config(app, 'api_user_ids', '9999')
+        _ensure_config(app, 'reassign_owner_note_enabled', 'false')
+        _ensure_config(app, 'owner_reassignment_cooldown_enabled', 'true')
+
+        # Candidate already owned by the human (777), so the loop should
+        # short-circuit on "already_correct" and write a cooldown row.
+        candidate = _make_candidate(cid=2002, owner_id=777,
+                                    owner_first='Bob', owner_last='Smith')
+        search_resp = MagicMock()
+        search_resp.status_code = 200
+        search_resp.json.return_value = {'data': [candidate]}
+
+        note_resp = MagicMock()
+        note_resp.status_code = 200
+        note_resp.json.return_value = _make_note_resp(person_id=777)
+
+        with app.app_context():
+            from tasks.owner_reassignment import reassign_api_user_candidates
+            with patch('tasks.owner_reassignment.BullhornService') as mock_bh_cls:
+                bh = MagicMock()
+                bh.authenticate.return_value = True
+                bh.base_url = 'https://rest.bullhorn.com/'
+                bh.rest_token = 'test-token'
+                mock_bh_cls.return_value = bh
+
+                with patch('tasks.owner_reassignment._requests') as mock_req:
+                    mock_req.get.side_effect = [search_resp, note_resp]
+                    reassign_api_user_candidates(since_minutes=30)
+
+            from models import OwnerReassignmentCooldown
+            row = OwnerReassignmentCooldown.query.filter_by(
+                candidate_id=2002
+            ).first()
+            assert row is not None
+            assert row.last_outcome == 'already_correct'
+
+
+class TestSuccessfulReassignClearsCooldown:
+    """When a reassign actually lands, the cooldown row for that candidate
+    is dropped so the candidate doesn't get re-checked for 24 h."""
+
+    def test_successful_reassign_clears_existing_cooldown(self, app):
+        _ensure_config(app, 'auto_reassign_owner_enabled', 'true')
+        _ensure_config(app, 'api_user_ids', '9999')
+        _ensure_config(app, 'reassign_owner_note_enabled', 'false')
+        _ensure_config(app, 'owner_reassignment_cooldown_enabled', 'true')
+        _ensure_config(app, 'owner_reassignment_cooldown_hours', '24')
+
+        # Pre-populate STALE cooldown row (last evaluated 25 h ago, so it
+        # falls outside the 24 h window — the filter will let the candidate
+        # through and the success path should then clear this stale row.)
+        from app import db
+        from models import OwnerReassignmentCooldown
+        from datetime import datetime, timedelta
+        with app.app_context():
+            db.session.add(OwnerReassignmentCooldown(
+                candidate_id=3001,
+                last_evaluated_at=datetime.utcnow() - timedelta(hours=25),
+                last_outcome='no_human_activity',
+                evaluation_count=5,
+            ))
+            db.session.commit()
+
+        candidate = _make_candidate(cid=3001)
+        search_resp = MagicMock()
+        search_resp.status_code = 200
+        search_resp.json.return_value = {'data': [candidate]}
+        note_resp = MagicMock()
+        note_resp.status_code = 200
+        note_resp.json.return_value = _make_note_resp(person_id=777)
+        update_resp = MagicMock()
+        update_resp.status_code = 200
+        update_resp.json.return_value = {'changeType': 'UPDATE', 'changedEntityId': 3001}
+
+        with app.app_context():
+            from tasks.owner_reassignment import reassign_api_user_candidates
+            with patch('tasks.owner_reassignment.BullhornService') as mock_bh_cls:
+                bh = MagicMock()
+                bh.authenticate.return_value = True
+                bh.base_url = 'https://rest.bullhorn.com/'
+                bh.rest_token = 'test-token'
+                mock_bh_cls.return_value = bh
+
+                with patch('tasks.owner_reassignment._requests') as mock_req:
+                    mock_req.get.side_effect = [search_resp, note_resp]
+                    mock_req.post.return_value = update_resp
+                    result = reassign_api_user_candidates(since_minutes=30)
+
+            assert result['reassigned'] == 1
+            from models import OwnerReassignmentCooldown
+            row = OwnerReassignmentCooldown.query.filter_by(
+                candidate_id=3001
+            ).first()
+            assert row is None, (
+                "Cooldown row must be cleared after a successful reassign so "
+                "the candidate is not silently skipped on the next cycle."
+            )
+
+
+class TestRunHistoryShowsCooldownStat:
+    """The Automation Hub Run History panel must surface cooldown_skipped so
+    operators can see how much work the bandage is suppressing."""
+
+    def test_run_history_details_include_cooldown_skipped(self, app):
+        from app import db
+        from tasks.owner_reassignment import (
+            _write_run_history, SOURCE_SCHEDULED_DAILY,
+        )
+        from models import AutomationLog
+        with app.app_context():
+            _write_run_history(
+                {
+                    'reassigned': 2, 'skipped': 5, 'cooldown_skipped': 4500,
+                    'failed': 0, 'errors': [], 'reassigned_ids': [11, 22],
+                },
+                SOURCE_SCHEDULED_DAILY,
+            )
+            log = AutomationLog.query.order_by(
+                AutomationLog.id.desc()
+            ).first()
+            assert log is not None
+            payload = json.loads(log.details_json)
+            assert payload['cooldown_skipped'] == 4500
+            assert 'cooldown-skipped' in payload['summary']
+
+
+class TestCooldownFailOpenAndDedupe:
+    """Hardening: a broken cooldown table must not block reassignment, and a
+    duplicate candidate ID inside one upsert batch must not crash the flush."""
+
+    def test_flush_dedupes_duplicate_candidate_ids(self, app):
+        """If the loop somehow records two outcomes for the same candidate
+        in one cycle, the upsert must NOT raise PostgreSQL's `ON CONFLICT
+        DO UPDATE command cannot affect row a second time` error."""
+        _ensure_config(app, 'owner_reassignment_cooldown_enabled', 'true')
+        from tasks.owner_reassignment import _flush_cooldown_outcomes
+        with app.app_context():
+            # Two outcomes for the same candidate_id — must collapse to one row.
+            _flush_cooldown_outcomes([
+                (4001, 'no_human_activity'),
+                (4001, 'already_correct'),
+                (4002, 'no_human_activity'),
+            ])
+            from models import OwnerReassignmentCooldown
+            rows = OwnerReassignmentCooldown.query.order_by(
+                OwnerReassignmentCooldown.candidate_id
+            ).all()
+            assert len(rows) == 2
+            row_4001 = next(r for r in rows if r.candidate_id == 4001)
+            # Last outcome wins per loop order.
+            assert row_4001.last_outcome == 'already_correct'
+
+    def test_flush_is_noop_when_kill_switch_off(self, app):
+        """Operator expectation: turning the kill switch off means the
+        cooldown table receives NO writes, period."""
+        _ensure_config(app, 'owner_reassignment_cooldown_enabled', 'false')
+        from tasks.owner_reassignment import _flush_cooldown_outcomes
+        with app.app_context():
+            _flush_cooldown_outcomes([(5001, 'no_human_activity')])
+            from models import OwnerReassignmentCooldown
+            assert OwnerReassignmentCooldown.query.count() == 0
+
+    def test_clear_is_noop_when_kill_switch_off(self, app):
+        """Operator expectation: kill switch off means the bandage performs
+        ZERO DB writes, including DELETEs from `_clear_cooldown_for_candidate`."""
+        from app import db
+        from models import OwnerReassignmentCooldown
+        from datetime import datetime
+        with app.app_context():
+            db.session.add(OwnerReassignmentCooldown(
+                candidate_id=6001,
+                last_evaluated_at=datetime.utcnow(),
+                last_outcome='no_human_activity',
+                evaluation_count=1,
+            ))
+            db.session.commit()
+
+        _ensure_config(app, 'owner_reassignment_cooldown_enabled', 'false')
+        from tasks.owner_reassignment import _clear_cooldown_for_candidate
+        with app.app_context():
+            _clear_cooldown_for_candidate(6001)
+            row = OwnerReassignmentCooldown.query.filter_by(
+                candidate_id=6001
+            ).first()
+            assert row is not None, (
+                "DELETE must be skipped when the kill switch is off, so the "
+                "operator's intent (no bandage writes) is honored end-to-end."
+            )
+
+    def test_lookup_fails_open_on_db_error(self, app):
+        """A broken cooldown table (e.g. ProgrammingError, OperationalError)
+        must NEVER block reassignment — return an empty set so every
+        candidate flows through the normal path."""
+        _ensure_config(app, 'owner_reassignment_cooldown_enabled', 'true')
+        from tasks.owner_reassignment import _fetch_active_cooldown_ids
+        with app.app_context():
+            with patch('app.db.session') as mock_session:
+                mock_session.query.side_effect = RuntimeError(
+                    "simulated cooldown table missing"
+                )
+                result = _fetch_active_cooldown_ids([1001, 1002, 1003])
+                assert result == set(), (
+                    "Lookup failure must fail-open with empty set so the "
+                    "loop processes every candidate normally."
+                )

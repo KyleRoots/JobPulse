@@ -74,6 +74,179 @@ def _get_vetting_config(key: str, default: str = '') -> str:
         return default
 
 
+# ──────────────────────────────────────────────────────────────────────────
+# Per-candidate cooldown bandage
+# ──────────────────────────────────────────────────────────────────────────
+# The 5-min cycle was re-evaluating the same ~5,000 Pandologic / Matador /
+# Myticas candidates every cycle (99-100% overlap, confirmed via diagnostic
+# logs). Each evaluation costs a paginated Bullhorn Notes search per
+# candidate, so the cycle was running 15-20 minutes and consuming API quota
+# for repeated no-ops.
+#
+# This bandage records the outcome of every no-op evaluation in the
+# `owner_reassignment_cooldown` table and skips any candidate whose previous
+# no-op was within the cooldown window (default 24 h). A successful
+# reassign deletes the row so the candidate disappears from the cooldown
+# pool entirely. A failed update leaves the row absent so the next cycle
+# retries cleanly.
+#
+# Kill switches (VettingConfig keys, runtime-tunable):
+#   - owner_reassignment_cooldown_enabled  ('true' | 'false', default 'true')
+#   - owner_reassignment_cooldown_hours    (int as string, default '24')
+#
+# Outcomes recorded:
+#   - 'no_human_activity'  candidate has no recruiter notes yet
+#   - 'already_correct'    owner is already the right human
+
+_COOLDOWN_NO_ACTIVITY = 'no_human_activity'
+_COOLDOWN_ALREADY_CORRECT = 'already_correct'
+
+
+def _cooldown_enabled() -> bool:
+    """Read the cooldown kill switch. Defaults to enabled."""
+    return _get_vetting_config(
+        'owner_reassignment_cooldown_enabled', 'true'
+    ).strip().lower() != 'false'
+
+
+def _cooldown_hours() -> int:
+    """Read the cooldown window in hours. Defaults to 24. Clamped to [1, 720]."""
+    raw = _get_vetting_config('owner_reassignment_cooldown_hours', '24').strip()
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return 24
+    if value < 1:
+        return 1
+    if value > 720:  # 30 days
+        return 720
+    return value
+
+
+def _fetch_active_cooldown_ids(candidate_ids: List[int]) -> set:
+    """
+    Return the subset of `candidate_ids` whose cooldown is still active
+    (last_evaluated_at within the window). Empty set if cooldown disabled or
+    on any DB failure (fail-open: a broken cooldown table must NEVER block
+    the legitimate reassignment work).
+    """
+    if not candidate_ids or not _cooldown_enabled():
+        return set()
+    try:
+        from app import db
+        from models import OwnerReassignmentCooldown
+        cutoff = datetime.utcnow() - timedelta(hours=_cooldown_hours())
+        rows = (
+            db.session.query(OwnerReassignmentCooldown.candidate_id)
+            .filter(OwnerReassignmentCooldown.candidate_id.in_(candidate_ids))
+            .filter(OwnerReassignmentCooldown.last_evaluated_at >= cutoff)
+            .all()
+        )
+        return {int(r[0]) for r in rows}
+    except Exception as exc:
+        logger.warning(
+            f"owner_reassignment: cooldown lookup failed (fail-open) — {exc}"
+        )
+        try:
+            from app import db
+            db.session.rollback()
+        except Exception:
+            pass
+        return set()
+
+
+def _flush_cooldown_outcomes(outcomes: List[Tuple[int, str]]) -> None:
+    """
+    Upsert a batch of (candidate_id, outcome) pairs into the cooldown table.
+    Uses PostgreSQL INSERT ... ON CONFLICT to bump `last_evaluated_at` and
+    increment `evaluation_count` when the row already exists.
+
+    Caller has typically just done `db.session.remove()` so this write runs
+    on a fresh connection. Failures are logged and swallowed — the cooldown
+    is a bandage, never a blocker.
+
+    The kill switch (`owner_reassignment_cooldown_enabled=false`) fully
+    disables writes too; we never want to "secretly" populate the cooldown
+    table while the operator believes the bandage is off.
+    """
+    if not outcomes or not _cooldown_enabled():
+        return
+    try:
+        from app import db
+        from sqlalchemy.dialects.postgresql import insert as pg_insert
+        from models import OwnerReassignmentCooldown
+        now = datetime.utcnow()
+        # Dedupe: PostgreSQL raises "ON CONFLICT DO UPDATE command cannot
+        # affect row a second time" if the same candidate_id appears twice
+        # in a single VALUES batch. Keep the *last* outcome seen (loop order
+        # is the natural "most recent decision wins" semantic).
+        deduped: dict = {}
+        for cid, outcome in outcomes:
+            deduped[int(cid)] = outcome
+        rows = [
+            {
+                'candidate_id': cid,
+                'last_evaluated_at': now,
+                'last_outcome': outcome,
+                'evaluation_count': 1,
+            }
+            for cid, outcome in deduped.items()
+        ]
+        stmt = pg_insert(OwnerReassignmentCooldown).values(rows)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=['candidate_id'],
+            set_={
+                'last_evaluated_at': stmt.excluded.last_evaluated_at,
+                'last_outcome': stmt.excluded.last_outcome,
+                'evaluation_count': (
+                    OwnerReassignmentCooldown.evaluation_count + 1
+                ),
+            },
+        )
+        db.session.execute(stmt)
+        db.session.commit()
+    except Exception as exc:
+        logger.warning(
+            f"owner_reassignment: cooldown flush failed for {len(outcomes)} "
+            f"row(s) — {exc}"
+        )
+        try:
+            from app import db
+            db.session.rollback()
+        except Exception:
+            pass
+
+
+def _clear_cooldown_for_candidate(candidate_id: int) -> None:
+    """
+    Drop the cooldown row for a candidate that was just successfully
+    reassigned. Best-effort; failures are logged and ignored.
+
+    Honors the kill switch — if cooldown is disabled the operator's
+    expectation is "no DB writes from the bandage at all," which includes
+    DELETEs.
+    """
+    if not _cooldown_enabled():
+        return
+    try:
+        from app import db
+        from models import OwnerReassignmentCooldown
+        db.session.query(OwnerReassignmentCooldown).filter_by(
+            candidate_id=int(candidate_id)
+        ).delete(synchronize_session=False)
+        db.session.commit()
+    except Exception as exc:
+        logger.debug(
+            f"owner_reassignment: could not clear cooldown row for "
+            f"candidate {candidate_id} — {exc}"
+        )
+        try:
+            from app import db
+            db.session.rollback()
+        except Exception:
+            pass
+
+
 def _get_or_create_owner_task_id() -> Optional[int]:
     """
     Find (or lazily create) the AutomationTask row used to anchor Run History
@@ -161,6 +334,7 @@ def _write_run_history(result: dict, source: str) -> None:
         errors = result.get('errors') or []
         reassigned_ids = result.get('reassigned_ids') or []
         skipped = int(result.get('skipped', 0))
+        cooldown_skipped = int(result.get('cooldown_skipped', 0))
 
         is_signal = reassigned > 0 or failed > 0 or bool(errors)
         always_write = source in (SOURCE_SCHEDULED_DAILY, SOURCE_MANUAL_LIVE_BATCH)
@@ -193,7 +367,8 @@ def _write_run_history(result: dict, source: str) -> None:
 
         message = _SOURCE_DISPLAY.get(source, 'Owner Reassignment')
         summary = (
-            f"{reassigned} reassigned, {skipped} skipped, {failed} failed"
+            f"{reassigned} reassigned, {skipped} skipped, "
+            f"{cooldown_skipped} cooldown-skipped, {failed} failed"
         )
 
         ids_total = len(reassigned_ids)
@@ -202,6 +377,7 @@ def _write_run_history(result: dict, source: str) -> None:
             'source': source,
             'reassigned': reassigned,
             'skipped': skipped,
+            'cooldown_skipped': cooldown_skipped,
             'failed': failed,
             'reassigned_candidate_ids': reassigned_ids[:_MAX_IDS_IN_DETAILS],
             'reassigned_ids_total': ids_total,
@@ -255,7 +431,7 @@ def _early_return(
         are intentional configuration states, not errors.
     """
     result = {
-        'reassigned': 0, 'skipped': 0, 'failed': 0,
+        'reassigned': 0, 'skipped': 0, 'cooldown_skipped': 0, 'failed': 0,
         'errors': [reason], 'reassigned_ids': [],
     }
     is_user_initiated = source in (SOURCE_SCHEDULED_DAILY, SOURCE_MANUAL_LIVE_BATCH)
@@ -460,6 +636,13 @@ def preview_reassign_candidates(limit: int = 5) -> dict:
             total_found = page_data.get('total', len(all_candidates))
             sample = all_candidates[:limit]
 
+            # Cooldown state for the previewed sample so the operator can
+            # see which candidates would be skipped by the live cycle.
+            sample_ids = [c.get('id') for c in sample if c.get('id')]
+            cooldown_active = _fetch_active_cooldown_ids(sample_ids)
+            cooldown_on = _cooldown_enabled()
+            cooldown_window_h = _cooldown_hours()
+
             results = []
             for candidate in sample:
                 candidate_id = candidate.get('id')
@@ -472,8 +655,8 @@ def preview_reassign_candidates(limit: int = 5) -> dict:
                 old_owner_id = old_owner.get('id')
                 old_owner_name = f"{old_owner.get('firstName', '')} {old_owner.get('lastName', '')}".strip() or 'API User'
 
-                recruiter_id, rec_first, rec_last = _find_first_human_interactor(
-                    base_url, headers, candidate_id, api_user_ids
+                in_cooldown = (
+                    cooldown_on and int(candidate_id) in cooldown_active
                 )
 
                 entry = {
@@ -483,7 +666,22 @@ def preview_reassign_candidates(limit: int = 5) -> dict:
                     'current_owner_id': old_owner_id,
                     'would_reassign': False,
                     'skip_reason': None,
+                    'in_cooldown': in_cooldown,
                 }
+
+                if in_cooldown:
+                    # Live cycle would short-circuit here; don't pay the
+                    # Bullhorn-notes-search cost in the preview either.
+                    entry['skip_reason'] = (
+                        f'In cooldown — last evaluated within '
+                        f'{cooldown_window_h} h'
+                    )
+                    results.append(entry)
+                    continue
+
+                recruiter_id, rec_first, rec_last = _find_first_human_interactor(
+                    base_url, headers, candidate_id, api_user_ids
+                )
 
                 if recruiter_id is None:
                     entry['skip_reason'] = 'No human activity found'
@@ -503,6 +701,9 @@ def preview_reassign_candidates(limit: int = 5) -> dict:
                 'api_user_ids': api_user_ids,
                 'candidates': results,
                 'total_found': total_found,
+                'cooldown_enabled': cooldown_on,
+                'cooldown_window_hours': cooldown_window_h,
+                'cooldown_active_in_sample': len(cooldown_active),
             }
 
         except Exception as exc:
@@ -642,8 +843,8 @@ def reassign_api_user_candidates(
                     f"{since_minutes} minutes — nothing to do"
                 )
                 empty_result = {
-                    'reassigned': 0, 'skipped': 0, 'failed': 0,
-                    'errors': [], 'reassigned_ids': [],
+                    'reassigned': 0, 'skipped': 0, 'cooldown_skipped': 0,
+                    'failed': 0, 'errors': [], 'reassigned_ids': [],
                 }
                 _write_run_history(empty_result, source)
                 return empty_result
@@ -652,6 +853,43 @@ def reassign_api_user_candidates(
                 f"owner_reassignment: found {len(candidates)} API-owned candidate(s) "
                 f"to evaluate (owner IDs: {api_user_ids})"
             )
+
+            # ──────────────────────────────────────────────────────────────
+            # Cooldown filter — skip candidates whose previous no-op
+            # evaluation is still inside the cooldown window. This is the
+            # bandage that prevents the 5-min cycle from re-walking the
+            # same ~5,000 records every time. Fail-open: any DB error
+            # returns an empty cooldown set so the legitimate work proceeds.
+            # ──────────────────────────────────────────────────────────────
+            cooldown_skipped_count = 0
+            if _cooldown_enabled():
+                all_ids = [c.get('id') for c in candidates if c.get('id')]
+                cooldown_active_ids = _fetch_active_cooldown_ids(all_ids)
+                if cooldown_active_ids:
+                    pre_filter_count = len(candidates)
+                    candidates = [
+                        c for c in candidates
+                        if int(c.get('id') or 0) not in cooldown_active_ids
+                    ]
+                    cooldown_skipped_count = pre_filter_count - len(candidates)
+                    logger.info(
+                        f"owner_reassignment: cooldown filter — "
+                        f"skipped {cooldown_skipped_count:,} of "
+                        f"{pre_filter_count:,} candidate(s) "
+                        f"(window: {_cooldown_hours()} h); "
+                        f"{len(candidates):,} remain to evaluate"
+                    )
+                else:
+                    logger.debug(
+                        "owner_reassignment: cooldown filter — no active "
+                        "cooldown rows touched this batch"
+                    )
+            else:
+                logger.info(
+                    "owner_reassignment: cooldown disabled via "
+                    "owner_reassignment_cooldown_enabled=false — evaluating "
+                    "all candidates"
+                )
 
             # ──────────────────────────────────────────────────────────────
             # [diagnostic] Owner breakdown + cycle-over-cycle overlap.
@@ -730,6 +968,10 @@ def reassign_api_user_candidates(
             failed = 0
             errors: list = []
             reassigned_ids: list = []
+            # (candidate_id, outcome) tuples buffered during the loop and
+            # flushed in a single bulk-upsert after the loop completes.
+            cooldown_outcomes: List[Tuple[int, str]] = []
+            successful_reassign_ids: List[int] = []
 
             for candidate in candidates:
                 candidate_id = candidate.get('id')
@@ -752,6 +994,12 @@ def reassign_api_user_candidates(
                         f"({c_first} {c_last}) — no human activity found"
                     )
                     skipped_no_activity += 1
+                    try:
+                        cooldown_outcomes.append(
+                            (int(candidate_id), _COOLDOWN_NO_ACTIVITY)
+                        )
+                    except (TypeError, ValueError):
+                        pass
                     continue
 
                 old_owner_id = old_owner.get('id')
@@ -761,6 +1009,12 @@ def reassign_api_user_candidates(
                         f"({c_first} {c_last}) — already owned by correct user ({recruiter_id})"
                     )
                     skipped_already_correct += 1
+                    try:
+                        cooldown_outcomes.append(
+                            (int(candidate_id), _COOLDOWN_ALREADY_CORRECT)
+                        )
+                    except (TypeError, ValueError):
+                        pass
                     continue
 
                 try:
@@ -809,6 +1063,7 @@ def reassign_api_user_candidates(
                         reassigned += 1
                         try:
                             reassigned_ids.append(int(candidate_id))
+                            successful_reassign_ids.append(int(candidate_id))
                         except (TypeError, ValueError):
                             reassigned_ids.append(candidate_id)
 
@@ -857,11 +1112,40 @@ def reassign_api_user_candidates(
                 f"owner_reassignment: complete — {reassigned} reassigned, "
                 f"{skipped_no_activity} skipped (no human activity), "
                 f"{skipped_already_correct} skipped (already correct), "
+                f"{cooldown_skipped_count} cooldown-skipped, "
                 f"{failed} failed"
             )
+
+            # Flush cooldown bookkeeping. Drop the stale long-lived session
+            # first so these writes run on a fresh connection (mirrors the
+            # pattern in _write_run_history). Failures are swallowed inside
+            # the helpers — cooldown bookkeeping must never block the run.
+            try:
+                from app import db as _db_pre_cooldown
+                try:
+                    _db_pre_cooldown.session.remove()
+                except Exception:
+                    pass
+
+                if cooldown_outcomes:
+                    _flush_cooldown_outcomes(cooldown_outcomes)
+                    logger.info(
+                        f"owner_reassignment: cooldown flush — recorded "
+                        f"{len(cooldown_outcomes):,} no-op outcome(s) "
+                        f"(window: {_cooldown_hours()} h)"
+                    )
+                for cid in successful_reassign_ids:
+                    _clear_cooldown_for_candidate(cid)
+            except Exception as cooldown_err:
+                logger.warning(
+                    f"owner_reassignment: cooldown bookkeeping wrapper "
+                    f"failed (non-fatal) — {cooldown_err}"
+                )
+
             result = {
                 'reassigned': reassigned,
                 'skipped': skipped_total,
+                'cooldown_skipped': cooldown_skipped_count,
                 'failed': failed,
                 'errors': errors,
                 'reassigned_ids': reassigned_ids,
@@ -872,8 +1156,8 @@ def reassign_api_user_candidates(
         except Exception as e:
             logger.error(f"owner_reassignment: unexpected error — {e}", exc_info=True)
             error_result = {
-                'reassigned': 0, 'skipped': 0, 'failed': 0,
-                'errors': [str(e)], 'reassigned_ids': [],
+                'reassigned': 0, 'skipped': 0, 'cooldown_skipped': 0,
+                'failed': 0, 'errors': [str(e)], 'reassigned_ids': [],
             }
             _write_run_history(error_result, source)
             return error_result

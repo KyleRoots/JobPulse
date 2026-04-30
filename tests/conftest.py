@@ -169,6 +169,16 @@ def _db_cleanup(app):
     except Exception:
         db.session.rollback()
 
+    # Owner reassignment cooldown rows must not leak between tests, or one
+    # test that lands a candidate in cooldown will silently skip the same
+    # candidate ID in a later, unrelated test.
+    try:
+        from models import OwnerReassignmentCooldown
+        OwnerReassignmentCooldown.query.delete()
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
     from models import User
     user = User.query.filter_by(username='testadmin').first()
     if user is None:

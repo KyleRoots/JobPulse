@@ -1850,3 +1850,41 @@ class BackupLog(db.Model):
 
     def __repr__(self):
         return f'<BackupLog {self.id}: {self.status} @ {self.started_at}>'
+
+
+class OwnerReassignmentCooldown(db.Model):
+    """
+    Per-candidate cooldown tracker for the Owner Reassignment task.
+
+    Bandage to stop the 5-min reassignment cycle from re-evaluating the same
+    ~5,000 Pandologic / Matador / Myticas candidates every cycle. When a
+    candidate is evaluated and the outcome is a no-op (no human activity yet,
+    or already owned by the correct user), we record it here. Subsequent
+    cycles skip any candidate whose `last_evaluated_at` is within the
+    configured cooldown window (default 24 h).
+
+    Outcomes stored:
+      - 'no_human_activity'  no recruiter notes found yet; check again later
+      - 'already_correct'    owner is already the right human; nothing to do
+
+    A successful reassign DELETES the row (the candidate is now resolved).
+    A failed update leaves the row absent so the next cycle retries.
+
+    Kill switches (VettingConfig):
+      - owner_reassignment_cooldown_enabled (default 'true')
+      - owner_reassignment_cooldown_hours   (default '24')
+    """
+    __tablename__ = 'owner_reassignment_cooldown'
+
+    candidate_id = db.Column(db.BigInteger, primary_key=True)
+    last_evaluated_at = db.Column(
+        db.DateTime, nullable=False, default=datetime.utcnow, index=True
+    )
+    last_outcome = db.Column(db.String(40), nullable=False)
+    evaluation_count = db.Column(db.Integer, nullable=False, default=1)
+
+    def __repr__(self):
+        return (
+            f'<OwnerReassignmentCooldown candidate={self.candidate_id} '
+            f'outcome={self.last_outcome} at={self.last_evaluated_at}>'
+        )

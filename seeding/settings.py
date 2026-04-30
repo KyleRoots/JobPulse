@@ -381,6 +381,13 @@ def seed_vetting_config(db, VettingConfig):
             'auto_reassign_owner_enabled': 'false',
             'api_user_ids': '',
             'reassign_owner_note_enabled': 'true',
+            # Owner Reassignment — per-candidate cooldown bandage. Skips
+            # candidates whose previous no-op evaluation was within the
+            # cooldown window so the 5-min cycle stops re-walking the same
+            # ~5,000 records every cycle. Successful reassigns clear the
+            # cooldown row immediately.
+            'owner_reassignment_cooldown_enabled': 'true',
+            'owner_reassignment_cooldown_hours': '24',
             # Global screening instructions — loaded from version-controlled config file
             # so a DB reset restores the full prompt instead of wiping it.
             'global_custom_requirements': _load_global_screening_prompt(),
