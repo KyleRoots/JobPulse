@@ -65,3 +65,27 @@ id = "VPsfzYmgA0ln0cNWnxSoG"
 uri = "file://docs/Sentinel_Solutions_Blueprint.md"
 type = "text"
 title = "Sentinel Solutions Blueprint v0.2"
+
+[[outputs]]
+id = "9iMtMhzH5bfxlIDMEgKd0"
+uri = "file://docs/sentinal_starter_kit/replit.md"
+type = "text"
+title = "replit.md (drop at new project root — auto-loads into agent context)"
+
+[[outputs]]
+id = "oDC8jC4-y05sOvJBgq-D1"
+uri = "file://docs/sentinal_starter_kit/README.md"
+type = "text"
+title = "README.md (drop at new project root)"
+
+[[outputs]]
+id = "8o0qif7dhPV3Yu5ib_ZGe"
+uri = "file://docs/sentinal_starter_kit/BOOTSTRAP.md"
+type = "text"
+title = "BOOTSTRAP.md (drop at new project root — first agent deletes after setup)"
+
+[[outputs]]
+id = "LnCy_6oYJYi4eCPuDHUYN"
+uri = "file://docs/sentinal_starter_kit/Sentinel_Solutions_Blueprint.md"
+type = "text"
+title = "Sentinel_Solutions_Blueprint.md (drop into a new docs/ folder)"
