@@ -14,6 +14,7 @@ Configuration is read from VettingConfig at runtime:
 THREAD-SAFETY: Uses standalone requests.get/post — never bh.session.* — because
 this runs in a background APScheduler thread and requests.Session is not thread-safe.
 """
+import json as _json
 import time
 import logging
 from datetime import datetime, timedelta
@@ -24,6 +25,18 @@ import requests as _requests
 from bullhorn_service import BullhornService
 
 logger = logging.getLogger(__name__)
+
+# Source labels used by _write_run_history to decide whether to always-write
+# (manual + daily sweep) or apply the signal-only noise filter (5-min cycle).
+SOURCE_SCHEDULED_5MIN = 'scheduled_5min'
+SOURCE_SCHEDULED_DAILY = 'scheduled_daily'
+SOURCE_MANUAL_LIVE_BATCH = 'manual_live_batch'
+
+_SOURCE_DISPLAY = {
+    SOURCE_SCHEDULED_5MIN: 'Owner Reassignment (5 min)',
+    SOURCE_SCHEDULED_DAILY: 'Owner Reassignment (Daily Sweep)',
+    SOURCE_MANUAL_LIVE_BATCH: 'Owner Reassignment (Manual Live Batch)',
+}
 
 _CANDIDATE_FIELDS = (
     'id,firstName,lastName,email,owner(id,firstName,lastName)'
@@ -41,6 +54,183 @@ def _get_vetting_config(key: str, default: str = '') -> str:
         return row.setting_value if row else default
     except Exception:
         return default
+
+
+def _get_or_create_owner_task_id() -> Optional[int]:
+    """
+    Find (or lazily create) the AutomationTask row used to anchor Run History
+    entries for owner reassignment cycles. Returns the task id, or None if the
+    DB write fails (in which case we just skip the history write).
+
+    Uses a single shared task row across all three sources (5-min, daily,
+    manual live batch); the source label is captured in the log details so the
+    panel still shows which path produced each row.
+
+    Race-safety: if two threads (e.g. the scheduler and a manual button click)
+    hit a fresh DB simultaneously, both could try to insert. We mitigate by:
+      1. Always selecting the LOWEST id when multiple rows exist (canonical row).
+      2. On IntegrityError or any commit failure, rolling back and re-querying.
+    """
+    from app import db
+    from models import AutomationTask
+    config_marker = '"builtin_key": "owner_reassignment"'
+
+    def _find_canonical():
+        return AutomationTask.query.filter(
+            AutomationTask.config_json.contains(config_marker)
+        ).order_by(AutomationTask.id.asc()).first()
+
+    try:
+        task = _find_canonical()
+        if task:
+            return task.id
+
+        task = AutomationTask(
+            name='Owner Reassignment',
+            description=(
+                'API User → Recruiter ownership reassignment. Runs every 5 minutes '
+                '(30-min lookback), nightly at 02:00 UTC (90-day deep sweep), and '
+                'on demand from the Automation Hub Live Batch button.'
+            ),
+            status='active',
+            automation_type='scheduled',
+            schedule_cron='*/5 * * * *',
+            config_json=_json.dumps({'builtin_key': 'owner_reassignment'}),
+        )
+        db.session.add(task)
+        try:
+            db.session.commit()
+            return task.id
+        except Exception as commit_err:
+            db.session.rollback()
+            logger.info(
+                f"owner_reassignment: insert race detected ({commit_err}); "
+                "falling back to existing row"
+            )
+            existing = _find_canonical()
+            return existing.id if existing else None
+    except Exception as exc:
+        logger.warning(f"owner_reassignment: could not get/create AutomationTask row — {exc}")
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        return None
+
+
+# Cap reassigned-ID list stored in details_json so a runaway batch can't bloat
+# the log row. The summary still reports the true total via 'reassigned' count.
+_MAX_IDS_IN_DETAILS = 200
+
+
+def _write_run_history(result: dict, source: str) -> None:
+    """
+    Write an AutomationLog row so the Automation Hub's Run History panel shows
+    owner reassignment activity.
+
+    Noise filter (5-min cycle only):
+      - Suppresses no-op cycles (no candidates touched, no errors) to avoid
+        flooding the panel with 288 empty rows per day.
+      - Anything with a real signal (reassigned > 0, failed > 0, errors,
+        or guard-rail failures the operator should see) is always written.
+
+    Daily sweep + manual live batch always write — those are meaningful
+    checkpoints regardless of outcome.
+    """
+    try:
+        reassigned = int(result.get('reassigned', 0))
+        failed = int(result.get('failed', 0))
+        errors = result.get('errors') or []
+        reassigned_ids = result.get('reassigned_ids') or []
+        skipped = int(result.get('skipped', 0))
+
+        is_signal = reassigned > 0 or failed > 0 or bool(errors)
+        always_write = source in (SOURCE_SCHEDULED_DAILY, SOURCE_MANUAL_LIVE_BATCH)
+        if not (is_signal or always_write):
+            return
+
+        task_id = _get_or_create_owner_task_id()
+        if task_id is None:
+            return
+
+        if errors and reassigned == 0 and failed == 0:
+            status = 'error'
+        elif failed > 0:
+            status = 'warning'
+        else:
+            status = 'success'
+
+        message = _SOURCE_DISPLAY.get(source, 'Owner Reassignment')
+        summary = (
+            f"{reassigned} reassigned, {skipped} skipped, {failed} failed"
+        )
+
+        ids_total = len(reassigned_ids)
+        ids_truncated = ids_total > _MAX_IDS_IN_DETAILS
+        details = {
+            'source': source,
+            'reassigned': reassigned,
+            'skipped': skipped,
+            'failed': failed,
+            'reassigned_candidate_ids': reassigned_ids[:_MAX_IDS_IN_DETAILS],
+            'reassigned_ids_total': ids_total,
+            'reassigned_ids_truncated': ids_truncated,
+            'summary': summary,
+        }
+        if errors:
+            details['errors'] = [str(e)[:300] for e in errors[:10]]
+
+        from app import db
+        from models import AutomationTask, AutomationLog
+        log = AutomationLog(
+            automation_task_id=task_id,
+            status=status,
+            message=message,
+            details_json=_json.dumps(details),
+        )
+        db.session.add(log)
+
+        task = AutomationTask.query.get(task_id)
+        if task:
+            task.last_run_at = datetime.utcnow()
+            task.run_count = (task.run_count or 0) + 1
+
+        db.session.commit()
+    except Exception as exc:
+        logger.warning(f"owner_reassignment: could not write run history row — {exc}")
+        try:
+            from app import db
+            db.session.rollback()
+        except Exception:
+            pass
+
+
+def _early_return(
+    source: str,
+    reason: str,
+    *,
+    log_for_5min: bool = False,
+) -> dict:
+    """
+    Build the early-return dict for guard-rail exits and write a Run History
+    row when appropriate.
+
+    Policy:
+      - Daily sweep + manual live batch: ALWAYS surface guard-rail failures
+        in Run History (the user/operator wants to know why the run no-op'd).
+      - 5-min cycle: only surface when `log_for_5min=True` (e.g. auth or
+        search failures — operator-actionable). Routine "feature disabled"
+        or "no IDs configured" stay silent for the 5-min cycle since those
+        are intentional configuration states, not errors.
+    """
+    result = {
+        'reassigned': 0, 'skipped': 0, 'failed': 0,
+        'errors': [reason], 'reassigned_ids': [],
+    }
+    is_user_initiated = source in (SOURCE_SCHEDULED_DAILY, SOURCE_MANUAL_LIVE_BATCH)
+    if is_user_initiated or log_for_5min:
+        _write_run_history(result, source)
+    return result
 
 
 def _parse_api_user_ids(raw: str) -> List[int]:
@@ -295,7 +485,10 @@ def preview_reassign_candidates(limit: int = 5) -> dict:
             }
 
 
-def reassign_api_user_candidates(since_minutes: int = 30) -> dict:
+def reassign_api_user_candidates(
+    since_minutes: int = 30,
+    source: str = SOURCE_SCHEDULED_5MIN,
+) -> dict:
     """
     Main entry point for the scheduled task.
 
@@ -304,7 +497,17 @@ def reassign_api_user_candidates(since_minutes: int = 30) -> dict:
     candidate owned by an API user account, finds the first human recruiter
     who interacted (via Bullhorn Notes) and updates the ownership record.
 
-    Returns a dict with keys: reassigned, skipped, failed, errors (list of str).
+    The `source` param controls Run History behavior:
+      - SOURCE_SCHEDULED_5MIN  → noise-filtered (only writes on signal)
+      - SOURCE_SCHEDULED_DAILY → always writes (daily checkpoint)
+      - SOURCE_MANUAL_LIVE_BATCH → always writes (user-initiated)
+
+    Returns a dict with keys:
+      reassigned        int        count of successful reassigns
+      skipped           int        count of skipped candidates
+      failed            int        count of failed updates
+      errors            list[str]  per-candidate error messages
+      reassigned_ids    list[int]  Bullhorn candidate IDs that were updated
     """
     from app import app
 
@@ -312,7 +515,12 @@ def reassign_api_user_candidates(since_minutes: int = 30) -> dict:
         try:
             if _get_vetting_config('auto_reassign_owner_enabled', 'false').lower() != 'true':
                 logger.debug("owner_reassignment: feature disabled — skipping run")
-                return {'reassigned': 0, 'skipped': 0, 'failed': 0, 'errors': ['Feature is disabled. Enable the automation toggle first.']}
+                # 5-min: silent (intentional config state, not noise-worthy).
+                # Daily/manual: surface so operator sees why the run no-op'd.
+                return _early_return(
+                    source,
+                    'Feature is disabled. Enable the automation toggle first.',
+                )
 
             api_user_ids = _parse_api_user_ids(
                 _get_vetting_config('api_user_ids', '')
@@ -322,7 +530,7 @@ def reassign_api_user_candidates(since_minutes: int = 30) -> dict:
                     "owner_reassignment: no API user IDs configured — skipping run. "
                     "Add Bullhorn CorporateUser IDs to the 'api_user_ids' setting."
                 )
-                return {'reassigned': 0, 'skipped': 0, 'failed': 0, 'errors': ['No API user IDs configured.']}
+                return _early_return(source, 'No API user IDs configured.')
 
             note_enabled = (
                 _get_vetting_config('reassign_owner_note_enabled', 'true').lower() == 'true'
@@ -331,7 +539,13 @@ def reassign_api_user_candidates(since_minutes: int = 30) -> dict:
             bh = BullhornService()
             if not bh.authenticate():
                 logger.warning("owner_reassignment: Bullhorn authentication failed — skipping run")
-                return {'reassigned': 0, 'skipped': 0, 'failed': 0, 'errors': ['Bullhorn authentication failed.']}
+                # Auth failure is operator-actionable — surface even on the
+                # 5-min cycle so a broken token doesn't fail silently for hours.
+                return _early_return(
+                    source,
+                    'Bullhorn authentication failed.',
+                    log_for_5min=True,
+                )
 
             base_url = bh.base_url
             rest_token = bh.rest_token
@@ -372,7 +586,13 @@ def reassign_api_user_candidates(since_minutes: int = 30) -> dict:
                         f"owner_reassignment: candidate search failed "
                         f"HTTP {resp.status_code}: {resp.text[:300]}"
                     )
-                    return {'reassigned': 0, 'skipped': 0, 'failed': 0, 'errors': [f'Candidate search failed: HTTP {resp.status_code}']}
+                    # Bullhorn API failure is operator-actionable — surface
+                    # on every source including the 5-min cycle.
+                    return _early_return(
+                        source,
+                        f'Candidate search failed: HTTP {resp.status_code}',
+                        log_for_5min=True,
+                    )
 
                 page_data = resp.json()
                 page_candidates = page_data.get('data', [])
@@ -390,7 +610,12 @@ def reassign_api_user_candidates(since_minutes: int = 30) -> dict:
                     f"owner_reassignment: no API-owned candidates found in the last "
                     f"{since_minutes} minutes — nothing to do"
                 )
-                return {'reassigned': 0, 'skipped': 0, 'failed': 0, 'errors': []}
+                empty_result = {
+                    'reassigned': 0, 'skipped': 0, 'failed': 0,
+                    'errors': [], 'reassigned_ids': [],
+                }
+                _write_run_history(empty_result, source)
+                return empty_result
 
             logger.info(
                 f"owner_reassignment: found {len(candidates)} API-owned candidate(s) "
@@ -402,6 +627,7 @@ def reassign_api_user_candidates(since_minutes: int = 30) -> dict:
             skipped_already_correct = 0
             failed = 0
             errors: list = []
+            reassigned_ids: list = []
 
             for candidate in candidates:
                 candidate_id = candidate.get('id')
@@ -479,6 +705,10 @@ def reassign_api_user_candidates(since_minutes: int = 30) -> dict:
                             f"{old_name} → {new_name}"
                         )
                         reassigned += 1
+                        try:
+                            reassigned_ids.append(int(candidate_id))
+                        except (TypeError, ValueError):
+                            reassigned_ids.append(candidate_id)
 
                         if note_enabled:
                             try:
@@ -527,16 +757,24 @@ def reassign_api_user_candidates(since_minutes: int = 30) -> dict:
                 f"{skipped_already_correct} skipped (already correct), "
                 f"{failed} failed"
             )
-            return {
+            result = {
                 'reassigned': reassigned,
                 'skipped': skipped_total,
                 'failed': failed,
                 'errors': errors,
+                'reassigned_ids': reassigned_ids,
             }
+            _write_run_history(result, source)
+            return result
 
         except Exception as e:
             logger.error(f"owner_reassignment: unexpected error — {e}", exc_info=True)
-            return {'reassigned': 0, 'skipped': 0, 'failed': 0, 'errors': [str(e)]}
+            error_result = {
+                'reassigned': 0, 'skipped': 0, 'failed': 0,
+                'errors': [str(e)], 'reassigned_ids': [],
+            }
+            _write_run_history(error_result, source)
+            return error_result
 
 
 def run_owner_reassignment() -> dict:
@@ -547,10 +785,13 @@ def run_owner_reassignment() -> dict:
     Processes candidates modified in the last 30 days so it can serve as a
     backfill on day one before the scheduler takes over regular 30-minute runs.
 
-    Returns a dict with keys: reassigned, skipped, failed, errors (list of str).
+    Returns a dict with keys: reassigned, skipped, failed, errors, reassigned_ids.
     """
     logger.info("owner_reassignment: manual live batch triggered via Automation Hub")
-    return reassign_api_user_candidates(since_minutes=43200)
+    return reassign_api_user_candidates(
+        since_minutes=43200,
+        source=SOURCE_MANUAL_LIVE_BATCH,
+    )
 
 
 def run_owner_reassignment_daily() -> dict:
@@ -563,4 +804,7 @@ def run_owner_reassignment_daily() -> dict:
     once per day.
     """
     logger.info("owner_reassignment_daily: starting 90-day deep sweep")
-    return reassign_api_user_candidates(since_minutes=129600)
+    return reassign_api_user_candidates(
+        since_minutes=129600,
+        source=SOURCE_SCHEDULED_DAILY,
+    )

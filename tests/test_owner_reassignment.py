@@ -19,6 +19,11 @@ Coverage:
   T015 — settings defaults are present when keys are missing
   T016 — GET /automation_test renders toggle checked/unchecked state
   T017 — ownership_toggle action does not erase api_user_ids or note toggle
+  T018 — 5-min cycle with all-skips writes NO Run History row (noise filter)
+  T019 — 5-min cycle with a successful reassign writes a Run History row + IDs
+  T020 — daily sweep ALWAYS writes a Run History row even with all-skips
+  T021 — manual live batch ALWAYS writes a Run History row even with all-skips
+  T022 — run history details_json includes reassigned candidate IDs for spot-check
 """
 import pytest
 from unittest.mock import patch, MagicMock, call
@@ -709,3 +714,360 @@ class TestSubSettingsPreservedOnToggleOff:
             assert r_note and r_note.setting_value == 'true', (
                 "reassign_owner_note_enabled must be preserved when kill switch is turned off"
             )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Helpers for Run History tests (T018–T022)
+# ─────────────────────────────────────────────────────────────────────────────
+def _count_owner_history_logs(app):
+    from app import db
+    from models import AutomationLog, AutomationTask
+    with app.app_context():
+        task = AutomationTask.query.filter(
+            AutomationTask.config_json.contains('"builtin_key": "owner_reassignment"')
+        ).first()
+        if not task:
+            return 0, []
+        logs = AutomationLog.query.filter_by(automation_task_id=task.id).all()
+        return len(logs), logs
+
+
+def _purge_owner_history(app):
+    from app import db
+    from models import AutomationLog, AutomationTask
+    with app.app_context():
+        task = AutomationTask.query.filter(
+            AutomationTask.config_json.contains('"builtin_key": "owner_reassignment"')
+        ).first()
+        if task:
+            AutomationLog.query.filter_by(automation_task_id=task.id).delete()
+            db.session.delete(task)
+            db.session.commit()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# T018: 5-min cycle, all-skip → noise filter suppresses Run History row
+# ─────────────────────────────────────────────────────────────────────────────
+class TestRunHistoryNoiseFilter5min:
+    def test_no_history_row_when_all_skipped(self, app):
+        _purge_owner_history(app)
+        _ensure_config(app, 'auto_reassign_owner_enabled', 'true')
+        _ensure_config(app, 'api_user_ids', '9999')
+        _ensure_config(app, 'reassign_owner_note_enabled', 'false')
+
+        candidate = _make_candidate()
+        search_resp = MagicMock()
+        search_resp.status_code = 200
+        search_resp.json.return_value = {'data': [candidate]}
+
+        no_notes_resp = MagicMock()
+        no_notes_resp.status_code = 200
+        no_notes_resp.json.return_value = {'data': []}
+
+        with app.app_context():
+            from tasks.owner_reassignment import (
+                reassign_api_user_candidates, SOURCE_SCHEDULED_5MIN
+            )
+            with patch('tasks.owner_reassignment.BullhornService') as mock_bh_cls:
+                bh = MagicMock()
+                bh.authenticate.return_value = True
+                bh.base_url = 'https://rest.bullhorn.com/'
+                bh.rest_token = 'test-token'
+                mock_bh_cls.return_value = bh
+
+                with patch('tasks.owner_reassignment._requests') as mock_req:
+                    mock_req.get.side_effect = [search_resp, no_notes_resp]
+                    result = reassign_api_user_candidates(
+                        since_minutes=30, source=SOURCE_SCHEDULED_5MIN
+                    )
+                    assert result['reassigned'] == 0
+                    assert result['failed'] == 0
+                    assert not result.get('errors')
+
+        count, _ = _count_owner_history_logs(app)
+        assert count == 0, "5-min cycle with no signal should not write Run History"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# T019: 5-min cycle, successful reassign → Run History row WITH candidate IDs
+# ─────────────────────────────────────────────────────────────────────────────
+class TestRunHistoryWritesOnSignal5min:
+    def test_history_row_written_when_reassign_happens(self, app):
+        _purge_owner_history(app)
+        _ensure_config(app, 'auto_reassign_owner_enabled', 'true')
+        _ensure_config(app, 'api_user_ids', '9999')
+        _ensure_config(app, 'reassign_owner_note_enabled', 'false')
+
+        candidate = _make_candidate(cid=4501234)
+        search_resp = MagicMock()
+        search_resp.status_code = 200
+        search_resp.json.return_value = {'data': [candidate]}
+
+        note_resp = MagicMock()
+        note_resp.status_code = 200
+        note_resp.json.return_value = _make_note_resp(person_id=777)
+
+        update_resp = MagicMock()
+        update_resp.status_code = 200
+        update_resp.json.return_value = {'changeType': 'UPDATE', 'changedEntityId': 4501234}
+
+        with app.app_context():
+            from tasks.owner_reassignment import (
+                reassign_api_user_candidates, SOURCE_SCHEDULED_5MIN
+            )
+            with patch('tasks.owner_reassignment.BullhornService') as mock_bh_cls:
+                bh = MagicMock()
+                bh.authenticate.return_value = True
+                bh.base_url = 'https://rest.bullhorn.com/'
+                bh.rest_token = 'test-token'
+                mock_bh_cls.return_value = bh
+
+                with patch('tasks.owner_reassignment._requests') as mock_req:
+                    mock_req.get.side_effect = [search_resp, note_resp]
+                    mock_req.post.return_value = update_resp
+                    result = reassign_api_user_candidates(
+                        since_minutes=30, source=SOURCE_SCHEDULED_5MIN
+                    )
+                    assert result['reassigned'] == 1
+                    assert result['reassigned_ids'] == [4501234]
+
+        count, logs = _count_owner_history_logs(app)
+        assert count == 1, "5-min cycle with a reassign should write exactly one Run History row"
+        details = json.loads(logs[0].details_json)
+        assert details['reassigned'] == 1
+        assert details['reassigned_candidate_ids'] == [4501234]
+        assert details['source'] == 'scheduled_5min'
+        assert '1 reassigned' in details['summary']
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# T020: daily sweep always writes Run History (even with all-skips)
+# ─────────────────────────────────────────────────────────────────────────────
+class TestRunHistoryDailySweepAlwaysWrites:
+    def test_daily_sweep_writes_even_when_no_signal(self, app):
+        _purge_owner_history(app)
+        _ensure_config(app, 'auto_reassign_owner_enabled', 'true')
+        _ensure_config(app, 'api_user_ids', '9999')
+        _ensure_config(app, 'reassign_owner_note_enabled', 'false')
+
+        candidate = _make_candidate()
+        search_resp = MagicMock()
+        search_resp.status_code = 200
+        search_resp.json.return_value = {'data': [candidate]}
+
+        no_notes_resp = MagicMock()
+        no_notes_resp.status_code = 200
+        no_notes_resp.json.return_value = {'data': []}
+
+        with app.app_context():
+            from tasks.owner_reassignment import (
+                reassign_api_user_candidates, SOURCE_SCHEDULED_DAILY
+            )
+            with patch('tasks.owner_reassignment.BullhornService') as mock_bh_cls:
+                bh = MagicMock()
+                bh.authenticate.return_value = True
+                bh.base_url = 'https://rest.bullhorn.com/'
+                bh.rest_token = 'test-token'
+                mock_bh_cls.return_value = bh
+
+                with patch('tasks.owner_reassignment._requests') as mock_req:
+                    mock_req.get.side_effect = [search_resp, no_notes_resp]
+                    reassign_api_user_candidates(
+                        since_minutes=129600, source=SOURCE_SCHEDULED_DAILY
+                    )
+
+        count, logs = _count_owner_history_logs(app)
+        assert count == 1, "Daily sweep must always write Run History, even with no signal"
+        details = json.loads(logs[0].details_json)
+        assert details['source'] == 'scheduled_daily'
+        assert details['reassigned'] == 0
+        assert details['reassigned_candidate_ids'] == []
+        assert 'Daily Sweep' in logs[0].message
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# T021: manual live batch always writes Run History
+# ─────────────────────────────────────────────────────────────────────────────
+class TestRunHistoryManualLiveBatchAlwaysWrites:
+    def test_manual_live_batch_writes_even_when_no_signal(self, app):
+        _purge_owner_history(app)
+        _ensure_config(app, 'auto_reassign_owner_enabled', 'true')
+        _ensure_config(app, 'api_user_ids', '9999')
+        _ensure_config(app, 'reassign_owner_note_enabled', 'false')
+
+        empty_resp = MagicMock()
+        empty_resp.status_code = 200
+        empty_resp.json.return_value = {'data': []}
+
+        with app.app_context():
+            from tasks.owner_reassignment import (
+                reassign_api_user_candidates, SOURCE_MANUAL_LIVE_BATCH
+            )
+            with patch('tasks.owner_reassignment.BullhornService') as mock_bh_cls:
+                bh = MagicMock()
+                bh.authenticate.return_value = True
+                bh.base_url = 'https://rest.bullhorn.com/'
+                bh.rest_token = 'test-token'
+                mock_bh_cls.return_value = bh
+
+                with patch('tasks.owner_reassignment._requests') as mock_req:
+                    mock_req.get.return_value = empty_resp
+                    reassign_api_user_candidates(
+                        since_minutes=43200, source=SOURCE_MANUAL_LIVE_BATCH
+                    )
+
+        count, logs = _count_owner_history_logs(app)
+        assert count == 1, "Manual live batch must always write Run History"
+        details = json.loads(logs[0].details_json)
+        assert details['source'] == 'manual_live_batch'
+        assert 'Manual Live Batch' in logs[0].message
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# T022b: 5-min cycle, feature DISABLED → silent (no Run History row)
+# T022c: daily sweep, feature DISABLED → row written so operator sees it
+# T022d: 5-min cycle, Bullhorn auth FAILS → row written (operator-actionable)
+# T022e: ID truncation when reassigned > _MAX_IDS_IN_DETAILS
+# ─────────────────────────────────────────────────────────────────────────────
+class TestEarlyReturnLogging:
+    def test_5min_disabled_is_silent(self, app):
+        _purge_owner_history(app)
+        _ensure_config(app, 'auto_reassign_owner_enabled', 'false')
+
+        with app.app_context():
+            from tasks.owner_reassignment import (
+                reassign_api_user_candidates, SOURCE_SCHEDULED_5MIN
+            )
+            reassign_api_user_candidates(since_minutes=30, source=SOURCE_SCHEDULED_5MIN)
+
+        count, _ = _count_owner_history_logs(app)
+        assert count == 0, "5-min cycle with feature disabled must stay silent"
+
+    def test_daily_disabled_writes_history(self, app):
+        _purge_owner_history(app)
+        _ensure_config(app, 'auto_reassign_owner_enabled', 'false')
+
+        with app.app_context():
+            from tasks.owner_reassignment import (
+                reassign_api_user_candidates, SOURCE_SCHEDULED_DAILY
+            )
+            reassign_api_user_candidates(since_minutes=129600, source=SOURCE_SCHEDULED_DAILY)
+
+        count, logs = _count_owner_history_logs(app)
+        assert count == 1, "Daily sweep must surface 'feature disabled' to the operator"
+        details = json.loads(logs[0].details_json)
+        assert details['source'] == 'scheduled_daily'
+        assert any('disabled' in e.lower() for e in details.get('errors', []))
+
+    def test_5min_auth_failure_writes_history(self, app):
+        _purge_owner_history(app)
+        _ensure_config(app, 'auto_reassign_owner_enabled', 'true')
+        _ensure_config(app, 'api_user_ids', '9999')
+        _ensure_config(app, 'reassign_owner_note_enabled', 'false')
+
+        with app.app_context():
+            from tasks.owner_reassignment import (
+                reassign_api_user_candidates, SOURCE_SCHEDULED_5MIN
+            )
+            with patch('tasks.owner_reassignment.BullhornService') as mock_bh_cls:
+                bh = MagicMock()
+                bh.authenticate.return_value = False
+                mock_bh_cls.return_value = bh
+                reassign_api_user_candidates(
+                    since_minutes=30, source=SOURCE_SCHEDULED_5MIN
+                )
+
+        count, logs = _count_owner_history_logs(app)
+        assert count == 1, "Auth failure must surface even on the 5-min cycle"
+        details = json.loads(logs[0].details_json)
+        assert any('authentication failed' in e.lower() for e in details.get('errors', []))
+
+
+class TestRunHistoryIdTruncation:
+    def test_ids_truncated_at_cap(self, app):
+        _purge_owner_history(app)
+
+        with app.app_context():
+            from tasks.owner_reassignment import _write_run_history, SOURCE_MANUAL_LIVE_BATCH
+            ids = list(range(1, 351))
+            _write_run_history(
+                {
+                    'reassigned': 350, 'skipped': 0, 'failed': 0,
+                    'errors': [], 'reassigned_ids': ids,
+                },
+                SOURCE_MANUAL_LIVE_BATCH,
+            )
+
+        count, logs = _count_owner_history_logs(app)
+        assert count == 1
+        details = json.loads(logs[0].details_json)
+        assert details['reassigned_ids_total'] == 350
+        assert details['reassigned_ids_truncated'] is True
+        assert len(details['reassigned_candidate_ids']) == 200
+        assert details['reassigned_candidate_ids'][0] == 1
+        assert details['reassigned_candidate_ids'][-1] == 200
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# T022: multiple reassigns → all candidate IDs captured for spot-check
+# ─────────────────────────────────────────────────────────────────────────────
+class TestRunHistoryCapturesAllReassignedIds:
+    def test_all_candidate_ids_captured(self, app):
+        _purge_owner_history(app)
+        _ensure_config(app, 'auto_reassign_owner_enabled', 'true')
+        _ensure_config(app, 'api_user_ids', '9999')
+        _ensure_config(app, 'reassign_owner_note_enabled', 'false')
+
+        c1 = _make_candidate(cid=4500001)
+        c2 = _make_candidate(cid=4500002)
+        c3 = _make_candidate(cid=4500003)
+        search_resp = MagicMock()
+        search_resp.status_code = 200
+        search_resp.json.return_value = {'data': [c1, c2, c3]}
+
+        note_resp = MagicMock()
+        note_resp.status_code = 200
+        note_resp.json.return_value = _make_note_resp(person_id=777)
+
+        def update_for(cid):
+            r = MagicMock()
+            r.status_code = 200
+            r.json.return_value = {'changeType': 'UPDATE', 'changedEntityId': cid}
+            return r
+
+        with app.app_context():
+            from tasks.owner_reassignment import (
+                reassign_api_user_candidates, SOURCE_MANUAL_LIVE_BATCH
+            )
+            with patch('tasks.owner_reassignment.BullhornService') as mock_bh_cls:
+                bh = MagicMock()
+                bh.authenticate.return_value = True
+                bh.base_url = 'https://rest.bullhorn.com/'
+                bh.rest_token = 'test-token'
+                mock_bh_cls.return_value = bh
+
+                # search/Candidate first, then 3 search/Note calls (one per candidate)
+                with patch('tasks.owner_reassignment._requests') as mock_req:
+                    note_resp_2 = MagicMock()
+                    note_resp_2.status_code = 200
+                    note_resp_2.json.return_value = _make_note_resp(person_id=777)
+                    note_resp_3 = MagicMock()
+                    note_resp_3.status_code = 200
+                    note_resp_3.json.return_value = _make_note_resp(person_id=777)
+                    mock_req.get.side_effect = [search_resp, note_resp, note_resp_2, note_resp_3]
+                    mock_req.post.side_effect = [
+                        update_for(4500001),
+                        update_for(4500002),
+                        update_for(4500003),
+                    ]
+                    result = reassign_api_user_candidates(
+                        since_minutes=43200, source=SOURCE_MANUAL_LIVE_BATCH
+                    )
+                    assert result['reassigned'] == 3
+                    assert sorted(result['reassigned_ids']) == [4500001, 4500002, 4500003]
+
+        count, logs = _count_owner_history_logs(app)
+        assert count == 1
+        details = json.loads(logs[0].details_json)
+        assert sorted(details['reassigned_candidate_ids']) == [4500001, 4500002, 4500003]
+        assert details['reassigned'] == 3
