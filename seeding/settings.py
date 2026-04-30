@@ -388,6 +388,11 @@ def seed_vetting_config(db, VettingConfig):
             # cooldown row immediately.
             'owner_reassignment_cooldown_enabled': 'true',
             'owner_reassignment_cooldown_hours': '24',
+            # Owner Reassignment — heartbeat row cadence in hours. When the
+            # noise filter would suppress a 5-min cycle (steady-state cooldown
+            # silence), a heartbeat Run History row fires at most this often
+            # so operators always see proof of life. 0 disables. Clamped 0-24.
+            'owner_reassignment_heartbeat_hours': '1',
             # Global screening instructions — loaded from version-controlled config file
             # so a DB reset restores the full prompt instead of wiping it.
             'global_custom_requirements': _load_global_screening_prompt(),

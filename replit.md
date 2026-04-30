@@ -11,6 +11,7 @@ Development Approval Process: Before executing any development task, always prov
   - Brief rationale for the choice
   - Wait for user approval before proceeding
 Task Plans: Every project task plan must include the recommended autonomy level (Economy/Power) and a one-line rationale at the top, so the user can set the correct mode before the task starts.
+TL;DR Required: Whenever the agent produces a thorough output (analysis, recommendation, multi-step plan, build summary, post-deploy report, or anything substantial), it must lead with — or include up front — a TL;DR section using the **Problem → Fix → Benefit** pattern (or equivalent compact summary for non-build outputs). The TL;DR comes BEFORE the deep-dive so the user can grasp intent and direction without reading everything. Apply this to single tasks and multi-task batches alike.
 Source of Truth: GitHub repository (KyleRoots/Scout Genius) — main branch.
 Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 

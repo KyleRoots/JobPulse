@@ -123,6 +123,62 @@ def _cooldown_hours() -> int:
     return value
 
 
+def _heartbeat_hours() -> int:
+    """
+    Read the heartbeat cadence in hours for the owner-reassignment 5-min cycle.
+
+    Defaults to 1. Clamped to [0, 24]:
+      - 0  → heartbeat disabled (silent steady state, original behavior)
+      - 1+ → write a "proof of life" Run History row this often even when the
+             noise filter would otherwise suppress every cycle
+
+    Rationale: post-cooldown, every 5-min cycle is a perfect no-op
+    (0 reassigned, 0 failed, all candidates cooldown-skipped). The noise
+    filter correctly suppresses these, but operators lose all visibility
+    into whether the automation is alive. A periodic heartbeat row restores
+    that signal without flooding the panel with 288 rows/day.
+    """
+    raw = _get_vetting_config('owner_reassignment_heartbeat_hours', '1').strip()
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return 1
+    if value < 0:
+        return 0
+    if value > 24:
+        return 24
+    return value
+
+
+def _heartbeat_due(task_id: int) -> bool:
+    """
+    Return True if a heartbeat Run History row is due for this AutomationTask
+    (i.e., last AutomationLog row is older than the heartbeat window, or no
+    rows exist yet). Returns False if heartbeat is disabled (hours=0) or if
+    the lookup fails (fail-open: heartbeat is purely additive, never blocks).
+    """
+    hours = _heartbeat_hours()
+    if hours <= 0:
+        return False
+    try:
+        from app import db
+        from models import AutomationLog
+        last = (
+            db.session.query(AutomationLog.created_at)
+            .filter(AutomationLog.automation_task_id == task_id)
+            .order_by(AutomationLog.created_at.desc())
+            .limit(1)
+            .scalar()
+        )
+        if last is None:
+            return True
+        cutoff = datetime.utcnow() - timedelta(hours=hours)
+        return last < cutoff
+    except Exception as e:
+        logger.debug(f"owner_reassignment heartbeat: lookup failed ({e}) — skipping heartbeat this cycle")
+        return False
+
+
 def _fetch_active_cooldown_ids(candidate_ids: List[int]) -> set:
     """
     Return the subset of `candidate_ids` whose cooldown is still active
@@ -324,6 +380,10 @@ def _write_run_history(result: dict, source: str) -> None:
         flooding the panel with 288 empty rows per day.
       - Anything with a real signal (reassigned > 0, failed > 0, errors,
         or guard-rail failures the operator should see) is always written.
+      - When the noise filter would otherwise suppress a cycle, a periodic
+        "heartbeat" row is written (default: once per hour) so operators
+        always see proof of life. Cadence is configurable via the
+        `owner_reassignment_heartbeat_hours` VettingConfig key (0 disables).
 
     Daily sweep + manual live batch always write — those are meaningful
     checkpoints regardless of outcome.
@@ -338,8 +398,6 @@ def _write_run_history(result: dict, source: str) -> None:
 
         is_signal = reassigned > 0 or failed > 0 or bool(errors)
         always_write = source in (SOURCE_SCHEDULED_DAILY, SOURCE_MANUAL_LIVE_BATCH)
-        if not (is_signal or always_write):
-            return
 
         # The candidate-processing loop can run for 15-20+ minutes between the
         # initial VettingConfig reads and this write. By that time PostgreSQL
@@ -358,6 +416,16 @@ def _write_run_history(result: dict, source: str) -> None:
         if task_id is None:
             return
 
+        # Heartbeat decision: if this cycle has no signal and isn't a
+        # mandatory-write source, fall back to the heartbeat clock. This is
+        # ONLY consulted for the 5-min cycle (daily/manual already write).
+        is_heartbeat = False
+        if not (is_signal or always_write):
+            if source == SOURCE_SCHEDULED_5MIN and _heartbeat_due(task_id):
+                is_heartbeat = True
+            else:
+                return
+
         if errors and reassigned == 0 and failed == 0:
             status = 'error'
         elif failed > 0:
@@ -365,11 +433,18 @@ def _write_run_history(result: dict, source: str) -> None:
         else:
             status = 'success'
 
-        message = _SOURCE_DISPLAY.get(source, 'Owner Reassignment')
-        summary = (
-            f"{reassigned} reassigned, {skipped} skipped, "
-            f"{cooldown_skipped} cooldown-skipped, {failed} failed"
-        )
+        if is_heartbeat:
+            message = 'Owner Reassignment — heartbeat'
+            summary = (
+                f"heartbeat — automation alive ({cooldown_skipped} cached, "
+                f"0 actionable this cycle)"
+            )
+        else:
+            message = _SOURCE_DISPLAY.get(source, 'Owner Reassignment')
+            summary = (
+                f"{reassigned} reassigned, {skipped} skipped, "
+                f"{cooldown_skipped} cooldown-skipped, {failed} failed"
+            )
 
         ids_total = len(reassigned_ids)
         ids_truncated = ids_total > _MAX_IDS_IN_DETAILS
@@ -383,7 +458,10 @@ def _write_run_history(result: dict, source: str) -> None:
             'reassigned_ids_total': ids_total,
             'reassigned_ids_truncated': ids_truncated,
             'summary': summary,
+            'is_heartbeat': is_heartbeat,
         }
+        if is_heartbeat:
+            details['heartbeat_hours'] = _heartbeat_hours()
         if errors:
             details['errors'] = [str(e)[:300] for e in errors[:10]]
 

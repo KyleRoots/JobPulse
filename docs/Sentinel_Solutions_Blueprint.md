@@ -7,6 +7,23 @@
 
 ---
 
+## 0. Working Conventions (User Preferences)
+
+These conventions apply to **every interaction** on the Sentinal Solutions product — whether building, planning, answering questions, debugging, or producing analysis. Any agent (Replit Agent, Codex, Claude, future tools) picking up this blueprint must honor them.
+
+| Convention | Rule |
+|---|---|
+| **TL;DR Required** | Every thorough output (analysis, recommendation, multi-step plan, build summary, post-deploy report, architectural review, or anything substantial) **must lead with — or include up front — a TL;DR section** using the **Problem → Fix → Benefit** pattern (or an equivalent compact summary for non-build outputs). The TL;DR comes BEFORE the deep-dive so the user can grasp intent and direction without reading everything. Applies to single tasks and multi-task batches alike. |
+| **Stack Recommendation Before Build** | Before executing any development task, provide a **stack recommendation**: autonomy level (Economy or Power) + a one-line rationale. Wait for explicit user approval before proceeding. |
+| **Task Plans Lead with Mode** | Every project task plan must include the recommended autonomy level (Economy/Power) and a one-line rationale at the top, so the user can set the correct mode before the task starts. |
+| **Deployment Confirmation** | At the end of any change or update, confirm whether deployment is required and, if so, what the deploy plan is. |
+| **Plain Language** | Communicate in plain, everyday language. Avoid jargon unless the user has demonstrated technical depth on that thread. |
+| **Source of Truth** | The GitHub repository associated with this product (or its successor repo if/when Sentinal spins out from Scout Genius) is the source of truth. The `main` branch wins ties. |
+
+**Why these are baked into the blueprint, not just the agent's memory:** working conventions live with the product so they survive across agents, sessions, and even tool migrations. A new agent reading this blueprint cold should immediately understand how the user wants to be communicated with.
+
+---
+
 ## 1. Executive Summary
 
 **Problem.** Recruiters across every ATS (Bullhorn, Greenhouse, Bamboo, Taleo, Workday, Lever) are flooded with applications where a meaningful percentage are not what they appear to be — agency-spammed resumes recycled under different names, the same person applying under multiple identities, fabricated work history, fake LinkedIn profiles, disposable email addresses, contact info that doesn't connect to a real human. Existing screening tools score *fit*; they don't score *authenticity*.

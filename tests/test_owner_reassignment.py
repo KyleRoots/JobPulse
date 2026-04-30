@@ -754,6 +754,9 @@ class TestRunHistoryNoiseFilter5min:
         _ensure_config(app, 'auto_reassign_owner_enabled', 'true')
         _ensure_config(app, 'api_user_ids', '9999')
         _ensure_config(app, 'reassign_owner_note_enabled', 'false')
+        # Disable heartbeat so this test isolates pure noise-filter behavior.
+        # Heartbeat behavior is covered by TestRunHistoryHeartbeat below.
+        _ensure_config(app, 'owner_reassignment_heartbeat_hours', '0')
 
         candidate = _make_candidate()
         search_resp = MagicMock()
@@ -838,6 +841,109 @@ class TestRunHistoryWritesOnSignal5min:
         assert details['reassigned_candidate_ids'] == [4501234]
         assert details['source'] == 'scheduled_5min'
         assert '1 reassigned' in details['summary']
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# T019b: heartbeat — when noise filter would suppress, periodic heartbeat row
+# is written so operators always see proof of life
+# ─────────────────────────────────────────────────────────────────────────────
+class TestRunHistoryHeartbeat:
+    def _setup(self, app, heartbeat_hours='1'):
+        _purge_owner_history(app)
+        _ensure_config(app, 'auto_reassign_owner_enabled', 'true')
+        _ensure_config(app, 'api_user_ids', '9999')
+        _ensure_config(app, 'reassign_owner_note_enabled', 'false')
+        _ensure_config(app, 'owner_reassignment_heartbeat_hours', heartbeat_hours)
+
+    def _run_no_signal_cycle(self, app):
+        candidate = _make_candidate()
+        search_resp = MagicMock()
+        search_resp.status_code = 200
+        search_resp.json.return_value = {'data': [candidate]}
+        no_notes_resp = MagicMock()
+        no_notes_resp.status_code = 200
+        no_notes_resp.json.return_value = {'data': []}
+
+        with app.app_context():
+            from tasks.owner_reassignment import (
+                reassign_api_user_candidates, SOURCE_SCHEDULED_5MIN
+            )
+            with patch('tasks.owner_reassignment.BullhornService') as mock_bh_cls:
+                bh = MagicMock()
+                bh.authenticate.return_value = True
+                bh.base_url = 'https://rest.bullhorn.com/'
+                bh.rest_token = 'test-token'
+                mock_bh_cls.return_value = bh
+
+                with patch('tasks.owner_reassignment._requests') as mock_req:
+                    mock_req.get.side_effect = [search_resp, no_notes_resp]
+                    return reassign_api_user_candidates(
+                        since_minutes=30, source=SOURCE_SCHEDULED_5MIN
+                    )
+
+    def test_heartbeat_fires_on_first_no_signal_cycle(self, app):
+        """No prior history → heartbeat is due → row should be written."""
+        self._setup(app, heartbeat_hours='1')
+        result = self._run_no_signal_cycle(app)
+        assert result['reassigned'] == 0
+
+        count, logs = _count_owner_history_logs(app)
+        assert count == 1, "First no-signal cycle should write a heartbeat row"
+        details = json.loads(logs[0].details_json)
+        assert details.get('is_heartbeat') is True
+        assert details.get('heartbeat_hours') == 1
+        assert 'heartbeat' in (logs[0].message or '').lower()
+        assert 'heartbeat' in details.get('summary', '').lower()
+
+    def test_heartbeat_suppressed_when_within_window(self, app):
+        """Two back-to-back no-signal cycles → only the first writes a heartbeat."""
+        self._setup(app, heartbeat_hours='1')
+        self._run_no_signal_cycle(app)
+        count_after_first, _ = _count_owner_history_logs(app)
+        assert count_after_first == 1
+
+        self._run_no_signal_cycle(app)
+        count_after_second, _ = _count_owner_history_logs(app)
+        assert count_after_second == 1, (
+            "Second cycle within the heartbeat window should NOT write another row"
+        )
+
+    def test_heartbeat_disabled_when_hours_is_zero(self, app):
+        """heartbeat_hours='0' → kill switch → no row written even on no-signal."""
+        self._setup(app, heartbeat_hours='0')
+        self._run_no_signal_cycle(app)
+        count, _ = _count_owner_history_logs(app)
+        assert count == 0, (
+            "heartbeat_hours=0 should disable heartbeat; no Run History row expected"
+        )
+
+    def test_heartbeat_clamps_garbage_to_default(self, app):
+        """Non-numeric heartbeat_hours → defaults to 1 → heartbeat fires."""
+        self._setup(app, heartbeat_hours='not-a-number')
+        result = self._run_no_signal_cycle(app)
+        assert result['reassigned'] == 0
+        count, logs = _count_owner_history_logs(app)
+        assert count == 1
+        details = json.loads(logs[0].details_json)
+        assert details.get('heartbeat_hours') == 1
+
+    def test_heartbeat_clamps_negative_to_zero(self, app):
+        """heartbeat_hours='-5' → clamps to 0 → heartbeat disabled."""
+        self._setup(app, heartbeat_hours='-5')
+        self._run_no_signal_cycle(app)
+        count, _ = _count_owner_history_logs(app)
+        assert count == 0, "Negative heartbeat_hours should clamp to 0 (disabled)"
+
+    def test_heartbeat_clamps_excessive_to_24(self, app):
+        """heartbeat_hours='999' → clamps to 24 → heartbeat still fires on first cycle."""
+        self._setup(app, heartbeat_hours='999')
+        self._run_no_signal_cycle(app)
+        count, logs = _count_owner_history_logs(app)
+        assert count == 1
+        details = json.loads(logs[0].details_json)
+        assert details.get('heartbeat_hours') == 24, (
+            "Excessive heartbeat_hours should clamp to 24"
+        )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
