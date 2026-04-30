@@ -59,3 +59,9 @@ id = "X6rn32COAVsG8kRhBLxrm"
 uri = "file://.local/sentinel_solutions_blueprint.md"
 type = "text"
 title = "Sentinel Solutions Blueprint v0.2 (correctly spelled — searchable as 'sentinel')"
+
+[[outputs]]
+id = "VPsfzYmgA0ln0cNWnxSoG"
+uri = "file://docs/Sentinel_Solutions_Blueprint.md"
+type = "text"
+title = "Sentinel Solutions Blueprint v0.2"
