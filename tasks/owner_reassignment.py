@@ -17,6 +17,8 @@ this runs in a background APScheduler thread and requests.Session is not thread-
 import json as _json
 import time
 import logging
+import threading
+from collections import Counter
 from datetime import datetime, timedelta
 from typing import List, Optional, Tuple
 
@@ -31,6 +33,22 @@ logger = logging.getLogger(__name__)
 SOURCE_SCHEDULED_5MIN = 'scheduled_5min'
 SOURCE_SCHEDULED_DAILY = 'scheduled_daily'
 SOURCE_MANUAL_LIVE_BATCH = 'manual_live_batch'
+
+# [diagnostic] Tracks the set of candidate IDs returned by the previous
+# 5-min cycle so we can measure how much overlap exists cycle-over-cycle.
+# A high overlap percentage means the same records are being touched
+# repeatedly (i.e. some other job keeps re-modifying them); low overlap
+# means a steady stream of genuinely new modifications.
+#
+# Concurrency: the reassignment job is gated by the primary-worker
+# scheduler lock and APScheduler's default max_instances=1, so two
+# 5-min cycles cannot legitimately run at the same time. The lock below
+# is belt-and-suspenders for any future code path that calls into this
+# function from another thread (manual triggers, etc.). Read-only
+# diagnostic, no behavior impact.
+_PREV_5MIN_CANDIDATE_IDS: set = set()
+_PREV_5MIN_CYCLE_AT: Optional[datetime] = None
+_PREV_5MIN_LOCK = threading.Lock()
 
 _SOURCE_DISPLAY = {
     SOURCE_SCHEDULED_5MIN: 'Owner Reassignment (5 min)',
@@ -634,6 +652,77 @@ def reassign_api_user_candidates(
                 f"owner_reassignment: found {len(candidates)} API-owned candidate(s) "
                 f"to evaluate (owner IDs: {api_user_ids})"
             )
+
+            # ──────────────────────────────────────────────────────────────
+            # [diagnostic] Owner breakdown + cycle-over-cycle overlap.
+            # Goal: identify which API user owns the bulk of churning
+            # candidates, and whether the same IDs keep re-appearing each
+            # 5-min cycle (i.e. some other job is re-touching them).
+            # Read-only; no behavior impact. See replit.md follow-ups.
+            # ──────────────────────────────────────────────────────────────
+            try:
+                owner_counts: Counter = Counter()
+                owner_names: dict = {}
+                for c in candidates:
+                    o = c.get('owner') or {}
+                    oid = o.get('id')
+                    if oid is None:
+                        continue
+                    owner_counts[oid] += 1
+                    if oid not in owner_names:
+                        owner_names[oid] = (
+                            f"{o.get('firstName', '')} {o.get('lastName', '')}"
+                        ).strip() or '(unnamed)'
+
+                breakdown_str = ', '.join(
+                    f"{owner_names.get(oid, '?')}(id={oid})={cnt:,}"
+                    for oid, cnt in owner_counts.most_common()
+                )
+                logger.info(
+                    f"owner_reassignment: [diagnostic] owner breakdown over "
+                    f"last {since_minutes}min — {breakdown_str}"
+                )
+
+                if source == SOURCE_SCHEDULED_5MIN:
+                    global _PREV_5MIN_CANDIDATE_IDS, _PREV_5MIN_CYCLE_AT
+                    current_ids = {c.get('id') for c in candidates if c.get('id')}
+                    with _PREV_5MIN_LOCK:
+                        prev_ids_snapshot = _PREV_5MIN_CANDIDATE_IDS
+                        prev_at_snapshot = _PREV_5MIN_CYCLE_AT
+                        _PREV_5MIN_CANDIDATE_IDS = current_ids
+                        _PREV_5MIN_CYCLE_AT = datetime.utcnow()
+
+                    if prev_ids_snapshot:
+                        overlap = current_ids & prev_ids_snapshot
+                        new_ids = current_ids - prev_ids_snapshot
+                        dropped_ids = prev_ids_snapshot - current_ids
+                        overlap_pct = (
+                            (len(overlap) / len(current_ids) * 100.0)
+                            if current_ids else 0.0
+                        )
+                        prev_age_s = (
+                            (datetime.utcnow() - prev_at_snapshot).total_seconds()
+                            if prev_at_snapshot else 0
+                        )
+                        logger.info(
+                            f"owner_reassignment: [diagnostic] cycle overlap — "
+                            f"current={len(current_ids):,}, "
+                            f"prev={len(prev_ids_snapshot):,} "
+                            f"({prev_age_s:.0f}s ago), "
+                            f"repeated={len(overlap):,} ({overlap_pct:.1f}%), "
+                            f"new={len(new_ids):,}, dropped={len(dropped_ids):,}"
+                        )
+                    else:
+                        logger.info(
+                            f"owner_reassignment: [diagnostic] cycle overlap — "
+                            f"first 5-min cycle seen, baseline only "
+                            f"(current={len(current_ids):,})"
+                        )
+            except Exception as diag_err:
+                # Diagnostics must never break the main flow.
+                logger.debug(
+                    f"owner_reassignment: [diagnostic] logging error (ignored): {diag_err}"
+                )
 
             reassigned = 0
             skipped_no_activity = 0

@@ -76,6 +76,7 @@ def cleanup_linkedin_source():
             search_url = f"{base_url}search/Candidate"
             query = 'source:LinkedIn AND -source:"LinkedIn Job Board"'
 
+            cycle_started_at = datetime.utcnow()
             count_resp = _requests.get(search_url, headers=headers, params={
                 "query": query, "fields": "id", "count": 1, "start": 0,
             }, timeout=30)
@@ -83,10 +84,16 @@ def cleanup_linkedin_source():
             total = count_resp.json().get("total", 0)
 
             if total == 0:
-                logger.info("linkedin_source_cleanup: 0 records need updating — nothing to do")
+                logger.info(
+                    "linkedin_source_cleanup: [diagnostic] 0 records need updating "
+                    "— nothing to do (query=%r)", query
+                )
                 return
 
-            logger.info(f"linkedin_source_cleanup: found {total:,} records to update")
+            logger.info(
+                "linkedin_source_cleanup: [diagnostic] found %s records to update "
+                "(query=%r, batch_size=500)", f"{total:,}", query
+            )
 
             succeeded = 0
             failed = 0
@@ -132,8 +139,12 @@ def cleanup_linkedin_source():
                 start += len(record_ids)
                 time.sleep(0.05)
 
+            duration_s = (datetime.utcnow() - cycle_started_at).total_seconds()
             logger.info(
-                f"linkedin_source_cleanup: complete — {succeeded:,} updated, {failed:,} failed"
+                "linkedin_source_cleanup: [diagnostic] complete — %s updated, %s failed, "
+                "duration=%.1fs (each successful update touches dateLastModified, which "
+                "may surface that candidate in the next owner_reassignment 30-min window)",
+                f"{succeeded:,}", f"{failed:,}", duration_s
             )
 
         except Exception as e:
