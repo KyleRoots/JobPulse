@@ -2137,3 +2137,117 @@ class TestCandidateModifiedAfter:
         assert _candidate_modified_after(
             {'dateLastModified': str(modified_ms)}, evaluated_at
         ) is True
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# T026: _find_first_human_interactor query syntax — regression guard
+#
+# This is the latent bug that caused ZERO reassignments across 22,270
+# evaluated candidates: the function queried Bullhorn with `candidates.id:X`
+# (plural to-many association) which returns no rows for any candidate.
+# The correct field is `personReference.id:X`, mirroring the working query
+# in `screening/dedup.py::_has_recent_recruiter_activity`.
+#
+# This test pins down the exact query string so a future "let's clean this
+# up to use candidates.id" refactor will fail loudly here.
+# ─────────────────────────────────────────────────────────────────────────────
+class TestFindFirstHumanInteractorQuerySyntax:
+    def test_uses_personReference_id_not_candidates_id(self, app):
+        from tasks.owner_reassignment import _find_first_human_interactor
+
+        captured_params = {}
+
+        def fake_get(url, headers=None, params=None, timeout=None):
+            captured_params['url'] = url
+            captured_params['params'] = dict(params or {})
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.json.return_value = {'data': [], 'total': 0}
+            return mock_resp
+
+        with patch('tasks.owner_reassignment._requests') as mock_req:
+            mock_req.get.side_effect = fake_get
+            with app.app_context():
+                result = _find_first_human_interactor(
+                    base_url='https://rest.bullhorn.com/',
+                    headers={'BhRestToken': 'tok'},
+                    candidate_id=4656965,
+                    api_user_ids=[1147490, 4582015],
+                )
+
+        assert result == (None, None, None)
+        assert captured_params['url'] == 'https://rest.bullhorn.com/search/Note'
+        query = captured_params['params'].get('query', '')
+        assert 'personReference.id:4656965' in query, (
+            f"Note search must use `personReference.id` (matches working "
+            f"screening/dedup.py syntax). Got query: {query!r}"
+        )
+        assert 'candidates.id:' not in query, (
+            f"Note search must NOT use `candidates.id` — that field returns "
+            f"zero notes for every candidate in production. Got: {query!r}"
+        )
+
+    def test_finds_human_interactor_when_present(self, app):
+        """End-to-end: returns the first non-API author found in the notes."""
+        from tasks.owner_reassignment import _find_first_human_interactor
+
+        notes_page = {
+            'data': [
+                {  # API-authored — must be skipped
+                    'id': 1,
+                    'commentingPerson': {'id': 1147490, 'firstName': 'Myticas', 'lastName': 'API User'},
+                    'dateAdded': 1700000000000,
+                    'action': 'AI Resume Summary',
+                },
+                {  # Human author — must be returned
+                    'id': 2,
+                    'commentingPerson': {'id': 99999, 'firstName': 'Dan', 'lastName': 'Sifer'},
+                    'dateAdded': 1700000060000,
+                    'action': 'Recruiter Note',
+                },
+            ],
+            'total': 2,
+        }
+
+        with patch('tasks.owner_reassignment._requests') as mock_req:
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.json.return_value = notes_page
+            mock_req.get.return_value = mock_resp
+            with app.app_context():
+                result = _find_first_human_interactor(
+                    base_url='https://rest.bullhorn.com/',
+                    headers={'BhRestToken': 'tok'},
+                    candidate_id=4656051,
+                    api_user_ids=[1147490, 4582015, 4582033, 4591841, 4593767],
+                )
+
+        assert result == (99999, 'Dan', 'Sifer'), (
+            f"Expected to find Dan Sifer as first human interactor; got {result}"
+        )
+
+    def test_returns_none_when_only_api_authored_notes(self, app):
+        from tasks.owner_reassignment import _find_first_human_interactor
+
+        notes_page = {
+            'data': [
+                {'id': 1, 'commentingPerson': {'id': 1147490}, 'dateAdded': 1700000000000, 'action': 'a'},
+                {'id': 2, 'commentingPerson': {'id': 4582015}, 'dateAdded': 1700000060000, 'action': 'b'},
+            ],
+            'total': 2,
+        }
+
+        with patch('tasks.owner_reassignment._requests') as mock_req:
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.json.return_value = notes_page
+            mock_req.get.return_value = mock_resp
+            with app.app_context():
+                result = _find_first_human_interactor(
+                    base_url='https://rest.bullhorn.com/',
+                    headers={'BhRestToken': 'tok'},
+                    candidate_id=4656965,
+                    api_user_ids=[1147490, 4582015],
+                )
+
+        assert result == (None, None, None)

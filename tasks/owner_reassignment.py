@@ -602,8 +602,13 @@ def _find_first_human_interactor(
     start = 0
 
     while True:
+        # Bullhorn Notes link to a candidate via `personReference`, NOT
+        # `candidates`. The plural-association query returns zero rows for
+        # every candidate, which is why this task historically reassigned
+        # nothing despite being scheduled every 5 minutes. Mirror the working
+        # query syntax used by `screening/dedup.py::_has_recent_recruiter_activity`.
         params = {
-            'query': f'candidates.id:{candidate_id}',
+            'query': f'personReference.id:{candidate_id} AND isDeleted:false',
             'fields': _NOTE_FIELDS,
             'count': page_size,
             'start': start,
@@ -638,6 +643,18 @@ def _find_first_human_interactor(
 
         page_data = resp.json()
         notes = page_data.get('data', [])
+
+        # Diagnostic: surface page volume so we can confirm in production
+        # logs that the note search is actually returning data after the
+        # `candidates.id` → `personReference.id` query fix. A non-zero
+        # `notes_found` followed by a `(None, None, None)` return now
+        # legitimately means "all notes were API-authored," not "the
+        # query was wrong."
+        if start == 0:
+            logger.info(
+                f"_find_first_human_interactor: candidate {candidate_id} "
+                f"page0 notes_found={len(notes)} total={page_data.get('total', 'n/a')}"
+            )
 
         for note in notes:
             person = note.get('commentingPerson') or {}
