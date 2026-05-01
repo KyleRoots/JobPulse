@@ -143,6 +143,10 @@ class TestMissingKeysCreatedBySeed:
             'auto_reassign_owner_enabled',
             'api_user_ids',
             'reassign_owner_note_enabled',
+            # Task #83: Owner Reassignment cooldown + heartbeat
+            'owner_reassignment_cooldown_enabled',
+            'owner_reassignment_cooldown_hours',
+            'owner_reassignment_heartbeat_hours',
         }
 
         with app.app_context():

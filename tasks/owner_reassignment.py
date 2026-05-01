@@ -426,9 +426,18 @@ def _write_run_history(result: dict, source: str) -> None:
             else:
                 return
 
-        if errors and reassigned == 0 and failed == 0:
+        # Status classification (Apr 2026):
+        #   - failed > 0  → 'error'   (real candidate-level failures = RED)
+        #   - errors only → 'warning' (transient upstream issues, e.g. Bullhorn
+        #                              HTTP 504, captured but no candidate harm
+        #                              done = AMBER, not RED)
+        #   - otherwise   → 'success' (clean run = GREEN)
+        # Earlier logic had this inverted, which painted ~4 red badges per day
+        # for known-transient Bullhorn 5xx during otherwise-idle cycles while
+        # under-alarming on real candidate-level failures.
+        if failed > 0:
             status = 'error'
-        elif failed > 0:
+        elif errors:
             status = 'warning'
         else:
             status = 'success'

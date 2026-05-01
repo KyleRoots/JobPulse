@@ -1638,3 +1638,124 @@ class TestCooldownFailOpenAndDedupe:
                     "Lookup failure must fail-open with empty set so the "
                     "loop processes every candidate normally."
                 )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# T029–T031: Run History badge classification (Apr 2026 fix)
+#
+# Operator UX: the Automation Hub badge for each run must reflect actual
+# severity. The pre-fix logic painted RED for transient Bullhorn 5xx during
+# otherwise-idle cycles (~4/day false alarms) while only painting AMBER for
+# real candidate-level failures. The corrected mapping is:
+#   - failed > 0  → 'error'   (real candidate-level failures)
+#   - errors only → 'warning' (transient upstream issues, e.g. Bullhorn 504)
+#   - clean run   → 'success'
+# ─────────────────────────────────────────────────────────────────────────────
+class TestRunHistoryBadgeClassification:
+    """The badge surfaced in the Automation Hub must distinguish transient
+    upstream errors from real candidate-level failures, so operators trust
+    the colors instead of treating every red as wallpaper."""
+
+    def test_status_warning_when_transient_errors_only(self, app):
+        """A Bullhorn HTTP 504 on a cycle with no candidates touched should
+        paint AMBER (warning), not RED (error)."""
+        from tasks.owner_reassignment import (
+            _write_run_history, SOURCE_MANUAL_LIVE_BATCH,
+        )
+        from models import AutomationLog
+        with app.app_context():
+            _write_run_history(
+                {
+                    'reassigned': 0, 'skipped': 0, 'cooldown_skipped': 0,
+                    'failed': 0,
+                    'errors': ['Candidate search failed: HTTP 504'],
+                    'reassigned_ids': [],
+                },
+                SOURCE_MANUAL_LIVE_BATCH,
+            )
+            log = AutomationLog.query.order_by(
+                AutomationLog.id.desc()
+            ).first()
+            assert log is not None
+            assert log.status == 'warning', (
+                f"Transient upstream error with zero candidate-level harm "
+                f"must classify as 'warning' (amber), not 'error' (red). "
+                f"Got: {log.status!r}"
+            )
+
+    def test_status_error_when_real_candidate_failures(self, app):
+        """A run that actually failed to reassign one or more candidates
+        must paint RED (error) regardless of whether errors[] is set."""
+        from tasks.owner_reassignment import (
+            _write_run_history, SOURCE_MANUAL_LIVE_BATCH,
+        )
+        from models import AutomationLog
+        with app.app_context():
+            _write_run_history(
+                {
+                    'reassigned': 3, 'skipped': 1, 'cooldown_skipped': 0,
+                    'failed': 2,
+                    'errors': [],
+                    'reassigned_ids': [101, 102, 103],
+                },
+                SOURCE_MANUAL_LIVE_BATCH,
+            )
+            log = AutomationLog.query.order_by(
+                AutomationLog.id.desc()
+            ).first()
+            assert log is not None
+            assert log.status == 'error', (
+                f"Real candidate-level failures (failed > 0) must classify "
+                f"as 'error' (red) so they stand out. Got: {log.status!r}"
+            )
+
+    def test_status_success_when_clean_run(self, app):
+        """A run with no failures and no errors must remain GREEN."""
+        from tasks.owner_reassignment import (
+            _write_run_history, SOURCE_MANUAL_LIVE_BATCH,
+        )
+        from models import AutomationLog
+        with app.app_context():
+            _write_run_history(
+                {
+                    'reassigned': 5, 'skipped': 2, 'cooldown_skipped': 100,
+                    'failed': 0,
+                    'errors': [],
+                    'reassigned_ids': [201, 202, 203, 204, 205],
+                },
+                SOURCE_MANUAL_LIVE_BATCH,
+            )
+            log = AutomationLog.query.order_by(
+                AutomationLog.id.desc()
+            ).first()
+            assert log is not None
+            assert log.status == 'success', (
+                f"Clean run (no failures, no errors) must classify as "
+                f"'success' (green). Got: {log.status!r}"
+            )
+
+    def test_status_error_when_failures_and_errors_both_present(self, app):
+        """If a run has BOTH transient errors AND real candidate failures,
+        the real failures take precedence — paint RED."""
+        from tasks.owner_reassignment import (
+            _write_run_history, SOURCE_MANUAL_LIVE_BATCH,
+        )
+        from models import AutomationLog
+        with app.app_context():
+            _write_run_history(
+                {
+                    'reassigned': 1, 'skipped': 0, 'cooldown_skipped': 0,
+                    'failed': 4,
+                    'errors': ['Candidate search failed: HTTP 504'],
+                    'reassigned_ids': [301],
+                },
+                SOURCE_MANUAL_LIVE_BATCH,
+            )
+            log = AutomationLog.query.order_by(
+                AutomationLog.id.desc()
+            ).first()
+            assert log is not None
+            assert log.status == 'error', (
+                f"Real failures take precedence over transient errors — "
+                f"failed > 0 always classifies as 'error'. Got: {log.status!r}"
+            )

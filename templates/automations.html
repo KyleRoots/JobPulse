@@ -309,6 +309,16 @@
         color: #dc3545;
     }
 
+    .status-badge.warning {
+        background: rgba(255, 193, 7, 0.15);
+        color: #ffc107;
+    }
+
+    .status-badge.unknown {
+        background: rgba(108, 117, 125, 0.15);
+        color: #adb5bd;
+    }
+
     .details-toggle {
         font-size: 0.72rem;
         color: rgba(232, 168, 124, 0.6);
@@ -1018,7 +1028,7 @@
 
             tbody.innerHTML = logs.map(function(log, idx) {
                 var name = log.message || 'Unknown';
-                var statusClass = log.status === 'success' ? 'success' : 'error';
+                var statusClass = (log.status === 'success' || log.status === 'warning' || log.status === 'error') ? log.status : 'unknown';
                 var when = formatRelativeTime(log.created_at);
                 var detailsId = 'details-' + idx;
 

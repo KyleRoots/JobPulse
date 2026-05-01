@@ -57,7 +57,7 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 - **PandoLogic Note-Based Re-Applicant Detector**: Detects re-applicants via PandoLogic API notes.
 - **Prestige Notification Threshold Gate**: Notifies recruiters of prestige boosts only if the boosted score meets qualifying thresholds.
 - **Nightly Database Backup**: Automated daily PostgreSQL backup to OneDrive with 30-day retention.
-- **API User → Recruiter Ownership Reassignment**: Scheduled task to reassign candidate ownership in Bullhorn from API users to human recruiters. Includes cooldown mechanism to optimize performance.
+- **API User → Recruiter Ownership Reassignment**: Scheduled task to reassign candidate ownership in Bullhorn from API users to human recruiters. Includes cooldown mechanism to optimize performance. Run History badge semantics: `error` (red) = real candidate-level failures (`failed > 0`), `warning` (amber) = transient upstream issues only (e.g. Bullhorn HTTP 504), `success` (green) = clean run.
 
 ## External Dependencies
 
