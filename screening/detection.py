@@ -28,6 +28,75 @@ from screening.dedup import CandidateDeduplicationMixin
 from screening.candidate_data import CandidateDataAccessMixin, _resolve_vetting_cutoff
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Human-owner skip helpers
+# ─────────────────────────────────────────────────────────────────────────────
+# Background: the 5-minute screening cycle was re-screening candidates that
+# had already been transferred to a human recruiter. Bullhorn's search index
+# can lag behind a freshly-added note by ~1 minute; during that window the
+# `dateLastModified` advances, the candidate matches the detection query,
+# but the dedup check still sees no recruiter-activity yet — so the system
+# re-vets a candidate that is already being actively worked.
+#
+# Fix: once a candidate's owner is a human (i.e., NOT one of the configured
+# `api_user_ids` API-service accounts), the screening cycle skips them.
+# This is gated by the `screening_skip_human_owned` VettingConfig kill switch
+# (default ON) so it can be disabled without a deploy if it ever misfires.
+
+def _parse_api_user_ids_for_screening() -> List[int]:
+    """
+    Read the `api_user_ids` VettingConfig setting (a comma-separated list of
+    Bullhorn CorporateUser IDs that represent API-service accounts) and
+    return them as a list of ints. Returns [] if missing or malformed.
+    Mirrors `tasks.owner_reassignment._parse_api_user_ids` semantics.
+    """
+    try:
+        row = VettingConfig.query.filter_by(setting_key='api_user_ids').first()
+    except Exception:
+        return []
+    raw = (row.setting_value if row else '') or ''
+    out: List[int] = []
+    for part in raw.split(','):
+        part = part.strip()
+        if part.isdigit():
+            out.append(int(part))
+    return out
+
+
+def _screening_skip_human_owned() -> bool:
+    """
+    Read the `screening_skip_human_owned` VettingConfig kill switch.
+    Defaults to True (skip enabled) when missing, so the safer behavior is
+    the default even on a fresh DB.
+    """
+    try:
+        row = VettingConfig.query.filter_by(
+            setting_key='screening_skip_human_owned'
+        ).first()
+    except Exception:
+        return True
+    if row is None or row.setting_value is None:
+        return True
+    return str(row.setting_value).strip().lower() in ('true', '1', 'yes', 'on')
+
+
+def _is_human_owned(candidate: Dict, api_user_ids: List[int]) -> bool:
+    """
+    Return True iff `candidate.owner.id` is set AND is NOT one of the
+    configured API-service-account IDs. A missing owner or an owner whose
+    ID is in `api_user_ids` returns False (i.e., the candidate is still
+    eligible for screening).
+    """
+    owner = candidate.get('owner') or {}
+    owner_id = owner.get('id')
+    if owner_id is None:
+        return False
+    try:
+        return int(owner_id) not in api_user_ids
+    except (TypeError, ValueError):
+        return False
+
+
 class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMixin):
     """Candidate discovery from Bullhorn and ParsedEmail."""
 
@@ -64,7 +133,7 @@ class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMi
             url = f"{bullhorn.base_url}search/Candidate"
             params = {
                 'query': f'status:"Online Applicant" AND dateLastModified:[{since_timestamp} TO *]',
-                'fields': 'id,firstName,lastName,email,phone,status,dateAdded,dateLastModified,source,occupation,description,address(address1,city,state,countryName)',
+                'fields': 'id,firstName,lastName,email,phone,status,dateAdded,dateLastModified,source,occupation,description,address(address1,city,state,countryName),owner(id,name)',
                 'count': 50,
                 'sort': '-dateLastModified',
                 'BhRestToken': bullhorn.rest_token
@@ -80,20 +149,47 @@ class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMi
             candidates = data.get('data', [])
             
             logger.info(f"Bullhorn returned {len(candidates)} candidates since {since_time}")
-            
+
+            # Resolve human-ownership skip configuration once per cycle. If
+            # the kill switch is on AND we have configured API user IDs,
+            # any candidate whose owner is NOT one of them is being
+            # actively worked by a recruiter and must not be re-screened.
+            skip_human_owned = _screening_skip_human_owned()
+            api_user_ids = (
+                _parse_api_user_ids_for_screening() if skip_human_owned else []
+            )
+            human_owned_skipped = 0
+
             new_candidates = []
             for candidate in candidates:
                 candidate_id = candidate.get('id')
                 if not candidate_id:
                     continue
-                
+
+                if (skip_human_owned
+                        and api_user_ids
+                        and _is_human_owned(candidate, api_user_ids)):
+                    owner = candidate.get('owner') or {}
+                    logger.info(
+                        f"Candidate {candidate_id} "
+                        f"({candidate.get('firstName')} {candidate.get('lastName')}) "
+                        f"has human owner (id={owner.get('id')}, "
+                        f"name={owner.get('name', '?')}); skipping re-screen"
+                    )
+                    human_owned_skipped += 1
+                    continue
+
                 if self._should_skip_candidate(candidate_id, bullhorn=bullhorn):
                     logger.debug(f"Candidate {candidate_id} vetted recently, skipping")
                 else:
                     new_candidates.append(candidate)
                     logger.info(f"New applicant detected: {candidate.get('firstName')} {candidate.get('lastName')} (ID: {candidate_id})")
-            
-            logger.info(f"Found {len(new_candidates)} new applicants to process out of {len(candidates)} recent online applicants")
+
+            logger.info(
+                f"Found {len(new_candidates)} new applicants to process out of "
+                f"{len(candidates)} recent online applicants "
+                f"({human_owned_skipped} skipped — human-owned)"
+            )
             return new_candidates
             
         except Exception as e:

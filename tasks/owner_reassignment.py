@@ -57,7 +57,7 @@ _SOURCE_DISPLAY = {
 }
 
 _CANDIDATE_FIELDS = (
-    'id,firstName,lastName,email,owner(id,firstName,lastName)'
+    'id,firstName,lastName,email,owner(id,firstName,lastName),dateLastModified'
 )
 _NOTE_FIELDS = (
     'id,commentingPerson(id,firstName,lastName),dateAdded,action'
@@ -179,26 +179,36 @@ def _heartbeat_due(task_id: int) -> bool:
         return False
 
 
-def _fetch_active_cooldown_ids(candidate_ids: List[int]) -> set:
+def _fetch_cooldown_state(candidate_ids: List[int]) -> dict:
     """
-    Return the subset of `candidate_ids` whose cooldown is still active
-    (last_evaluated_at within the window). Empty set if cooldown disabled or
-    on any DB failure (fail-open: a broken cooldown table must NEVER block
-    the legitimate reassignment work).
+    Return {candidate_id: last_evaluated_at} for any candidate whose
+    cooldown row still falls inside the configured window. Empty dict if
+    cooldown disabled or on any DB failure (fail-open: a broken cooldown
+    table must NEVER block the legitimate reassignment work).
+
+    Callers compare each candidate's Bullhorn ``dateLastModified`` against
+    the returned ``last_evaluated_at``: if the candidate has been modified
+    AFTER its last evaluation, the cooldown is "busted" and the candidate
+    is re-evaluated this cycle. This closes the 24h blind spot where a
+    recruiter could leave a note mid-cooldown and ownership wouldn't flip
+    until the cooldown timer naturally expired.
     """
     if not candidate_ids or not _cooldown_enabled():
-        return set()
+        return {}
     try:
         from app import db
         from models import OwnerReassignmentCooldown
         cutoff = datetime.utcnow() - timedelta(hours=_cooldown_hours())
         rows = (
-            db.session.query(OwnerReassignmentCooldown.candidate_id)
+            db.session.query(
+                OwnerReassignmentCooldown.candidate_id,
+                OwnerReassignmentCooldown.last_evaluated_at,
+            )
             .filter(OwnerReassignmentCooldown.candidate_id.in_(candidate_ids))
             .filter(OwnerReassignmentCooldown.last_evaluated_at >= cutoff)
             .all()
         )
-        return {int(r[0]) for r in rows}
+        return {int(r[0]): r[1] for r in rows}
     except Exception as exc:
         logger.warning(
             f"owner_reassignment: cooldown lookup failed (fail-open) — {exc}"
@@ -208,7 +218,40 @@ def _fetch_active_cooldown_ids(candidate_ids: List[int]) -> set:
             db.session.rollback()
         except Exception:
             pass
-        return set()
+        return {}
+
+
+def _fetch_active_cooldown_ids(candidate_ids: List[int]) -> set:
+    """
+    Backward-compat wrapper: returns the SET of candidate IDs whose cooldown
+    is still inside the window. Equivalent to the legacy behavior. New
+    callers should prefer `_fetch_cooldown_state` so they can apply the
+    Bullhorn ``dateLastModified`` invalidation check.
+    """
+    return set(_fetch_cooldown_state(candidate_ids).keys())
+
+
+def _candidate_modified_after(candidate: dict, last_evaluated_at) -> bool:
+    """
+    Return True iff Bullhorn says ``candidate`` was last modified strictly
+    AFTER its cooldown ``last_evaluated_at`` timestamp. Used to bust an
+    otherwise-active cooldown when the candidate has new activity in
+    Bullhorn (note added, status changed, etc.).
+
+    Defensive on missing/malformed input — returns False so a missing
+    ``dateLastModified`` field defaults to "no new activity" and the
+    cooldown stays in force (preserves the legacy behavior).
+    """
+    if last_evaluated_at is None:
+        return False
+    raw = candidate.get('dateLastModified')
+    if raw is None:
+        return False
+    try:
+        modified_dt = datetime.utcfromtimestamp(int(raw) / 1000.0)
+    except (TypeError, ValueError, OSError, OverflowError):
+        return False
+    return modified_dt > last_evaluated_at
 
 
 def _flush_cooldown_outcomes(outcomes: List[Tuple[int, str]]) -> None:
@@ -725,8 +768,12 @@ def preview_reassign_candidates(limit: int = 5) -> dict:
 
             # Cooldown state for the previewed sample so the operator can
             # see which candidates would be skipped by the live cycle.
+            # New (May 2026): cooldown is busted when Bullhorn's
+            # `dateLastModified` is newer than the cooldown's
+            # `last_evaluated_at` — ensures the preview accurately mirrors
+            # the live cycle's invalidation behavior.
             sample_ids = [c.get('id') for c in sample if c.get('id')]
-            cooldown_active = _fetch_active_cooldown_ids(sample_ids)
+            cooldown_state = _fetch_cooldown_state(sample_ids)
             cooldown_on = _cooldown_enabled()
             cooldown_window_h = _cooldown_hours()
 
@@ -742,9 +789,16 @@ def preview_reassign_candidates(limit: int = 5) -> dict:
                 old_owner_id = old_owner.get('id')
                 old_owner_name = f"{old_owner.get('firstName', '')} {old_owner.get('lastName', '')}".strip() or 'API User'
 
-                in_cooldown = (
-                    cooldown_on and int(candidate_id) in cooldown_active
-                )
+                in_cooldown = False
+                if cooldown_on:
+                    last_eval = cooldown_state.get(int(candidate_id))
+                    if last_eval is not None:
+                        # Cooldown row exists and is in window — skip
+                        # UNLESS Bullhorn says the candidate has been
+                        # modified since (busts the cooldown).
+                        in_cooldown = not _candidate_modified_after(
+                            candidate, last_eval
+                        )
 
                 entry = {
                     'candidate_id': candidate_id,
@@ -790,7 +844,7 @@ def preview_reassign_candidates(limit: int = 5) -> dict:
                 'total_found': total_found,
                 'cooldown_enabled': cooldown_on,
                 'cooldown_window_hours': cooldown_window_h,
-                'cooldown_active_in_sample': len(cooldown_active),
+                'cooldown_active_in_sample': len(cooldown_state),
             }
 
         except Exception as exc:
@@ -963,21 +1017,41 @@ def reassign_api_user_candidates(
                 pass
 
             cooldown_skipped_count = 0
+            cooldown_busted_count = 0
             if _cooldown_enabled():
                 all_ids = [c.get('id') for c in candidates if c.get('id')]
-                cooldown_active_ids = _fetch_active_cooldown_ids(all_ids)
-                if cooldown_active_ids:
+                cooldown_state = _fetch_cooldown_state(all_ids)
+                if cooldown_state:
                     pre_filter_count = len(candidates)
-                    candidates = [
-                        c for c in candidates
-                        if int(c.get('id') or 0) not in cooldown_active_ids
-                    ]
+                    surviving: list = []
+                    for c in candidates:
+                        try:
+                            cid_int = int(c.get('id') or 0)
+                        except (TypeError, ValueError):
+                            surviving.append(c)
+                            continue
+                        last_eval = cooldown_state.get(cid_int)
+                        if last_eval is None:
+                            # No active cooldown row — evaluate normally.
+                            surviving.append(c)
+                            continue
+                        # Active cooldown row exists. Bust it iff Bullhorn
+                        # reports activity AFTER our last evaluation; this
+                        # covers the previously-blind case where a
+                        # recruiter leaves a note minutes after a no-op
+                        # evaluation, but inside the 24h cooldown window.
+                        if _candidate_modified_after(c, last_eval):
+                            cooldown_busted_count += 1
+                            surviving.append(c)
+                    candidates = surviving
                     cooldown_skipped_count = pre_filter_count - len(candidates)
                     logger.info(
                         f"owner_reassignment: cooldown filter — "
                         f"skipped {cooldown_skipped_count:,} of "
                         f"{pre_filter_count:,} candidate(s) "
-                        f"(window: {_cooldown_hours()} h); "
+                        f"(window: {_cooldown_hours()} h, "
+                        f"{cooldown_busted_count:,} busted by "
+                        f"dateLastModified); "
                         f"{len(candidates):,} remain to evaluate"
                     )
                 else:

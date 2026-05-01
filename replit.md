@@ -57,7 +57,8 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 - **PandoLogic Note-Based Re-Applicant Detector**: Detects re-applicants via PandoLogic API notes.
 - **Prestige Notification Threshold Gate**: Notifies recruiters of prestige boosts only if the boosted score meets qualifying thresholds.
 - **Nightly Database Backup**: Automated daily PostgreSQL backup to OneDrive with 30-day retention.
-- **API User → Recruiter Ownership Reassignment**: Scheduled task to reassign candidate ownership in Bullhorn from API users to human recruiters. Includes cooldown mechanism to optimize performance. Run History badge semantics: `error` (red) = real candidate-level failures (`failed > 0`), `warning` (amber) = transient upstream issues only (e.g. Bullhorn HTTP 504), `success` (green) = clean run.
+- **API User → Recruiter Ownership Reassignment**: Scheduled task to reassign candidate ownership in Bullhorn from API users to human recruiters. Includes cooldown mechanism to optimize performance. Cooldown is invalidated when Bullhorn's `dateLastModified` is strictly newer than the cooldown row's `last_evaluated_at` — closes the 24h blind spot where a recruiter's mid-window note used to be ignored. Run History badge semantics: `error` (red) = real candidate-level failures (`failed > 0`), `warning` (amber) = transient upstream issues only (e.g. Bullhorn HTTP 504), `success` (green) = clean run.
+- **Screening Human-Owner Skip**: Once a candidate's `owner.id` is NOT in the configured `api_user_ids` (i.e. a human recruiter has taken ownership), the 5-min screening cycle skips them — closes the race where Bullhorn's note search index lagged ~1 min behind a freshly-added recruiter note and caused re-screens of actively-worked candidates. Gated by VettingConfig kill switch `screening_skip_human_owned` (default ON).
 
 ## External Dependencies
 

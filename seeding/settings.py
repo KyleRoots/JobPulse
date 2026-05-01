@@ -388,6 +388,13 @@ def seed_vetting_config(db, VettingConfig):
             # cooldown row immediately.
             'owner_reassignment_cooldown_enabled': 'true',
             'owner_reassignment_cooldown_hours': '24',
+            # Screening — skip re-screening candidates whose owner is a
+            # human (i.e. NOT one of the configured `api_user_ids` API
+            # service accounts). Closes the race where Bullhorn's search
+            # index lags ~1 min behind a freshly-added recruiter note,
+            # causing the 5-min cycle to re-vet a candidate that's
+            # already being actively worked. Kill switch — default ON.
+            'screening_skip_human_owned': 'true',
             # Owner Reassignment — heartbeat row cadence in hours. When the
             # noise filter would suppress a 5-min cycle (steady-state cooldown
             # silence), a heartbeat Run History row fires at most this often

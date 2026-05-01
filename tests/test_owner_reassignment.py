@@ -55,13 +55,24 @@ def _delete_config(app, key):
 
 
 def _make_candidate(cid=1001, first='John', last='Doe',
-                    owner_id=9999, owner_first='API', owner_last='Bot'):
-    return {
+                    owner_id=9999, owner_first='API', owner_last='Bot',
+                    date_last_modified=None):
+    """
+    Build a fake Bullhorn candidate dict.
+
+    `date_last_modified` is the ms-epoch value Bullhorn returns for the
+    `dateLastModified` field. Pass an int to test the cooldown-invalidation
+    path; leave None to omit the field (legacy behavior).
+    """
+    cand = {
         'id': cid,
         'firstName': first,
         'lastName': last,
         'owner': {'id': owner_id, 'firstName': owner_first, 'lastName': owner_last},
     }
+    if date_last_modified is not None:
+        cand['dateLastModified'] = date_last_modified
+    return cand
 
 
 def _make_note_resp(person_id=777, first='Bob', last='Smith', extra_notes=None):
@@ -1759,3 +1770,370 @@ class TestRunHistoryBadgeClassification:
                 f"Real failures take precedence over transient errors — "
                 f"failed > 0 always classifies as 'error'. Got: {log.status!r}"
             )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# T023: cooldown invalidation via Bullhorn dateLastModified
+#
+# Bug scenario (May 2026 production): a candidate evaluated at 03:19 UTC
+# landed in cooldown with `last_outcome='no_human_activity'`. A recruiter
+# left a note on the candidate at 03:30 UTC — well within the 24h cooldown
+# window — but the next 5-min cycle still skipped them, because the cooldown
+# filter was a pure timestamp check that ignored fresh Bullhorn activity.
+# Result: ownership stayed with the API account for ~24h until the cooldown
+# naturally expired.
+#
+# Fix under test: when Bullhorn's `dateLastModified` is strictly newer than
+# the cooldown row's `last_evaluated_at`, the cooldown is BUSTED for that
+# cycle and the candidate is re-evaluated immediately.
+# ─────────────────────────────────────────────────────────────────────────────
+class TestCooldownInvalidationByDateLastModified:
+    """A candidate with an active cooldown row but a newer `dateLastModified`
+    in Bullhorn must be re-evaluated this cycle (cooldown busted)."""
+
+    def test_cooldown_busted_when_candidate_modified_after_evaluation(self, app):
+        _ensure_config(app, 'auto_reassign_owner_enabled', 'true')
+        _ensure_config(app, 'api_user_ids', '9999')
+        _ensure_config(app, 'reassign_owner_note_enabled', 'false')
+        _ensure_config(app, 'owner_reassignment_cooldown_enabled', 'true')
+        _ensure_config(app, 'owner_reassignment_cooldown_hours', '24')
+
+        # Cooldown was set 30 minutes ago; candidate was modified 5 min ago.
+        from app import db
+        from models import OwnerReassignmentCooldown
+        from datetime import datetime, timedelta
+        evaluated_at = datetime.utcnow() - timedelta(minutes=30)
+        modified_at = datetime.utcnow() - timedelta(minutes=5)
+        modified_ms = int(modified_at.timestamp() * 1000)
+
+        with app.app_context():
+            db.session.add(OwnerReassignmentCooldown(
+                candidate_id=4001,
+                last_evaluated_at=evaluated_at,
+                last_outcome='no_human_activity',
+                evaluation_count=1,
+            ))
+            db.session.commit()
+
+        candidate = _make_candidate(cid=4001, date_last_modified=modified_ms)
+        search_resp = MagicMock()
+        search_resp.status_code = 200
+        search_resp.json.return_value = {'data': [candidate]}
+
+        # Bullhorn now returns a human note from the recruiter.
+        note_resp = MagicMock()
+        note_resp.status_code = 200
+        note_resp.json.return_value = _make_note_resp(person_id=777)
+
+        # Successful owner update.
+        update_resp = MagicMock()
+        update_resp.status_code = 200
+        update_resp.json.return_value = {
+            'changeType': 'UPDATE', 'changedEntityId': 4001,
+        }
+
+        with app.app_context():
+            from tasks.owner_reassignment import reassign_api_user_candidates
+            with patch('tasks.owner_reassignment.BullhornService') as mock_bh_cls:
+                bh = MagicMock()
+                bh.authenticate.return_value = True
+                bh.base_url = 'https://rest.bullhorn.com/'
+                bh.rest_token = 'test-token'
+                mock_bh_cls.return_value = bh
+
+                with patch('tasks.owner_reassignment._requests') as mock_req:
+                    mock_req.get.side_effect = [search_resp, note_resp]
+                    mock_req.post.return_value = update_resp
+                    result = reassign_api_user_candidates(since_minutes=30)
+
+                    # Cooldown was busted by dateLastModified, so the
+                    # candidate IS evaluated and the recruiter note IS
+                    # fetched — proving the filter let it through.
+                    assert mock_req.get.call_count == 2, (
+                        "Notes lookup must fire when cooldown is busted by "
+                        "dateLastModified; got call_count="
+                        f"{mock_req.get.call_count}"
+                    )
+                    assert result['cooldown_skipped'] == 0
+                    assert result['reassigned'] == 1
+                    assert 4001 in result['reassigned_ids']
+
+    def test_cooldown_holds_when_candidate_not_modified_after_evaluation(self, app):
+        """If `dateLastModified` is older than (or equal to) `last_evaluated_at`,
+        the cooldown stands and the Notes lookup is short-circuited."""
+        _ensure_config(app, 'auto_reassign_owner_enabled', 'true')
+        _ensure_config(app, 'api_user_ids', '9999')
+        _ensure_config(app, 'reassign_owner_note_enabled', 'false')
+        _ensure_config(app, 'owner_reassignment_cooldown_enabled', 'true')
+        _ensure_config(app, 'owner_reassignment_cooldown_hours', '24')
+
+        from app import db
+        from models import OwnerReassignmentCooldown
+        from datetime import datetime, timedelta
+        evaluated_at = datetime.utcnow() - timedelta(minutes=5)
+        # Candidate last modified 30 min ago — BEFORE the cooldown fired.
+        modified_at = datetime.utcnow() - timedelta(minutes=30)
+        modified_ms = int(modified_at.timestamp() * 1000)
+
+        with app.app_context():
+            db.session.add(OwnerReassignmentCooldown(
+                candidate_id=4002,
+                last_evaluated_at=evaluated_at,
+                last_outcome='no_human_activity',
+                evaluation_count=1,
+            ))
+            db.session.commit()
+
+        candidate = _make_candidate(cid=4002, date_last_modified=modified_ms)
+        search_resp = MagicMock()
+        search_resp.status_code = 200
+        search_resp.json.return_value = {'data': [candidate]}
+
+        with app.app_context():
+            from tasks.owner_reassignment import reassign_api_user_candidates
+            with patch('tasks.owner_reassignment.BullhornService') as mock_bh_cls:
+                bh = MagicMock()
+                bh.authenticate.return_value = True
+                bh.base_url = 'https://rest.bullhorn.com/'
+                bh.rest_token = 'test-token'
+                mock_bh_cls.return_value = bh
+
+                with patch('tasks.owner_reassignment._requests') as mock_req:
+                    mock_req.get.return_value = search_resp
+                    result = reassign_api_user_candidates(since_minutes=30)
+
+                    # Only the candidate-search GET should fire — the
+                    # cooldown is still valid because no fresh activity.
+                    assert mock_req.get.call_count == 1
+                    assert mock_req.post.call_count == 0
+                    assert result['cooldown_skipped'] == 1
+                    assert result['reassigned'] == 0
+
+    def test_cooldown_holds_when_dateLastModified_missing(self, app):
+        """Defensive case: a candidate without a `dateLastModified` field
+        defaults to "no new activity" so the cooldown stays in force.
+        Preserves legacy behavior — cooldown must never be busted by a
+        missing/malformed Bullhorn field."""
+        _ensure_config(app, 'auto_reassign_owner_enabled', 'true')
+        _ensure_config(app, 'api_user_ids', '9999')
+        _ensure_config(app, 'reassign_owner_note_enabled', 'false')
+        _ensure_config(app, 'owner_reassignment_cooldown_enabled', 'true')
+
+        from app import db
+        from models import OwnerReassignmentCooldown
+        from datetime import datetime
+        with app.app_context():
+            db.session.add(OwnerReassignmentCooldown(
+                candidate_id=4003,
+                last_evaluated_at=datetime.utcnow(),
+                last_outcome='no_human_activity',
+                evaluation_count=1,
+            ))
+            db.session.commit()
+
+        # Note: no `date_last_modified` kwarg → field omitted entirely.
+        candidate = _make_candidate(cid=4003)
+        search_resp = MagicMock()
+        search_resp.status_code = 200
+        search_resp.json.return_value = {'data': [candidate]}
+
+        with app.app_context():
+            from tasks.owner_reassignment import reassign_api_user_candidates
+            with patch('tasks.owner_reassignment.BullhornService') as mock_bh_cls:
+                bh = MagicMock()
+                bh.authenticate.return_value = True
+                bh.base_url = 'https://rest.bullhorn.com/'
+                bh.rest_token = 'test-token'
+                mock_bh_cls.return_value = bh
+
+                with patch('tasks.owner_reassignment._requests') as mock_req:
+                    mock_req.get.return_value = search_resp
+                    result = reassign_api_user_candidates(since_minutes=30)
+
+                    # Notes lookup MUST NOT fire — cooldown stands.
+                    assert mock_req.get.call_count == 1
+                    assert result['cooldown_skipped'] == 1
+
+
+class TestCooldownStateHelper:
+    """Direct tests for the new `_fetch_cooldown_state` helper that returns
+    a dict instead of a set, enabling per-candidate dateLastModified checks."""
+
+    def test_returns_empty_dict_when_cooldown_disabled(self, app):
+        _ensure_config(app, 'owner_reassignment_cooldown_enabled', 'false')
+        with app.app_context():
+            from tasks.owner_reassignment import _fetch_cooldown_state
+            assert _fetch_cooldown_state([1, 2, 3]) == {}
+
+    def test_returns_dict_keyed_by_candidate_id(self, app):
+        _ensure_config(app, 'owner_reassignment_cooldown_enabled', 'true')
+        _ensure_config(app, 'owner_reassignment_cooldown_hours', '24')
+
+        from app import db
+        from models import OwnerReassignmentCooldown
+        from datetime import datetime, timedelta
+        recent = datetime.utcnow() - timedelta(minutes=10)
+        stale = datetime.utcnow() - timedelta(hours=48)
+
+        with app.app_context():
+            db.session.add(OwnerReassignmentCooldown(
+                candidate_id=5001,
+                last_evaluated_at=recent,
+                last_outcome='no_human_activity',
+                evaluation_count=1,
+            ))
+            db.session.add(OwnerReassignmentCooldown(
+                candidate_id=5002,
+                last_evaluated_at=stale,
+                last_outcome='no_human_activity',
+                evaluation_count=1,
+            ))
+            db.session.commit()
+
+            from tasks.owner_reassignment import _fetch_cooldown_state
+            state = _fetch_cooldown_state([5001, 5002, 5003])
+            # 5001 in window → present; 5002 stale → absent; 5003 no row.
+            assert 5001 in state
+            assert 5002 not in state
+            assert 5003 not in state
+            assert state[5001] == recent
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# T024: preview_reassign_candidates cooldown payload — regression guard
+#
+# Catches the rename hazard in the preview path: when `_fetch_cooldown_state`
+# replaced `_fetch_active_cooldown_ids`, the result dict was renamed from
+# `cooldown_active` → `cooldown_state` but a downstream `len(cooldown_active)`
+# reference would silently NameError on every successful preview call.
+# This test exercises the full preview path so any future rename of the
+# state dict variable will fail loudly here.
+# ─────────────────────────────────────────────────────────────────────────────
+class TestPreviewCooldownPayload:
+    def test_preview_returns_cooldown_active_count(self, app):
+        _ensure_config(app, 'auto_reassign_owner_enabled', 'true')
+        _ensure_config(app, 'api_user_ids', '9999')
+        _ensure_config(app, 'reassign_owner_note_enabled', 'false')
+        _ensure_config(app, 'owner_reassignment_cooldown_enabled', 'true')
+        _ensure_config(app, 'owner_reassignment_cooldown_hours', '24')
+
+        # Pre-populate cooldown for one of the two preview candidates.
+        from app import db
+        from models import OwnerReassignmentCooldown
+        from datetime import datetime
+        with app.app_context():
+            db.session.add(OwnerReassignmentCooldown(
+                candidate_id=7001,
+                last_evaluated_at=datetime.utcnow(),
+                last_outcome='no_human_activity',
+                evaluation_count=1,
+            ))
+            db.session.commit()
+
+        cand_in_cooldown = _make_candidate(cid=7001)
+        cand_fresh = _make_candidate(cid=7002)
+        search_resp = MagicMock()
+        search_resp.status_code = 200
+        search_resp.json.return_value = {
+            'data': [cand_in_cooldown, cand_fresh],
+            'total': 2,
+        }
+        # Note search for the fresh candidate returns no human activity.
+        no_notes_resp = MagicMock()
+        no_notes_resp.status_code = 200
+        no_notes_resp.json.return_value = {'data': []}
+
+        with app.app_context():
+            from tasks.owner_reassignment import preview_reassign_candidates
+            with patch('tasks.owner_reassignment.BullhornService') as mock_bh_cls:
+                bh = MagicMock()
+                bh.authenticate.return_value = True
+                bh.base_url = 'https://rest.bullhorn.com/'
+                bh.rest_token = 'test-token'
+                mock_bh_cls.return_value = bh
+
+                with patch('tasks.owner_reassignment._requests') as mock_req:
+                    mock_req.get.side_effect = [search_resp, no_notes_resp]
+                    out = preview_reassign_candidates(limit=5)
+
+                    # Smoke: payload contract must include the cooldown
+                    # summary keys (regression guard for the rename hazard).
+                    assert 'cooldown_active_in_sample' in out, (
+                        f"Preview payload missing 'cooldown_active_in_sample' "
+                        f"key. Got: {list(out.keys())}"
+                    )
+                    assert out['cooldown_active_in_sample'] == 1
+                    assert out['cooldown_enabled'] is True
+                    assert out['cooldown_window_hours'] == 24
+
+                    # Per-candidate flag must mark the cooldowned one.
+                    by_id = {c['candidate_id']: c for c in out['candidates']}
+                    assert by_id[7001]['in_cooldown'] is True
+                    assert by_id[7001]['skip_reason'].startswith('In cooldown')
+                    assert by_id[7002]['in_cooldown'] is False
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# T025: _candidate_modified_after boundary cases
+#
+# The cooldown invalidation gate hinges entirely on this helper. Lock down
+# the boundary semantics with a focused unit test so a future "let's loosen
+# the comparison to >=" change can't silently regress correctness.
+# ─────────────────────────────────────────────────────────────────────────────
+class TestCandidateModifiedAfter:
+    def test_returns_false_when_last_evaluated_is_none(self, app):
+        from tasks.owner_reassignment import _candidate_modified_after
+        # No cooldown row → caller should not even ask, but defensive return.
+        assert _candidate_modified_after(
+            {'dateLastModified': 1700000000000}, None
+        ) is False
+
+    def test_returns_false_when_field_missing(self, app):
+        from tasks.owner_reassignment import _candidate_modified_after
+        from datetime import datetime
+        assert _candidate_modified_after({}, datetime.utcnow()) is False
+        assert _candidate_modified_after(
+            {'dateLastModified': None}, datetime.utcnow()
+        ) is False
+
+    def test_returns_false_for_malformed_timestamp(self, app):
+        from tasks.owner_reassignment import _candidate_modified_after
+        from datetime import datetime
+        now = datetime.utcnow()
+        for bad in ('not-a-number', '', [], {}, object()):
+            assert _candidate_modified_after(
+                {'dateLastModified': bad}, now
+            ) is False, f"Malformed value {bad!r} must NOT bust cooldown"
+
+    def test_strictly_greater_than_required(self, app):
+        """Equal-second timestamps must NOT bust cooldown — only a strictly
+        newer dateLastModified counts as fresh activity. This guards against
+        a future change loosening the comparison to >= which would
+        re-introduce the original infinite-re-screen behavior."""
+        from tasks.owner_reassignment import _candidate_modified_after
+        from datetime import datetime
+        ts = 1700000000000
+        evaluated_at = datetime.utcfromtimestamp(ts / 1000.0)
+        # Equal → not modified after.
+        assert _candidate_modified_after(
+            {'dateLastModified': ts}, evaluated_at
+        ) is False
+        # 1 ms newer → busted.
+        assert _candidate_modified_after(
+            {'dateLastModified': ts + 1}, evaluated_at
+        ) is True
+        # 1 ms older → still in cooldown.
+        assert _candidate_modified_after(
+            {'dateLastModified': ts - 1}, evaluated_at
+        ) is False
+
+    def test_string_ms_epoch_accepted(self, app):
+        """Bullhorn occasionally returns numeric fields as strings — int()
+        coercion must accept them so the cooldown gate doesn't false-hold."""
+        from tasks.owner_reassignment import _candidate_modified_after
+        from datetime import datetime, timedelta
+        evaluated_at = datetime.utcnow() - timedelta(hours=1)
+        modified_ms = int(datetime.utcnow().timestamp() * 1000)
+        assert _candidate_modified_after(
+            {'dateLastModified': str(modified_ms)}, evaluated_at
+        ) is True
