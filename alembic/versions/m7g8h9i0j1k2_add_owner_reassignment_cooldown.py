@@ -30,21 +30,39 @@ depends_on = None
 
 
 def upgrade():
-    op.create_table(
-        'owner_reassignment_cooldown',
-        sa.Column('candidate_id', sa.BigInteger(), primary_key=True,
-                  nullable=False),
-        sa.Column('last_evaluated_at', sa.DateTime(), nullable=False),
-        sa.Column('last_outcome', sa.String(length=40), nullable=False),
-        sa.Column('evaluation_count', sa.Integer(), nullable=False,
-                  server_default=sa.text('1')),
-    )
-    op.create_index(
-        'ix_owner_reassignment_cooldown_last_evaluated_at',
-        'owner_reassignment_cooldown',
-        ['last_evaluated_at'],
-        unique=False,
-    )
+    # Idempotent: post-merge setup may run this migration against a dev
+    # database where Replit's auto-migration tooling has already created
+    # the table from `models.py`. Re-creating would raise
+    # `psycopg2.errors.DuplicateTable` and abort the post-merge script,
+    # blocking later migrations from running. Inspect first, create only
+    # if missing.
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    existing_tables = set(inspector.get_table_names())
+
+    if 'owner_reassignment_cooldown' not in existing_tables:
+        op.create_table(
+            'owner_reassignment_cooldown',
+            sa.Column('candidate_id', sa.BigInteger(), primary_key=True,
+                      nullable=False),
+            sa.Column('last_evaluated_at', sa.DateTime(), nullable=False),
+            sa.Column('last_outcome', sa.String(length=40), nullable=False),
+            sa.Column('evaluation_count', sa.Integer(), nullable=False,
+                      server_default=sa.text('1')),
+        )
+
+    existing_indexes = {
+        ix['name']
+        for ix in inspector.get_indexes('owner_reassignment_cooldown')
+    } if 'owner_reassignment_cooldown' in inspector.get_table_names() else set()
+
+    if 'ix_owner_reassignment_cooldown_last_evaluated_at' not in existing_indexes:
+        op.create_index(
+            'ix_owner_reassignment_cooldown_last_evaluated_at',
+            'owner_reassignment_cooldown',
+            ['last_evaluated_at'],
+            unique=False,
+        )
 
 
 def downgrade():

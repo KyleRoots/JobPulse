@@ -329,7 +329,10 @@ def _find_cooldown_busters_via_notes(
     while pages_fetched < max_pages:
         params = {
             'query': f'dateAdded:[{floor_ms} TO *] AND isDeleted:false',
-            'fields': 'id,dateAdded,commentingPerson(id),personReference(id)',
+            'fields': (
+                'id,dateAdded,commentingPerson(id),'
+                'personReference(id),candidates(id)'
+            ),
             'count': page_size,
             'start': start,
             # Newest-first: when total notes exceed the pagination cap
@@ -399,13 +402,36 @@ def _find_cooldown_busters_via_notes(
             if cp_id_int is not None and cp_id_int in api_user_id_set:
                 continue
 
+            # Bug #5 (May 2026): a Note can link to a Candidate via
+            # EITHER ``personReference`` (single, set by API code) OR
+            # the ``candidates`` to-many association (often the only
+            # linkage when a recruiter adds the note from the
+            # candidate's profile in the Bullhorn UI). Match against
+            # both so manually-added UI notes also bust the cooldown.
+            linked_candidate_ids: set = set()
             person_ref = note.get('personReference') or {}
             pid = person_ref.get('id')
             try:
-                pid_int = int(pid) if pid is not None else None
+                if pid is not None:
+                    linked_candidate_ids.add(int(pid))
             except (TypeError, ValueError):
-                pid_int = None
-            if pid_int is None or pid_int not in cooldown_ms:
+                pass
+            candidates_assoc = note.get('candidates')
+            if isinstance(candidates_assoc, dict):
+                candidates_list = candidates_assoc.get('data') or []
+            elif isinstance(candidates_assoc, list):
+                candidates_list = candidates_assoc
+            else:
+                candidates_list = []
+            for c in candidates_list:
+                try:
+                    cid_v = (c or {}).get('id')
+                    if cid_v is not None:
+                        linked_candidate_ids.add(int(cid_v))
+                except (TypeError, ValueError):
+                    continue
+
+            if not linked_candidate_ids:
                 continue
 
             note_added = note.get('dateAdded')
@@ -413,8 +439,10 @@ def _find_cooldown_busters_via_notes(
                 note_added_ms = int(note_added) if note_added is not None else 0
             except (TypeError, ValueError):
                 note_added_ms = 0
-            if note_added_ms > cooldown_ms[pid_int]:
-                busters.add(pid_int)
+            for cid_int in linked_candidate_ids:
+                if (cid_int in cooldown_ms
+                        and note_added_ms > cooldown_ms[cid_int]):
+                    busters.add(cid_int)
 
         start += len(notes)
         if start >= final_total or len(notes) < page_size:
@@ -766,91 +794,118 @@ def _find_first_human_interactor(
     api_user_ids: List[int],
 ) -> Tuple[Optional[int], Optional[str], Optional[str]]:
     """
-    Search the candidate's Bullhorn Notes for the earliest note written by a
-    human (non-API) user and return:
-      (corporateUser_id, firstName, lastName)
+    Return ``(corporateUser_id, firstName, lastName)`` of the EARLIEST
+    human (non-API) author who left a Note on this candidate, or
+    ``(None, None, None)`` if no human activity is found.
 
-    Paginates through all notes (sorted by dateAdded ascending) so the first
-    human interactor is found even when early pages contain only API-authored
-    notes.
+    Bug #5 (May 2026): switched from ``search/Note?query=personReference.id:X``
+    to the canonical ``entity/Candidate/{id}?fields=notes(...)``
+    to-many association lookup. The search-index path returned ``total=0``
+    in production for candidates whose notes ARE visible in the Bullhorn
+    UI — most likely because UI-added notes link to a candidate via the
+    ``candidates`` to-many association rather than ``personReference``,
+    and the ``personReference`` filter on the search index therefore
+    misses them. The entity endpoint reads the live association and is
+    robust to whichever linkage (UI vs API) the note creator populated,
+    so manually-added recruiter notes are no longer invisible.
 
-    Returns (None, None, None) if no human activity is found.
+    Returns ``(None, None, None)`` on any HTTP / parse error so the
+    caller does NOT reassign ownership to a phantom recruiter.
     """
-    note_url = f"{base_url}search/Note"
-    page_size = 50
-    start = 0
+    entity_url = f"{base_url}entity/Candidate/{candidate_id}"
+    params = {
+        'fields': (
+            'notes(id,commentingPerson(id,firstName,lastName),'
+            'dateAdded,action)'
+        ),
+    }
+    api_user_id_set = {int(uid) for uid in api_user_ids}
 
-    while True:
-        # Bullhorn Notes link to a candidate via `personReference`, NOT
-        # `candidates`. The plural-association query returns zero rows for
-        # every candidate, which is why this task historically reassigned
-        # nothing despite being scheduled every 5 minutes. Mirror the working
-        # query syntax used by `screening/dedup.py::_has_recent_recruiter_activity`.
-        params = {
-            'query': f'personReference.id:{candidate_id} AND isDeleted:false',
-            'fields': _NOTE_FIELDS,
-            'count': page_size,
-            'start': start,
-            'sort': 'dateAdded',
-        }
-
-        resp = None
-        for attempt in range(2):
-            try:
-                resp = _requests.get(note_url, headers=headers, params=params, timeout=15)
-                if resp.status_code == 200:
-                    break
-                if 500 <= resp.status_code < 600 and attempt == 0:
-                    time.sleep(1)
-                    continue
-                logger.warning(
-                    f"Note lookup for candidate {candidate_id}: "
-                    f"HTTP {resp.status_code}"
-                )
-                return (None, None, None)
-            except Exception as exc:
-                if attempt == 0:
-                    time.sleep(1)
-                    continue
-                logger.warning(
-                    f"Note lookup exception for candidate {candidate_id}: {exc}"
-                )
-                return (None, None, None)
-
-        if resp is None or resp.status_code != 200:
+    resp = None
+    for attempt in range(2):
+        try:
+            resp = _requests.get(
+                entity_url, headers=headers, params=params, timeout=15
+            )
+            if resp.status_code == 200:
+                break
+            if 500 <= resp.status_code < 600 and attempt == 0:
+                time.sleep(1)
+                continue
+            logger.warning(
+                f"Note lookup for candidate {candidate_id}: "
+                f"HTTP {resp.status_code}"
+            )
+            return (None, None, None)
+        except Exception as exc:
+            if attempt == 0:
+                time.sleep(1)
+                continue
+            logger.warning(
+                f"Note lookup exception for candidate {candidate_id}: {exc}"
+            )
             return (None, None, None)
 
-        page_data = resp.json()
-        notes = page_data.get('data', [])
+    if resp is None or resp.status_code != 200:
+        return (None, None, None)
 
-        # Diagnostic: surface page volume so we can confirm in production
-        # logs that the note search is actually returning data after the
-        # `candidates.id` → `personReference.id` query fix. A non-zero
-        # `notes_found` followed by a `(None, None, None)` return now
-        # legitimately means "all notes were API-authored," not "the
-        # query was wrong."
-        if start == 0:
-            logger.info(
-                f"_find_first_human_interactor: candidate {candidate_id} "
-                f"page0 notes_found={len(notes)} total={page_data.get('total', 'n/a')}"
-            )
+    try:
+        body = resp.json() or {}
+    except (ValueError, TypeError) as exc:
+        logger.warning(
+            f"Note lookup unparseable JSON for candidate {candidate_id}: "
+            f"{exc}"
+        )
+        return (None, None, None)
 
-        for note in notes:
-            person = note.get('commentingPerson') or {}
-            person_id = person.get('id')
-            if person_id and int(person_id) not in api_user_ids:
-                return (
-                    int(person_id),
-                    person.get('firstName', ''),
-                    person.get('lastName', ''),
-                )
+    candidate_data = body.get('data')
+    if not isinstance(candidate_data, dict):
+        # Defensive: malformed responses (e.g. legacy search-shape
+        # ``{'data': [...]}`` or unexpected upstream errors) must not
+        # crash the cycle. Treat as "no notes found" → caller skips
+        # reassignment for this candidate.
+        candidate_data = {}
+    notes_assoc = candidate_data.get('notes')
+    # Bullhorn returns to-many associations as either a wrapped object
+    # (``{'data': [...], 'total': N}``) or, on some endpoints/versions,
+    # a bare list. Handle both shapes defensively.
+    if isinstance(notes_assoc, dict):
+        notes = notes_assoc.get('data') or []
+    elif isinstance(notes_assoc, list):
+        notes = notes_assoc
+    else:
+        notes = []
 
-        total = page_data.get('total', len(notes))
-        start += len(notes)
-        if start >= total or len(notes) < page_size:
-            break
+    logger.info(
+        f"_find_first_human_interactor: candidate {candidate_id} "
+        f"notes_found={len(notes)} (via entity association)"
+    )
 
-        time.sleep(0.05)
+    # Sort by dateAdded ascending so the EARLIEST human note wins
+    # (matches the original search-based implementation's intent).
+    def _date_key(n):
+        try:
+            return int(n.get('dateAdded') or 0)
+        except (TypeError, ValueError):
+            return 0
+    notes.sort(key=_date_key)
+
+    for note in notes:
+        person = note.get('commentingPerson') or {}
+        person_id = person.get('id')
+        if person_id is None:
+            continue
+        try:
+            pid_int = int(person_id)
+        except (TypeError, ValueError):
+            continue
+        if pid_int in api_user_id_set:
+            continue
+        return (
+            pid_int,
+            person.get('firstName', ''),
+            person.get('lastName', ''),
+        )
 
     return (None, None, None)
 

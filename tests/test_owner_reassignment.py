@@ -87,6 +87,28 @@ def _make_note_resp(person_id=777, first='Bob', last='Smith', extra_notes=None):
     return {'data': notes}
 
 
+def _make_entity_with_notes_resp(person_id=777, first='Bob', last='Smith',
+                                  extra_notes=None, candidate_id=1001):
+    """
+    Mock for the ``entity/Candidate/{id}?fields=notes(...)`` response
+    used by the post-bug-#5 ``_find_first_human_interactor``. Wraps the
+    note list inside the entity-association envelope shape that the
+    function now parses.
+    """
+    inner = _make_note_resp(
+        person_id=person_id, first=first, last=last, extra_notes=extra_notes,
+    )
+    return {
+        'data': {
+            'id': candidate_id,
+            'notes': {
+                'data': inner['data'],
+                'total': len(inner['data']),
+            },
+        },
+    }
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # T001: disabled toggle
 # ─────────────────────────────────────────────────────────────────────────────
@@ -158,7 +180,7 @@ class TestSuccessfulReassignment:
 
         note_resp = MagicMock()
         note_resp.status_code = 200
-        note_resp.json.return_value = _make_note_resp(person_id=777)
+        note_resp.json.return_value = _make_entity_with_notes_resp(person_id=777)
 
         update_resp = MagicMock()
         update_resp.status_code = 200
@@ -203,7 +225,9 @@ class TestNoHumanActivity:
 
         no_notes_resp = MagicMock()
         no_notes_resp.status_code = 200
-        no_notes_resp.json.return_value = {'data': []}
+        no_notes_resp.json.return_value = {
+            'data': {'id': 1001, 'notes': {'data': [], 'total': 0}}
+        }
 
         with app.app_context():
             from tasks.owner_reassignment import reassign_api_user_candidates
@@ -237,12 +261,18 @@ class TestOnlyApiUserNotes:
         api_only_notes = MagicMock()
         api_only_notes.status_code = 200
         api_only_notes.json.return_value = {
-            'data': [{
-                'id': 1,
-                'commentingPerson': {'id': 9999, 'firstName': 'API', 'lastName': 'Bot'},
-                'dateAdded': 1700000000000,
-                'action': 'General',
-            }]
+            'data': {
+                'id': 1001,
+                'notes': {
+                    'data': [{
+                        'id': 1,
+                        'commentingPerson': {'id': 9999, 'firstName': 'API', 'lastName': 'Bot'},
+                        'dateAdded': 1700000000000,
+                        'action': 'General',
+                    }],
+                    'total': 1,
+                },
+            },
         }
 
         with app.app_context():
@@ -277,26 +307,32 @@ class TestFirstHumanPicked:
         mixed_notes = MagicMock()
         mixed_notes.status_code = 200
         mixed_notes.json.return_value = {
-            'data': [
-                {
-                    'id': 1,
-                    'commentingPerson': {'id': 9999, 'firstName': 'API', 'lastName': 'Bot'},
-                    'dateAdded': 1700000000000,
-                    'action': 'General',
+            'data': {
+                'id': 1001,
+                'notes': {
+                    'data': [
+                        {
+                            'id': 1,
+                            'commentingPerson': {'id': 9999, 'firstName': 'API', 'lastName': 'Bot'},
+                            'dateAdded': 1700000000000,
+                            'action': 'General',
+                        },
+                        {
+                            'id': 2,
+                            'commentingPerson': {'id': 555, 'firstName': 'Alice', 'lastName': 'Jones'},
+                            'dateAdded': 1700001000000,
+                            'action': 'General',
+                        },
+                        {
+                            'id': 3,
+                            'commentingPerson': {'id': 666, 'firstName': 'Bob', 'lastName': 'Lee'},
+                            'dateAdded': 1700002000000,
+                            'action': 'General',
+                        },
+                    ],
+                    'total': 3,
                 },
-                {
-                    'id': 2,
-                    'commentingPerson': {'id': 555, 'firstName': 'Alice', 'lastName': 'Jones'},
-                    'dateAdded': 1700001000000,
-                    'action': 'General',
-                },
-                {
-                    'id': 3,
-                    'commentingPerson': {'id': 666, 'firstName': 'Bob', 'lastName': 'Lee'},
-                    'dateAdded': 1700002000000,
-                    'action': 'General',
-                },
-            ]
+            },
         }
 
         update_resp = MagicMock()
@@ -342,7 +378,7 @@ class TestBullhornUpdateFailure:
 
         note_resp = MagicMock()
         note_resp.status_code = 200
-        note_resp.json.return_value = _make_note_resp(person_id=777)
+        note_resp.json.return_value = _make_entity_with_notes_resp(person_id=777)
 
         fail_resp = MagicMock()
         fail_resp.status_code = 400
@@ -402,7 +438,7 @@ class TestNoteCreationFailure:
 
         note_resp = MagicMock()
         note_resp.status_code = 200
-        note_resp.json.return_value = _make_note_resp(person_id=777)
+        note_resp.json.return_value = _make_entity_with_notes_resp(person_id=777)
 
         update_resp = MagicMock()
         update_resp.status_code = 200
@@ -412,6 +448,10 @@ class TestNoteCreationFailure:
             url = args[0] if args else kwargs.get('url', '')
             if 'search/Candidate' in url:
                 return search_resp
+            # Per-candidate notes lookup now uses the entity association
+            # endpoint (post-bug-#5: entity/Candidate/{id}?fields=notes(...)).
+            if 'entity/Candidate/' in url:
+                return note_resp
             if 'search/Note' in url:
                 return note_resp
             return MagicMock(status_code=404)
@@ -507,7 +547,13 @@ class TestNotePagination:
         search_resp.status_code = 200
         search_resp.json.return_value = {'data': [candidate]}
 
-        page1_notes = [
+        # Bug #5 (May 2026): _find_first_human_interactor no longer
+        # paginates — it makes a single entity GET that returns ALL
+        # associated notes via the to-many association. This test now
+        # verifies the function correctly identifies the human author
+        # from a mixed batch (50 API-authored + 1 human) returned in
+        # one response, mirroring the previous pagination intent.
+        all_notes = [
             {
                 'id': i,
                 'commentingPerson': {'id': 9999, 'firstName': 'API', 'lastName': 'Bot'},
@@ -516,36 +562,31 @@ class TestNotePagination:
             }
             for i in range(50)
         ]
-        page1_resp = MagicMock()
-        page1_resp.status_code = 200
-        page1_resp.json.return_value = {'data': page1_notes, 'total': 51}
-
-        page2_resp = MagicMock()
-        page2_resp.status_code = 200
-        page2_resp.json.return_value = {
-            'data': [{
-                'id': 50,
-                'commentingPerson': {'id': 888, 'firstName': 'Jane', 'lastName': 'Doe'},
-                'dateAdded': 1700000100000,
-                'action': 'General',
-            }],
-            'total': 51,
+        all_notes.append({
+            'id': 50,
+            'commentingPerson': {'id': 888, 'firstName': 'Jane', 'lastName': 'Doe'},
+            'dateAdded': 1700000100000,
+            'action': 'General',
+        })
+        notes_resp = MagicMock()
+        notes_resp.status_code = 200
+        notes_resp.json.return_value = {
+            'data': {
+                'id': 1001,
+                'notes': {'data': all_notes, 'total': len(all_notes)},
+            },
         }
 
         update_resp = MagicMock()
         update_resp.status_code = 200
         update_resp.json.return_value = {'changeType': 'UPDATE', 'changedEntityId': 1001}
 
-        call_count = {'n': 0}
         def get_side_effect(*args, **kwargs):
             url = args[0] if args else kwargs.get('url', '')
             if 'search/Candidate' in url:
                 return search_resp
-            if 'search/Note' in url:
-                call_count['n'] += 1
-                if call_count['n'] == 1:
-                    return page1_resp
-                return page2_resp
+            if 'entity/Candidate/' in url:
+                return notes_resp
             return MagicMock(status_code=404)
 
         with app.app_context():
@@ -587,7 +628,7 @@ class TestNoteDisabled:
 
         note_resp = MagicMock()
         note_resp.status_code = 200
-        note_resp.json.return_value = _make_note_resp(person_id=777)
+        note_resp.json.return_value = _make_entity_with_notes_resp(person_id=777)
 
         update_resp = MagicMock()
         update_resp.status_code = 200
@@ -597,6 +638,10 @@ class TestNoteDisabled:
             url = args[0] if args else ''
             if 'search/Candidate' in url:
                 return search_resp
+            # Per-candidate notes lookup now uses the entity association
+            # endpoint (post-bug-#5: entity/Candidate/{id}?fields=notes(...)).
+            if 'entity/Candidate/' in url:
+                return note_resp
             if 'search/Note' in url:
                 return note_resp
             return MagicMock(status_code=404)
@@ -819,7 +864,7 @@ class TestRunHistoryWritesOnSignal5min:
 
         note_resp = MagicMock()
         note_resp.status_code = 200
-        note_resp.json.return_value = _make_note_resp(person_id=777)
+        note_resp.json.return_value = _make_entity_with_notes_resp(person_id=777)
 
         update_resp = MagicMock()
         update_resp.status_code = 200
@@ -1144,7 +1189,7 @@ class TestRunHistoryCapturesAllReassignedIds:
 
         note_resp = MagicMock()
         note_resp.status_code = 200
-        note_resp.json.return_value = _make_note_resp(person_id=777)
+        note_resp.json.return_value = _make_entity_with_notes_resp(person_id=777)
 
         def update_for(cid):
             r = MagicMock()
@@ -1167,10 +1212,10 @@ class TestRunHistoryCapturesAllReassignedIds:
                 with patch('tasks.owner_reassignment._requests') as mock_req:
                     note_resp_2 = MagicMock()
                     note_resp_2.status_code = 200
-                    note_resp_2.json.return_value = _make_note_resp(person_id=777)
+                    note_resp_2.json.return_value = _make_entity_with_notes_resp(person_id=777)
                     note_resp_3 = MagicMock()
                     note_resp_3.status_code = 200
-                    note_resp_3.json.return_value = _make_note_resp(person_id=777)
+                    note_resp_3.json.return_value = _make_entity_with_notes_resp(person_id=777)
                     mock_req.get.side_effect = [search_resp, note_resp, note_resp_2, note_resp_3]
                     mock_req.post.side_effect = [
                         update_for(4500001),
@@ -1468,7 +1513,7 @@ class TestCooldownRecordsNoOpOutcomes:
 
         note_resp = MagicMock()
         note_resp.status_code = 200
-        note_resp.json.return_value = _make_note_resp(person_id=777)
+        note_resp.json.return_value = _make_entity_with_notes_resp(person_id=777)
 
         with app.app_context():
             from tasks.owner_reassignment import reassign_api_user_candidates
@@ -1523,7 +1568,7 @@ class TestSuccessfulReassignClearsCooldown:
         search_resp.json.return_value = {'data': [candidate]}
         note_resp = MagicMock()
         note_resp.status_code = 200
-        note_resp.json.return_value = _make_note_resp(person_id=777)
+        note_resp.json.return_value = _make_entity_with_notes_resp(person_id=777)
         update_resp = MagicMock()
         update_resp.status_code = 200
         update_resp.json.return_value = {'changeType': 'UPDATE', 'changedEntityId': 3001}
@@ -1833,7 +1878,7 @@ class TestCooldownInvalidationByDateLastModified:
         # Bullhorn now returns a human note from the recruiter.
         note_resp = MagicMock()
         note_resp.status_code = 200
-        note_resp.json.return_value = _make_note_resp(person_id=777)
+        note_resp.json.return_value = _make_entity_with_notes_resp(person_id=777)
 
         # Successful owner update.
         update_resp = MagicMock()
@@ -2176,29 +2221,36 @@ class TestCandidateModifiedAfter:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# T026: _find_first_human_interactor query syntax — regression guard
+# T026: _find_first_human_interactor — endpoint regression guard
 #
-# This is the latent bug that caused ZERO reassignments across 22,270
-# evaluated candidates: the function queried Bullhorn with `candidates.id:X`
-# (plural to-many association) which returns no rows for any candidate.
-# The correct field is `personReference.id:X`, mirroring the working query
-# in `screening/dedup.py::_has_recent_recruiter_activity`.
+# Bug #5 (May 2026): switched from `search/Note?query=personReference.id:X`
+# to the canonical `entity/Candidate/{id}?fields=notes(...)` to-many
+# association lookup. The search-index path returned `total=0` in
+# production (e.g. candidate 4657858) for candidates whose notes were
+# clearly visible in the Bullhorn UI — most likely because UI-added
+# notes link to a candidate via the `candidates` to-many association,
+# not `personReference`, and the `personReference.id:X` filter on the
+# search index therefore never saw them.
 #
-# This test pins down the exact query string so a future "let's clean this
-# up to use candidates.id" refactor will fail loudly here.
+# These tests pin down (a) the new endpoint URL, (b) the requested
+# fields shape, and (c) the parsing of both wrapped-dict and bare-list
+# association responses, so a future "let's switch back to search"
+# regression will fail loudly here.
 # ─────────────────────────────────────────────────────────────────────────────
 class TestFindFirstHumanInteractorQuerySyntax:
-    def test_uses_personReference_id_not_candidates_id(self, app):
+    def test_uses_entity_association_not_search_index(self, app):
         from tasks.owner_reassignment import _find_first_human_interactor
 
-        captured_params = {}
+        captured = {}
 
         def fake_get(url, headers=None, params=None, timeout=None):
-            captured_params['url'] = url
-            captured_params['params'] = dict(params or {})
+            captured['url'] = url
+            captured['params'] = dict(params or {})
             mock_resp = MagicMock()
             mock_resp.status_code = 200
-            mock_resp.json.return_value = {'data': [], 'total': 0}
+            mock_resp.json.return_value = {
+                'data': {'id': 4656965, 'notes': {'data': [], 'total': 0}}
+            }
             return mock_resp
 
         with patch('tasks.owner_reassignment._requests') as mock_req:
@@ -2212,43 +2264,55 @@ class TestFindFirstHumanInteractorQuerySyntax:
                 )
 
         assert result == (None, None, None)
-        assert captured_params['url'] == 'https://rest.bullhorn.com/search/Note'
-        query = captured_params['params'].get('query', '')
-        assert 'personReference.id:4656965' in query, (
-            f"Note search must use `personReference.id` (matches working "
-            f"screening/dedup.py syntax). Got query: {query!r}"
+        assert captured['url'] == (
+            'https://rest.bullhorn.com/entity/Candidate/4656965'
+        ), (
+            f"Note lookup must hit the entity association endpoint, NOT "
+            f"the search index. Got url: {captured['url']!r}"
         )
-        assert 'candidates.id:' not in query, (
-            f"Note search must NOT use `candidates.id` — that field returns "
-            f"zero notes for every candidate in production. Got: {query!r}"
+        fields = captured['params'].get('fields', '')
+        assert fields.startswith('notes('), (
+            f"Entity request must select the `notes(...)` to-many "
+            f"association field. Got fields: {fields!r}"
+        )
+        # Belt-and-braces: the OLD search query must not have come back.
+        assert 'query' not in captured['params'], (
+            f"Must not send a Lucene `query` param to the entity endpoint. "
+            f"Got params: {captured['params']!r}"
         )
 
     def test_finds_human_interactor_when_present(self, app):
-        """End-to-end: returns the first non-API author found in the notes."""
+        """End-to-end: returns the first non-API author from the entity
+        association response (wrapped-dict shape)."""
         from tasks.owner_reassignment import _find_first_human_interactor
 
-        notes_page = {
-            'data': [
-                {  # API-authored — must be skipped
-                    'id': 1,
-                    'commentingPerson': {'id': 1147490, 'firstName': 'Myticas', 'lastName': 'API User'},
-                    'dateAdded': 1700000000000,
-                    'action': 'AI Resume Summary',
+        body = {
+            'data': {
+                'id': 4656051,
+                'notes': {
+                    'data': [
+                        {  # API-authored — must be skipped
+                            'id': 1,
+                            'commentingPerson': {'id': 1147490, 'firstName': 'Myticas', 'lastName': 'API User'},
+                            'dateAdded': 1700000000000,
+                            'action': 'AI Resume Summary',
+                        },
+                        {  # Human author — must be returned
+                            'id': 2,
+                            'commentingPerson': {'id': 99999, 'firstName': 'Dan', 'lastName': 'Sifer'},
+                            'dateAdded': 1700000060000,
+                            'action': 'Recruiter Note',
+                        },
+                    ],
+                    'total': 2,
                 },
-                {  # Human author — must be returned
-                    'id': 2,
-                    'commentingPerson': {'id': 99999, 'firstName': 'Dan', 'lastName': 'Sifer'},
-                    'dateAdded': 1700000060000,
-                    'action': 'Recruiter Note',
-                },
-            ],
-            'total': 2,
+            },
         }
 
         with patch('tasks.owner_reassignment._requests') as mock_req:
             mock_resp = MagicMock()
             mock_resp.status_code = 200
-            mock_resp.json.return_value = notes_page
+            mock_resp.json.return_value = body
             mock_req.get.return_value = mock_resp
             with app.app_context():
                 result = _find_first_human_interactor(
@@ -2262,21 +2326,65 @@ class TestFindFirstHumanInteractorQuerySyntax:
             f"Expected to find Dan Sifer as first human interactor; got {result}"
         )
 
-    def test_returns_none_when_only_api_authored_notes(self, app):
+    def test_handles_bare_list_association_shape(self, app):
+        """Defensive: some Bullhorn endpoint versions return the to-many
+        association as a bare list rather than the wrapped
+        `{'data': [...], 'total': N}` envelope. Both must work."""
         from tasks.owner_reassignment import _find_first_human_interactor
 
-        notes_page = {
-            'data': [
-                {'id': 1, 'commentingPerson': {'id': 1147490}, 'dateAdded': 1700000000000, 'action': 'a'},
-                {'id': 2, 'commentingPerson': {'id': 4582015}, 'dateAdded': 1700000060000, 'action': 'b'},
-            ],
-            'total': 2,
+        body = {
+            'data': {
+                'id': 4657858,
+                'notes': [  # bare list, not wrapped
+                    {
+                        'id': 1,
+                        'commentingPerson': {'id': 1147490, 'firstName': 'API', 'lastName': 'Bot'},
+                        'dateAdded': 1700000000000,
+                    },
+                    {
+                        'id': 2,
+                        'commentingPerson': {'id': 88888, 'firstName': 'Kyle', 'lastName': 'Roots'},
+                        'dateAdded': 1700000060000,
+                    },
+                ],
+            },
         }
 
         with patch('tasks.owner_reassignment._requests') as mock_req:
             mock_resp = MagicMock()
             mock_resp.status_code = 200
-            mock_resp.json.return_value = notes_page
+            mock_resp.json.return_value = body
+            mock_req.get.return_value = mock_resp
+            with app.app_context():
+                result = _find_first_human_interactor(
+                    base_url='https://rest.bullhorn.com/',
+                    headers={'BhRestToken': 'tok'},
+                    candidate_id=4657858,
+                    api_user_ids=[1147490],
+                )
+
+        assert result == (88888, 'Kyle', 'Roots')
+
+    def test_returns_none_when_only_api_authored_notes(self, app):
+        from tasks.owner_reassignment import _find_first_human_interactor
+
+        body = {
+            'data': {
+                'id': 4656965,
+                'notes': {
+                    'data': [
+                        {'id': 1, 'commentingPerson': {'id': 1147490}, 'dateAdded': 1700000000000, 'action': 'a'},
+                        {'id': 2, 'commentingPerson': {'id': 4582015}, 'dateAdded': 1700000060000, 'action': 'b'},
+                    ],
+                    'total': 2,
+                },
+            },
+        }
+
+        with patch('tasks.owner_reassignment._requests') as mock_req:
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.json.return_value = body
             mock_req.get.return_value = mock_resp
             with app.app_context():
                 result = _find_first_human_interactor(
@@ -2558,4 +2666,74 @@ class TestCooldownNoteBuster:
         assert params.get('sort') == '-dateAdded', (
             f"Note search must sort newest-first to survive the "
             f"pagination cap; got sort={params.get('sort')!r}"
+        )
+
+    def test_busts_when_note_links_via_candidates_only(self, app):
+        """Bug #5 (May 2026): UI-added notes often link to a candidate
+        ONLY via the `candidates` to-many association, with
+        `personReference` empty/null. The buster must match those notes
+        too — otherwise manually-added recruiter notes would never bust
+        the cooldown.
+        """
+        from datetime import datetime as _dt
+        from tasks.owner_reassignment import (
+            _find_cooldown_busters_via_notes, _EPOCH,
+        )
+
+        last_eval = _dt(2026, 5, 2, 11, 53, 35)
+        cooldown_state = {4657858: last_eval}
+        api_user_ids = [4582015, 4591841, 4593767, 4582033, 1147490]
+
+        note_added_dt = _dt(2026, 5, 2, 11, 54, 35)
+        note_added_ms = int((note_added_dt - _EPOCH).total_seconds() * 1000)
+
+        # `personReference` deliberately omitted; `candidates` carries
+        # the only linkage (mirrors a UI-added note).
+        notes_page = {
+            'data': [
+                {
+                    'id': 999,
+                    'dateAdded': note_added_ms,
+                    'commentingPerson': {'id': 88888},   # human recruiter
+                    'candidates': {'data': [{'id': 4657858}]},
+                },
+            ],
+            'total': 1,
+        }
+
+        with patch('tasks.owner_reassignment._requests') as mock_req:
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.json.return_value = notes_page
+            mock_req.get.return_value = mock_resp
+            with app.app_context():
+                busters = _find_cooldown_busters_via_notes(
+                    base_url='https://rest.bullhorn.com/',
+                    headers={'BhRestToken': 'tok'},
+                    cooldown_state=cooldown_state,
+                    api_user_ids=api_user_ids,
+                )
+
+        assert busters == {4657858}, (
+            f"UI-added note linked via `candidates` (not `personReference`) "
+            f"must bust the cooldown; got {busters}"
+        )
+
+        # Sanity: also tolerate the bare-list `candidates` shape that some
+        # Bullhorn versions return.
+        notes_page['data'][0]['candidates'] = [{'id': 4657858}]
+        with patch('tasks.owner_reassignment._requests') as mock_req:
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.json.return_value = notes_page
+            mock_req.get.return_value = mock_resp
+            with app.app_context():
+                busters = _find_cooldown_busters_via_notes(
+                    base_url='https://rest.bullhorn.com/',
+                    headers={'BhRestToken': 'tok'},
+                    cooldown_state=cooldown_state,
+                    api_user_ids=api_user_ids,
+                )
+        assert busters == {4657858}, (
+            f"Bare-list `candidates` shape must also be matched; got {busters}"
         )
