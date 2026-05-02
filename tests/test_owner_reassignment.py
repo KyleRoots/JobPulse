@@ -821,7 +821,7 @@ class TestRunHistoryNoiseFilter5min:
 
         no_notes_resp = MagicMock()
         no_notes_resp.status_code = 200
-        no_notes_resp.json.return_value = {'data': []}
+        no_notes_resp.json.return_value = {'data': {'id': 1001, 'notes': {'data': [], 'total': 0}}}
 
         with app.app_context():
             from tasks.owner_reassignment import (
@@ -918,7 +918,7 @@ class TestRunHistoryHeartbeat:
         search_resp.json.return_value = {'data': [candidate]}
         no_notes_resp = MagicMock()
         no_notes_resp.status_code = 200
-        no_notes_resp.json.return_value = {'data': []}
+        no_notes_resp.json.return_value = {'data': {'id': 1001, 'notes': {'data': [], 'total': 0}}}
 
         with app.app_context():
             from tasks.owner_reassignment import (
@@ -1019,7 +1019,7 @@ class TestRunHistoryDailySweepAlwaysWrites:
 
         no_notes_resp = MagicMock()
         no_notes_resp.status_code = 200
-        no_notes_resp.json.return_value = {'data': []}
+        no_notes_resp.json.return_value = {'data': {'id': 1001, 'notes': {'data': [], 'total': 0}}}
 
         with app.app_context():
             from tasks.owner_reassignment import (
@@ -1438,7 +1438,7 @@ class TestCooldownFiltersRepeatNoOps:
         search_resp.json.return_value = {'data': [candidate]}
         no_notes_resp = MagicMock()
         no_notes_resp.status_code = 200
-        no_notes_resp.json.return_value = {'data': []}
+        no_notes_resp.json.return_value = {'data': {'id': 1001, 'notes': {'data': [], 'total': 0}}}
 
         with app.app_context():
             from tasks.owner_reassignment import reassign_api_user_candidates
@@ -1475,7 +1475,7 @@ class TestCooldownRecordsNoOpOutcomes:
 
         no_notes_resp = MagicMock()
         no_notes_resp.status_code = 200
-        no_notes_resp.json.return_value = {'data': []}
+        no_notes_resp.json.return_value = {'data': {'id': 1001, 'notes': {'data': [], 'total': 0}}}
 
         with app.app_context():
             from tasks.owner_reassignment import reassign_api_user_candidates
@@ -2122,7 +2122,7 @@ class TestPreviewCooldownPayload:
         # Note search for the fresh candidate returns no human activity.
         no_notes_resp = MagicMock()
         no_notes_resp.status_code = 200
-        no_notes_resp.json.return_value = {'data': []}
+        no_notes_resp.json.return_value = {'data': {'id': 1001, 'notes': {'data': [], 'total': 0}}}
 
         with app.app_context():
             from tasks.owner_reassignment import preview_reassign_candidates

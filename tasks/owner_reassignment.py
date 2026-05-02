@@ -380,6 +380,13 @@ def _find_cooldown_busters_via_notes(
         try:
             page_data = resp.json() or {}
             notes = page_data.get('data', []) or []
+            # Defensive: a malformed body where ``data`` is a dict (not a
+            # list) — e.g. the entity-association shape leaking into the
+            # search/Note mock in tests, or a future Bullhorn schema
+            # change — must not raise inside the per-note loop. Treat as
+            # "no notes" → fail-open.
+            if not isinstance(notes, list):
+                notes = []
             final_total = page_data.get('total', len(notes))
         except (ValueError, TypeError, AttributeError) as exc:
             logger.warning(
