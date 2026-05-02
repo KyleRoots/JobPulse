@@ -236,7 +236,12 @@ def _candidate_modified_after(candidate: dict, last_evaluated_at) -> bool:
     Return True iff Bullhorn says ``candidate`` was last modified strictly
     AFTER its cooldown ``last_evaluated_at`` timestamp. Used to bust an
     otherwise-active cooldown when the candidate has new activity in
-    Bullhorn (note added, status changed, etc.).
+    Bullhorn (status changed, owner changed, edits, etc.).
+
+    NOTE: Bullhorn does NOT bump ``Candidate.dateLastModified`` when a
+    Note is added to the candidate (Notes are separate entities with
+    their own ``dateAdded``). For note-add detection see
+    :func:`_find_cooldown_busters_via_notes`.
 
     Defensive on missing/malformed input — returns False so a missing
     ``dateLastModified`` field defaults to "no new activity" and the
@@ -252,6 +257,180 @@ def _candidate_modified_after(candidate: dict, last_evaluated_at) -> bool:
     except (TypeError, ValueError, OSError, OverflowError):
         return False
     return modified_dt > last_evaluated_at
+
+
+# Naive-UTC epoch used to convert cooldown ``last_evaluated_at`` datetimes
+# back to Bullhorn-style millisecond timestamps without relying on the
+# server's local timezone (which would corrupt ``datetime.timestamp()`` on
+# naive inputs). The rest of this module already stores/compares naive
+# UTC datetimes, so this conversion stays consistent end-to-end.
+_EPOCH = datetime(1970, 1, 1)
+
+
+def _find_cooldown_busters_via_notes(
+    base_url: str,
+    headers: dict,
+    cooldown_state: dict,
+    api_user_ids: List[int],
+    max_pages: int = 10,
+    page_size: int = 200,
+) -> set:
+    """
+    Return the set of candidate IDs in ``cooldown_state`` whose cooldown
+    should be busted because a non-API user added a Note to the candidate
+    AFTER its ``last_evaluated_at``.
+
+    Closes the bug-#1 follow-on blind spot: Bullhorn does NOT bump
+    ``Candidate.dateLastModified`` when a Note is added (Notes have their
+    own ``dateAdded``), so :func:`_candidate_modified_after` cannot
+    detect note-add activity by itself. This helper queries Bullhorn's
+    Note search once per cycle (paginated) using the OLDEST
+    ``last_evaluated_at`` across the batch as the floor, then
+    client-side filters by:
+
+      * non-API author (``commentingPerson.id`` NOT in ``api_user_ids``);
+      * ``personReference.id`` IS in ``cooldown_state``;
+      * ``note.dateAdded`` > that candidate's own ``last_evaluated_at``.
+
+    A missing/unparseable ``commentingPerson.id`` is treated as a human
+    author (mirrors :mod:`screening.dedup` behavior — never let a
+    malformed author field hide real recruiter activity).
+
+    Fail-open: returns an empty set on any error so the legitimate
+    reassignment work proceeds. Pagination cap
+    (``max_pages * page_size`` = 2,000 notes by default) bounds the API
+    cost; a warning is logged if the cap is hit.
+    """
+    if not cooldown_state or not api_user_ids:
+        return set()
+
+    try:
+        floor_dt = min(cooldown_state.values())
+        floor_ms = int((floor_dt - _EPOCH).total_seconds() * 1000)
+    except (TypeError, ValueError, AttributeError):
+        return set()
+
+    api_user_id_set = {int(uid) for uid in api_user_ids}
+    cooldown_ms: dict = {}
+    for cid, dt in cooldown_state.items():
+        try:
+            cooldown_ms[int(cid)] = int((dt - _EPOCH).total_seconds() * 1000)
+        except (TypeError, ValueError, AttributeError):
+            continue
+    if not cooldown_ms:
+        return set()
+
+    note_url = f"{base_url}search/Note"
+    busters: set = set()
+    start = 0
+    pages_fetched = 0
+    final_total = 0
+
+    while pages_fetched < max_pages:
+        params = {
+            'query': f'dateAdded:[{floor_ms} TO *] AND isDeleted:false',
+            'fields': 'id,dateAdded,commentingPerson(id),personReference(id)',
+            'count': page_size,
+            'start': start,
+            # Newest-first: when total notes exceed the pagination cap
+            # (max_pages × page_size = 2,000), oldest-first ordering would
+            # scan ancient notes first and miss the recent recruiter notes
+            # that actually need to bust cooldown — recreating the bug-#4
+            # blind spot. Newest-first guarantees the most actionable
+            # busters are caught even when volume is high.
+            'sort': '-dateAdded',
+        }
+
+        resp = None
+        for attempt in range(2):
+            try:
+                resp = _requests.get(
+                    note_url, headers=headers, params=params, timeout=30
+                )
+                if resp.status_code == 200:
+                    break
+                if 500 <= resp.status_code < 600 and attempt == 0:
+                    time.sleep(1)
+                    continue
+                logger.warning(
+                    f"owner_reassignment: cooldown-buster note search HTTP "
+                    f"{resp.status_code} (page start={start}); fail-open"
+                )
+                return busters
+            except Exception as exc:
+                if attempt == 0:
+                    time.sleep(1)
+                    continue
+                logger.warning(
+                    f"owner_reassignment: cooldown-buster note search "
+                    f"exception: {exc} (fail-open)"
+                )
+                return busters
+
+        if resp is None or resp.status_code != 200:
+            return busters
+
+        # Defensive JSON parse — a malformed body (truncated upstream
+        # response, unexpected content-type, etc.) must NOT bubble out
+        # and break the cycle. Fail-open: return whatever busters we
+        # already collected and let the legitimate work proceed.
+        try:
+            page_data = resp.json() or {}
+            notes = page_data.get('data', []) or []
+            final_total = page_data.get('total', len(notes))
+        except (ValueError, TypeError, AttributeError) as exc:
+            logger.warning(
+                f"owner_reassignment: cooldown-buster note search returned "
+                f"unparseable JSON (page start={start}): {exc} (fail-open)"
+            )
+            return busters
+        pages_fetched += 1
+
+        for note in notes:
+            cp = note.get('commentingPerson') or {}
+            cp_id = cp.get('id')
+            try:
+                cp_id_int = int(cp_id) if cp_id is not None else None
+            except (TypeError, ValueError):
+                cp_id_int = None
+            # Defensive: a missing / unparseable commentingPerson is
+            # treated as human (mirrors screening/dedup.py — never let a
+            # malformed author field hide real recruiter activity).
+            if cp_id_int is not None and cp_id_int in api_user_id_set:
+                continue
+
+            person_ref = note.get('personReference') or {}
+            pid = person_ref.get('id')
+            try:
+                pid_int = int(pid) if pid is not None else None
+            except (TypeError, ValueError):
+                pid_int = None
+            if pid_int is None or pid_int not in cooldown_ms:
+                continue
+
+            note_added = note.get('dateAdded')
+            try:
+                note_added_ms = int(note_added) if note_added is not None else 0
+            except (TypeError, ValueError):
+                note_added_ms = 0
+            if note_added_ms > cooldown_ms[pid_int]:
+                busters.add(pid_int)
+
+        start += len(notes)
+        if start >= final_total or len(notes) < page_size:
+            break
+
+        time.sleep(0.05)
+
+    if pages_fetched >= max_pages and start < final_total:
+        logger.warning(
+            f"owner_reassignment: cooldown-buster note search hit pagination "
+            f"cap ({max_pages} pages × {page_size} notes, scanned {start} of "
+            f"{final_total}); some recent notes may not have been considered "
+            f"for cooldown bust this cycle"
+        )
+
+    return busters
 
 
 def _flush_cooldown_outcomes(outcomes: List[Tuple[int, str]]) -> None:
@@ -793,6 +972,17 @@ def preview_reassign_candidates(limit: int = 5) -> dict:
             cooldown_state = _fetch_cooldown_state(sample_ids)
             cooldown_on = _cooldown_enabled()
             cooldown_window_h = _cooldown_hours()
+            # Mirror the live cycle's bug-#4 note-buster signal so the
+            # preview accurately reflects which cooldown'd candidates the
+            # 5-min cycle would actually re-evaluate (a recent non-API
+            # note busts the cooldown even if Candidate.dateLastModified
+            # hasn't moved).
+            note_buster_ids = (
+                _find_cooldown_busters_via_notes(
+                    base_url, headers, cooldown_state, api_user_ids
+                )
+                if cooldown_on and cooldown_state else set()
+            )
 
             results = []
             for candidate in sample:
@@ -812,9 +1002,12 @@ def preview_reassign_candidates(limit: int = 5) -> dict:
                     if last_eval is not None:
                         # Cooldown row exists and is in window — skip
                         # UNLESS Bullhorn says the candidate has been
-                        # modified since (busts the cooldown).
-                        in_cooldown = not _candidate_modified_after(
-                            candidate, last_eval
+                        # modified since (busts the cooldown), OR a
+                        # non-API user has added a Note since (bug-#4
+                        # note-buster signal).
+                        in_cooldown = (
+                            not _candidate_modified_after(candidate, last_eval)
+                            and int(candidate_id) not in note_buster_ids
                         )
 
                 entry = {
@@ -1035,11 +1228,21 @@ def reassign_api_user_candidates(
 
             cooldown_skipped_count = 0
             cooldown_busted_count = 0
+            note_busted_count = 0
             if _cooldown_enabled():
                 all_ids = [c.get('id') for c in candidates if c.get('id')]
                 cooldown_state = _fetch_cooldown_state(all_ids)
                 if cooldown_state:
                     pre_filter_count = len(candidates)
+                    # Single-shot Bullhorn Note search to detect cooldown
+                    # busts driven by recent non-API notes. Bullhorn does
+                    # NOT bump ``Candidate.dateLastModified`` on note-add,
+                    # so ``_candidate_modified_after`` alone misses this
+                    # signal (bug #4, May 2026). Fail-open: returns set()
+                    # on any failure so legitimate work still proceeds.
+                    note_buster_ids = _find_cooldown_busters_via_notes(
+                        base_url, headers, cooldown_state, api_user_ids
+                    )
                     surviving: list = []
                     for c in candidates:
                         try:
@@ -1052,14 +1255,22 @@ def reassign_api_user_candidates(
                             # No active cooldown row — evaluate normally.
                             surviving.append(c)
                             continue
-                        # Active cooldown row exists. Bust it iff Bullhorn
-                        # reports activity AFTER our last evaluation; this
-                        # covers the previously-blind case where a
-                        # recruiter leaves a note minutes after a no-op
-                        # evaluation, but inside the 24h cooldown window.
+                        # Active cooldown row exists. Bust if EITHER
+                        # signal fires:
+                        #   1) Bullhorn ``Candidate.dateLastModified``
+                        #      newer than last_eval (status / owner /
+                        #      edit activity).
+                        #   2) Non-API user added a Note newer than
+                        #      last_eval (note-add activity, which does
+                        #      NOT bump ``Candidate.dateLastModified``).
                         if _candidate_modified_after(c, last_eval):
                             cooldown_busted_count += 1
                             surviving.append(c)
+                            continue
+                        if cid_int in note_buster_ids:
+                            note_busted_count += 1
+                            surviving.append(c)
+                            continue
                     candidates = surviving
                     cooldown_skipped_count = pre_filter_count - len(candidates)
                     logger.info(
@@ -1068,7 +1279,8 @@ def reassign_api_user_candidates(
                         f"{pre_filter_count:,} candidate(s) "
                         f"(window: {_cooldown_hours()} h, "
                         f"{cooldown_busted_count:,} busted by "
-                        f"dateLastModified); "
+                        f"dateLastModified, {note_busted_count:,} busted "
+                        f"by recent note (non-API author)); "
                         f"{len(candidates):,} remain to evaluate"
                     )
                 else:

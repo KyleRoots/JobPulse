@@ -1351,10 +1351,20 @@ class TestCooldownFiltersRepeatNoOps:
                     mock_req.get.return_value = search_resp
                     result = reassign_api_user_candidates(since_minutes=30)
 
-                    # Only the candidate-search GET should fire — no per-
-                    # candidate Notes lookup, because the cooldown short-
-                    # circuited before the loop.
-                    assert mock_req.get.call_count == 1
+                    # Exactly TWO GETs should fire:
+                    #   1. Candidate search (always).
+                    #   2. Single-shot bug-#4 note-buster batch search
+                    #      (added May 2026 — closes the note-add blind
+                    #      spot in `_candidate_modified_after`).
+                    # Critically, NO per-candidate
+                    # `_find_first_human_interactor` GET fires, because
+                    # the cooldown still short-circuits the per-candidate
+                    # loop. Mock returns no real notes, so no buster IDs,
+                    # so candidate 1001 stays cooldown-skipped.
+                    assert mock_req.get.call_count == 2, (
+                        f"Expected 2 GETs (candidate search + 1 note-"
+                        f"buster batch); got {mock_req.get.call_count}"
+                    )
                     assert mock_req.post.call_count == 0
                     assert result['cooldown_skipped'] == 1
                     assert result['reassigned'] == 0
@@ -1841,15 +1851,27 @@ class TestCooldownInvalidationByDateLastModified:
                 bh.rest_token = 'test-token'
                 mock_bh_cls.return_value = bh
 
+                # Bug-#4 note-buster batch search now fires unconditionally
+                # whenever cooldown_state is non-empty. Returns no notes
+                # so it adds nothing to the buster set — `dateLastModified`
+                # is what busts this candidate.
+                note_buster_resp = MagicMock()
+                note_buster_resp.status_code = 200
+                note_buster_resp.json.return_value = {'data': [], 'total': 0}
+
                 with patch('tasks.owner_reassignment._requests') as mock_req:
-                    mock_req.get.side_effect = [search_resp, note_resp]
+                    mock_req.get.side_effect = [
+                        search_resp, note_buster_resp, note_resp,
+                    ]
                     mock_req.post.return_value = update_resp
                     result = reassign_api_user_candidates(since_minutes=30)
 
                     # Cooldown was busted by dateLastModified, so the
                     # candidate IS evaluated and the recruiter note IS
-                    # fetched — proving the filter let it through.
-                    assert mock_req.get.call_count == 2, (
+                    # fetched — proving the filter let it through. Three
+                    # GETs total: candidate search + bug-#4 note-buster
+                    # batch + per-candidate Notes lookup.
+                    assert mock_req.get.call_count == 3, (
                         "Notes lookup must fire when cooldown is busted by "
                         "dateLastModified; got call_count="
                         f"{mock_req.get.call_count}"
@@ -1902,9 +1924,16 @@ class TestCooldownInvalidationByDateLastModified:
                     mock_req.get.return_value = search_resp
                     result = reassign_api_user_candidates(since_minutes=30)
 
-                    # Only the candidate-search GET should fire — the
-                    # cooldown is still valid because no fresh activity.
-                    assert mock_req.get.call_count == 1
+                    # Two GETs: candidate search + bug-#4 note-buster
+                    # batch. The per-candidate
+                    # `_find_first_human_interactor` GET MUST NOT fire —
+                    # cooldown still holds because dateLastModified is
+                    # stale and the (mocked) note search returns no real
+                    # notes for non-API authors.
+                    assert mock_req.get.call_count == 2, (
+                        f"Expected 2 GETs (candidate search + note-buster "
+                        f"batch); got {mock_req.get.call_count}"
+                    )
                     assert mock_req.post.call_count == 0
                     assert result['cooldown_skipped'] == 1
                     assert result['reassigned'] == 0
@@ -1950,8 +1979,15 @@ class TestCooldownInvalidationByDateLastModified:
                     mock_req.get.return_value = search_resp
                     result = reassign_api_user_candidates(since_minutes=30)
 
-                    # Notes lookup MUST NOT fire — cooldown stands.
-                    assert mock_req.get.call_count == 1
+                    # Two GETs: candidate search + bug-#4 note-buster
+                    # batch. The per-candidate Notes lookup MUST NOT fire
+                    # — cooldown stands because dateLastModified is
+                    # missing AND no recent non-API note exists for
+                    # candidate 4003 in the mock note-buster response.
+                    assert mock_req.get.call_count == 2, (
+                        f"Expected 2 GETs (candidate search + note-buster "
+                        f"batch); got {mock_req.get.call_count}"
+                    )
                     assert result['cooldown_skipped'] == 1
 
 
@@ -2251,3 +2287,275 @@ class TestFindFirstHumanInteractorQuerySyntax:
                 )
 
         assert result == (None, None, None)
+
+
+# ════════════════════════════════════════════════════════════════════════
+# Bug #4 — note-based cooldown bust
+# ════════════════════════════════════════════════════════════════════════
+# Bullhorn does NOT bump `Candidate.dateLastModified` when a Note is added
+# to the candidate (Notes are separate entities with their own
+# `dateAdded`). Bug #1's cooldown-bust mechanism therefore couldn't see
+# notes added by recruiters during the 24h cooldown window — those
+# candidates stayed in cooldown until the timer naturally expired.
+#
+# `_find_cooldown_busters_via_notes` closes that gap by querying
+# Bullhorn's Note search once per cycle and returning the set of
+# candidate IDs to bust based on recent non-API notes.
+class TestCooldownNoteBuster:
+    def test_busts_candidate_when_recent_non_api_note_exists(self, app):
+        from datetime import datetime as _dt
+        from tasks.owner_reassignment import (
+            _find_cooldown_busters_via_notes, _EPOCH,
+        )
+
+        last_eval = _dt(2026, 5, 2, 11, 53, 35)
+        cooldown_state = {4657858: last_eval}
+        api_user_ids = [4582015, 4591841, 4593767, 4582033, 1147490]
+
+        # Note added 1 minute AFTER last_eval by a non-API author (the
+        # recruiter who left the note on candidate 4657858 around 12:05).
+        note_added_dt = _dt(2026, 5, 2, 11, 54, 35)
+        note_added_ms = int((note_added_dt - _EPOCH).total_seconds() * 1000)
+
+        notes_page = {
+            'data': [
+                {
+                    'id': 999,
+                    'dateAdded': note_added_ms,
+                    'commentingPerson': {'id': 88888},   # human recruiter
+                    'personReference': {'id': 4657858},
+                },
+            ],
+            'total': 1,
+        }
+
+        captured_query = {}
+
+        def fake_get(url, headers=None, params=None, timeout=None):
+            captured_query['query'] = params.get('query', '')
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.json.return_value = notes_page
+            return mock_resp
+
+        with patch('tasks.owner_reassignment._requests') as mock_req:
+            mock_req.get.side_effect = fake_get
+            with app.app_context():
+                busters = _find_cooldown_busters_via_notes(
+                    base_url='https://rest.bullhorn.com/',
+                    headers={'BhRestToken': 'tok'},
+                    cooldown_state=cooldown_state,
+                    api_user_ids=api_user_ids,
+                )
+
+        assert busters == {4657858}, (
+            f"Recent non-API note must bust the cooldown for 4657858; got {busters}"
+        )
+        assert 'isDeleted:false' in captured_query['query']
+        assert 'dateAdded:[' in captured_query['query']
+
+    def test_does_not_bust_when_only_api_authored_notes(self, app):
+        from datetime import datetime as _dt
+        from tasks.owner_reassignment import (
+            _find_cooldown_busters_via_notes, _EPOCH,
+        )
+
+        last_eval = _dt(2026, 5, 2, 11, 53, 35)
+        cooldown_state = {4657858: last_eval}
+        api_user_ids = [4582015, 4591841, 4593767, 4582033, 1147490]
+
+        note_added_ms = int(
+            (_dt(2026, 5, 2, 11, 54, 35) - _EPOCH).total_seconds() * 1000
+        )
+        notes_page = {
+            'data': [
+                {
+                    'id': 1,
+                    'dateAdded': note_added_ms,
+                    'commentingPerson': {'id': 1147490},   # Myticas API
+                    'personReference': {'id': 4657858},
+                },
+                {
+                    'id': 2,
+                    'dateAdded': note_added_ms + 1000,
+                    'commentingPerson': {'id': 4582033},   # Pandologic
+                    'personReference': {'id': 4657858},
+                },
+            ],
+            'total': 2,
+        }
+
+        with patch('tasks.owner_reassignment._requests') as mock_req:
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.json.return_value = notes_page
+            mock_req.get.return_value = mock_resp
+            with app.app_context():
+                busters = _find_cooldown_busters_via_notes(
+                    base_url='https://rest.bullhorn.com/',
+                    headers={'BhRestToken': 'tok'},
+                    cooldown_state=cooldown_state,
+                    api_user_ids=api_user_ids,
+                )
+
+        assert busters == set(), (
+            f"API-authored notes must NOT bust cooldowns; got {busters}"
+        )
+
+    def test_does_not_bust_when_note_predates_last_evaluated_at(self, app):
+        from datetime import datetime as _dt
+        from tasks.owner_reassignment import (
+            _find_cooldown_busters_via_notes, _EPOCH,
+        )
+
+        # Candidate A: last_eval=12:00, note at 11:55 → must NOT bust
+        # Candidate B: last_eval=11:00, note at 11:55 → MUST bust
+        # Both notes returned in the same Bullhorn page; per-candidate
+        # comparison must be precise so A is not falsely busted by B's
+        # bust-eligible note appearing in the same response.
+        cooldown_state = {
+            10001: _dt(2026, 5, 2, 12, 0, 0),
+            10002: _dt(2026, 5, 2, 11, 0, 0),
+        }
+        api_user_ids = [1147490]
+
+        old_note_ms = int(
+            (_dt(2026, 5, 2, 11, 55, 0) - _EPOCH).total_seconds() * 1000
+        )
+
+        notes_page = {
+            'data': [
+                {
+                    'id': 1,
+                    'dateAdded': old_note_ms,
+                    'commentingPerson': {'id': 88888},
+                    'personReference': {'id': 10001},   # predates A's eval
+                },
+                {
+                    'id': 2,
+                    'dateAdded': old_note_ms,
+                    'commentingPerson': {'id': 88888},
+                    'personReference': {'id': 10002},   # newer than B's eval
+                },
+            ],
+            'total': 2,
+        }
+
+        with patch('tasks.owner_reassignment._requests') as mock_req:
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.json.return_value = notes_page
+            mock_req.get.return_value = mock_resp
+            with app.app_context():
+                busters = _find_cooldown_busters_via_notes(
+                    base_url='https://rest.bullhorn.com/',
+                    headers={'BhRestToken': 'tok'},
+                    cooldown_state=cooldown_state,
+                    api_user_ids=api_user_ids,
+                )
+
+        assert busters == {10002}, (
+            f"Per-candidate timestamp comparison must be precise; "
+            f"expected {{10002}}, got {busters}"
+        )
+
+    def test_fail_open_on_bullhorn_error(self, app):
+        from datetime import datetime as _dt
+        from tasks.owner_reassignment import _find_cooldown_busters_via_notes
+
+        cooldown_state = {4657858: _dt(2026, 5, 2, 11, 53, 35)}
+
+        with patch('tasks.owner_reassignment._requests') as mock_req:
+            mock_resp = MagicMock()
+            mock_resp.status_code = 500
+            mock_resp.text = 'Internal Server Error'
+            mock_req.get.return_value = mock_resp
+            with app.app_context():
+                busters = _find_cooldown_busters_via_notes(
+                    base_url='https://rest.bullhorn.com/',
+                    headers={'BhRestToken': 'tok'},
+                    cooldown_state=cooldown_state,
+                    api_user_ids=[1147490],
+                )
+
+        assert busters == set(), (
+            f"Helper must fail-open on Bullhorn errors; got {busters}"
+        )
+
+    def test_returns_empty_when_cooldown_state_empty(self, app):
+        from tasks.owner_reassignment import _find_cooldown_busters_via_notes
+
+        with patch('tasks.owner_reassignment._requests') as mock_req:
+            with app.app_context():
+                busters = _find_cooldown_busters_via_notes(
+                    base_url='https://rest.bullhorn.com/',
+                    headers={'BhRestToken': 'tok'},
+                    cooldown_state={},
+                    api_user_ids=[1147490],
+                )
+
+        assert busters == set()
+        # Critical: must not call Bullhorn at all when there are no
+        # cooldown rows to evaluate.
+        assert not mock_req.get.called, (
+            "Empty cooldown_state must short-circuit without any API call"
+        )
+
+    def test_newest_first_sort_catches_recent_busters_under_cap(self, app):
+        """High-volume regression test for the fix architect flagged.
+
+        If notes between ``floor_ms`` and now exceed the pagination cap
+        (10 × 200 = 2,000) and we sort ascending, the scan would chew
+        through ancient notes first and never reach the recent recruiter
+        note that should bust cooldown — recreating the bug-#4 blind
+        spot. This test asserts the helper requests newest-first
+        ordering AND correctly catches a recent buster on page 0 even
+        when the reported total far exceeds the cap.
+        """
+        from datetime import datetime as _dt
+        from tasks.owner_reassignment import (
+            _find_cooldown_busters_via_notes, _EPOCH,
+        )
+
+        cid = 4657858
+        cooldown_state = {cid: _dt(2026, 5, 2, 11, 53, 35)}
+        cooldown_ms = int(
+            (cooldown_state[cid] - _EPOCH).total_seconds() * 1000
+        )
+        # A genuinely recent recruiter note — would bust cooldown.
+        recent_buster_note = {
+            'id': 999001,
+            'dateAdded': cooldown_ms + 60_000,  # 1 min after last_eval
+            'commentingPerson': {'id': 1147490},  # human recruiter
+            'personReference': {'id': cid},
+        }
+        # Page 0 (newest-first) returns the buster. Total is huge to
+        # simulate "10,000 notes exist in the window but the cap is 2,000."
+        page0 = {'data': [recent_buster_note], 'total': 10_000}
+
+        with patch('tasks.owner_reassignment._requests') as mock_req:
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.json.return_value = page0
+            mock_req.get.return_value = mock_resp
+            with app.app_context():
+                busters = _find_cooldown_busters_via_notes(
+                    base_url='https://rest.bullhorn.com/',
+                    headers={'BhRestToken': 'tok'},
+                    cooldown_state=cooldown_state,
+                    api_user_ids=[4582015, 4591841],
+                )
+
+        assert cid in busters, (
+            "Recent recruiter note on page 0 must bust the cooldown "
+            "even when total exceeds the pagination cap"
+        )
+        # Verify we requested newest-first ordering — this is the
+        # architectural guarantee that high-volume orgs don't get
+        # blind-spotted.
+        first_call_kwargs = mock_req.get.call_args_list[0].kwargs
+        params = first_call_kwargs.get('params', {})
+        assert params.get('sort') == '-dateAdded', (
+            f"Note search must sort newest-first to survive the "
+            f"pagination cap; got sort={params.get('sort')!r}"
+        )
