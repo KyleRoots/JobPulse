@@ -2398,6 +2398,65 @@ class TestFindFirstHumanInteractorQuerySyntax:
 
 
 # ════════════════════════════════════════════════════════════════════════
+# Bug #5 defensive guards — malformed upstream shapes must not crash
+# ════════════════════════════════════════════════════════════════════════
+class TestBug5DefensiveGuards:
+    """Regression: a malformed Bullhorn response (legacy search-shape leaking
+    into the entity endpoint, truncated payload, etc.) must NOT raise out of
+    the per-candidate hot path. Both helpers fail-safe → caller treats the
+    candidate as 'no human activity' and skips reassignment."""
+
+    def test_first_human_interactor_handles_non_dict_data(self, app):
+        """`body['data']` is a list (legacy search-shape) → return (None, None, None)."""
+        from tasks.owner_reassignment import _find_first_human_interactor
+
+        bad_resp = MagicMock()
+        bad_resp.status_code = 200
+        bad_resp.json.return_value = {'data': [{'id': 1}, {'id': 2}]}
+
+        with patch('tasks.owner_reassignment._requests') as mock_req:
+            mock_req.get.return_value = bad_resp
+            with app.app_context():
+                result = _find_first_human_interactor(
+                    base_url='https://rest.bullhorn.com/',
+                    headers={'BhRestToken': 'tok'},
+                    candidate_id=4656965,
+                    api_user_ids=[1147490],
+                )
+        assert result == (None, None, None), (
+            "Non-dict `data` must fail-safe to (None, None, None) — never crash"
+        )
+
+    def test_cooldown_buster_handles_non_list_data(self, app):
+        """`page_data['data']` is a dict (entity-shape leak) → no busters, no crash."""
+        from datetime import datetime as _dt
+        from tasks.owner_reassignment import _find_cooldown_busters_via_notes
+
+        bad_resp = MagicMock()
+        bad_resp.status_code = 200
+        bad_resp.json.return_value = {
+            'data': {'id': 1001, 'notes': {'data': [], 'total': 0}},
+            'total': 0,
+        }
+
+        with patch('tasks.owner_reassignment._requests') as mock_req:
+            mock_req.get.return_value = bad_resp
+            with app.app_context():
+                busters = _find_cooldown_busters_via_notes(
+                    base_url='https://rest.bullhorn.com/',
+                    headers={'BhRestToken': 'tok'},
+                    cooldown_state={
+                        7001: _dt.utcnow(),
+                        7002: _dt.utcnow(),
+                    },
+                    api_user_ids=[1147490],
+                )
+        assert busters == set(), (
+            "Non-list `data` must fail-open to empty buster set — never crash"
+        )
+
+
+# ════════════════════════════════════════════════════════════════════════
 # Bug #4 — note-based cooldown bust
 # ════════════════════════════════════════════════════════════════════════
 # Bullhorn does NOT bump `Candidate.dateLastModified` when a Note is added
