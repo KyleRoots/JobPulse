@@ -20,6 +20,16 @@ logger = logging.getLogger(__name__)
 class NotesMixin:
     AI_ACTION_PATTERNS = ["AI Vetting", "AI Resume Summary", "AI Vetted"]
 
+    def _get_api_user_ids(self):
+        try:
+            from models import VettingConfig
+            row = VettingConfig.query.filter_by(setting_key='api_user_ids').first()
+            if row and row.setting_value:
+                return [int(x.strip()) for x in row.setting_value.split(',') if x.strip().isdigit()]
+        except Exception as exc:
+            logger.warning(f"cleanup_duplicate_notes: could not load api_user_ids — {exc}")
+        return []
+
     def _builtin_cleanup_ai_notes(self, params):
         dry_run = params.get("dry_run", True)
         candidate_ids = params.get("candidate_ids")
@@ -116,10 +126,19 @@ class NotesMixin:
         cutoff = datetime.utcnow() - timedelta(days=days_back)
         cutoff_ts = int(cutoff.timestamp() * 1000)
 
+        api_user_ids = self._get_api_user_ids()
+
         lucene_query = f"dateAdded:[{cutoff_ts} TO *] AND isDeleted:false"
+        if api_user_ids:
+            if len(api_user_ids) == 1:
+                lucene_query += f" AND commentingPerson.id:{api_user_ids[0]}"
+            else:
+                ids_clause = " OR ".join(str(uid) for uid in api_user_ids)
+                lucene_query += f" AND commentingPerson.id:({ids_clause})"
         logger.info(
             f"cleanup_duplicate_notes: query={lucene_query!r}, "
             f"action_filter={action_filter!r} (client-side), "
+            f"api_user_ids={api_user_ids}, "
             f"days_back={days_back}, window={time_window_minutes}min, "
             f"max_candidates={max_candidates}, dry_run={dry_run}"
         )
@@ -131,13 +150,14 @@ class NotesMixin:
         search_total = 0
         skipped_no_candidate = 0
         skipped_action_filter = 0
-        max_search_pages = 40
+        page_size = 200
+        max_search_pages = 100
         pages_fetched = 0
         while True:
             p = {
                 "query": lucene_query,
                 "fields": "id,action,dateAdded,comments,commentingPerson(id,firstName,lastName),personReference(id),candidates(id)",
-                "count": 500,
+                "count": page_size,
                 "start": start,
                 "sort": "-dateAdded",
             }
@@ -172,7 +192,7 @@ class NotesMixin:
                 total_notes_fetched += len(batch)
                 start += len(batch)
                 pages_fetched += 1
-                if len(batch) < 500 or start >= search_total:
+                if len(batch) == 0 or start >= search_total:
                     break
                 if pages_fetched >= max_search_pages:
                     logger.info(
