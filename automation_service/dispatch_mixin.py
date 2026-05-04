@@ -38,7 +38,7 @@ class DispatchMixin:
             bg_thread = threading.Thread(
                 target=_run_bg,
                 args=(service_ref, name, params, task_id),
-                daemon=True
+                daemon=False
             )
             bg_thread.start()
             self.logger.info(f"Launched background built-in: {name}")

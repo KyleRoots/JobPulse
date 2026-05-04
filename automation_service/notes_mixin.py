@@ -178,12 +178,12 @@ class NotesMixin:
                 fetch_errors += 1
                 if fetch_errors <= 3:
                     logger.warning(f"cleanup_duplicate_notes: entity fetch failed for candidate {cid} — {exc}")
-            if (idx + 1) % 50 == 0 or idx == 0:
+            if (idx + 1) % 100 == 0 or idx == 0:
                 logger.info(
                     f"cleanup_duplicate_notes: progress {idx + 1}/{total_candidates}, "
                     f"matching_notes={total_notes_fetched}, errors={fetch_errors}"
                 )
-            time.sleep(0.02)
+            time.sleep(0.01)
 
         logger.info(
             f"cleanup_duplicate_notes: scanned {len(candidate_ids)} candidates via entity lookup, "
