@@ -181,7 +181,11 @@ class NotesMixin:
                     )
                     break
             except Exception as exc:
-                logger.warning(f"cleanup_duplicate_notes: search page failed — {exc}")
+                import traceback
+                logger.error(
+                    f"cleanup_duplicate_notes: search page failed (page={pages_fetched}, start={start}) — {exc}\n"
+                    f"{traceback.format_exc()}"
+                )
                 break
             time.sleep(0.05)
 
@@ -268,10 +272,12 @@ class NotesMixin:
         mode_label = "DRY RUN: " if dry_run else ""
         summary = (
             f"{mode_label}Found {total_delete} duplicate note(s) across "
-            f"{len(duplicates)} candidate(s) (scanned {candidates_scanned})"
+            f"{len(duplicates)} candidate(s) (scanned {candidates_scanned}) "
+            f"[search_total={search_total}, fetched={total_notes_fetched}, "
+            f"action_skipped={skipped_action_filter}]"
         )
         if not dry_run:
-            summary += f". Deleted {deleted}, failed {failed}."
+            summary += f" Deleted {deleted}, failed {failed}."
 
         return {
             "summary": summary,

@@ -32,7 +32,8 @@ class DispatchMixin:
                     try:
                         svc.run_builtin(bg_name, bg_params, task_id=bg_task_id)
                     except Exception as e:
-                        svc.logger.error(f"Background builtin {bg_name} error: {e}")
+                        import traceback
+                        svc.logger.error(f"Background builtin {bg_name} error: {e}\n{traceback.format_exc()}")
 
             bg_thread = threading.Thread(
                 target=_run_bg,
@@ -105,15 +106,23 @@ class DispatchMixin:
             result = handler(params)
 
             if task_id:
+                details = {
+                    "builtin": name,
+                    "params": {k: str(v)[:200] for k, v in params.items()},
+                    "summary": str(result.get("summary", ""))[:500],
+                }
+                for extra_key in ("search_query", "search_total", "notes_fetched",
+                                  "skipped_action_filter", "skipped_no_candidate_link",
+                                  "candidates_scanned", "candidates_with_duplicates",
+                                  "duplicate_notes_found", "deleted", "dry_run",
+                                  "preview", "error"):
+                    if extra_key in result:
+                        details[extra_key] = result[extra_key]
                 log = AutomationLog(
                     automation_task_id=task_id,
                     status='success',
                     message=f"Built-in: {name}",
-                    details_json=json.dumps({
-                        "builtin": name,
-                        "params": {k: str(v)[:200] for k, v in params.items()},
-                        "summary": str(result.get("summary", ""))[:500]
-                    })
+                    details_json=json.dumps(details, default=str)
                 )
                 db.session.add(log)
                 task = AutomationTask.query.get(task_id)
