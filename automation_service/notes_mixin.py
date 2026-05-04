@@ -141,10 +141,16 @@ class NotesMixin:
         cutoff = datetime.utcnow() - timedelta(days=days_back)
         cutoff_ts = int(cutoff.timestamp() * 1000)
 
-        candidate_ids = self._get_cooldown_candidate_ids(cutoff, max_candidates)
+        if action_filter == "Owner Reassignment":
+            candidate_ids = self._get_cooldown_candidate_ids(cutoff, max_candidates)
+            candidate_source = "cooldown_table"
+        else:
+            candidate_ids = self._get_recent_candidates(max_count=max_candidates)
+            candidate_source = "recent_candidates"
+
         logger.info(
-            f"cleanup_duplicate_notes: using entity association lookup for "
-            f"{len(candidate_ids)} candidates from cooldown table, "
+            f"cleanup_duplicate_notes: source={candidate_source}, "
+            f"{len(candidate_ids)} candidates, "
             f"action_filter={action_filter!r}, "
             f"days_back={days_back}, window={time_window_minutes}min, "
             f"max_candidates={max_candidates}, dry_run={dry_run}"
@@ -269,6 +275,7 @@ class NotesMixin:
             "summary": summary,
             "dry_run": dry_run,
             "lookup_method": "entity_association",
+            "candidate_source": candidate_source,
             "candidates_checked": candidates_scanned,
             "candidates_with_matching_notes": candidates_with_notes,
             "matching_notes": total_notes_fetched,

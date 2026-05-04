@@ -116,7 +116,8 @@ class DispatchMixin:
                                   "candidates_scanned", "candidates_checked",
                                   "candidates_with_matching_notes", "matching_notes",
                                   "candidates_with_duplicates", "fetch_errors",
-                                  "lookup_method", "duplicate_notes_found",
+                                  "lookup_method", "candidate_source",
+                                  "duplicate_notes_found",
                                   "deleted", "dry_run", "preview", "error"):
                     if extra_key in result:
                         details[extra_key] = result[extra_key]
