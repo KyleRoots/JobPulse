@@ -183,7 +183,7 @@ BUILTIN_AUTOMATIONS = [
     },
     {
         "name": "Cleanup Duplicate Notes",
-        "description": "Remove duplicate 'AI Vetting - Not Recommended' notes. Keeps the original (oldest) note and deletes subsequent chained duplicates added within 60 minutes.",
+        "description": "Find and remove duplicate notes on candidate records. A duplicate is defined as same author + identical comments on the same candidate within a configurable time window (default 60 min). Keeps the newest copy, soft-deletes older ones. Supports filtering by action type.",
         "automation_type": "one-time",
         "builtin_key": "cleanup_duplicate_notes",
     },

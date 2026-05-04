@@ -108,18 +108,25 @@ class NotesMixin:
         dry_run = params.get("dry_run", True)
         days_back = params.get("days_back", 5)
         max_candidates = params.get("max_candidates", 500)
-        chain_window = 60
+        time_window_minutes = params.get("time_window_minutes", 60)
+        action_filter = (params.get("action_filter") or "").strip()
 
         cutoff = datetime.utcnow() - timedelta(days=days_back)
         cutoff_ts = int(cutoff.timestamp() * 1000)
 
+        query_parts = [f"dateAdded:[{cutoff_ts} TO *]", "isDeleted:false"]
+        if action_filter:
+            query_parts.append(f'action:"{action_filter}"')
+        lucene_query = " AND ".join(query_parts)
+
         notes_by_candidate = {}
         note_url = f"{self._bh_url()}search/Note"
         start = 0
+        total_notes_fetched = 0
         while True:
             p = {
-                "query": f'action:"AI Vetting - Not Recommended" AND dateAdded:[{cutoff_ts} TO *] AND isDeleted:false',
-                "fields": "id,action,dateAdded,personReference(id)",
+                "query": lucene_query,
+                "fields": "id,action,dateAdded,comments,commentingPerson(id,firstName,lastName),personReference(id)",
                 "count": 500,
                 "start": start,
                 "sort": "dateAdded",
@@ -134,62 +141,111 @@ class NotesMixin:
                     cid = (note.get("personReference") or {}).get("id")
                     if cid:
                         notes_by_candidate.setdefault(cid, []).append(note)
+                total_notes_fetched += len(batch)
                 start += len(batch)
                 if len(batch) < 500 or start >= total:
                     break
-            except Exception:
+            except Exception as exc:
+                logger.warning(f"cleanup_duplicate_notes: search page failed — {exc}")
                 break
             time.sleep(0.05)
 
+        if len(notes_by_candidate) > max_candidates:
+            trimmed = dict(list(notes_by_candidate.items())[:max_candidates])
+            notes_by_candidate = trimmed
+
         duplicates = {}
         total_delete = 0
+        preview_rows = []
 
-        for cid, target_notes in notes_by_candidate.items():
-            if len(target_notes) < 2:
+        for cid, cand_notes in notes_by_candidate.items():
+            if len(cand_notes) < 2:
                 continue
 
-            target_notes.sort(key=lambda n: n.get("dateAdded", 0))
-            keep = [target_notes[0]]
-            to_delete = []
-            prev_time = target_notes[0].get("dateAdded", 0)
+            cand_notes.sort(key=lambda n: n.get("dateAdded", 0))
 
-            for note in target_notes[1:]:
-                gap_ms = note.get("dateAdded", 0) - prev_time
-                gap_min = gap_ms / 60000
-                if gap_min <= chain_window:
-                    to_delete.append({
-                        "id": note["id"],
-                        "gap_minutes": round(gap_min, 1)
-                    })
-                else:
-                    keep.append(note)
-                prev_time = note.get("dateAdded", 0)
+            groups = {}
+            for note in cand_notes:
+                author_id = (note.get("commentingPerson") or {}).get("id", 0)
+                comments = (note.get("comments") or "").strip()
+                if not comments:
+                    continue
+                key = (author_id, comments)
+                groups.setdefault(key, []).append(note)
 
-            if to_delete:
-                duplicates[cid] = {"keep": len(keep), "delete": to_delete}
-                total_delete += len(to_delete)
+            to_delete_for_cid = []
+            for (author_id, comments), group in groups.items():
+                if len(group) < 2:
+                    continue
+
+                group.sort(key=lambda n: n.get("dateAdded", 0))
+                newest = group[-1]
+
+                for note in group[:-1]:
+                    gap_ms = newest.get("dateAdded", 0) - note.get("dateAdded", 0)
+                    gap_min = gap_ms / 60000
+                    if gap_min <= time_window_minutes:
+                        author_name = ""
+                        cp = note.get("commentingPerson") or {}
+                        if cp.get("firstName"):
+                            author_name = f"{cp.get('firstName', '')} {cp.get('lastName', '')}".strip()
+                        to_delete_for_cid.append({
+                            "id": note["id"],
+                            "action": note.get("action", ""),
+                            "gap_minutes": round(gap_min, 1),
+                            "author": author_name or f"user:{author_id}",
+                            "comments_preview": comments[:80] + ("..." if len(comments) > 80 else ""),
+                        })
+
+            if to_delete_for_cid:
+                duplicates[cid] = to_delete_for_cid
+                total_delete += len(to_delete_for_cid)
+                if len(preview_rows) < 25:
+                    for d in to_delete_for_cid[:3]:
+                        preview_rows.append({
+                            "candidate_id": cid,
+                            "note_id": d["id"],
+                            "action": d["action"],
+                            "author": d["author"],
+                            "gap_min": d["gap_minutes"],
+                            "comments": d["comments_preview"],
+                        })
 
         deleted = 0
         failed = 0
         if not dry_run:
-            for cid, data in duplicates.items():
-                for note in data["delete"]:
+            for cid, notes_list in duplicates.items():
+                for note in notes_list:
                     try:
                         self._soft_delete_note(note["id"])
                         deleted += 1
                     except Exception:
                         failed += 1
+                    time.sleep(0.02)
 
         candidates_scanned = len(notes_by_candidate)
+        mode_label = "DRY RUN: " if dry_run else ""
+        summary = (
+            f"{mode_label}Found {total_delete} duplicate note(s) across "
+            f"{len(duplicates)} candidate(s) (scanned {candidates_scanned})"
+        )
+        if not dry_run:
+            summary += f". Deleted {deleted}, failed {failed}."
+
         return {
-            "summary": f"{'DRY RUN: ' if dry_run else ''}Found {total_delete} duplicate notes across {len(duplicates)} candidates"
-                       + (f". Deleted {deleted}, failed {failed}" if not dry_run else ""),
+            "summary": summary,
             "dry_run": dry_run,
+            "notes_fetched": total_notes_fetched,
             "candidates_scanned": candidates_scanned,
             "candidates_with_duplicates": len(duplicates),
             "duplicate_notes_found": total_delete,
             "deleted": deleted,
             "failed": failed,
-            "details": {str(k): {"keep": v["keep"], "delete_count": len(v["delete"])} for k, v in list(duplicates.items())[:20]}
+            "time_window_minutes": time_window_minutes,
+            "action_filter": action_filter or "(all actions)",
+            "preview": preview_rows,
+            "candidate_breakdown": {
+                str(k): len(v) for k, v in list(duplicates.items())[:30]
+            },
         }
 
