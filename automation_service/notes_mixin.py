@@ -160,7 +160,8 @@ class NotesMixin:
         total_notes_fetched = 0
         skipped_action_filter = 0
         fetch_errors = 0
-        for cid in candidate_ids:
+        total_candidates = len(candidate_ids)
+        for idx, cid in enumerate(candidate_ids):
             try:
                 notes = self._get_candidate_entity_notes(cid, count=200)
                 for note in notes:
@@ -177,6 +178,11 @@ class NotesMixin:
                 fetch_errors += 1
                 if fetch_errors <= 3:
                     logger.warning(f"cleanup_duplicate_notes: entity fetch failed for candidate {cid} — {exc}")
+            if (idx + 1) % 50 == 0 or idx == 0:
+                logger.info(
+                    f"cleanup_duplicate_notes: progress {idx + 1}/{total_candidates}, "
+                    f"matching_notes={total_notes_fetched}, errors={fetch_errors}"
+                )
             time.sleep(0.02)
 
         logger.info(

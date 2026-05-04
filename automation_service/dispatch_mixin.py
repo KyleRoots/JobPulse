@@ -66,7 +66,12 @@ class DispatchMixin:
         }
         resp = requests.get(url, headers=self._bh_headers(), params=params, timeout=20)
         resp.raise_for_status()
-        return resp.json().get("data", [])
+        body = resp.json()
+        if isinstance(body, dict):
+            return body.get("data") or []
+        elif isinstance(body, list):
+            return body
+        return []
 
     def _soft_delete_note(self, note_id):
         url = f"{self._bh_url()}entity/Note/{note_id}"
