@@ -50,6 +50,9 @@ _PREV_5MIN_CANDIDATE_IDS: set = set()
 _PREV_5MIN_CYCLE_AT: Optional[datetime] = None
 _PREV_5MIN_LOCK = threading.Lock()
 
+_RUN_LOCK = threading.Lock()
+_RUN_LOCK_HOLDER: Optional[str] = None
+
 _SOURCE_DISPLAY = {
     SOURCE_SCHEDULED_5MIN: 'Owner Reassignment (5 min)',
     SOURCE_SCHEDULED_DAILY: 'Owner Reassignment (Daily Sweep)',
@@ -1154,6 +1157,33 @@ def reassign_api_user_candidates(
       errors            list[str]  per-candidate error messages
       reassigned_ids    list[int]  Bullhorn candidate IDs that were updated
     """
+    global _RUN_LOCK_HOLDER
+    from app import app
+
+    if not _RUN_LOCK.acquire(blocking=False):
+        logger.info(
+            f"owner_reassignment: skipped — another run is already in "
+            f"progress (held by {_RUN_LOCK_HOLDER})"
+        )
+        return {
+            'reassigned': 0, 'skipped': 0, 'cooldown_skipped': 0,
+            'failed': 0, 'errors': [], 'reassigned_ids': [],
+            'lock_skipped': True,
+        }
+
+    _RUN_LOCK_HOLDER = _SOURCE_DISPLAY.get(source, source)
+    try:
+        return _reassign_api_user_candidates_locked(since_minutes, source)
+    finally:
+        _RUN_LOCK_HOLDER = None
+        _RUN_LOCK.release()
+
+
+def _reassign_api_user_candidates_locked(
+    since_minutes: int,
+    source: str,
+) -> dict:
+    """Inner implementation — caller must hold _RUN_LOCK."""
     from app import app
 
     with app.app_context():

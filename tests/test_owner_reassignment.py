@@ -2796,3 +2796,47 @@ class TestCooldownNoteBuster:
         assert busters == {4657858}, (
             f"Bare-list `candidates` shape must also be matched; got {busters}"
         )
+
+
+class TestConcurrencyGuard:
+    """T080 — concurrency lock prevents overlapping runs."""
+
+    @patch('tasks.owner_reassignment.BullhornService')
+    @patch('tasks.owner_reassignment._get_vetting_config')
+    @patch('tasks.owner_reassignment._write_run_history')
+    def test_concurrent_run_is_skipped(self, mock_history, mock_cfg, mock_bh, app):
+        """When _RUN_LOCK is already held, a second call returns immediately
+        with lock_skipped=True and does NOT call Bullhorn."""
+        import tasks.owner_reassignment as mod
+
+        mod._RUN_LOCK.acquire()
+        mod._RUN_LOCK_HOLDER = 'Owner Reassignment (Manual Live Batch)'
+        try:
+            result = mod.reassign_api_user_candidates(
+                since_minutes=30,
+                source=mod.SOURCE_SCHEDULED_5MIN,
+            )
+        finally:
+            mod._RUN_LOCK.release()
+            mod._RUN_LOCK_HOLDER = None
+
+        assert result.get('lock_skipped') is True
+        assert result['reassigned'] == 0
+        mock_bh.assert_not_called()
+        mock_cfg.assert_not_called()
+
+    @patch('tasks.owner_reassignment.BullhornService')
+    @patch('tasks.owner_reassignment._get_vetting_config')
+    @patch('tasks.owner_reassignment._write_run_history')
+    def test_lock_released_after_normal_run(self, mock_history, mock_cfg, mock_bh, app):
+        """After a normal run completes, the lock is released so the next run
+        can proceed."""
+        import tasks.owner_reassignment as mod
+
+        mock_cfg.return_value = 'false'
+        mod.reassign_api_user_candidates(
+            since_minutes=30,
+            source=mod.SOURCE_SCHEDULED_5MIN,
+        )
+        assert not mod._RUN_LOCK.locked(), "Lock should be released after run"
+        assert mod._RUN_LOCK_HOLDER is None
