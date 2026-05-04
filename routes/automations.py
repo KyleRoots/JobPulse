@@ -510,6 +510,28 @@ def owner_reassign_action():
         except Exception as e:
             return jsonify({'success': False, 'error': str(e)})
 
+    elif action == 'ownership_clear_cooldown':
+        try:
+            from models import OwnerReassignmentCooldown
+            from extensions import db as _db
+            count = OwnerReassignmentCooldown.query.filter_by(
+                last_outcome='no_human_activity'
+            ).delete()
+            _db.session.commit()
+            logger.info(
+                f"owner_reassignment: admin cleared {count} stale "
+                f"'no_human_activity' cooldown row(s)"
+            )
+            return jsonify({
+                'success': True,
+                'cleared': count,
+                'message': f'Cleared {count:,} stale cooldown row(s). '
+                           f'Next 5-min cycle will re-evaluate them.',
+            })
+        except Exception as e:
+            logger.error(f"ownership_clear_cooldown error: {str(e)}")
+            return jsonify({'success': False, 'error': str(e)})
+
     elif action == 'ownership_preview':
         try:
             from tasks.owner_reassignment import preview_reassign_candidates
