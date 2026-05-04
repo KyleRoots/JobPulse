@@ -106,9 +106,11 @@ class NotesMixin:
 
     def _builtin_cleanup_duplicate_notes(self, params):
         dry_run = params.get("dry_run", True)
-        days_back = params.get("days_back", 5)
-        max_candidates = params.get("max_candidates", 500)
-        time_window_minutes = params.get("time_window_minutes", 60)
+        if isinstance(dry_run, str):
+            dry_run = dry_run.lower() not in ('false', '0', '')
+        days_back = int(params.get("days_back", 5))
+        max_candidates = int(params.get("max_candidates", 500))
+        time_window_minutes = int(params.get("time_window_minutes", 60))
         action_filter = (params.get("action_filter") or "").strip()
 
         cutoff = datetime.utcnow() - timedelta(days=days_back)
@@ -118,15 +120,22 @@ class NotesMixin:
         if action_filter:
             query_parts.append(f'action:"{action_filter}"')
         lucene_query = " AND ".join(query_parts)
+        logger.info(
+            f"cleanup_duplicate_notes: query={lucene_query!r}, "
+            f"days_back={days_back}, window={time_window_minutes}min, "
+            f"max_candidates={max_candidates}, dry_run={dry_run}"
+        )
 
         notes_by_candidate = {}
         note_url = f"{self._bh_url()}search/Note"
         start = 0
         total_notes_fetched = 0
+        search_total = 0
+        skipped_no_candidate = 0
         while True:
             p = {
                 "query": lucene_query,
-                "fields": "id,action,dateAdded,comments,commentingPerson(id,firstName,lastName),personReference(id)",
+                "fields": "id,action,dateAdded,comments,commentingPerson(id,firstName,lastName),personReference(id),candidates(id)",
                 "count": 500,
                 "start": start,
                 "sort": "dateAdded",
@@ -136,11 +145,24 @@ class NotesMixin:
                 resp.raise_for_status()
                 data = resp.json()
                 batch = data.get("data", [])
-                total = data.get("total", 0)
+                search_total = data.get("total", 0)
+                if start == 0:
+                    logger.info(
+                        f"cleanup_duplicate_notes: search returned total={search_total}, "
+                        f"first batch={len(batch)}"
+                    )
                 for note in batch:
                     cid = (note.get("personReference") or {}).get("id")
+                    if not cid:
+                        candidates_list = note.get("candidates") or {}
+                        if isinstance(candidates_list, dict):
+                            candidates_list = candidates_list.get("data", [])
+                        if isinstance(candidates_list, list) and candidates_list:
+                            cid = candidates_list[0].get("id")
                     if cid:
                         notes_by_candidate.setdefault(cid, []).append(note)
+                    else:
+                        skipped_no_candidate += 1
                 total_notes_fetched += len(batch)
                 start += len(batch)
                 if len(batch) < 500 or start >= total:
@@ -149,6 +171,12 @@ class NotesMixin:
                 logger.warning(f"cleanup_duplicate_notes: search page failed — {exc}")
                 break
             time.sleep(0.05)
+
+        logger.info(
+            f"cleanup_duplicate_notes: fetched {total_notes_fetched} notes, "
+            f"mapped to {len(notes_by_candidate)} candidates, "
+            f"skipped {skipped_no_candidate} (no candidate link)"
+        )
 
         if len(notes_by_candidate) > max_candidates:
             trimmed = dict(list(notes_by_candidate.items())[:max_candidates])
@@ -235,7 +263,10 @@ class NotesMixin:
         return {
             "summary": summary,
             "dry_run": dry_run,
+            "search_query": lucene_query,
+            "search_total": search_total,
             "notes_fetched": total_notes_fetched,
+            "skipped_no_candidate_link": skipped_no_candidate,
             "candidates_scanned": candidates_scanned,
             "candidates_with_duplicates": len(duplicates),
             "duplicate_notes_found": total_delete,
