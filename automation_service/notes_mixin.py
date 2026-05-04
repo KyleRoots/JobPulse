@@ -116,12 +116,10 @@ class NotesMixin:
         cutoff = datetime.utcnow() - timedelta(days=days_back)
         cutoff_ts = int(cutoff.timestamp() * 1000)
 
-        query_parts = [f"dateAdded:[{cutoff_ts} TO *]", "isDeleted:false"]
-        if action_filter:
-            query_parts.append(f'action:"{action_filter}"')
-        lucene_query = " AND ".join(query_parts)
+        lucene_query = f"dateAdded:[{cutoff_ts} TO *] AND isDeleted:false"
         logger.info(
             f"cleanup_duplicate_notes: query={lucene_query!r}, "
+            f"action_filter={action_filter!r} (client-side), "
             f"days_back={days_back}, window={time_window_minutes}min, "
             f"max_candidates={max_candidates}, dry_run={dry_run}"
         )
@@ -132,13 +130,16 @@ class NotesMixin:
         total_notes_fetched = 0
         search_total = 0
         skipped_no_candidate = 0
+        skipped_action_filter = 0
+        max_search_pages = 40
+        pages_fetched = 0
         while True:
             p = {
                 "query": lucene_query,
                 "fields": "id,action,dateAdded,comments,commentingPerson(id,firstName,lastName),personReference(id),candidates(id)",
                 "count": 500,
                 "start": start,
-                "sort": "dateAdded",
+                "sort": "-dateAdded",
             }
             try:
                 resp = requests.get(note_url, headers=self._bh_headers(), params=p, timeout=30)
@@ -152,6 +153,11 @@ class NotesMixin:
                         f"first batch={len(batch)}"
                     )
                 for note in batch:
+                    note_action = (note.get("action") or "").strip()
+                    if action_filter and note_action != action_filter:
+                        skipped_action_filter += 1
+                        continue
+
                     cid = (note.get("personReference") or {}).get("id")
                     if not cid:
                         candidates_list = note.get("candidates") or {}
@@ -165,7 +171,14 @@ class NotesMixin:
                         skipped_no_candidate += 1
                 total_notes_fetched += len(batch)
                 start += len(batch)
-                if len(batch) < 500 or start >= total:
+                pages_fetched += 1
+                if len(batch) < 500 or start >= search_total:
+                    break
+                if pages_fetched >= max_search_pages:
+                    logger.info(
+                        f"cleanup_duplicate_notes: hit page cap ({max_search_pages} pages, "
+                        f"{total_notes_fetched} notes fetched of {search_total} total)"
+                    )
                     break
             except Exception as exc:
                 logger.warning(f"cleanup_duplicate_notes: search page failed — {exc}")
@@ -174,8 +187,8 @@ class NotesMixin:
 
         logger.info(
             f"cleanup_duplicate_notes: fetched {total_notes_fetched} notes, "
-            f"mapped to {len(notes_by_candidate)} candidates, "
-            f"skipped {skipped_no_candidate} (no candidate link)"
+            f"matched {len(notes_by_candidate)} candidates (action filter skipped "
+            f"{skipped_action_filter}), skipped {skipped_no_candidate} (no candidate link)"
         )
 
         if len(notes_by_candidate) > max_candidates:
@@ -266,6 +279,7 @@ class NotesMixin:
             "search_query": lucene_query,
             "search_total": search_total,
             "notes_fetched": total_notes_fetched,
+            "skipped_action_filter": skipped_action_filter,
             "skipped_no_candidate_link": skipped_no_candidate,
             "candidates_scanned": candidates_scanned,
             "candidates_with_duplicates": len(duplicates),
