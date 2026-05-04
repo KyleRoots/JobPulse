@@ -159,8 +159,21 @@ class CandidateDeduplicationMixin:
         lookback_minutes: int,
     ) -> Tuple[bool, Optional[int]]:
         """
-        Query Bullhorn for any Note on this candidate authored by a real human
-        (commentingPerson.id != bullhorn.user_id) within the lookback window.
+        Check whether a real human (commentingPerson.id != bullhorn.user_id) has
+        added a Note on this candidate within the lookback window.
+
+        Bug #5b (May 2026): switched from the broken
+        ``search/Note?query=personReference.id:X`` Lucene index — which
+        returned ``total=0`` for candidates whose notes WERE visible in
+        the Bullhorn UI (UI-added notes link via the ``candidates``
+        to-many association rather than ``personReference``) — to the
+        canonical ``entity/Candidate/{id}?fields=notes(...)`` association
+        lookup. This is the same pattern owner_reassignment uses
+        (``_find_first_human_interactor``) and reads the live
+        association table, so manually-added recruiter notes are no
+        longer invisible. Without this fix the gate silently failed open
+        and candidates whose owner was still an API user got
+        re-screened despite recent recruiter activity.
 
         Single retry on transient failures (5xx, network, JSON parse).
         Fail-open on persistent failure: returns (False, None) and logs a
@@ -187,16 +200,9 @@ class CandidateDeduplicationMixin:
 
         since_dt = datetime.utcnow() - timedelta(minutes=lookback_minutes)
         since_ms = int(since_dt.timestamp() * 1000)
-        url = f"{bullhorn.base_url}search/Note"
+        url = f"{bullhorn.base_url}entity/Candidate/{candidate_id}"
         params = {
-            'query': (
-                f'personReference.id:{candidate_id} '
-                f'AND dateAdded:[{since_ms} TO *] '
-                f'AND isDeleted:false'
-            ),
-            'fields': 'id,dateAdded,commentingPerson(id)',
-            'count': 25,
-            'sort': '-dateAdded',
+            'fields': 'notes(id,dateAdded,commentingPerson(id))',
             'BhRestToken': bullhorn.rest_token,
         }
 
@@ -210,7 +216,7 @@ class CandidateDeduplicationMixin:
 
                 if resp.status_code == 200:
                     try:
-                        notes = resp.json().get('data', []) or []
+                        body = resp.json() or {}
                     except ValueError as parse_err:
                         last_error = f"JSON parse error: {parse_err}"
                         if attempt == 1:
@@ -218,22 +224,62 @@ class CandidateDeduplicationMixin:
                             continue
                         break
 
+                    candidate_data = body.get('data')
+                    if not isinstance(candidate_data, dict):
+                        candidate_data = {}
+                    notes_assoc = candidate_data.get('notes')
+                    # Bullhorn returns to-many associations as either a
+                    # wrapped object ({'data': [...], 'total': N}) or, on
+                    # some endpoints/versions, a bare list. Handle both.
+                    if isinstance(notes_assoc, dict):
+                        notes_raw = notes_assoc.get('data')
+                    elif isinstance(notes_assoc, list):
+                        notes_raw = notes_assoc
+                    else:
+                        notes_raw = []
+                    # Defensive: enforce list-of-dicts. Anything else (a
+                    # malformed upstream payload like a dict/string in
+                    # `notes.data`, or non-dict note items) is treated as
+                    # "no notes" — preserving the fail-open guarantee
+                    # rather than raising AttributeError below.
+                    if not isinstance(notes_raw, list):
+                        notes = []
+                    else:
+                        notes = [n for n in notes_raw if isinstance(n, dict)]
+
                     now_ms = int(datetime.utcnow().timestamp() * 1000)
-                    for note in notes:
+
+                    # Sort newest-first so we report the MOST recent
+                    # recruiter touch (matches the prior search-based
+                    # `sort=-dateAdded` semantics).
+                    def _date_key(n):
+                        try:
+                            return int(n.get('dateAdded') or 0)
+                        except (TypeError, ValueError, AttributeError):
+                            return 0
+                    notes_sorted = sorted(notes, key=_date_key, reverse=True)
+
+                    for note in notes_sorted:
+                        note_added = _date_key(note)
+                        # Filter to the lookback window in code (entity
+                        # endpoint doesn't support a date filter on the
+                        # association). Newest-first iteration means we
+                        # can break once we fall out of the window.
+                        if note_added and note_added < since_ms:
+                            break
                         cp = note.get('commentingPerson') or {}
                         cp_id = cp.get('id')
+                        is_human = False
                         if cp_id is None:
-                            note_added = note.get('dateAdded') or now_ms
-                            minutes_ago = max(0, int((now_ms - note_added) / 60000))
-                            return (True, minutes_ago)
-                        try:
-                            if int(cp_id) != int(api_user_id):
-                                note_added = note.get('dateAdded') or now_ms
-                                minutes_ago = max(0, int((now_ms - note_added) / 60000))
-                                return (True, minutes_ago)
-                        except (TypeError, ValueError):
-                            note_added = note.get('dateAdded') or now_ms
-                            minutes_ago = max(0, int((now_ms - note_added) / 60000))
+                            is_human = True  # conservative: unknown author = recruiter
+                        else:
+                            try:
+                                is_human = int(cp_id) != int(api_user_id)
+                            except (TypeError, ValueError):
+                                is_human = True
+                        if is_human:
+                            effective_added = note_added or now_ms
+                            minutes_ago = max(0, int((now_ms - effective_added) / 60000))
                             return (True, minutes_ago)
                     return (False, None)
 

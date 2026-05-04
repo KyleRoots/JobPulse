@@ -600,6 +600,18 @@ class TestRecruiterActivityGate:
             resp.json.return_value = json_data or {}
         return resp
 
+    def _entity_notes_response(self, status_code, notes_list=None):
+        """Build a response in the new entity/Candidate/{id} association shape.
+
+        Bug #5b (May 2026): _has_recent_recruiter_activity now reads
+        ``body['data']['notes']`` (wrapped or bare) instead of the
+        legacy search/Note shape ``body['data']``.
+        """
+        return self._make_response(
+            status_code,
+            {'data': {'notes': {'data': notes_list or []}}}
+        )
+
     def _set_config(self, app, key, value):
         from app import db
         from models import VettingConfig
@@ -621,12 +633,10 @@ class TestRecruiterActivityGate:
         bh = self._make_bullhorn()
         # Note authored 5 min ago by a different user
         five_min_ago_ms = int((datetime.utcnow().timestamp() - 300) * 1000)
-        bh.session.get.return_value = self._make_response(200, {
-            'data': [
-                {'id': 99, 'dateAdded': five_min_ago_ms,
-                 'commentingPerson': {'id': 222333}}  # not the API user
-            ]
-        })
+        bh.session.get.return_value = self._entity_notes_response(200, [
+            {'id': 99, 'dateAdded': five_min_ago_ms,
+             'commentingPerson': {'id': 222333}}  # not the API user
+        ])
 
         with app.app_context():
             active, minutes_ago = cvs._has_recent_recruiter_activity(bh, 4654705, 60)
@@ -641,14 +651,12 @@ class TestRecruiterActivityGate:
         cvs = _make_cvs()
         bh = self._make_bullhorn()
         recent_ms = int((datetime.utcnow().timestamp() - 60) * 1000)
-        bh.session.get.return_value = self._make_response(200, {
-            'data': [
-                {'id': 1, 'dateAdded': recent_ms,
-                 'commentingPerson': {'id': self.API_USER_ID}},
-                {'id': 2, 'dateAdded': recent_ms,
-                 'commentingPerson': {'id': self.API_USER_ID}},
-            ]
-        })
+        bh.session.get.return_value = self._entity_notes_response(200, [
+            {'id': 1, 'dateAdded': recent_ms,
+             'commentingPerson': {'id': self.API_USER_ID}},
+            {'id': 2, 'dateAdded': recent_ms,
+             'commentingPerson': {'id': self.API_USER_ID}},
+        ])
 
         with app.app_context():
             active, minutes_ago = cvs._has_recent_recruiter_activity(bh, 999, 60)
@@ -660,7 +668,7 @@ class TestRecruiterActivityGate:
         """No notes in window → (False, None)."""
         cvs = _make_cvs()
         bh = self._make_bullhorn()
-        bh.session.get.return_value = self._make_response(200, {'data': []})
+        bh.session.get.return_value = self._entity_notes_response(200, [])
 
         with app.app_context():
             active, minutes_ago = cvs._has_recent_recruiter_activity(bh, 1000, 60)
@@ -674,14 +682,111 @@ class TestRecruiterActivityGate:
         cvs = _make_cvs()
         bh = self._make_bullhorn()
         recent_ms = int((datetime.utcnow().timestamp() - 120) * 1000)
-        bh.session.get.return_value = self._make_response(200, {
-            'data': [{'id': 1, 'dateAdded': recent_ms, 'commentingPerson': None}]
-        })
+        bh.session.get.return_value = self._entity_notes_response(200, [
+            {'id': 1, 'dateAdded': recent_ms, 'commentingPerson': None}
+        ])
 
         with app.app_context():
             active, _ = cvs._has_recent_recruiter_activity(bh, 1, 60)
 
         assert active is True
+
+    def test_bare_list_notes_shape_supported(self, app):
+        """Bug #5b regression: entity endpoint can return notes as a bare list
+        (not wrapped in {'data': [...]}). Both shapes must be handled."""
+        from datetime import datetime
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        recent_ms = int((datetime.utcnow().timestamp() - 300) * 1000)
+        # Bare-list shape: candidate.notes is a list, not a dict-with-data
+        bh.session.get.return_value = self._make_response(200, {
+            'data': {
+                'notes': [
+                    {'id': 1, 'dateAdded': recent_ms,
+                     'commentingPerson': {'id': 88888}}
+                ]
+            }
+        })
+
+        with app.app_context():
+            active, minutes_ago = cvs._has_recent_recruiter_activity(bh, 1, 60)
+
+        assert active is True
+        assert minutes_ago is not None
+
+    def test_malformed_notes_data_fails_open(self, app):
+        """Bug #5b hardening: notes.data being a non-list (e.g. dict) must
+        fail open to (False, None), not raise AttributeError."""
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        # notes.data is a dict instead of a list — malformed upstream payload
+        bh.session.get.return_value = self._make_response(200, {
+            'data': {'notes': {'data': {'unexpected': 'shape'}}}
+        })
+
+        with app.app_context():
+            active, minutes_ago = cvs._has_recent_recruiter_activity(bh, 1, 60)
+
+        assert active is False
+        assert minutes_ago is None
+
+    def test_non_dict_note_entries_skipped(self, app):
+        """Bug #5b hardening: non-dict note entries in the list are skipped,
+        not crashed on."""
+        from datetime import datetime
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        recent_ms = int((datetime.utcnow().timestamp() - 60) * 1000)
+        # Mix of garbage strings and one valid recruiter note
+        bh.session.get.return_value = self._entity_notes_response(200, [
+            "garbage_string",
+            None,
+            12345,
+            {'id': 1, 'dateAdded': recent_ms,
+             'commentingPerson': {'id': 88888}},  # valid human note
+        ])
+
+        with app.app_context():
+            active, _ = cvs._has_recent_recruiter_activity(bh, 1, 60)
+
+        assert active is True  # valid note still detected
+
+    def test_future_dateadded_treats_minutes_ago_as_zero(self, app):
+        """Bug #5b hardening: future dateAdded (clock skew) → minutes_ago=0,
+        not negative."""
+        from datetime import datetime
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        # Note timestamped 5 min in the future (clock skew between Bullhorn & us)
+        future_ms = int((datetime.utcnow().timestamp() + 300) * 1000)
+        bh.session.get.return_value = self._entity_notes_response(200, [
+            {'id': 1, 'dateAdded': future_ms,
+             'commentingPerson': {'id': 88888}}
+        ])
+
+        with app.app_context():
+            active, minutes_ago = cvs._has_recent_recruiter_activity(bh, 1, 60)
+
+        assert active is True
+        assert minutes_ago == 0  # max(0, ...) clamps negative deltas
+
+    def test_old_note_outside_window_ignored(self, app):
+        """Bug #5b regression: entity endpoint has no server-side date filter,
+        so old notes returned in the association must be ignored client-side."""
+        from datetime import datetime
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        # Note from 3 hours ago — outside the 60min lookback window
+        old_ms = int((datetime.utcnow().timestamp() - 3 * 3600) * 1000)
+        bh.session.get.return_value = self._entity_notes_response(200, [
+            {'id': 1, 'dateAdded': old_ms,
+             'commentingPerson': {'id': 88888}}  # human, but stale
+        ])
+
+        with app.app_context():
+            active, _ = cvs._has_recent_recruiter_activity(bh, 1, 60)
+
+        assert active is False  # outside window → ignored
 
     def test_5xx_then_success_retries(self, app):
         """500 → retry → 200 with recruiter note → active."""
@@ -691,10 +796,10 @@ class TestRecruiterActivityGate:
         recent_ms = int((datetime.utcnow().timestamp() - 60) * 1000)
         bh.session.get.side_effect = [
             self._make_response(503),
-            self._make_response(200, {'data': [
+            self._entity_notes_response(200, [
                 {'id': 1, 'dateAdded': recent_ms,
                  'commentingPerson': {'id': 99999}}
-            ]}),
+            ]),
         ]
 
         with patch('screening.dedup.time.sleep'):
@@ -790,10 +895,10 @@ class TestRecruiterActivityGate:
         cvs = _make_cvs()
         bh = self._make_bullhorn()
         recent_ms = int((datetime.utcnow().timestamp() - 600) * 1000)  # 10 min ago
-        bh.session.get.return_value = self._make_response(200, {
-            'data': [{'id': 1, 'dateAdded': recent_ms,
-                      'commentingPerson': {'id': 88888}}]
-        })
+        bh.session.get.return_value = self._entity_notes_response(200, [
+            {'id': 1, 'dateAdded': recent_ms,
+             'commentingPerson': {'id': 88888}}
+        ])
 
         with app.app_context():
             with caplog.at_level(logging.INFO, logger='root'):
@@ -823,10 +928,10 @@ class TestRecruiterActivityGate:
         cvs = _make_cvs()
         bh = self._make_bullhorn()
         recent_ms = int((datetime.utcnow().timestamp() - 300) * 1000)
-        bh.session.get.return_value = self._make_response(200, {
-            'data': [{'id': 1, 'dateAdded': recent_ms,
-                      'commentingPerson': {'id': 77777}}]
-        })
+        bh.session.get.return_value = self._entity_notes_response(200, [
+            {'id': 1, 'dateAdded': recent_ms,
+             'commentingPerson': {'id': 77777}}
+        ])
 
         with app.app_context():
             skip = cvs._should_skip_candidate(99002, applied_job_id=42, bullhorn=bh)
@@ -837,7 +942,7 @@ class TestRecruiterActivityGate:
         """With bullhorn but NO recruiter notes, candidate proceeds."""
         cvs = _make_cvs()
         bh = self._make_bullhorn()
-        bh.session.get.return_value = self._make_response(200, {'data': []})
+        bh.session.get.return_value = self._entity_notes_response(200, [])
 
         with app.app_context():
             skip = cvs._should_skip_candidate(99003, applied_job_id=42, bullhorn=bh)
