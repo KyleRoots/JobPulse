@@ -897,10 +897,10 @@
                 selectHtml += '<option value="' + (opt === 'All' ? '' : opt) + '"' + (opt === 'All' ? ' selected' : '') + '>' + opt + '</option>';
             });
             selectHtml += '</select>';
-            body = '<div class="mb-3"><label class="form-label">Days Back</label><input type="number" class="form-control" id="param-days_back" value="5" min="1"></div>' +
+            body = '<div class="mb-3"><label class="form-label">Note Age (Days)</label><input type="number" class="form-control" id="param-days_back" value="30" min="1"><small class="text-muted">Only notes created within this many days are checked for duplicates. All candidates in the database are scanned regardless of this setting.</small></div>' +
                    '<div class="mb-3"><label class="form-label">Time Window (minutes)</label><input type="number" class="form-control" id="param-time_window_minutes" value="60" min="1" max="1440"><small class="text-muted">Notes by the same author with identical comments within this window are considered duplicates. Keeps the newest, removes older copies.</small></div>' +
-                   '<div class="mb-3"><label class="form-label">Action Filter</label>' + selectHtml + '<small class="text-muted">Select a specific note action type to scan, or "All" to scan all note types on recent candidates.</small></div>' +
-                   '<div class="mb-3"><label class="form-label">Max Candidates</label><input type="number" class="form-control" id="param-max_candidates" value="500" min="1" max="5000"></div>' +
+                   '<div class="mb-3"><label class="form-label">Action Filter</label>' + selectHtml + '<small class="text-muted">Select a specific note action type to scan, or "All" to scan all note types. Smart sourcing: Owner Reassignment pulls from cooldown table, AI Vetter from vetting logs, others from full Bullhorn database.</small></div>' +
+                   '<div class="mb-3"><label class="form-label">Max Candidates</label><input type="number" class="form-control" id="param-max_candidates" value="50000" min="1"><small class="text-muted">Safety limit on number of candidates to scan. Set high for a full database sweep. Runs in background — large scans may take 30+ minutes.</small></div>' +
                    '<div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="param-dry_run" checked><label class="form-check-label" for="param-dry_run">Dry Run (preview only, no changes)</label></div>';
         } else if (currentRunBuiltinKey === 'find_zero_match') {
             body = '<div class="mb-3"><label class="form-label">Hours Back</label><input type="number" class="form-control" id="param-hours_back" value="6" min="1"></div>' +
