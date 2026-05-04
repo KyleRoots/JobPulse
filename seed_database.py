@@ -183,7 +183,7 @@ BUILTIN_AUTOMATIONS = [
     },
     {
         "name": "Cleanup Duplicate Notes",
-        "description": "Find and remove duplicate notes on candidate records. A duplicate is defined as same author + identical comments on the same candidate within a configurable time window (default 60 min). Keeps the newest copy, soft-deletes older ones. Supports filtering by action type.",
+        "description": "Find and remove duplicate notes on candidate records. Duplicates = same author + identical comments within a configurable time window (default 60 min). Keeps newest, soft-deletes older copies. Filter by action type via dropdown — smart candidate sourcing per action (cooldown table for Owner Reassignment, vetting logs for AI Vetter, recent candidates for all others).",
         "automation_type": "one-time",
         "builtin_key": "cleanup_duplicate_notes",
     },

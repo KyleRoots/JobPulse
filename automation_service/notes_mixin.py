@@ -45,6 +45,25 @@ class NotesMixin:
             logger.warning(f"cleanup_duplicate_notes: could not load cooldown candidates — {exc}")
             return []
 
+    def _get_vetting_candidate_ids(self, cutoff, limit=500):
+        try:
+            from models import CandidateVettingLog
+            from sqlalchemy import func
+            rows = (
+                CandidateVettingLog.query
+                .filter(CandidateVettingLog.created_at >= cutoff)
+                .filter(CandidateVettingLog.is_sandbox.is_(False))
+                .with_entities(CandidateVettingLog.bullhorn_candidate_id)
+                .distinct()
+                .order_by(CandidateVettingLog.bullhorn_candidate_id.desc())
+                .limit(limit)
+                .all()
+            )
+            return [r.bullhorn_candidate_id for r in rows if r.bullhorn_candidate_id]
+        except Exception as exc:
+            logger.warning(f"cleanup_duplicate_notes: could not load vetting candidates — {exc}")
+            return []
+
     def _builtin_cleanup_ai_notes(self, params):
         dry_run = params.get("dry_run", True)
         candidate_ids = params.get("candidate_ids")
@@ -141,9 +160,13 @@ class NotesMixin:
         cutoff = datetime.utcnow() - timedelta(days=days_back)
         cutoff_ts = int(cutoff.timestamp() * 1000)
 
+        AI_VETTING_ACTIONS = {"AI Vetter - Accept", "AI Vetter - Reject"}
         if action_filter == "Owner Reassignment":
             candidate_ids = self._get_cooldown_candidate_ids(cutoff, max_candidates)
             candidate_source = "cooldown_table"
+        elif action_filter in AI_VETTING_ACTIONS:
+            candidate_ids = self._get_vetting_candidate_ids(cutoff, max_candidates)
+            candidate_source = "vetting_log"
         else:
             candidate_ids = self._get_recent_candidates(max_count=max_candidates)
             candidate_source = "recent_candidates"

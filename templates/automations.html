@@ -857,9 +857,49 @@
             body = '<div class="mb-3"><label class="form-label">Max Candidates</label><input type="number" class="form-control" id="param-max_candidates" value="500" min="1" max="5000"></div>' +
                    '<div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="param-dry_run" checked><label class="form-check-label" for="param-dry_run">Dry Run (preview only, no changes)</label></div>';
         } else if (currentRunBuiltinKey === 'cleanup_duplicate_notes') {
+            var actionOptions = [
+                'All',
+                'Owner Reassignment',
+                'AI Vetter - Accept',
+                'AI Vetter - Reject',
+                'Application',
+                'Automated Touchpoint',
+                'Background Check',
+                'Call-Connected',
+                'Call-Left VM',
+                'Candidate Referral Given',
+                'Client Meeting/Lunch',
+                'Consultant Care - Check in',
+                'Consultant Care - Issue/Coaching',
+                'Email',
+                'General Notes',
+                'Important Notes',
+                'Intake Call',
+                'Interview Prep/Debrief Notes',
+                'Job Update',
+                'Linkedin Direct Message',
+                'Linkedin InMail',
+                'LinkedIn InMail',
+                'LinkedIn Note',
+                'Meeting Notes',
+                'New Hire',
+                'Other',
+                'Prescreen',
+                'Reference Check',
+                'Sales Lead Provided',
+                'Sales Presentation/Proposal',
+                'Separation Details',
+                'Skill Testing Results',
+                'Text Message'
+            ];
+            var selectHtml = '<select class="form-select" id="param-action_filter">';
+            actionOptions.forEach(function(opt) {
+                selectHtml += '<option value="' + (opt === 'All' ? '' : opt) + '"' + (opt === 'All' ? ' selected' : '') + '>' + opt + '</option>';
+            });
+            selectHtml += '</select>';
             body = '<div class="mb-3"><label class="form-label">Days Back</label><input type="number" class="form-control" id="param-days_back" value="5" min="1"></div>' +
                    '<div class="mb-3"><label class="form-label">Time Window (minutes)</label><input type="number" class="form-control" id="param-time_window_minutes" value="60" min="1" max="1440"><small class="text-muted">Notes by the same author with identical comments within this window are considered duplicates. Keeps the newest, removes older copies.</small></div>' +
-                   '<div class="mb-3"><label class="form-label">Action Filter <small class="text-muted fw-normal">(optional)</small></label><input type="text" class="form-control" id="param-action_filter" placeholder="e.g. Owner Reassignment (leave blank for all)"></div>' +
+                   '<div class="mb-3"><label class="form-label">Action Filter</label>' + selectHtml + '<small class="text-muted">Select a specific note action type to scan, or "All" to scan all note types on recent candidates.</small></div>' +
                    '<div class="mb-3"><label class="form-label">Max Candidates</label><input type="number" class="form-control" id="param-max_candidates" value="500" min="1" max="5000"></div>' +
                    '<div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="param-dry_run" checked><label class="form-check-label" for="param-dry_run">Dry Run (preview only, no changes)</label></div>';
         } else if (currentRunBuiltinKey === 'find_zero_match') {
