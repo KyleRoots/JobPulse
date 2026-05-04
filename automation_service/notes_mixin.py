@@ -30,6 +30,21 @@ class NotesMixin:
             logger.warning(f"cleanup_duplicate_notes: could not load api_user_ids — {exc}")
         return []
 
+    def _get_cooldown_candidate_ids(self, cutoff, limit=500):
+        try:
+            from models import OwnerReassignmentCooldown
+            rows = (
+                OwnerReassignmentCooldown.query
+                .filter(OwnerReassignmentCooldown.last_evaluated_at >= cutoff)
+                .order_by(OwnerReassignmentCooldown.last_evaluated_at.desc())
+                .limit(limit)
+                .all()
+            )
+            return [r.candidate_id for r in rows]
+        except Exception as exc:
+            logger.warning(f"cleanup_duplicate_notes: could not load cooldown candidates — {exc}")
+            return []
+
     def _builtin_cleanup_ai_notes(self, params):
         dry_run = params.get("dry_run", True)
         candidate_ids = params.get("candidate_ids")
@@ -126,93 +141,42 @@ class NotesMixin:
         cutoff = datetime.utcnow() - timedelta(days=days_back)
         cutoff_ts = int(cutoff.timestamp() * 1000)
 
-        api_user_ids = self._get_api_user_ids()
-
-        lucene_query = f"dateAdded:[{cutoff_ts} TO *] AND isDeleted:false"
-        if api_user_ids:
-            if len(api_user_ids) == 1:
-                lucene_query += f" AND commentingPerson.id:{api_user_ids[0]}"
-            else:
-                ids_clause = " OR ".join(str(uid) for uid in api_user_ids)
-                lucene_query += f" AND commentingPerson.id:({ids_clause})"
+        candidate_ids = self._get_cooldown_candidate_ids(cutoff, max_candidates)
         logger.info(
-            f"cleanup_duplicate_notes: query={lucene_query!r}, "
-            f"action_filter={action_filter!r} (client-side), "
-            f"api_user_ids={api_user_ids}, "
+            f"cleanup_duplicate_notes: using entity association lookup for "
+            f"{len(candidate_ids)} candidates from cooldown table, "
+            f"action_filter={action_filter!r}, "
             f"days_back={days_back}, window={time_window_minutes}min, "
             f"max_candidates={max_candidates}, dry_run={dry_run}"
         )
 
         notes_by_candidate = {}
-        note_url = f"{self._bh_url()}search/Note"
-        start = 0
         total_notes_fetched = 0
-        search_total = 0
-        skipped_no_candidate = 0
         skipped_action_filter = 0
-        page_size = 200
-        max_search_pages = 100
-        pages_fetched = 0
-        while True:
-            p = {
-                "query": lucene_query,
-                "fields": "id,action,dateAdded,comments,commentingPerson(id,firstName,lastName),personReference(id),candidates(id)",
-                "count": page_size,
-                "start": start,
-                "sort": "-dateAdded",
-            }
+        fetch_errors = 0
+        for cid in candidate_ids:
             try:
-                resp = requests.get(note_url, headers=self._bh_headers(), params=p, timeout=30)
-                resp.raise_for_status()
-                data = resp.json()
-                batch = data.get("data", [])
-                search_total = data.get("total", 0)
-                if start == 0:
-                    logger.info(
-                        f"cleanup_duplicate_notes: search returned total={search_total}, "
-                        f"first batch={len(batch)}"
-                    )
-                for note in batch:
+                notes = self._get_candidate_entity_notes(cid, count=200)
+                for note in notes:
+                    date_added = note.get("dateAdded", 0)
+                    if date_added < cutoff_ts:
+                        continue
                     note_action = (note.get("action") or "").strip()
                     if action_filter and note_action != action_filter:
                         skipped_action_filter += 1
                         continue
-
-                    cid = (note.get("personReference") or {}).get("id")
-                    if not cid:
-                        candidates_list = note.get("candidates") or {}
-                        if isinstance(candidates_list, dict):
-                            candidates_list = candidates_list.get("data", [])
-                        if isinstance(candidates_list, list) and candidates_list:
-                            cid = candidates_list[0].get("id")
-                    if cid:
-                        notes_by_candidate.setdefault(cid, []).append(note)
-                    else:
-                        skipped_no_candidate += 1
-                total_notes_fetched += len(batch)
-                start += len(batch)
-                pages_fetched += 1
-                if len(batch) == 0 or start >= search_total:
-                    break
-                if pages_fetched >= max_search_pages:
-                    logger.info(
-                        f"cleanup_duplicate_notes: hit page cap ({max_search_pages} pages, "
-                        f"{total_notes_fetched} notes fetched of {search_total} total)"
-                    )
-                    break
+                    total_notes_fetched += 1
+                    notes_by_candidate.setdefault(cid, []).append(note)
             except Exception as exc:
-                import traceback
-                logger.error(
-                    f"cleanup_duplicate_notes: search page failed (page={pages_fetched}, start={start}) — {exc}\n"
-                    f"{traceback.format_exc()}"
-                )
-                break
-            time.sleep(0.05)
+                fetch_errors += 1
+                if fetch_errors <= 3:
+                    logger.warning(f"cleanup_duplicate_notes: entity fetch failed for candidate {cid} — {exc}")
+            time.sleep(0.02)
 
         logger.info(
-            f"cleanup_duplicate_notes: fetched {total_notes_fetched} notes, "
-            f"matched {len(notes_by_candidate)} candidates (action filter skipped "
-            f"{skipped_action_filter}), skipped {skipped_no_candidate} (no candidate link)"
+            f"cleanup_duplicate_notes: scanned {len(candidate_ids)} candidates via entity lookup, "
+            f"found {total_notes_fetched} matching notes across {len(notes_by_candidate)} candidates "
+            f"(action filter skipped {skipped_action_filter}, fetch errors {fetch_errors})"
         )
 
         if len(notes_by_candidate) > max_candidates:
@@ -288,13 +252,15 @@ class NotesMixin:
                         failed += 1
                     time.sleep(0.02)
 
-        candidates_scanned = len(notes_by_candidate)
+        candidates_scanned = len(candidate_ids)
+        candidates_with_notes = len(notes_by_candidate)
         mode_label = "DRY RUN: " if dry_run else ""
         summary = (
             f"{mode_label}Found {total_delete} duplicate note(s) across "
-            f"{len(duplicates)} candidate(s) (scanned {candidates_scanned}) "
-            f"[search_total={search_total}, fetched={total_notes_fetched}, "
-            f"action_skipped={skipped_action_filter}]"
+            f"{len(duplicates)} candidate(s) "
+            f"[candidates_checked={candidates_scanned}, with_matching_notes={candidates_with_notes}, "
+            f"matching_notes={total_notes_fetched}, action_skipped={skipped_action_filter}, "
+            f"fetch_errors={fetch_errors}]"
         )
         if not dry_run:
             summary += f" Deleted {deleted}, failed {failed}."
@@ -302,12 +268,12 @@ class NotesMixin:
         return {
             "summary": summary,
             "dry_run": dry_run,
-            "search_query": lucene_query,
-            "search_total": search_total,
-            "notes_fetched": total_notes_fetched,
+            "lookup_method": "entity_association",
+            "candidates_checked": candidates_scanned,
+            "candidates_with_matching_notes": candidates_with_notes,
+            "matching_notes": total_notes_fetched,
             "skipped_action_filter": skipped_action_filter,
-            "skipped_no_candidate_link": skipped_no_candidate,
-            "candidates_scanned": candidates_scanned,
+            "fetch_errors": fetch_errors,
             "candidates_with_duplicates": len(duplicates),
             "duplicate_notes_found": total_delete,
             "deleted": deleted,

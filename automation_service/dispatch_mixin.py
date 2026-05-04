@@ -113,9 +113,11 @@ class DispatchMixin:
                 }
                 for extra_key in ("search_query", "search_total", "notes_fetched",
                                   "skipped_action_filter", "skipped_no_candidate_link",
-                                  "candidates_scanned", "candidates_with_duplicates",
-                                  "duplicate_notes_found", "deleted", "dry_run",
-                                  "preview", "error"):
+                                  "candidates_scanned", "candidates_checked",
+                                  "candidates_with_matching_notes", "matching_notes",
+                                  "candidates_with_duplicates", "fetch_errors",
+                                  "lookup_method", "duplicate_notes_found",
+                                  "deleted", "dry_run", "preview", "error"):
                     if extra_key in result:
                         details[extra_key] = result[extra_key]
                 log = AutomationLog(
