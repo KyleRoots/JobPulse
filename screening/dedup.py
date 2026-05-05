@@ -124,6 +124,7 @@ class CandidateDeduplicationMixin:
             enabled_raw = (VettingConfig.get_value('recruiter_activity_check_enabled')
                            or 'true')
             lookback_raw = VettingConfig.get_value('recruiter_activity_lookback_minutes')
+            api_user_ids_raw = VettingConfig.get_value('api_user_ids') or ''
         except Exception as cfg_err:
             logger.warning(
                 f"⚠️ Recruiter-activity gate: VettingConfig read failed "
@@ -141,8 +142,21 @@ class CandidateDeduplicationMixin:
         if lookback_min <= 0:
             return False
 
+        # Bug #5c (May 2026): the recruiter-activity check must exclude
+        # ALL configured api_user_ids (e.g. Pandologic API, Myticas API
+        # User, etc.), not just the single Bullhorn auth user. Otherwise
+        # any candidate whose only note is from another API integration
+        # (e.g. PandoLogic's "New application delivered" note) gets
+        # mis-classified as having recent recruiter activity and is
+        # silently blocked from auto-vetting indefinitely.
+        api_user_ids = []
+        for part in str(api_user_ids_raw).split(','):
+            part = part.strip()
+            if part.isdigit():
+                api_user_ids.append(int(part))
+
         active, minutes_ago = self._has_recent_recruiter_activity(
-            bullhorn, candidate_id, lookback_min
+            bullhorn, candidate_id, lookback_min, api_user_ids=api_user_ids
         )
         if active:
             logger.info(
@@ -157,10 +171,12 @@ class CandidateDeduplicationMixin:
         bullhorn,
         candidate_id: int,
         lookback_minutes: int,
+        api_user_ids: Optional[list] = None,
     ) -> Tuple[bool, Optional[int]]:
         """
-        Check whether a real human (commentingPerson.id != bullhorn.user_id) has
-        added a Note on this candidate within the lookback window.
+        Check whether a real human (commentingPerson.id NOT in the configured
+        api_user_ids set) has added a Note on this candidate within the
+        lookback window.
 
         Bug #5b (May 2026): switched from the broken
         ``search/Note?query=personReference.id:X`` Lucene index — which
@@ -175,6 +191,17 @@ class CandidateDeduplicationMixin:
         and candidates whose owner was still an API user got
         re-screened despite recent recruiter activity.
 
+        Bug #5c (May 2026): the "is human" check now compares against the
+        FULL configured ``api_user_ids`` set (Pandologic API, Myticas API
+        User, etc.) rather than only the single Bullhorn auth user. The
+        prior single-user check mis-classified notes from other API
+        integrations (e.g. PandoLogic's "New application delivered" note,
+        author = Pandologic API id=4582033) as human recruiter activity
+        and silently blocked every PandoLogic-sourced candidate from
+        auto-vetting forever. The auth user (``bullhorn.user_id``) is
+        always added to the exclusion set so back-compat is preserved
+        even when ``api_user_ids`` is empty/unset.
+
         Single retry on transient failures (5xx, network, JSON parse).
         Fail-open on persistent failure: returns (False, None) and logs a
         WARNING so operators can see when this safety net is degraded.
@@ -183,6 +210,11 @@ class CandidateDeduplicationMixin:
             bullhorn: Authenticated BullhornService instance.
             candidate_id: Bullhorn candidate ID.
             lookback_minutes: How far back to look for recruiter notes.
+            api_user_ids: Optional list of configured API user IDs to
+                exclude from the "is human" check. The auth user
+                (``bullhorn.user_id``) is always added to this set. If
+                None or empty, only the auth user is excluded
+                (preserves prior behavior for back-compat / tests).
 
         Returns:
             Tuple of (active, minutes_since_most_recent):
@@ -197,6 +229,20 @@ class CandidateDeduplicationMixin:
                 f"bullhorn.user_id not set"
             )
             return (False, None)
+
+        # Build the union of {auth user} ∪ {configured api_user_ids}.
+        # Defensive int coercion — any non-numeric entry is dropped
+        # rather than crashing the gate.
+        api_user_id_set = set()
+        try:
+            api_user_id_set.add(int(api_user_id))
+        except (TypeError, ValueError):
+            pass
+        for uid in (api_user_ids or []):
+            try:
+                api_user_id_set.add(int(uid))
+            except (TypeError, ValueError):
+                continue
 
         since_dt = datetime.utcnow() - timedelta(minutes=lookback_minutes)
         since_ms = int(since_dt.timestamp() * 1000)
@@ -274,7 +320,7 @@ class CandidateDeduplicationMixin:
                             is_human = True  # conservative: unknown author = recruiter
                         else:
                             try:
-                                is_human = int(cp_id) != int(api_user_id)
+                                is_human = int(cp_id) not in api_user_id_set
                             except (TypeError, ValueError):
                                 is_human = True
                         if is_human:

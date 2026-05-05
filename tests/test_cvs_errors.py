@@ -854,6 +854,164 @@ class TestRecruiterActivityGate:
         assert active is False
         assert bh.session.get.call_count == 0  # short-circuit, no API call
 
+    # ---- Bug #5c: multi-api-user exclusion ---------------------------------
+
+    def test_pandologic_api_note_not_treated_as_recruiter(self, app):
+        """Bug #5c regression: a note authored by Pandologic API (a configured
+        api_user_id, not the auth user) must NOT be treated as recruiter
+        activity. Before the fix, every PandoLogic candidate was silently
+        blocked from auto-vetting forever because the gate only excluded
+        bullhorn.user_id (Myticas API User) from the "is human" check."""
+        from datetime import datetime
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        # Pandologic API id=4582033 — a real Bullhorn API integration
+        # whose "New application delivered" note must not be mistaken
+        # for a human recruiter touch.
+        recent_ms = int((datetime.utcnow().timestamp() - 60) * 1000)
+        bh.session.get.return_value = self._entity_notes_response(200, [
+            {'id': 1, 'dateAdded': recent_ms,
+             'commentingPerson': {'id': 4582033}}  # Pandologic API
+        ])
+
+        with app.app_context():
+            active, minutes_ago = cvs._has_recent_recruiter_activity(
+                bh, 4658519, 60,
+                api_user_ids=[4582015, 4591841, 4593767, 4582033,
+                              self.API_USER_ID, 4581965]
+            )
+
+        assert active is False, \
+            "Pandologic API note must not be treated as recruiter activity"
+        assert minutes_ago is None
+
+    def test_multi_api_user_all_excluded(self, app):
+        """Bug #5c: every configured api_user_id must be excluded, not just
+        bullhorn.user_id. Mixed batch of notes from 3 different API
+        integrations + zero human notes → (False, None)."""
+        from datetime import datetime
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        recent_ms = int((datetime.utcnow().timestamp() - 60) * 1000)
+        bh.session.get.return_value = self._entity_notes_response(200, [
+            {'id': 1, 'dateAdded': recent_ms,
+             'commentingPerson': {'id': 4582015}},   # API user A
+            {'id': 2, 'dateAdded': recent_ms,
+             'commentingPerson': {'id': 4582033}},   # Pandologic API
+            {'id': 3, 'dateAdded': recent_ms,
+             'commentingPerson': {'id': self.API_USER_ID}},  # auth user
+        ])
+
+        with app.app_context():
+            active, _ = cvs._has_recent_recruiter_activity(
+                bh, 1, 60,
+                api_user_ids=[4582015, 4591841, 4593767, 4582033,
+                              self.API_USER_ID, 4581965]
+            )
+
+        assert active is False, \
+            "All notes are from configured api_user_ids — none should count as human"
+
+    def test_human_note_alongside_api_users_still_detected(self, app):
+        """Bug #5c: when api_user_ids is configured, a real human note
+        mixed in with API-user notes must still be detected (the fix
+        broadens the exclusion set, not the detection)."""
+        from datetime import datetime
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        recent_ms = int((datetime.utcnow().timestamp() - 300) * 1000)
+        bh.session.get.return_value = self._entity_notes_response(200, [
+            {'id': 1, 'dateAdded': recent_ms,
+             'commentingPerson': {'id': 4582033}},   # Pandologic API (excluded)
+            {'id': 2, 'dateAdded': recent_ms,
+             'commentingPerson': {'id': 999888}},    # real human recruiter
+        ])
+
+        with app.app_context():
+            active, minutes_ago = cvs._has_recent_recruiter_activity(
+                bh, 1, 60,
+                api_user_ids=[4582015, 4582033, self.API_USER_ID]
+            )
+
+        assert active is True, "Real human note must still be detected"
+        assert minutes_ago is not None
+
+    def test_empty_api_user_ids_falls_back_to_auth_user_only(self, app):
+        """Bug #5c back-compat: when api_user_ids is None or empty (legacy
+        callers / unconfigured deployments), the auth user is still
+        excluded — matches the pre-fix behavior so tests and call sites
+        that don't pass the new param keep working."""
+        from datetime import datetime
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        recent_ms = int((datetime.utcnow().timestamp() - 60) * 1000)
+        bh.session.get.return_value = self._entity_notes_response(200, [
+            {'id': 1, 'dateAdded': recent_ms,
+             'commentingPerson': {'id': self.API_USER_ID}}
+        ])
+
+        with app.app_context():
+            # Pass api_user_ids=None explicitly
+            active1, _ = cvs._has_recent_recruiter_activity(bh, 1, 60,
+                                                            api_user_ids=None)
+            # Pass empty list
+            active2, _ = cvs._has_recent_recruiter_activity(bh, 1, 60,
+                                                            api_user_ids=[])
+            # Don't pass api_user_ids at all (back-compat)
+            active3, _ = cvs._has_recent_recruiter_activity(bh, 1, 60)
+
+        assert active1 is False, "auth user should still be excluded with api_user_ids=None"
+        assert active2 is False, "auth user should still be excluded with api_user_ids=[]"
+        assert active3 is False, "auth user should still be excluded with no api_user_ids arg"
+
+    def test_malformed_api_user_id_entries_skipped(self, app):
+        """Bug #5c hardening: non-numeric entries in api_user_ids are
+        silently dropped (set-build is defensive), while valid entries
+        still take effect."""
+        from datetime import datetime
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        recent_ms = int((datetime.utcnow().timestamp() - 60) * 1000)
+        bh.session.get.return_value = self._entity_notes_response(200, [
+            {'id': 1, 'dateAdded': recent_ms,
+             'commentingPerson': {'id': 4582033}}  # Pandologic API
+        ])
+
+        with app.app_context():
+            active, _ = cvs._has_recent_recruiter_activity(
+                bh, 1, 60,
+                api_user_ids=['not_a_number', None, {}, 4582033]  # only 4582033 valid
+            )
+
+        assert active is False, \
+            "Pandologic API still excluded despite garbage entries in api_user_ids"
+
+    def test_wrapper_loads_api_user_ids_from_vetting_config(self, app):
+        """Bug #5c integration: the _is_paused_by_recruiter_activity wrapper
+        reads `api_user_ids` from VettingConfig and forwards it to the
+        helper. End-to-end: PandoLogic note + configured api_user_ids
+        → not paused (the production scenario from May 2026)."""
+        from datetime import datetime
+        cvs = _make_cvs()
+        bh = self._make_bullhorn()
+        # Mirror the production VettingConfig
+        self._set_config(app, 'api_user_ids',
+                         f'4582015,4591841,4593767,4582033,{self.API_USER_ID},4581965')
+        self._set_config(app, 'recruiter_activity_check_enabled', 'true')
+        self._set_config(app, 'recruiter_activity_lookback_minutes', '1440')
+
+        recent_ms = int((datetime.utcnow().timestamp() - 60) * 1000)
+        bh.session.get.return_value = self._entity_notes_response(200, [
+            {'id': 1, 'dateAdded': recent_ms,
+             'commentingPerson': {'id': 4582033}}  # Pandologic API
+        ])
+
+        with app.app_context():
+            paused = cvs._is_paused_by_recruiter_activity(bh, 4658519)
+
+        assert paused is False, \
+            "Wrapper must forward api_user_ids; PandoLogic candidate should NOT be paused"
+
     # ---- _is_paused_by_recruiter_activity (wrapper + config) --------------
 
     def test_killswitch_disabled_bypasses_check(self, app):
