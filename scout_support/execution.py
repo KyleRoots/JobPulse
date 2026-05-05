@@ -70,11 +70,54 @@ def _get_ticket_exec_lock(ticket_id: int) -> threading.RLock:
 _RETRYABLE_STATUSES = {408, 429, 500, 502, 503, 504}
 _BULLHORN_WRITE_MAX_RETRIES = 3
 
+# Postgres advisory-lock namespace for Scout Support ticket execution.
+# Paired with ticket_id as the second key argument:
+#   pg_try_advisory_lock(0x55501, ticket_id)
+# Distinct from Scout Vetting's namespace (0x5C0E7) — no collision possible.
+_PG_LOCK_NAMESPACE_TICKET_EXEC = 0x55501
+
 
 def _is_retryable_exception(exc: Exception) -> bool:
     """Network-layer errors worth retrying (timeout, connection drop, DNS)."""
     name = type(exc).__name__.lower()
     return any(token in name for token in ('timeout', 'connection', 'connect'))
+
+
+def _try_acquire_pg_ticket_lock(ticket_id: int) -> bool:
+    """Try to acquire a session-scoped Postgres advisory lock for a ticket.
+
+    Returns True on success, False if another worker (or backend session)
+    already holds the lock. Session-scoped (not transaction-scoped) so the
+    lock survives the commits that happen mid-execution. MUST be paired
+    with `_release_pg_ticket_lock` in a finally block.
+
+    Falls back to True on non-Postgres backends or any DB error so this
+    layer never causes execution to be skipped due to infrastructure issues.
+    """
+    try:
+        from extensions import db
+        from sqlalchemy import text
+        result = db.session.execute(
+            text('SELECT pg_try_advisory_lock(:k1, :k2)'),
+            {'k1': _PG_LOCK_NAMESPACE_TICKET_EXEC, 'k2': int(ticket_id)},
+        ).scalar()
+        return bool(result)
+    except Exception as e:
+        logger.debug(f"Advisory lock acquire unavailable for ticket {ticket_id}: {e}")
+        return True
+
+
+def _release_pg_ticket_lock(ticket_id: int) -> None:
+    """Release the session-scoped Postgres advisory lock for a ticket."""
+    try:
+        from extensions import db
+        from sqlalchemy import text
+        db.session.execute(
+            text('SELECT pg_advisory_unlock(:k1, :k2)'),
+            {'k1': _PG_LOCK_NAMESPACE_TICKET_EXEC, 'k2': int(ticket_id)},
+        )
+    except Exception as e:
+        logger.warning(f"Advisory lock release failed for ticket {ticket_id}: {e}")
 
 
 class ExecutionMixin:
@@ -93,18 +136,33 @@ class ExecutionMixin:
     }
 
     def _execute_solution(self, ticket) -> bool:
-        # C1: Acquire per-ticket lock to serialize concurrent execution attempts.
-        # acquire(blocking=False) so a second simultaneous trigger fails fast
-        # rather than queueing and re-running the same Bullhorn writes.
+        # C1: Two-layer concurrency guard.
+        #   Layer 1 (in-process): RLock blocks duplicate execution within
+        #     this gunicorn worker (cheap, no DB roundtrip).
+        #   Layer 2 (cross-worker): Postgres advisory lock blocks duplicate
+        #     execution across all gunicorn workers / app instances.
+        # Both use non-blocking acquire — if anyone else is executing this
+        # ticket, we fail fast rather than queue. Bullhorn writes are not
+        # idempotent, so duplicate execution would create duplicate notes /
+        # submissions / updates.
         lock = _get_ticket_exec_lock(ticket.id)
         if not lock.acquire(blocking=False):
             logger.warning(
                 f"🔒 Concurrent execution blocked for ticket {ticket.ticket_number} — "
-                f"another thread is already executing. Skipping duplicate run."
+                f"another thread (same worker) is already executing. Skipping duplicate run."
             )
             return False
         try:
-            return self._execute_solution_locked(ticket)
+            if not _try_acquire_pg_ticket_lock(ticket.id):
+                logger.warning(
+                    f"🔒 Concurrent execution blocked for ticket {ticket.ticket_number} — "
+                    f"another worker is already executing. Skipping duplicate run."
+                )
+                return False
+            try:
+                return self._execute_solution_locked(ticket)
+            finally:
+                _release_pg_ticket_lock(ticket.id)
         finally:
             lock.release()
 
