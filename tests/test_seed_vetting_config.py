@@ -45,6 +45,14 @@ def clean_vetting_config(app):
 #   - recruiter_activity_lookback_minutes (lookback window for the pause gate)
 # Updated 2026-04-29 (Task #56) to include:
 #   - auditor_cooldown_hours          (min hours before re-examining non-actionable pair)
+# Updated 2026-05-05 (post-Phase-1-3 audit cleanup) to mirror seeding/settings.py:
+#   - scout_vetting_enabled           (Task #69: Scout Vetting Layer 2 toggle)
+#   - auto_reassign_owner_enabled     (Task #70: Owner Reassignment master toggle)
+#   - api_user_ids                    (Task #70: comma-separated CorporateUser IDs)
+#   - reassign_owner_note_enabled     (Task #70: drop a note on reassign)
+#   - owner_reassignment_cooldown_enabled / _hours  (Task #83: per-candidate cooldown)
+#   - owner_reassignment_heartbeat_hours            (Task #83: heartbeat cadence)
+#   - screening_skip_human_owned      (commit 771e29e6: skip human-owned candidates)
 # All features are documented in replit.md and seeded by seed_vetting_config.
 EXPECTED_KEYS = {
     'vetting_enabled',
@@ -67,6 +75,18 @@ EXPECTED_KEYS = {
     'auditor_cooldown_hours',
     'recruiter_activity_check_enabled',
     'recruiter_activity_lookback_minutes',
+    # Task #69: Scout Vetting Layer 2
+    'scout_vetting_enabled',
+    # Task #70: API User → Recruiter Ownership Reassignment
+    'auto_reassign_owner_enabled',
+    'api_user_ids',
+    'reassign_owner_note_enabled',
+    # Task #83: Owner Reassignment cooldown + heartbeat
+    'owner_reassignment_cooldown_enabled',
+    'owner_reassignment_cooldown_hours',
+    'owner_reassignment_heartbeat_hours',
+    # commit 771e29e6: Screening skip for human-owned candidates
+    'screening_skip_human_owned',
 }
 
 

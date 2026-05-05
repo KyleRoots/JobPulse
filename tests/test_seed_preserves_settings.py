@@ -147,6 +147,8 @@ class TestMissingKeysCreatedBySeed:
             'owner_reassignment_cooldown_enabled',
             'owner_reassignment_cooldown_hours',
             'owner_reassignment_heartbeat_hours',
+            # commit 771e29e6: Screening skip for human-owned candidates
+            'screening_skip_human_owned',
         }
 
         with app.app_context():
