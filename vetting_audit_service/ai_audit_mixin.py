@@ -133,9 +133,13 @@ IMPORTANT:
             return json.loads(content)
 
         except Exception as e:
+            # I5: Distinguish AI/network failures from genuine "no_issue" findings
+            # so failed audits don't pollute clean-audit metrics. The orchestration
+            # layer treats anything other than 'no_issue' + high/medium confidence
+            # as a non-actionable finding, so 'api_failure' is safe to introduce.
             logger.error(f"❌ AI audit call failed: {str(e)}")
             return {
-                'finding_type': 'no_issue',
+                'finding_type': 'api_failure',
                 'confidence': 'low',
                 'reasoning': f'AI audit call failed: {str(e)}',
                 'recommended_action': 'no_action'

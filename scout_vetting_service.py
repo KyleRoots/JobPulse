@@ -124,6 +124,25 @@ class ScoutVettingService:
         result = {'created': 0, 'queued': 0, 'skipped': 0, 'sessions': []}
         enabled_at = self._get_enabled_at()
 
+        # C6: Acquire a Postgres transaction-scoped advisory lock keyed on the
+        # candidate id BEFORE counting active sessions. Two concurrent
+        # initiate_vetting calls for the same candidate would otherwise both
+        # see count<MAX and exceed the cap. The lock auto-releases at
+        # commit/rollback. Failure to acquire (or non-Postgres backend) is
+        # logged but non-fatal — we still proceed with the count.
+        try:
+            from sqlalchemy import text
+            db.session.execute(
+                text('SELECT pg_advisory_xact_lock(:k1, :k2)'),
+                {'k1': 0x5C0E7, 'k2': int(vetting_log.bullhorn_candidate_id)},
+            )
+        except Exception as lock_err:
+            import logging as _logging
+            _logging.getLogger(__name__).debug(
+                f"Advisory lock unavailable for candidate "
+                f"{vetting_log.bullhorn_candidate_id}: {lock_err}"
+            )
+
         # Fetch active-session count once for this candidate — incremented locally as sessions are created
         active_count = ScoutVettingSession.query.filter(
             ScoutVettingSession.bullhorn_candidate_id == vetting_log.bullhorn_candidate_id,

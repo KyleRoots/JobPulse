@@ -314,6 +314,48 @@ def save_vetting_settings():
                     current_app.logger.warning(f"⚠️ DB lock on settings save, retry {attempt + 1}/3")
                 else:
                     raise
+
+        # I8: Audit who toggled the safety-critical auditor controls.
+        # We log even when the values didn't change so the trail captures
+        # every save click (tampering and accidental clicks both matter).
+        try:
+            from models import UserActivityLog
+            import json as _json
+            actor_email = getattr(current_user, 'email', None) or 'unknown'
+            actor_id = getattr(current_user, 'id', None)
+            audit_payload = {
+                'page': 'vetting_settings',
+                'screening_audit_enabled': bool(screening_audit_enabled),
+                'vetting_enabled': bool(vetting_enabled),
+                'scout_vetting_enabled': bool(scout_vetting_enabled),
+                'send_recruiter_emails': bool(send_recruiter_emails),
+                'match_threshold': threshold,
+                'recruiter_activity_check_enabled': bool(recruiter_gate_enabled),
+                'recruiter_activity_lookback_minutes': recruiter_lookback,
+                'actor_email': actor_email,
+            }
+            if auditor_fields_submitted:
+                audit_payload['quality_auditor_model'] = quality_auditor_model
+                audit_payload['qualified_audit_sample_rate'] = qualified_sample_rate
+                audit_payload['platform_age_ceilings'] = platform_age_ceilings_value
+            if actor_id:
+                db.session.add(UserActivityLog(
+                    user_id=actor_id,
+                    activity_type='config_change',
+                    ip_address=request.remote_addr,
+                    details=_json.dumps(audit_payload),
+                ))
+                db.session.commit()
+            current_app.logger.info(
+                f"🛡️ Vetting settings saved by {actor_email}: "
+                f"audit_enabled={screening_audit_enabled}, "
+                f"auditor_model={quality_auditor_model if auditor_fields_submitted else '(unchanged)'}, "
+                f"sample_rate={qualified_sample_rate if auditor_fields_submitted else '(unchanged)'}"
+            )
+        except Exception as audit_err:
+            current_app.logger.warning(f"Failed to write vetting-settings audit log: {audit_err}")
+            db.session.rollback()
+
         flash('Vetting settings saved successfully!', 'success')
 
     except Exception as e:

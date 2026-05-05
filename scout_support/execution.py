@@ -36,10 +36,45 @@ Contains:
 
 import json
 import logging
+import threading
+import time
 from datetime import datetime
 from typing import Dict, List
 
 logger = logging.getLogger(__name__)
+
+# Per-ticket execution locks — prevents concurrent _execute_solution calls
+# on the same ticket (e.g. user-approval reply landing while admin clicks Retry).
+# Bullhorn API mutations are not idempotent, so double-execution can create
+# duplicate notes / submissions / updates.
+_TICKET_EXEC_LOCKS_GUARD = threading.Lock()
+_TICKET_EXEC_LOCKS: Dict[int, threading.RLock] = {}
+
+
+def _get_ticket_exec_lock(ticket_id: int) -> threading.RLock:
+    """Return (or create) a process-local re-entrant lock keyed on ticket id.
+
+    RLock allows the retry path (`_attempt_retry` → `_execute_solution`)
+    to re-enter on the same thread without deadlocking, while still
+    blocking concurrent calls from other threads.
+    """
+    with _TICKET_EXEC_LOCKS_GUARD:
+        lock = _TICKET_EXEC_LOCKS.get(ticket_id)
+        if lock is None:
+            lock = threading.RLock()
+            _TICKET_EXEC_LOCKS[ticket_id] = lock
+        return lock
+
+
+# Retryable HTTP error codes for Bullhorn write paths (5xx + 408/429)
+_RETRYABLE_STATUSES = {408, 429, 500, 502, 503, 504}
+_BULLHORN_WRITE_MAX_RETRIES = 3
+
+
+def _is_retryable_exception(exc: Exception) -> bool:
+    """Network-layer errors worth retrying (timeout, connection drop, DNS)."""
+    name = type(exc).__name__.lower()
+    return any(token in name for token in ('timeout', 'connection', 'connect'))
 
 
 class ExecutionMixin:
@@ -58,6 +93,22 @@ class ExecutionMixin:
     }
 
     def _execute_solution(self, ticket) -> bool:
+        # C1: Acquire per-ticket lock to serialize concurrent execution attempts.
+        # acquire(blocking=False) so a second simultaneous trigger fails fast
+        # rather than queueing and re-running the same Bullhorn writes.
+        lock = _get_ticket_exec_lock(ticket.id)
+        if not lock.acquire(blocking=False):
+            logger.warning(
+                f"🔒 Concurrent execution blocked for ticket {ticket.ticket_number} — "
+                f"another thread is already executing. Skipping duplicate run."
+            )
+            return False
+        try:
+            return self._execute_solution_locked(ticket)
+        finally:
+            lock.release()
+
+    def _execute_solution_locked(self, ticket) -> bool:
         from extensions import db
         from models import SupportAction
 
@@ -236,7 +287,12 @@ class ExecutionMixin:
 
         logger.info(f"🔄 Retrying execution for {ticket.ticket_number} with new strategy: {retry_data.get('alternative_strategy', '')[:200]}")
 
-        return self._execute_solution(ticket)
+        # Call the locked variant directly: we already hold the per-ticket
+        # RLock from the outer _execute_solution call, so re-acquiring it
+        # would be redundant. Going straight to _execute_solution_locked
+        # also makes the intent unambiguous and avoids any risk that a
+        # future change to the lock guard breaks the retry path.
+        return self._execute_solution_locked(ticket)
 
     def _execute_bullhorn_actions(self, ticket, solution_data: dict) -> List[Dict]:
         from extensions import db
@@ -407,21 +463,37 @@ class ExecutionMixin:
         return value
 
     def _exec_update_entity_api(self, entity_type: str, entity_id: int, field: str, new_value) -> Dict:
-        try:
-            url = f"{self.bullhorn_service.base_url}entity/{entity_type}/{entity_id}"
-            params = {'BhRestToken': self.bullhorn_service.rest_token}
-            response = self.bullhorn_service.session.post(url, params=params, json={field: new_value}, timeout=30)
+        # C4: Retry transient 5xx / timeout / connection errors with exponential backoff.
+        # Re-auth on 401 still happens once before the retry loop counts.
+        url = f"{self.bullhorn_service.base_url}entity/{entity_type}/{entity_id}"
+        params = {'BhRestToken': self.bullhorn_service.rest_token}
+        last_error = ''
 
-            if response.status_code == 401:
-                if self.bullhorn_service.authenticate():
-                    params['BhRestToken'] = self.bullhorn_service.rest_token
-                    response = self.bullhorn_service.session.post(url, params=params, json={field: new_value}, timeout=30)
-                else:
-                    return {'success': False, 'error': 'Authentication failed'}
+        for attempt in range(_BULLHORN_WRITE_MAX_RETRIES):
+            try:
+                response = self.bullhorn_service.session.post(url, params=params, json={field: new_value}, timeout=30)
 
-            if response.status_code == 200:
-                return {'success': True}
-            else:
+                if response.status_code == 401:
+                    if self.bullhorn_service.authenticate():
+                        params['BhRestToken'] = self.bullhorn_service.rest_token
+                        response = self.bullhorn_service.session.post(url, params=params, json={field: new_value}, timeout=30)
+                    else:
+                        return {'success': False, 'error': 'Authentication failed'}
+
+                if response.status_code == 200:
+                    if attempt > 0:
+                        logger.info(f"✅ Bullhorn update succeeded on retry {attempt + 1}/{_BULLHORN_WRITE_MAX_RETRIES} for {entity_type} #{entity_id}")
+                    return {'success': True}
+
+                if response.status_code in _RETRYABLE_STATUSES and attempt < _BULLHORN_WRITE_MAX_RETRIES - 1:
+                    backoff = 2 ** attempt  # 1s, 2s, 4s
+                    logger.warning(
+                        f"⚠️ Bullhorn update {entity_type} #{entity_id} got HTTP {response.status_code} — "
+                        f"retrying in {backoff}s ({attempt + 1}/{_BULLHORN_WRITE_MAX_RETRIES})"
+                    )
+                    time.sleep(backoff)
+                    continue
+
                 error_text = ''
                 try:
                     resp_data = response.json()
@@ -431,8 +503,20 @@ class ExecutionMixin:
                 except Exception:
                     error_text = response.text[:200] if response.text else ''
                 return {'success': False, 'error': f'HTTP {response.status_code}: {error_text}' if error_text else f'HTTP {response.status_code}'}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
+
+            except Exception as e:
+                last_error = str(e)
+                if _is_retryable_exception(e) and attempt < _BULLHORN_WRITE_MAX_RETRIES - 1:
+                    backoff = 2 ** attempt
+                    logger.warning(
+                        f"⚠️ Bullhorn update {entity_type} #{entity_id} {type(e).__name__}: {e} — "
+                        f"retrying in {backoff}s ({attempt + 1}/{_BULLHORN_WRITE_MAX_RETRIES})"
+                    )
+                    time.sleep(backoff)
+                    continue
+                return {'success': False, 'error': last_error}
+
+        return {'success': False, 'error': f'All {_BULLHORN_WRITE_MAX_RETRIES} retries exhausted: {last_error}'}
 
     def _exec_update_entity(self, action, entity_type: str, entity_id: int, field: str, new_value) -> Dict:
         new_value = self._coerce_bullhorn_value(field, new_value)
@@ -490,17 +574,56 @@ class ExecutionMixin:
 
         url = f"{self.bullhorn_service.base_url}entity/Note"
         params = {'BhRestToken': self.bullhorn_service.rest_token}
-        response = self.bullhorn_service.session.put(url, params=params, json=note_data, timeout=60)
 
-        if response.status_code == 401:
-            if self.bullhorn_service.authenticate():
-                params['BhRestToken'] = self.bullhorn_service.rest_token
-                url = f"{self.bullhorn_service.base_url}entity/Note"
+        # C4: Retry transient 5xx / timeout / connection errors with exponential backoff.
+        response = None
+        last_exc_msg = ''
+        for attempt in range(_BULLHORN_WRITE_MAX_RETRIES):
+            try:
                 response = self.bullhorn_service.session.put(url, params=params, json=note_data, timeout=60)
-            else:
+
+                if response.status_code == 401:
+                    if self.bullhorn_service.authenticate():
+                        params['BhRestToken'] = self.bullhorn_service.rest_token
+                        url = f"{self.bullhorn_service.base_url}entity/Note"
+                        response = self.bullhorn_service.session.put(url, params=params, json=note_data, timeout=60)
+                    else:
+                        action.success = False
+                        action.error_message = 'Bullhorn re-authentication failed'
+                        return {'step': step.get('description', 'Create note'), 'result': 'Failed — authentication error'}
+
+                if response.status_code in _RETRYABLE_STATUSES and attempt < _BULLHORN_WRITE_MAX_RETRIES - 1:
+                    backoff = 2 ** attempt
+                    logger.warning(
+                        f"⚠️ Note creation on {entity_type} #{entity_id} got HTTP {response.status_code} — "
+                        f"retrying in {backoff}s ({attempt + 1}/{_BULLHORN_WRITE_MAX_RETRIES})"
+                    )
+                    time.sleep(backoff)
+                    continue
+
+                if attempt > 0 and response.status_code in (200, 201):
+                    logger.info(f"✅ Note creation succeeded on retry {attempt + 1}/{_BULLHORN_WRITE_MAX_RETRIES} for {entity_type} #{entity_id}")
+                break
+
+            except Exception as e:
+                last_exc_msg = str(e)
+                if _is_retryable_exception(e) and attempt < _BULLHORN_WRITE_MAX_RETRIES - 1:
+                    backoff = 2 ** attempt
+                    logger.warning(
+                        f"⚠️ Note creation on {entity_type} #{entity_id} {type(e).__name__}: {e} — "
+                        f"retrying in {backoff}s ({attempt + 1}/{_BULLHORN_WRITE_MAX_RETRIES})"
+                    )
+                    time.sleep(backoff)
+                    continue
                 action.success = False
-                action.error_message = 'Bullhorn re-authentication failed'
-                return {'step': step.get('description', 'Create note'), 'result': 'Failed — authentication error'}
+                action.error_message = f'Note creation network error: {last_exc_msg}'
+                logger.error(f"❌ Note creation network error for {entity_type} #{entity_id}: {last_exc_msg}")
+                return {'step': step.get('description', 'Create note'), 'result': f'Failed — network error: {last_exc_msg}'}
+
+        if response is None:
+            action.success = False
+            action.error_message = f'Note creation failed: {last_exc_msg or "no response"}'
+            return {'step': step.get('description', 'Create note'), 'result': 'Failed — no response from Bullhorn'}
 
         if response.status_code in (200, 201):
             data = response.json() if response.text else {}

@@ -134,6 +134,11 @@ class SupportTicket(db.Model):
 
     @staticmethod
     def generate_ticket_number():
+        # I3: Concurrent ticket creations can race on the seq computation and
+        # collide on the ticket_number unique index. Caller is expected to
+        # retry on IntegrityError; we offer a small probe loop here that
+        # advances the candidate seq if a same-number row already exists in
+        # the current session/db so the caller's commit succeeds the first time.
         year = datetime.utcnow().year
         prefix = f'SS-{year}-'
         latest = SupportTicket.query.filter(
@@ -146,6 +151,13 @@ class SupportTicket(db.Model):
                 seq = 1
         else:
             seq = 1
+
+        for _ in range(5):
+            candidate = f'{prefix}{seq:04d}'
+            exists = SupportTicket.query.filter_by(ticket_number=candidate).first()
+            if not exists:
+                return candidate
+            seq += 1
         return f'{prefix}{seq:04d}'
 
     def __repr__(self):

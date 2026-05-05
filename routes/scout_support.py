@@ -365,6 +365,13 @@ def api_reply_to_ticket(ticket_number):
     if not reply_body:
         return jsonify({'error': 'Reply message is required'}), 400
 
+    # I4: Server-side reply length cap (matches the maxlength="10000" added to the
+    # admin/platform reply textareas). Prevents oversized payloads from breaking
+    # downstream email rendering or Bullhorn note size limits.
+    MAX_REPLY_LENGTH = 10000
+    if len(reply_body) > MAX_REPLY_LENGTH:
+        return jsonify({'error': f'Reply exceeds maximum length of {MAX_REPLY_LENGTH} characters'}), 400
+
     MAX_FILE_SIZE = 10 * 1024 * 1024
     ALLOWED_TYPES = {
         'image/png', 'image/jpeg', 'image/gif', 'image/webp',
@@ -404,10 +411,18 @@ def delete_ticket(ticket_number):
     if not ticket:
         return jsonify({'error': 'Ticket not found'}), 404
 
-    SupportAction.query.filter_by(ticket_id=ticket.id).delete()
-    SupportConversation.query.filter_by(ticket_id=ticket.id).delete()
-    db.session.delete(ticket)
-    db.session.commit()
+    # C3: Wrap multi-step delete in transaction with rollback on failure.
+    # Otherwise a mid-delete error leaves orphaned SupportAction or
+    # SupportConversation rows pointing at a deleted ticket.
+    try:
+        SupportAction.query.filter_by(ticket_id=ticket.id).delete()
+        SupportConversation.query.filter_by(ticket_id=ticket.id).delete()
+        db.session.delete(ticket)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"❌ Failed to delete ticket {ticket_number}: {e}")
+        return jsonify({'error': f'Delete failed: {str(e)}'}), 500
 
     logger.info(f"🗑️ Admin deleted ticket {ticket_number}")
     return jsonify({'success': True, 'message': f'Ticket {ticket_number} deleted'})

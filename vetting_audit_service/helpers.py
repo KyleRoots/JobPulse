@@ -115,9 +115,13 @@ def backfill_revet_new_score(
     from models import VettingAuditLog, CandidateJobMatch, CandidateVettingLog
 
     try:
+        # I7: Include 'revet_skipped_stable' rows so when an auditor cycle
+        # later confirms the original score on a previously-stable case, the
+        # stored revet_new_score gets back-filled too (otherwise these rows
+        # remain permanently null and skew "score drift" reporting).
         pending = VettingAuditLog.query.filter(
             VettingAuditLog.bullhorn_candidate_id == candidate_id,
-            VettingAuditLog.action_taken == 'revet_triggered',
+            VettingAuditLog.action_taken.in_(['revet_triggered', 'revet_skipped_stable']),
             VettingAuditLog.revet_new_score.is_(None),
         ).all()
 

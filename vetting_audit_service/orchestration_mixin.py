@@ -146,11 +146,15 @@ class OrchestrationMixin:
         if not pool:
             return []
 
-        sampled = [
-            vl for vl in pool
-            if random.randint(1, 100) <= sample_rate
-        ]
-        return sampled[:batch_size]
+        # I6: Use random.sample for an unbiased fixed-size draw instead of a
+        # per-row coin flip. The previous coin-flip approach produced a
+        # binomial-distributed batch (sometimes 0 rows, sometimes >batch_size)
+        # and over-represented the head of the (analyzed_at desc) pool when
+        # subsequently sliced. random.sample gives every row in the pool an
+        # equal probability of being chosen and yields a deterministic count.
+        target_count = max(1, int(round(len(pool) * sample_rate / 100.0)))
+        target_count = min(target_count, batch_size, len(pool))
+        return random.sample(pool, target_count)
 
     def _commit_audit_log(self, audit_log) -> bool:
         """Persist a VettingAuditLog row with race-safe duplicate handling.

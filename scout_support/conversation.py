@@ -75,7 +75,16 @@ class ConversationMixin:
         db.session.add(conv)
         if message_id:
             ticket.last_message_id = message_id
-        db.session.commit()
+
+        # I1: Wrap commit in try/except — DB errors here previously crashed the
+        # inbound webhook handler, leaving the user's reply unrecorded with no
+        # rollback. Now we rollback and abort cleanly so the caller can retry.
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"❌ Failed to persist user reply for ticket {ticket.ticket_number}: {e}")
+            return False
 
         attachment_content = ''
         attachment_ack = ''
@@ -466,6 +475,13 @@ class ConversationMixin:
 
         analysis = self._analyze_clarification(ticket, reply_body, attachment_content=attachment_content)
         if not analysis:
+            # I2: Surface the silent-fail path so operators can spot a stuck
+            # clarification loop in the logs instead of guessing.
+            logger.warning(
+                f"⚠️ _analyze_clarification returned None for ticket {ticket.ticket_number} "
+                f"(clarification_round={clarification_count + 1}/{self.MAX_CLARIFICATION_ROUNDS}) — "
+                f"user reply could not be parsed by AI; will {'escalate' if clarification_count >= self.MAX_CLARIFICATION_ROUNDS else 'retry on next reply'}."
+            )
             if clarification_count >= self.MAX_CLARIFICATION_ROUNDS:
                 self._escalate_to_admin(ticket, reason=f"AI could not analyze the issue after {clarification_count} clarification rounds.")
                 return True
