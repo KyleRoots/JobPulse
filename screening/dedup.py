@@ -23,6 +23,15 @@ logger = logging.getLogger(__name__)
 
 _SCOUT_SCREEN_ACTION_PREFIX = "Scout Screen"
 
+# Per-worker block counters for the May 2026 skip-gate batch (Loop Killer).
+# Surfaced on /admin/health via tile_skip_gates_24h. Caveat: each gunicorn
+# worker has its own copy, so the displayed value is sampled from one
+# worker — useful as a directional signal ("are gates firing?") rather
+# than an absolute total. For absolute counts, grep production logs for
+# "SELF-SCREEN COOLDOWN" / "RECRUITER-DECISIONED SKIP".
+_COOLDOWN_BLOCK_COUNTER = 0
+_RECRUITER_DECISION_BLOCK_COUNTER = 0
+
 
 class CandidateDeduplicationMixin:
     """Job-aware dedup and recruiter-activity gating for candidate detection."""
@@ -174,10 +183,13 @@ class CandidateDeduplicationMixin:
         ).order_by(CandidateVettingLog.created_at.desc()).first()
         if recent:
             mins_since = max(0, int((datetime.utcnow() - recent.created_at).total_seconds() / 60))
+            global _COOLDOWN_BLOCK_COUNTER
+            _COOLDOWN_BLOCK_COUNTER += 1
             logger.info(
                 f"⏱️ SELF-SCREEN COOLDOWN: candidate {candidate_id} re-screen blocked — "
                 f"prior vetting_log id={recent.id} created {mins_since}min ago "
-                f"(cooldown={cooldown_min}min)"
+                f"(cooldown={cooldown_min}min) "
+                f"event=cooldown_blocked counter={_COOLDOWN_BLOCK_COUNTER}"
             )
             return True
         return False
@@ -334,11 +346,14 @@ class CandidateDeduplicationMixin:
                     is_human = True
             if is_human:
                 hours_since = max(0, int((datetime.utcnow().timestamp() * 1000 - note_ms) / 3600000))
+                global _RECRUITER_DECISION_BLOCK_COUNTER
+                _RECRUITER_DECISION_BLOCK_COUNTER += 1
                 logger.info(
                     f"🛑 RECRUITER-DECISIONED SKIP: candidate {candidate_id} × job "
                     f"{applied_job_id} — human note id={note.get('id')} action='{action}' "
                     f"posted ~{hours_since}h ago (after latest Scout Screen). "
-                    f"Skipping re-screen for this job."
+                    f"Skipping re-screen for this job. "
+                    f"event=recruiter_decision_blocked counter={_RECRUITER_DECISION_BLOCK_COUNTER}"
                 )
                 return True
         return False

@@ -112,6 +112,7 @@ class AdminHealthService:
             self.tile_sftp_uploads,
             self.tile_onedrive_token,
             self.tile_ai_cost_24h,
+            self.tile_skip_gates,
         ]
         tiles: List[HealthTile] = []
         for collector in collectors:
@@ -627,6 +628,96 @@ class AdminHealthService:
                 value='Check failed',
                 subtext=str(exc)[:160],
                 remediation='Verify openai_call_log table exists and services.openai_helper is wired.',
+                last_checked=self._now_iso,
+            )
+
+    def tile_skip_gates(self) -> HealthTile:
+        """Visibility into the May 2026 screening skip-gate batch (Loop Killer).
+
+        Surfaces three counters and the killswitch state for the gates that
+        protect against redundant vetting cycles:
+          - Self-screen cooldown blocks  (screening.dedup._COOLDOWN_BLOCK_COUNTER)
+          - Recruiter-decision skips     (screening.dedup._RECRUITER_DECISION_BLOCK_COUNTER)
+          - Note-dedupe rejections       (screening.note_builder._DEDUPE_REJECTION_COUNTER)
+
+        Counters are per-worker (gunicorn runs 4 workers) so the displayed
+        totals are SAMPLED, not aggregated. Useful as a directional signal
+        ("are gates firing?"). For absolute counts, grep production logs
+        for the `event=cooldown_blocked|recruiter_decision_blocked|note_dedupe_blocked`
+        markers.
+
+        Status policy:
+          - red   = cooldown killswitch is OFF (cooldown_min<=0) — protection disabled
+          - amber = either gate has fired >100 times since worker boot — likely
+                    indicates upstream loop bug needs investigation
+          - green = gates enabled and firing within expected envelope
+        """
+        try:
+            from screening import dedup as _dedup_mod
+            from screening import note_builder as _nb_mod
+            from models import VettingConfig
+
+            cooldown_blocks = int(getattr(_dedup_mod, '_COOLDOWN_BLOCK_COUNTER', 0) or 0)
+            recruiter_blocks = int(getattr(_dedup_mod, '_RECRUITER_DECISION_BLOCK_COUNTER', 0) or 0)
+            dedupe_blocks = int(getattr(_nb_mod, '_DEDUPE_REJECTION_COUNTER', 0) or 0)
+
+            try:
+                cooldown_min = int((VettingConfig.get_value('self_screen_cooldown_minutes') or '60').strip())
+            except Exception:
+                cooldown_min = 60
+            try:
+                recruiter_skip_enabled = str(
+                    VettingConfig.get_value('recruiter_decision_skip_enabled') or 'true'
+                ).strip().lower() in ('true', '1', 'yes', 'on')
+            except Exception:
+                recruiter_skip_enabled = True
+
+            cooldown_on = cooldown_min > 0
+            total_blocks = cooldown_blocks + recruiter_blocks + dedupe_blocks
+
+            if not cooldown_on:
+                status = 'red'
+                remediation = (
+                    'Self-screen cooldown is DISABLED (self_screen_cooldown_minutes<=0). '
+                    'Re-enable at /vetting/settings to prevent re-screen loop bugs.'
+                )
+            elif cooldown_blocks > 100 or recruiter_blocks > 100 or dedupe_blocks > 100:
+                status = 'amber'
+                remediation = (
+                    'A gate has fired >100 times on this worker since boot. Grep logs for '
+                    '"event=cooldown_blocked" / "event=recruiter_decision_blocked" / '
+                    '"event=note_dedupe_blocked" to investigate the upstream loop source.'
+                )
+            else:
+                status = 'green'
+                remediation = ''
+
+            recruiter_state = 'on' if recruiter_skip_enabled else 'off'
+            value = f'{total_blocks:,} block(s)'
+            subtext = (
+                f'cooldown={cooldown_blocks} · recruiter-decision={recruiter_blocks} · '
+                f'note-dedupe={dedupe_blocks} (per-worker since boot) · '
+                f'cooldown={cooldown_min}min · recruiter-skip={recruiter_state}'
+            )
+            return HealthTile(
+                key='skip_gates',
+                label='Screening Skip Gates',
+                icon='fa-shield-alt',
+                status=status,
+                value=value,
+                subtext=subtext,
+                remediation=remediation,
+                last_checked=self._now_iso,
+            )
+        except Exception as exc:
+            return HealthTile(
+                key='skip_gates',
+                label='Screening Skip Gates',
+                icon='fa-shield-alt',
+                status='unknown',
+                value='Check failed',
+                subtext=str(exc)[:160],
+                remediation='Inspect screening.dedup / screening.note_builder module load.',
                 last_checked=self._now_iso,
             )
 
