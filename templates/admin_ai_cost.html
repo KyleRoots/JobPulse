@@ -76,6 +76,33 @@
     </div>
 </div>
 
+{% if trend %}
+<h3 style="margin-top: 8px; margin-bottom: 12px; font-size: 16px; opacity: 0.85;">7-Day Daily Trend</h3>
+<table class="cost-table" style="margin-bottom: 28px;">
+    <thead>
+        <tr>
+            <th>Day</th>
+            <th class="numeric">Calls</th>
+            <th class="numeric">Tokens</th>
+            <th class="numeric">Failures</th>
+            <th class="numeric">Daily Cost</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for d in trend %}
+        <tr>
+            <td>{{ d.day }}</td>
+            <td class="numeric">{{ '{:,}'.format(d.calls) }}</td>
+            <td class="numeric">{{ '{:,}'.format(d.tokens) }}</td>
+            <td class="numeric">{{ '{:,}'.format(d.failures) }}</td>
+            <td class="numeric">${{ '%.2f' % d.cost }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+<h3 style="margin-top: 8px; margin-bottom: 12px; font-size: 16px; opacity: 0.85;">Per-Site Breakdown ({{ hours }}h window)</h3>
 {% if breakdown %}
 <table class="cost-table">
     <thead>

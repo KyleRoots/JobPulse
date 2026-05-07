@@ -82,6 +82,39 @@ def ai_cost_dashboard():
         total_calls += calls
         total_tokens += in_tok + out_tok
 
+    # 7-day daily trend (always rendered, regardless of selected window)
+    trend_since = datetime.utcnow() - timedelta(days=7)
+    trend = []
+    try:
+        trend_rows = db.session.execute(
+            text(
+                "SELECT DATE(created_at) AS day, "
+                "       COUNT(*) AS calls, "
+                "       COALESCE(SUM(input_tokens + output_tokens), 0) AS tokens, "
+                "       COALESCE(SUM(estimated_cost_usd), 0) AS cost, "
+                "       COALESCE(SUM(CASE WHEN success = FALSE THEN 1 ELSE 0 END), 0) AS failures "
+                "FROM openai_call_log "
+                "WHERE created_at >= :since "
+                "GROUP BY DATE(created_at) "
+                "ORDER BY day DESC"
+            ),
+            {'since': trend_since},
+        ).fetchall()
+        for r in trend_rows:
+            trend.append({
+                'day': r[0].isoformat() if r[0] else '',
+                'calls': int(r[1] or 0),
+                'tokens': int(r[2] or 0),
+                'cost': float(r[3] or 0),
+                'failures': int(r[4] or 0),
+            })
+    except Exception as exc:
+        logger.warning(f"AI cost trend query failed: {exc}")
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+
     return render_template(
         'admin_ai_cost.html',
         active_page='admin_health',
@@ -91,4 +124,5 @@ def ai_cost_dashboard():
         total_cost=total_cost,
         total_calls=total_calls,
         total_tokens=total_tokens,
+        trend=trend,
     )
