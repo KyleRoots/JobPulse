@@ -5,16 +5,105 @@ Notification Service - Recruiter email notifications for qualified candidates.
 Contains:
 - send_recruiter_notifications: Sends consolidated email with all recruiters CC'd
 - _send_recruiter_email: Builds and sends the HTML notification email
+- _build_recruiter_subject: Compose job-aware subject line (Option A format)
+- _fetch_resume_attachment: Best-effort resume fetch for inbox keyword search
 """
 
 import logging
+import re
 logger = logging.getLogger(__name__)
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 from app import db
 from models import CandidateJobMatch, CandidateVettingLog, VettingConfig
 from vetting.name_utils import parse_names, parse_emails
 from screening.location_review import is_location_review_match, resolve_match_threshold
+
+# Resume attachment cap — SendGrid hard limit is ~30MB on the full payload;
+# 10MB keeps headroom for the HTML body, base64 overhead (~33%), and matches
+# typical Outlook/Gmail comfort zones for forwarded attachments.
+_RESUME_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024
+
+# File extension → MIME type for resume attachments. Default keeps SendGrid
+# happy with arbitrary bytes; Outlook/Gmail still render based on filename.
+_RESUME_CONTENT_TYPE_MAP = {
+    '.pdf': 'application/pdf',
+    '.doc': 'application/msword',
+    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    '.rtf': 'application/rtf',
+    '.txt': 'text/plain',
+    '.odt': 'application/vnd.oasis.opendocument.text',
+}
+
+
+def _build_recruiter_subject(candidate_name: str, matches: List['CandidateJobMatch']) -> str:
+    """
+    Compose a job-aware subject line so recruiters can triage from the inbox
+    without opening every Scout email.
+
+    Option A format (per internal user request, May 2026):
+      - 1 match    → "Scout: {Name} — {Job Title} (Job #{ID})"
+      - N matches  → "Scout: {Name} — {Top Job Title} (Job #{ID}) +{N-1} more"
+      - Empty/edge → falls back to the legacy "Qualified Candidate Alert"
+        format so we never send a malformed subject.
+
+    Top match is the highest-scored match (matches with no `match_score`
+    fall to the bottom; ties keep input order — stable sort).
+    """
+    safe_name = (candidate_name or 'Candidate').strip() or 'Candidate'
+    if not matches:
+        return f"🎯 Qualified Candidate Alert: {safe_name}"
+
+    sorted_matches = sorted(
+        matches,
+        key=lambda m: (m.match_score or 0),
+        reverse=True,
+    )
+    top = sorted_matches[0]
+    top_title = (top.job_title or 'Position').strip() or 'Position'
+    top_job_id = top.bullhorn_job_id
+
+    if top_job_id:
+        head = f"Scout: {safe_name} — {top_title} (Job #{top_job_id})"
+    else:
+        head = f"Scout: {safe_name} — {top_title}"
+
+    extra = len(sorted_matches) - 1
+    if extra > 0:
+        return f"{head} +{extra} more"
+    return head
+
+
+def _resume_content_type(filename: Optional[str]) -> str:
+    """Best-effort MIME inference from filename extension."""
+    if not filename:
+        return 'application/octet-stream'
+    lower = filename.lower()
+    for ext, ctype in _RESUME_CONTENT_TYPE_MAP.items():
+        if lower.endswith(ext):
+            return ctype
+    return 'application/octet-stream'
+
+
+def _safe_resume_filename(candidate_name: str, original_filename: Optional[str]) -> str:
+    """
+    Build an inbox-friendly resume filename: `{Candidate_Name}_Resume.{ext}`.
+
+    Preserves the original extension so the recipient's mail client picks the
+    right icon and the OS opens it in the right app. Sanitizes the name to
+    a conservative ASCII subset so SendGrid/MIME don't choke on non-ASCII.
+    """
+    name = (candidate_name or 'Candidate').strip() or 'Candidate'
+    safe_name = re.sub(r'[^A-Za-z0-9._-]+', '_', name).strip('_') or 'Candidate'
+
+    ext = ''
+    if original_filename:
+        match = re.search(r'(\.[A-Za-z0-9]{2,5})$', original_filename)
+        if match:
+            ext = match.group(1).lower()
+    if not ext:
+        ext = '.pdf'  # Sensible default — most Bullhorn resumes are PDFs.
+    return f"{safe_name}_Resume{ext}"
 
 
 class NotificationMixin:
@@ -139,7 +228,16 @@ class NotificationMixin:
             else:
                 logger.warning(f"❌ No recruiter emails found and no admin email configured - cannot send notification for {vetting_log.candidate_name}")
                 return 0
-        
+
+        # Best-effort resume attachment fetch — recruiter UX win so they can
+        # keyword-search the resume from their inbox without opening Bullhorn.
+        # Fail-open: any error here returns None and we send the email
+        # without the attachment. Notification > convenience attachment.
+        resume_attachments = self._fetch_resume_attachment(
+            candidate_id=vetting_log.bullhorn_candidate_id,
+            candidate_name=vetting_log.candidate_name,
+        )
+
         # Send ONE email with primary as To: and others as CC:
         try:
             success = self._send_recruiter_email(
@@ -148,9 +246,10 @@ class NotificationMixin:
                 candidate_name=vetting_log.candidate_name,
                 candidate_id=vetting_log.bullhorn_candidate_id,
                 matches=matches,
-                cc_emails=cc_recruiter_emails  # All other recruiters CC'd
+                cc_emails=cc_recruiter_emails,  # All other recruiters CC'd
+                attachments=resume_attachments,
             )
-            
+
             if success:
                 # Mark ALL matches as notified
                 for match in matches:
@@ -185,10 +284,63 @@ class NotificationMixin:
             logger.error(f"Failed to send notification: {str(e)}")
             return 0
     
+    def _fetch_resume_attachment(self, candidate_id: int,
+                                 candidate_name: str) -> Optional[list]:
+        """
+        Best-effort resume fetch for inbox keyword search (May 2026).
+
+        Returns a SendGrid-ready attachments list (one element) or None.
+        Always fail-open: any exception, missing file, oversize file,
+        or empty Bullhorn response returns None and the caller proceeds
+        with no attachment. The email itself is the priority — we never
+        want a Bullhorn hiccup to silently swallow a recruiter alert.
+
+        Size cap: `_RESUME_ATTACHMENT_MAX_BYTES` (10MB). Resumes over the
+        cap are skipped with an INFO log so we can monitor frequency.
+        """
+        if not candidate_id:
+            return None
+        try:
+            file_content, original_filename = self.get_candidate_resume(candidate_id)
+        except Exception as fetch_err:
+            logger.warning(
+                f"📎 Resume attach: fetch failed for candidate {candidate_id} "
+                f"({type(fetch_err).__name__}: {fetch_err}); sending email without attachment"
+            )
+            return None
+
+        if not file_content:
+            logger.info(
+                f"📎 Resume attach: no resume on file for candidate {candidate_id}; "
+                f"sending email without attachment"
+            )
+            return None
+
+        size = len(file_content)
+        if size > _RESUME_ATTACHMENT_MAX_BYTES:
+            logger.info(
+                f"📎 Resume attach: candidate {candidate_id} resume is "
+                f"{size / 1024 / 1024:.1f}MB (cap "
+                f"{_RESUME_ATTACHMENT_MAX_BYTES / 1024 / 1024:.0f}MB); skipping attachment"
+            )
+            return None
+
+        attachment = {
+            'data': file_content,
+            'filename': _safe_resume_filename(candidate_name, original_filename),
+            'content_type': _resume_content_type(original_filename),
+        }
+        logger.info(
+            f"📎 Resume attach: candidate {candidate_id} → {attachment['filename']} "
+            f"({size} bytes, {attachment['content_type']})"
+        )
+        return [attachment]
+
     def _send_recruiter_email(self, recruiter_email: str, recruiter_name: str,
                                candidate_name: str, candidate_id: int,
                                matches: List[CandidateJobMatch],
-                               cc_emails: list = None) -> bool:
+                               cc_emails: list = None,
+                               attachments: Optional[list] = None) -> bool:
         """
         Send notification email to a recruiter about a qualified candidate.
         
@@ -211,8 +363,9 @@ class NotificationMixin:
                 </div>
             """
         
-        # Build email content
-        subject = f"🎯 Qualified Candidate Alert: {candidate_name}"
+        # Build email content — job-aware subject (Option A) so recruiters can
+        # triage from the inbox without opening every Scout email (May 2026).
+        subject = _build_recruiter_subject(candidate_name, matches)
         
         html_content = f"""
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -304,7 +457,8 @@ class NotificationMixin:
                 notification_type='vetting_recruiter_notification',
                 cc_emails=cc_emails,  # CC all other recruiters on same thread
                 bcc_emails=[admin_bcc_email],  # BCC admin for transparency
-                changes_summary=changes_summary
+                changes_summary=changes_summary,
+                attachments=attachments,  # Resume PDF/DOCX (best-effort)
             )
             return result is True or (isinstance(result, dict) and result.get('success', False))
         except Exception as e:
