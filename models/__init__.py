@@ -88,6 +88,7 @@ from models.prospector import (
     Prospect,
 )
 from models.openai_telemetry import OpenAICallLog
+from models.cost_forecast import CostForecastOverride, CostForecastScenario
 
 __all__ = [
     # user

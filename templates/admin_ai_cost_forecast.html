@@ -1,0 +1,220 @@
+{% extends "base_layout.html" %}
+
+{% block title %}AI Cost Forecaster — Scout Genius™{% endblock %}
+
+{% block page_title %}AI Cost Forecaster{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Project monthly OpenAI cost for any combination of active modules at any volume. Unit costs derived from the last {{ window_days }} days of telemetry; modules without enough data fall back to manual overrides.</p>{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .fc-card {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 10px;
+        padding: 18px 20px;
+        margin-bottom: 18px;
+    }
+    .fc-table { width: 100%; border-collapse: collapse; }
+    .fc-table th, .fc-table td {
+        padding: 10px 12px;
+        text-align: left;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        font-size: 13px;
+        vertical-align: middle;
+    }
+    .fc-table th { font-weight: 600; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.4px; font-size: 11px; }
+    .fc-table td.numeric { text-align: right; font-variant-numeric: tabular-nums; }
+    .fc-table input[type="number"] {
+        width: 110px;
+        padding: 6px 8px;
+        background: rgba(0,0,0,0.25);
+        border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 5px;
+        color: inherit;
+        text-align: right;
+    }
+    .fc-table input[type="checkbox"] { transform: scale(1.2); }
+    .badge-conf { padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+    .badge-confident { background: rgba(74,222,128,0.18); color: #4ade80; }
+    .badge-low       { background: rgba(251,191,36,0.18); color: #fbbf24; }
+    .badge-insufficient_data { background: rgba(248,113,113,0.18); color: #f87171; }
+    .badge-override  { background: rgba(99,102,241,0.18); color: #a5b4fc; }
+    .fc-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 14px;
+        margin-bottom: 20px;
+    }
+    .fc-summary .summary-card {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 10px;
+        padding: 16px 18px;
+    }
+    .fc-summary .summary-label { font-size: 12px; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.5px; }
+    .fc-summary .summary-value { font-size: 26px; font-weight: 700; margin-top: 4px; }
+    .module-notes { font-size: 12px; opacity: 0.6; margin-top: 2px; }
+    .scenario-buttons { margin-bottom: 16px; }
+    .scenario-buttons a, .scenario-buttons button {
+        display: inline-block;
+        padding: 6px 12px;
+        margin-right: 8px;
+        margin-bottom: 6px;
+        border-radius: 6px;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.1);
+        color: inherit;
+        text-decoration: none;
+        font-size: 13px;
+        cursor: pointer;
+    }
+    .scenario-buttons a:hover, .scenario-buttons button:hover { background: rgba(255,255,255,0.1); }
+    .btn-primary-fc {
+        background: rgba(99,102,241,0.25);
+        border: 1px solid rgba(99,102,241,0.5);
+        color: inherit;
+        padding: 10px 20px;
+        border-radius: 6px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 16px;">
+    <a href="{{ url_for('ai_cost.ai_cost_dashboard') }}" style="opacity: 0.8; text-decoration: none;">← Back to AI Cost dashboard</a>
+</div>
+
+{% if saved_scenarios %}
+<div class="fc-card">
+    <div style="font-size: 13px; opacity: 0.75; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.4px;">Saved scenarios</div>
+    <div class="scenario-buttons">
+        {% for s in saved_scenarios %}
+        <a href="?scenario={{ s.id }}{% if window_days != 14 %}&window={{ window_days }}{% endif %}">{{ s.name }}</a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<form method="post" action="{{ url_for('ai_cost.ai_cost_forecast') }}">
+<input type="hidden" name="window" value="{{ window_days }}">
+
+<div class="fc-card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h3 style="margin: 0; font-size: 16px;">Module mix &amp; monthly volume</h3>
+        <div style="font-size: 12px; opacity: 0.7;">
+            Telemetry window:
+            {% for w in [7, 14, 30, 60] %}
+                <a href="?window={{ w }}" style="margin-left: 6px; opacity: {% if window_days == w %}1{% else %}0.6{% endif %};">{{ w }}d</a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <table class="fc-table">
+        <thead>
+            <tr>
+                <th style="width: 40px;">On</th>
+                <th>Module</th>
+                <th class="numeric">Monthly volume</th>
+                <th class="numeric">Unit cost (USD)</th>
+                <th class="numeric">Override (USD)</th>
+                <th class="numeric">Sample</th>
+                <th>Source</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in module_rows %}
+            <tr>
+                <td><input type="checkbox" name="active_{{ row.key }}" value="1" {% if row.active %}checked{% endif %}></td>
+                <td>
+                    <strong>{{ row.label }}</strong>
+                    <div class="module-notes">{{ row.notes }} <em>(unit: {{ row.unit }})</em></div>
+                </td>
+                <td class="numeric">
+                    <input type="number" min="0" step="1" name="volume_{{ row.key }}" value="{{ row.volume }}">
+                </td>
+                <td class="numeric">${{ '%.4f' % row.derived_unit_cost }}</td>
+                <td class="numeric">
+                    <input type="number" min="0" step="0.0001" name="override_{{ row.key }}"
+                           value="{{ '%.4f' % row.override_unit_cost if row.override_unit_cost is not none else '' }}"
+                           placeholder="—">
+                </td>
+                <td class="numeric">{{ row.sample_size }}</td>
+                <td>
+                    {% if row.effective_source == 'override' %}
+                        <span class="badge-conf badge-override">override</span>
+                    {% else %}
+                        <span class="badge-conf badge-{{ row.confidence }}">{{ row.confidence }}</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="fc-card" style="display: flex; gap: 18px; align-items: center; flex-wrap: wrap;">
+    <button type="submit" class="btn-primary-fc">Project cost</button>
+    <button type="submit" name="save_overrides" value="1" class="btn-primary-fc" style="background: rgba(74,222,128,0.18); border-color: rgba(74,222,128,0.5);">Save overrides</button>
+    <span style="opacity: 0.6; font-size: 13px;">Save name:</span>
+    <input type="text" name="save_scenario_name" placeholder="e.g. Customer A profile" style="padding: 8px 12px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.12); border-radius: 5px; color: inherit; min-width: 240px;">
+    <button type="submit" name="save_scenario" value="1" class="btn-primary-fc">Save scenario</button>
+</div>
+
+</form>
+
+{% if projection %}
+<div class="fc-summary">
+    <div class="summary-card">
+        <div class="summary-label">Projected Monthly</div>
+        <div class="summary-value">${{ '{:,.2f}'.format(projection.monthly_cost_usd) }}</div>
+    </div>
+    <div class="summary-card">
+        <div class="summary-label">Projected Annual</div>
+        <div class="summary-value">${{ '{:,.2f}'.format(projection.annual_cost_usd) }}</div>
+    </div>
+    <div class="summary-card">
+        <div class="summary-label">Active Modules</div>
+        <div class="summary-value">{{ projection.breakdown | length }}</div>
+    </div>
+</div>
+
+<div class="fc-card">
+    <h3 style="margin-top: 0; font-size: 16px;">Per-module breakdown</h3>
+    <table class="fc-table">
+        <thead>
+            <tr>
+                <th>Module</th>
+                <th class="numeric">Monthly Volume</th>
+                <th class="numeric">Unit Cost</th>
+                <th class="numeric">Monthly Cost</th>
+                <th>Source</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in projection.breakdown %}
+            <tr>
+                <td>{{ r.module_label }} <span style="opacity: 0.5; font-size: 12px;">({{ r.unit }})</span></td>
+                <td class="numeric">{{ '{:,}'.format(r.monthly_volume) }}</td>
+                <td class="numeric">${{ '%.4f' % r.unit_cost_usd }}</td>
+                <td class="numeric">${{ '{:,.2f}'.format(r.monthly_cost_usd) }}</td>
+                <td><span class="badge-conf badge-{{ r.source }}">{{ r.source }}</span></td>
+            </tr>
+            {% endfor %}
+            <tr style="font-weight: 700; background: rgba(255,255,255,0.04);">
+                <td colspan="3">TOTAL</td>
+                <td class="numeric">${{ '{:,.2f}'.format(projection.monthly_cost_usd) }}</td>
+                <td></td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if flash_message %}
+<div class="fc-card" style="border-color: rgba(74,222,128,0.5); background: rgba(74,222,128,0.08);">
+    <i class="fas fa-check-circle"></i> {{ flash_message }}
+</div>
+{% endif %}
+{% endblock %}
