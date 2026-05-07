@@ -101,3 +101,15 @@ id = "cyFXF73VGGMRGkgC4td2-"
 uri = "file://discovery_industrial_audit/SPOTCHECK_review_me_20rows.csv"
 type = "table"
 title = "Industrial Spot-Check (20 rows, ~1 hour)"
+
+[[outputs]]
+id = "Pg5Eul5gvH8pZSQ8z3XgI"
+uri = "file://AI_COST_AUDIT.md"
+type = "text"
+title = "AI Cost Optimization Audit — Executive Report"
+
+[[outputs]]
+id = "HxLnWpZBk3fX66LClUg1r"
+uri = "file://AI_COST_AUDIT_RAW.md"
+type = "text"
+title = "AI Cost Audit — Per-Call-Site Detail (Appendix)"
