@@ -33,7 +33,8 @@ class OpenAICallLog(db.Model):
     duration_ms = db.Column(db.Integer, nullable=True)
 
     # Optional context for attribution (best-effort, may be null).
-    tenant_id = db.Column(db.String(80), nullable=True)
+    tenant_id = db.Column(db.String(80), nullable=True, index=True)
+    customer_id = db.Column(db.String(80), nullable=True, index=True)
     entity_type = db.Column(db.String(40), nullable=True)
     entity_id = db.Column(db.String(80), nullable=True)
 
@@ -42,4 +43,6 @@ class OpenAICallLog(db.Model):
 
     __table_args__ = (
         Index('ix_openai_call_log_site_created', 'call_site_id', 'created_at'),
+        Index('ix_openai_call_log_tenant_created', 'tenant_id', 'created_at'),
+        Index('ix_openai_call_log_customer_created', 'customer_id', 'created_at'),
     )
