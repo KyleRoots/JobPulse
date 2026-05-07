@@ -118,8 +118,10 @@ Context-specific guidance:
             # Call OpenAI API
             # Note: gpt-5 uses reasoning tokens internally, so we need higher max_completion_tokens
             # to allow for both reasoning (500 tokens) and actual output (500 tokens)
+            from services.openai_helper import resolve_model, log_call
+            _model = resolve_model('job_classification', 'gpt-4.1-mini')
             response = self.client.chat.completions.create(
-                model="gpt-5.4",
+                model=_model,
                 messages=[
                     {"role": "system", "content": "You are an expert job classifier using LinkedIn's official taxonomy. Always respond with valid JSON."},
                     {"role": "user", "content": prompt}
@@ -127,6 +129,7 @@ Context-specific guidance:
                 response_format={"type": "json_object"},
                 max_completion_tokens=1500  # Increased to allow for reasoning + output
             )
+            log_call('job_classification', _model, response)
             
             # Parse response with defensive checks
             if not response.choices or len(response.choices) == 0:

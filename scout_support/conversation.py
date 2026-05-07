@@ -437,13 +437,17 @@ class ConversationMixin:
                 f"description_user, description_admin, resolution_type."
             )
 
+            from services.openai_helper import resolve_model, log_call
+            _model = resolve_model('scout_support.reopen_analysis', 'gpt-5.4')
             response = client.chat.completions.create(
-                model='gpt-5.4',
+                model=_model,
                 messages=[
                     {'role': 'system', 'content': 'You are Scout Support, an expert AI assistant for Bullhorn ATS issues. You are analyzing a reopened ticket with full conversation history. Respond only in valid JSON.'},
                     {'role': 'user', 'content': prompt},
                 ],
             )
+            log_call('scout_support.reopen_analysis', _model, response,
+                     entity_type='SupportTicket', entity_id=getattr(ticket, 'id', None))
 
             return response.choices[0].message.content
         except Exception as e:
@@ -630,11 +634,15 @@ Respond with a JSON object:
 }}"""
 
         try:
+            from services.openai_helper import resolve_model, log_call
+            _model = resolve_model('scout_support.platform_reply', 'gpt-4.1-mini')
             response = self.openai_client.chat.completions.create(
-                model="gpt-5.4",
+                model=_model,
                 messages=[{"role": "user", "content": prompt}],
                 max_completion_tokens=1000,
             )
+            log_call('scout_support.platform_reply', _model, response,
+                     entity_type='SupportTicket', entity_id=getattr(ticket, 'id', None))
             raw = response.choices[0].message.content.strip()
             if raw.startswith('```'):
                 raw = raw.split('\n', 1)[1].rsplit('```', 1)[0].strip()
@@ -849,14 +857,18 @@ After answering, remind them they can:
 Keep your response focused and professional. Do not wrap in JSON — respond in plain text."""
 
         try:
+            from services.openai_helper import resolve_model, log_call
+            _model = resolve_model('scout_support.admin_question', 'gpt-5.4')
             response = self.openai_client.chat.completions.create(
-                model='gpt-5.4',
+                model=_model,
                 messages=[
                     {'role': 'system', 'content': 'You are Scout Support, an AI ATS support assistant responding to an administrator\'s question during the approval review stage.'},
                     {'role': 'user', 'content': prompt},
                 ],
                 max_completion_tokens=2048,
             )
+            log_call('scout_support.admin_question', _model, response,
+                     entity_type='SupportTicket', entity_id=getattr(ticket, 'id', None))
             answer = (response.choices[0].message.content or '').strip()
             if not answer:
                 logger.warning(f"⚠️ AI returned empty response for admin question on {ticket.ticket_number}")
@@ -969,11 +981,14 @@ IMPORTANT:
 
 Respond with ONLY the classification label (one word, lowercase). Nothing else."""
 
+        from services.openai_helper import resolve_model, log_call
+        _model = resolve_model('scout_support.classify_reply', 'gpt-4.1-mini')
         response = self.openai_client.chat.completions.create(
-            model='gpt-5.4',
+            model=_model,
             messages=[{'role': 'user', 'content': prompt}],
             max_completion_tokens=20,
         )
+        log_call('scout_support.classify_reply', _model, response)
         result = (response.choices[0].message.content or '').strip().lower().strip("'\"")
 
         valid_labels = {
@@ -1066,8 +1081,10 @@ Respond with ONLY a JSON object:
 {{"execution_steps": [...], "description_user": "Updated plain-language description of what will happen", "description_admin": "Updated technical description"}}"""
 
         try:
+            from services.openai_helper import resolve_model, log_call
+            _model = resolve_model('scout_support.admin_refine', 'gpt-5.4')
             response = self.openai_client.chat.completions.create(
-                model='gpt-5.4',
+                model=_model,
                 messages=[
                     {'role': 'system', 'content': 'You are Scout Support, an expert AI assistant for Bullhorn ATS. Respond only in valid JSON.'},
                     {'role': 'user', 'content': prompt}
@@ -1075,6 +1092,8 @@ Respond with ONLY a JSON object:
                 max_completion_tokens=4096,
                 response_format={'type': 'json_object'},
             )
+            log_call('scout_support.admin_refine', _model, response,
+                     entity_type='SupportTicket', entity_id=getattr(ticket, 'id', None))
             content = response.choices[0].message.content
             if not content or not content.strip():
                 logger.warning("Admin instruction refinement returned empty content")
@@ -1123,11 +1142,14 @@ The admin's message:
 
 Respond with ONLY one label: ai_instruction or direct_reply"""
 
+            from services.openai_helper import resolve_model, log_call
+            _model = resolve_model('scout_support.admin_handling_intent', 'gpt-4.1-mini')
             response = self.openai_client.chat.completions.create(
-                model='gpt-5.4',
+                model=_model,
                 messages=[{'role': 'user', 'content': prompt}],
                 max_completion_tokens=20,
             )
+            log_call('scout_support.admin_handling_intent', _model, response)
             result = (response.choices[0].message.content or '').strip().lower().strip("'\"")
 
             if 'ai_instruction' in result:
@@ -1239,14 +1261,18 @@ INSTRUCTIONS:
 - Do NOT include any meta-commentary like "Here is the draft" — just provide the content itself"""
 
         try:
+            from services.openai_helper import resolve_model, log_call
+            _model = resolve_model('scout_support.draft_generation', 'gpt-5.4')
             response = self.openai_client.chat.completions.create(
-                model='gpt-5.4',
+                model=_model,
                 messages=[
                     {'role': 'system', 'content': 'You are Scout Support, an expert AI assistant for Bullhorn ATS. Generate professional, actionable content as requested by the administrator.'},
                     {'role': 'user', 'content': prompt}
                 ],
                 max_completion_tokens=4096,
             )
+            log_call('scout_support.draft_generation', _model, response,
+                     entity_type='SupportTicket', entity_id=getattr(ticket, 'id', None))
             draft_content = (response.choices[0].message.content or '').strip()
 
             if not draft_content:

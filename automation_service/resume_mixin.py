@@ -716,14 +716,17 @@ class ResumeMixin:
                 f"Resume text:\n{resume_text[:6000]}"
             )
 
+            from services.openai_helper import resolve_model, log_call
+            _model = resolve_model('automation.title_extract', 'gpt-4.1-mini')
             response = client.chat.completions.create(
-                model="gpt-5.4",
+                model=_model,
                 messages=[
                     {"role": "system", "content": "You extract job titles from resumes. Return only the job title, nothing else."},
                     {"role": "user", "content": prompt}
                 ],
                 max_completion_tokens=500
             )
+            log_call('automation.title_extract', _model, response)
 
             title = response.choices[0].message.content.strip()
             title = title.strip('"\'')

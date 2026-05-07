@@ -198,8 +198,10 @@ resolution_type guide:
         for attempt in range(2):
             try:
                 token_limit = 8192 if attempt == 0 else 12288
+                from services.openai_helper import resolve_model, log_call
+                _model = resolve_model('scout_support.understanding', 'gpt-5.4')
                 response = self.openai_client.chat.completions.create(
-                    model='gpt-5.4',
+                    model=_model,
                     messages=[
                         {'role': 'system', 'content': 'You are Scout Support, an expert AI assistant for Bullhorn ATS issues. You help internal users resolve their ATS problems. Respond only in valid JSON.'},
                         {'role': 'user', 'content': prompt}
@@ -207,6 +209,8 @@ resolution_type guide:
                     max_completion_tokens=token_limit,
                     response_format={'type': 'json_object'},
                 )
+                log_call('scout_support.understanding', _model, response,
+                         entity_type='SupportTicket', entity_id=getattr(ticket, 'id', None))
                 content = response.choices[0].message.content
                 if not content or not content.strip():
                     finish_reason = response.choices[0].finish_reason if response.choices else 'unknown'
@@ -418,8 +422,10 @@ resolution_type guide:
 
         for attempt in range(2):
             try:
+                from services.openai_helper import resolve_model, log_call
+                _model = resolve_model('scout_support.clarification', 'gpt-5.4')
                 response = self.openai_client.chat.completions.create(
-                    model='gpt-5.4',
+                    model=_model,
                     messages=[
                         {'role': 'system', 'content': 'You are Scout Support, an expert AI assistant for Bullhorn ATS issues. Respond only in valid JSON.'},
                         {'role': 'user', 'content': prompt}
@@ -427,6 +433,8 @@ resolution_type guide:
                     max_completion_tokens=8192,
                     response_format={'type': 'json_object'},
                 )
+                log_call('scout_support.clarification', _model, response,
+                         entity_type='SupportTicket', entity_id=getattr(ticket, 'id', None))
                 content = response.choices[0].message.content
                 if not content or not content.strip():
                     finish_reason = response.choices[0].finish_reason if response.choices else 'unknown'
@@ -562,8 +570,10 @@ execution_steps format — same supported actions as before:
 Supported entity_types: Candidate, JobOrder, Placement, JobSubmission, ClientContact, ClientCorporation, Lead, Opportunity, Note, Sendout, Appointment, Task, Tearsheet, CorporateUser, CandidateEducation, CandidateWorkHistory, CandidateReference, Skill, Category, BusinessSector, PlacementChangeRequest."""
 
         try:
+            from services.openai_helper import resolve_model, log_call
+            _model = resolve_model('scout_support.retry_analysis', 'gpt-5.4')
             response = self.openai_client.chat.completions.create(
-                model='gpt-5.4',
+                model=_model,
                 messages=[
                     {'role': 'system', 'content': 'You are Scout Support, an expert AI assistant for Bullhorn ATS issues. You are analyzing a FAILED execution attempt and must propose an alternative approach. Respond only in valid JSON.'},
                     {'role': 'user', 'content': prompt}
@@ -571,6 +581,8 @@ Supported entity_types: Candidate, JobOrder, Placement, JobSubmission, ClientCon
                 max_completion_tokens=8192,
                 response_format={'type': 'json_object'},
             )
+            log_call('scout_support.retry_analysis', _model, response,
+                     entity_type='SupportTicket', entity_id=getattr(ticket, 'id', None))
             content = response.choices[0].message.content
             if not content or not content.strip():
                 logger.warning(f"Retry analysis returned empty content for {ticket.ticket_number}")
@@ -754,7 +766,8 @@ Supported entity_types: Candidate, JobOrder, Placement, JobSubmission, ClientCon
         mime = content_type if content_type.startswith('image/') else 'image/png'
         logger.info(f"🖼️ Sending {filename} ({len(data)} bytes, {mime}) to vision...")
 
-        vision_models = ['gpt-5', 'gpt-5.4']
+        from services.openai_helper import resolve_model, log_call
+        vision_models = [resolve_model('scout_support.vision', 'gpt-4.1-mini')]
         for attempt, model in enumerate(vision_models, 1):
             try:
                 response = self.openai_client.chat.completions.create(
@@ -781,6 +794,7 @@ Supported entity_types: Candidate, JobOrder, Placement, JobSubmission, ClientCon
                     ],
                     max_completion_tokens=4096,
                 )
+                log_call('scout_support.vision', model, response)
                 content = None
                 if response.choices and response.choices[0].message:
                     msg = response.choices[0].message

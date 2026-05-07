@@ -1,0 +1,112 @@
+{% extends "base_layout.html" %}
+
+{% block title %}AI Cost — Scout Genius™{% endblock %}
+
+{% block page_title %}AI Cost Telemetry{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Per-call-site OpenAI spend over the selected window. Source: openai_call_log.</p>{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .cost-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+    .cost-summary .summary-card {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 10px;
+        padding: 18px 20px;
+    }
+    .cost-summary .summary-label { font-size: 12px; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.5px; }
+    .cost-summary .summary-value { font-size: 26px; font-weight: 700; margin-top: 4px; }
+    .cost-window { margin-bottom: 16px; }
+    .cost-window a {
+        display: inline-block;
+        padding: 6px 12px;
+        margin-right: 8px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: inherit;
+        text-decoration: none;
+        font-size: 13px;
+    }
+    .cost-window a.active { background: rgba(99, 102, 241, 0.25); border-color: rgba(99, 102, 241, 0.5); }
+    .cost-table { width: 100%; border-collapse: collapse; }
+    .cost-table th, .cost-table td {
+        padding: 10px 12px;
+        text-align: left;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        font-size: 13px;
+    }
+    .cost-table th { font-weight: 600; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.4px; font-size: 11px; }
+    .cost-table td.numeric { text-align: right; font-variant-numeric: tabular-nums; }
+    .cost-table tr:hover { background: rgba(255, 255, 255, 0.03); }
+    .model-flagship { color: #fbbf24; }
+    .model-mini { color: #4ade80; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="cost-window">
+    {% for h, label in [(1, '1h'), (24, '24h'), (168, '7d'), (720, '30d')] %}
+        <a href="?hours={{ h }}" class="{% if hours == h %}active{% endif %}">{{ label }}</a>
+    {% endfor %}
+    <span style="opacity: 0.6; font-size: 12px; margin-left: 12px;">Since {{ since_iso }}</span>
+</div>
+
+<div class="cost-summary">
+    <div class="summary-card">
+        <div class="summary-label">Total Spend</div>
+        <div class="summary-value">${{ '%.2f' % total_cost }}</div>
+    </div>
+    <div class="summary-card">
+        <div class="summary-label">API Calls</div>
+        <div class="summary-value">{{ '{:,}'.format(total_calls) }}</div>
+    </div>
+    <div class="summary-card">
+        <div class="summary-label">Tokens</div>
+        <div class="summary-value">{{ '{:,}'.format(total_tokens) }}</div>
+    </div>
+    <div class="summary-card">
+        <div class="summary-label">Avg Cost / Call</div>
+        <div class="summary-value">${{ '%.4f' % (total_cost / total_calls if total_calls else 0) }}</div>
+    </div>
+</div>
+
+{% if breakdown %}
+<table class="cost-table">
+    <thead>
+        <tr>
+            <th>Call Site</th>
+            <th>Model</th>
+            <th class="numeric">Calls</th>
+            <th class="numeric">Input Tokens</th>
+            <th class="numeric">Output Tokens</th>
+            <th class="numeric">Avg / Call</th>
+            <th class="numeric">Total Cost</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in breakdown %}
+        <tr>
+            <td><code>{{ row.call_site_id }}</code></td>
+            <td class="{% if 'mini' in row.model or 'nano' in row.model %}model-mini{% elif '5.4' in row.model or 'gpt-5' in row.model %}model-flagship{% endif %}">{{ row.model }}</td>
+            <td class="numeric">{{ '{:,}'.format(row.calls) }}</td>
+            <td class="numeric">{{ '{:,}'.format(row.input_tokens) }}</td>
+            <td class="numeric">{{ '{:,}'.format(row.output_tokens) }}</td>
+            <td class="numeric">${{ '%.4f' % row.avg_cost }}</td>
+            <td class="numeric">${{ '%.2f' % row.cost }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div style="padding: 40px; text-align: center; opacity: 0.6;">
+    <i class="fas fa-info-circle"></i>
+    No OpenAI calls logged in the selected window.
+</div>
+{% endif %}
+{% endblock %}

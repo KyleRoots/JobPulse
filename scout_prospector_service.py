@@ -230,13 +230,16 @@ Search the web thoroughly for companies that match these criteria. Return your f
         }
 
     def _execute_single_pass(self, client, system_prompt, user_prompt):
+        from services.openai_helper import resolve_model, log_call
+        _model = resolve_model('scout_prospector.web_search', 'gpt-5.4')
         response = client.responses.create(
-            model="gpt-5.4",
+            model=_model,
             instructions=system_prompt,
             input=user_prompt,
             tools=[{"type": "web_search_preview"}],
             max_output_tokens=16384,
         )
+        log_call('scout_prospector.web_search', _model, response)
 
         response_text = ''
         for item in response.output:
@@ -516,11 +519,14 @@ Based on this description, suggest concrete search criteria for finding prospect
 Only include fields you can confidently infer. Use standard industry names and realistic values."""
 
         try:
+            from services.openai_helper import resolve_model, log_call
+            _model = resolve_model('scout_prospector.refine', 'gpt-4.1-mini')
             response = client.responses.create(
-                model="gpt-5.4",
+                model=_model,
                 input=prompt,
                 max_output_tokens=1024,
             )
+            log_call('scout_prospector.refine', _model, response)
 
             response_text = ''
             for item in response.output:

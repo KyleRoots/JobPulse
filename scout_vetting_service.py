@@ -323,10 +323,14 @@ Return ONLY a valid JSON array of question strings — no markdown, no explanati
 Example format: ["Question 1?", "Question 2?", "Question 3?"]"""
 
         try:
+            from services.openai_helper import resolve_model, log_call
+            _model = resolve_model('scout_vetting.questions', 'gpt-5.4')
             response = self.openai_client.chat.completions.create(
-                model='gpt-5.4',
+                model=_model,
                 messages=[{'role': 'user', 'content': prompt}],
             )
+            log_call('scout_vetting.questions', _model, response,
+                     entity_type='ScoutVettingSession', entity_id=getattr(session, 'id', None))
             if not response.choices:
                 raise ValueError("OpenAI returned an empty response")
             content = response.choices[0].message.content
@@ -586,10 +590,14 @@ EDGE CASE RULES:
 Return only valid JSON. No markdown, no preamble."""
 
         try:
+            from services.openai_helper import resolve_model, log_call
+            _model = resolve_model('scout_vetting.reply_intent', 'gpt-5.4')
             response = self.openai_client.chat.completions.create(
-                model='gpt-5.4',
+                model=_model,
                 messages=[{'role': 'user', 'content': prompt}],
             )
+            log_call('scout_vetting.reply_intent', _model, response,
+                     entity_type='ScoutVettingSession', entity_id=getattr(session, 'id', None))
             if not response.choices:
                 raise ValueError("OpenAI returned an empty response")
             content = response.choices[0].message.content
@@ -709,10 +717,14 @@ DECISION RULES:
 Return only valid JSON. No markdown, no preamble."""
 
         try:
+            from services.openai_helper import resolve_model, log_call
+            _model = resolve_model('scout_vetting.outcome', 'gpt-5.4')
             response = self.openai_client.chat.completions.create(
-                model='gpt-5.4',
+                model=_model,
                 messages=[{'role': 'user', 'content': prompt}],
             )
+            log_call('scout_vetting.outcome', _model, response,
+                     entity_type='ScoutVettingSession', entity_id=getattr(session, 'id', None))
             if not response.choices:
                 raise ValueError("OpenAI returned an empty response")
             content = response.choices[0].message.content
@@ -1053,10 +1065,14 @@ Return ONLY the HTML body content (no <html>, <head>, or <body> tags — just a 
 Keep it concise — maximum 3-4 short paragraphs. Use inline styles for any formatting."""
 
         try:
+            from services.openai_helper import resolve_model, log_call
+            _model = resolve_model('scout_vetting.followup_email', 'gpt-5.4')
             response = self.openai_client.chat.completions.create(
-                model='gpt-5.4',
+                model=_model,
                 messages=[{'role': 'user', 'content': prompt}],
             )
+            log_call('scout_vetting.followup_email', _model, response,
+                     entity_type='ScoutVettingSession', entity_id=getattr(session, 'id', None))
             if not response.choices:
                 raise ValueError("OpenAI returned an empty response")
             content = response.choices[0].message.content

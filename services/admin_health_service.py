@@ -111,6 +111,7 @@ class AdminHealthService:
             self.tile_failed_vetting_24h,
             self.tile_sftp_uploads,
             self.tile_onedrive_token,
+            self.tile_ai_cost_24h,
         ]
         tiles: List[HealthTile] = []
         for collector in collectors:
@@ -577,6 +578,55 @@ class AdminHealthService:
                 value='Check failed',
                 subtext=str(exc)[:160],
                 remediation='Inspect onedrive_service.py and Replit OneDrive connection.',
+                last_checked=self._now_iso,
+            )
+
+    def tile_ai_cost_24h(self) -> HealthTile:
+        """Estimated OpenAI spend over the last 24h from openai_call_log."""
+        try:
+            from extensions import db
+            from sqlalchemy import text
+            since = self._now - timedelta(hours=24)
+            row = db.session.execute(
+                text(
+                    "SELECT COALESCE(SUM(estimated_cost_usd), 0) AS total, "
+                    "COALESCE(SUM(input_tokens + output_tokens), 0) AS tokens, "
+                    "COUNT(*) AS calls "
+                    "FROM openai_call_log WHERE created_at >= :since"
+                ),
+                {'since': since},
+            ).fetchone()
+            total = float(row[0] or 0) if row else 0.0
+            tokens = int(row[1] or 0) if row else 0
+            calls = int(row[2] or 0) if row else 0
+
+            # Thresholds: green < $80/day, amber < $200/day, red >= $200/day.
+            if total < 80:
+                status = 'green'
+            elif total < 200:
+                status = 'amber'
+            else:
+                status = 'red'
+
+            return HealthTile(
+                key='ai_cost_24h',
+                label='AI Cost (24h)',
+                icon='fa-dollar-sign',
+                status=status,
+                value=f'${total:,.2f}',
+                subtext=f'{calls:,} call(s) · {tokens:,} tokens',
+                remediation='' if status == 'green' else 'Open /admin/ai-cost for the per-site breakdown and consider Phase 2 downgrades.',
+                last_checked=self._now_iso,
+            )
+        except Exception as exc:
+            return HealthTile(
+                key='ai_cost_24h',
+                label='AI Cost (24h)',
+                icon='fa-dollar-sign',
+                status='unknown',
+                value='Check failed',
+                subtext=str(exc)[:160],
+                remediation='Verify openai_call_log table exists and services.openai_helper is wired.',
                 last_checked=self._now_iso,
             )
 

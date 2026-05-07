@@ -146,8 +146,10 @@ def _ocr_raw_file_with_vision(file_content: bytes, filename: str) -> Optional[st
                     'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg'}
         mime = mime_map.get(ext, 'application/octet-stream')
 
+        from services.openai_helper import resolve_model, log_call
+        _model = resolve_model('vetting.ocr_doc', 'gpt-4.1-mini')
         response = client.chat.completions.create(
-            model="gpt-4.1-mini",
+            model=_model,
             messages=[
                 {
                     "role": "system",
@@ -167,6 +169,7 @@ def _ocr_raw_file_with_vision(file_content: bytes, filename: str) -> Optional[st
             max_completion_tokens=4000
         )
 
+        log_call('vetting.ocr_doc', _model, response)
         ocr_text = response.choices[0].message.content.strip() if response.choices else None
         if ocr_text:
             logger.info(f"📸 Raw file vision OCR extracted {len(ocr_text)} chars from '{filename}'")
@@ -250,8 +253,10 @@ def _ocr_pdf_with_vision(file_content: bytes, max_pages: int = 5) -> Optional[st
         if not image_messages:
             return None
 
+        from services.openai_helper import resolve_model, log_call
+        _model = resolve_model('vetting.ocr_pages', 'gpt-4.1-mini')
         response = client.chat.completions.create(
-            model="gpt-4.1-mini",
+            model=_model,
             messages=[
                 {
                     "role": "system",
@@ -271,6 +276,7 @@ def _ocr_pdf_with_vision(file_content: bytes, max_pages: int = 5) -> Optional[st
             max_completion_tokens=4000
         )
 
+        log_call('vetting.ocr_pages', _model, response)
         ocr_text = response.choices[0].message.content.strip() if response.choices else None
         if ocr_text:
             logger.info(f"📸 Vision OCR extracted {len(ocr_text)} chars from {page_count} page(s)")

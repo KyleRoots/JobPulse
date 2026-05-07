@@ -227,8 +227,10 @@ RAW RESUME TEXT:
 OUTPUT: Return ONLY the formatted HTML, nothing else. No explanation, no markdown code blocks."""
 
         try:
+            from services.openai_helper import resolve_model, log_call
+            _model = resolve_model('resume_parser.format_html', 'gpt-4.1-mini')
             response = self.openai_client.chat.completions.create(
-                model="gpt-5.4",
+                model=_model,
                 messages=[
                     {"role": "system", "content": "You are a resume formatting expert. Your job is to convert raw, unstructured resume text into clean, readable HTML while preserving all original content exactly."},
                     {"role": "user", "content": prompt}
@@ -236,6 +238,7 @@ OUTPUT: Return ONLY the formatted HTML, nothing else. No explanation, no markdow
                 max_completion_tokens=8000,
                 timeout=60.0
             )
+            log_call('resume_parser.format_html', _model, response)
             
             formatted_html = response.choices[0].message.content.strip()
             

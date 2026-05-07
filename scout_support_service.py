@@ -362,8 +362,10 @@ Respond with a JSON object:
 }}"""
 
         try:
+            from services.openai_helper import resolve_model, log_call
+            _model = resolve_model('scout_support.platform_intake', 'gpt-4.1-mini')
             response = self.openai_client.chat.completions.create(
-                model='gpt-5.4',
+                model=_model,
                 messages=[
                     {'role': 'system', 'content': 'You are a helpful platform support assistant. Respond only in valid JSON.'},
                     {'role': 'user', 'content': prompt}
@@ -371,6 +373,8 @@ Respond with a JSON object:
                 max_completion_tokens=500,
                 response_format={'type': 'json_object'},
             )
+            log_call('scout_support.platform_intake', _model, response,
+                     entity_type='SupportTicket', entity_id=getattr(ticket, 'id', None))
             content = response.choices[0].message.content
             if content and content.strip():
                 parsed = json.loads(content.strip())

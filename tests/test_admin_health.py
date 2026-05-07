@@ -128,7 +128,7 @@ class TestAdminHealthAuth:
         assert 'overall_status' in payload
         assert 'last_checked' in payload
         assert isinstance(payload['tiles'], list)
-        assert len(payload['tiles']) == 8
+        assert len(payload['tiles']) == 9
         assert payload['overall_status'] in ('green', 'amber', 'red', 'unknown')
         for tile in payload['tiles']:
             for required in ('key', 'label', 'icon', 'status', 'value'):
@@ -180,16 +180,16 @@ class TestAdminHealthService:
     """Service-layer guarantees: every tile method returns a HealthTile and
     never raises, even when its backing service is broken."""
 
-    def test_collect_all_returns_eight_tiles(self, app):
+    def test_collect_all_returns_nine_tiles(self, app):
         with app.app_context():
             tiles = AdminHealthService().collect_all()
-            assert len(tiles) == 8
+            assert len(tiles) == 9
             assert all(isinstance(t, HealthTile) for t in tiles)
             keys = {t.key for t in tiles}
             assert keys == {
                 'database', 'scheduler', 'bullhorn_auth', 'openai',
                 'inflight_vetting', 'failed_vetting_24h',
-                'sftp_uploads', 'onedrive_token',
+                'sftp_uploads', 'onedrive_token', 'ai_cost_24h',
             }
 
     def test_database_tile_green_when_query_succeeds(self, app):

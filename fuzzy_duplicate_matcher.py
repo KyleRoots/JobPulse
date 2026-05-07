@@ -89,7 +89,7 @@ class FuzzyDuplicateMatcher:
         bullhorn_service,
         embedding_service=None,
         openai_client=None,
-        model_chat: str = 'gpt-5.4',
+        model_chat: str = 'gpt-4.1-mini',
         ai_confidence_threshold: float = AI_CONFIDENCE_THRESHOLD,
         pre_filter_cosine_threshold: float = PRE_FILTER_COSINE_THRESHOLD,
         pre_filter_top_n: int = PRE_FILTER_TOP_N,
@@ -636,17 +636,20 @@ class FuzzyDuplicateMatcher:
             # Request strict JSON output so the model can't drift into
             # markdown-fenced or prose-prefixed responses that break parse.
             # Falls back to a plain call if the SDK/model rejects the kwarg.
+            from services.openai_helper import resolve_model, log_call
+            _model = resolve_model('fuzzy_duplicate_matcher', self.model_chat)
             try:
                 response = self.openai_client.chat.completions.create(
-                    model=self.model_chat,
+                    model=_model,
                     messages=[{'role': 'user', 'content': prompt}],
                     response_format={'type': 'json_object'},
                 )
             except TypeError:
                 response = self.openai_client.chat.completions.create(
-                    model=self.model_chat,
+                    model=_model,
                     messages=[{'role': 'user', 'content': prompt}],
                 )
+            log_call('fuzzy_duplicate_matcher', _model, response)
             if not response.choices:
                 return 0.0, 'empty AI response'
             content = (response.choices[0].message.content or '').strip()

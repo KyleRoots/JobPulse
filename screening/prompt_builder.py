@@ -123,8 +123,10 @@ Respond in JSON format:
         try:
             logger.info(f"🔄 Years re-check: verifying {len(skills_to_check)} skill(s) for job {job_id}")
 
+            from services.openai_helper import resolve_model, log_call
+            _model = resolve_model('screening.years_recheck', 'gpt-4.1-mini')
             response = self.openai_client.chat.completions.create(
-                model="gpt-5.4",
+                model=_model,
                 messages=[
                     {"role": "system", "content": "You are a precise arithmetic calculator. "
                      "Your ONLY job is to verify years-of-experience calculations by counting "
@@ -134,6 +136,7 @@ Respond in JSON format:
                 response_format={"type": "json_object"},
                 max_completion_tokens=1500
             )
+            log_call('screening.years_recheck', _model, response, entity_type='Job', entity_id=job_id)
 
             recheck = json.loads(response.choices[0].message.content)
 
@@ -221,8 +224,10 @@ Also DO NOT include:
 Format as a bullet-point list. Be specific and concise."""
 
         try:
+            from services.openai_helper import resolve_model, log_call
+            _model = resolve_model('screening.requirements_extract', 'gpt-5.4')
             response = self.openai_client.chat.completions.create(
-                model="gpt-5.4",
+                model=_model,
                 messages=[
                     {"role": "system", "content": "You are a technical recruiter extracting ONLY explicitly stated "
                      "mandatory requirements from job descriptions. You must NEVER infer, fabricate, or add "
@@ -232,6 +237,7 @@ Format as a bullet-point list. Be specific and concise."""
                 ],
                 max_completion_tokens=1000
             )
+            log_call('screening.requirements_extract', _model, response, entity_type='Job', entity_id=job_id)
 
             requirements = response.choices[0].message.content.strip()
             if requirements:
@@ -303,8 +309,10 @@ Format as a bullet-point list. Be specific and concise."""
                 f'"confidence_reason": "<your confidence assessment>"}}'
             )
 
+            from services.openai_helper import resolve_model, log_call
+            _model = resolve_model('screening.zero_recheck', 'gpt-5.4')
             response = self.openai_client.chat.completions.create(
-                model="gpt-5.4",
+                model=_model,
                 messages=[
                     {"role": "system", "content": (
                         "You are a precise technical screener re-checking a zero-score "
@@ -315,6 +323,7 @@ Format as a bullet-point list. Be specific and concise."""
                 response_format={"type": "json_object"},
                 max_completion_tokens=500
             )
+            log_call('screening.zero_recheck', _model, response)
 
             result = json.loads(response.choices[0].message.content)
             result['revised_score'] = int(result.get('revised_score', 0))
@@ -443,8 +452,10 @@ GLOBAL SCREENING INSTRUCTIONS (apply to all jobs):
 
             system_message = build_system_message(global_reqs_section)
 
+            from services.openai_helper import resolve_model, log_call
+            _model = resolve_model('screening.scoring', model_override or self.model)
             response = self.openai_client.chat.completions.create(
-                model=model_override or self.model,
+                model=_model,
                 messages=[
                     {"role": "system", "content": system_message},
                     {"role": "user", "content": prompt}
@@ -452,6 +463,7 @@ GLOBAL SCREENING INSTRUCTIONS (apply to all jobs):
                 response_format={"type": "json_object"},
                 max_completion_tokens=4096
             )
+            log_call('screening.scoring', _model, response)
 
             try:
                 usage = response.usage

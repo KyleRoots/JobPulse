@@ -191,11 +191,14 @@ class EmbeddingService:
                     f"Resume length: {len(text)} chars."
                 )
             
+            from services.openai_helper import resolve_model, log_call
+            _model = resolve_model('embedding_service.candidate', self.embedding_model)
             response = self.openai_client.embeddings.create(
                 input=truncated_text,
-                model=self.embedding_model
+                model=_model
             )
-            
+            log_call('embedding_service.candidate', _model, response)
+
             return response.data[0].embedding
             
         except Exception as e:

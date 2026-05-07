@@ -451,14 +451,17 @@ def optimize_job_requirements(job_id):
             "9. Keep the output concise — clear and structured, not a lengthy essay."
         )
 
+        from services.openai_helper import resolve_model, log_call
+        _model = resolve_model('scout_screening.optimize_reqs', 'gpt-5.4')
         response = client.chat.completions.create(
-            model='gpt-5.4',
+            model=_model,
             messages=[
                 {'role': 'system', 'content': system_prompt},
                 {'role': 'user', 'content': f'Optimize the following custom screening requirements:\n\n{raw}'}
             ],
             max_completion_tokens=1500
         )
+        log_call('scout_screening.optimize_reqs', _model, response, entity_type='Job', entity_id=job_id)
 
         optimized = response.choices[0].message.content.strip()
         logger.info(f"Optimized requirements for job {job_id} ({len(raw)} → {len(optimized)} chars)")

@@ -63,14 +63,17 @@ Resume text:
 {resume_text[:20000]}
 """
 
+            from services.openai_helper import resolve_model, log_call
+            _model = resolve_model('email_inbound.resume_parse', 'gpt-4.1-mini')
             response = self.openai_client.chat.completions.create(
-                model="gpt-5.4",
+                model=_model,
                 messages=[
                     {"role": "system", "content": "You are an expert resume parser. Extract structured data accurately. Return only valid JSON."},
                     {"role": "user", "content": prompt}
                 ],
                 max_completion_tokens=4000
             )
+            log_call('email_inbound.resume_parse', _model, response)
 
             content = response.choices[0].message.content.strip()
 
@@ -156,8 +159,10 @@ Resume text:
         )
 
         try:
+            from services.openai_helper import resolve_model, log_call as _log_call
+            _model = resolve_model('email_inbound.identity_extract', 'gpt-4.1-mini')
             response = self.openai_client.chat.completions.create(
-                model="gpt-4.1-mini",
+                model=_model,
                 messages=[
                     {
                         "role": "system",
@@ -173,6 +178,7 @@ Resume text:
                 max_completion_tokens=300,
                 timeout=15.0,
             )
+            _log_call('email_inbound.identity_extract', _model, response)
             content = (response.choices[0].message.content or "").strip()
             if not content:
                 return {}
@@ -307,14 +313,17 @@ Return only a number between 0.0 and 1.0 representing the probability these are 
 Consider: name spelling variations, nicknames, contact info matches.
 """
 
+            from services.openai_helper import resolve_model, log_call
+            _model = resolve_model('email_inbound.dedup_validate', 'gpt-4.1-mini')
             response = self.openai_client.chat.completions.create(
-                model="gpt-5.4",
+                model=_model,
                 messages=[
                     {"role": "system", "content": "You are a deduplication expert. Return only a decimal number."},
                     {"role": "user", "content": prompt}
                 ],
                 max_completion_tokens=10
             )
+            log_call('email_inbound.dedup_validate', _model, response)
 
             confidence = float(response.choices[0].message.content.strip())
             return min(max(confidence, 0.0), 1.0)

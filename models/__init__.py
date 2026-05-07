@@ -87,6 +87,7 @@ from models.prospector import (
     ProspectorRun,
     Prospect,
 )
+from models.openai_telemetry import OpenAICallLog
 
 __all__ = [
     # user
@@ -115,4 +116,6 @@ __all__ = [
     'SupportConversation', 'SupportAction', 'KnowledgeDocument', 'KnowledgeEntry',
     # prospector
     'ProspectorProfile', 'ProspectorRun', 'Prospect',
+    # telemetry
+    'OpenAICallLog',
 ]

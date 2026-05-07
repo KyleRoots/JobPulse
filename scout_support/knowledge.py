@@ -262,8 +262,10 @@ class KnowledgeService:
             return None
 
         try:
+            from services.openai_helper import resolve_model, log_call
+            _model = resolve_model('scout_support.failure_analysis', 'gpt-4.1-mini')
             response = self.openai_client.chat.completions.create(
-                model="gpt-4.1-mini",
+                model=_model,
                 max_completion_tokens=800,
                 messages=[
                     {
@@ -289,6 +291,8 @@ class KnowledgeService:
                     }
                 ]
             )
+            log_call('scout_support.failure_analysis', _model, response,
+                     entity_type='SupportTicket', entity_id=getattr(ticket, 'id', None))
             lesson = response.choices[0].message.content.strip()
             logger.info(f"🧠 AI failure analysis generated for {ticket.ticket_number}: {lesson[:100]}...")
             return lesson
@@ -617,10 +621,13 @@ class KnowledgeService:
             return None
         try:
             text = text[:30000]
+            from services.openai_helper import resolve_model, log_call
+            _model = resolve_model('scout_support.knowledge_embed', EMBEDDING_MODEL)
             response = self.openai_client.embeddings.create(
-                model=EMBEDDING_MODEL,
+                model=_model,
                 input=text,
             )
+            log_call('scout_support.knowledge_embed', _model, response)
             return response.data[0].embedding
         except Exception as e:
             logger.error(f"Embedding generation failed: {e}")
