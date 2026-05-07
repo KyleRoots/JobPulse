@@ -126,7 +126,7 @@ def ai_cost_dashboard():
 
     return render_template(
         'admin_ai_cost.html',
-        active_page='admin_health',
+        active_page='ai_cost',
         hours=hours,
         since_iso=since.isoformat() + 'Z',
         breakdown=breakdown,
@@ -346,7 +346,7 @@ def ai_cost_forecast():
 
     return render_template(
         'admin_ai_cost_forecast.html',
-        active_page='admin_health',
+        active_page='ai_cost',
         window_days=window_days,
         module_rows=module_rows,
         projection=projection,
