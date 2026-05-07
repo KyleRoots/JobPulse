@@ -89,3 +89,9 @@ id = "LnCy_6oYJYi4eCPuDHUYN"
 uri = "file://docs/sentinal_starter_kit/Sentinel_Solutions_Blueprint.md"
 type = "text"
 title = "Sentinel_Solutions_Blueprint.md (drop into a new docs/ folder)"
+
+[[outputs]]
+id = "R3lPxFvPKauUmS1b0Anjj"
+uri = "file://discovery_industrial_audit/SPOTCHECK_review_me.csv"
+type = "table"
+title = "Industrial Resume False-Negative Spot-Check (50 rows)"
