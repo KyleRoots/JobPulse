@@ -467,6 +467,70 @@
                         </div>
                     </div>
 
+                    <!-- Self-Screen Cooldown Gate (May 2026) -->
+                    <div class="mb-4 p-3 border rounded" style="border-color: rgba(255,255,255,0.08) !important;">
+                        <div class="mb-2">
+                            <h6 class="mb-1">
+                                <i class="fas fa-stopwatch me-1 text-warning"></i>Self-Screen Cooldown
+                            </h6>
+                            <small class="text-muted">
+                                Hard floor between consecutive screens of the same candidate. Stops
+                                back-to-back loop bugs where a candidate is re-detected by every
+                                cycle (Hemanth-style 3-cycles-in-8-min noise). Independent of which
+                                job they applied to.
+                            </small>
+                        </div>
+                        <div class="mt-3">
+                            <label class="form-label mb-1">Cooldown Window (minutes)</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control"
+                                       name="self_screen_cooldown_minutes"
+                                       value="{{ settings.self_screen_cooldown_minutes }}"
+                                       min="0" max="720" step="5">
+                                <span class="input-group-text">minutes</span>
+                            </div>
+                            <small class="text-muted">
+                                Common values: <strong>30</strong> (tight), <strong>60</strong> (default),
+                                <strong>120</strong> (loose). Set to <strong>0</strong> to disable. Max 720 (12h).
+                                Sandbox and Quality-Auditor revets bypass this gate.
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- Recruiter-Decisioned Full-Skip Gate (May 2026) -->
+                    <div class="mb-4 p-3 border rounded" style="border-color: rgba(255,255,255,0.08) !important;">
+                        <div class="d-flex justify-content-between align-items-center gap-3 mb-2">
+                            <div>
+                                <h6 class="mb-1">
+                                    <i class="fas fa-gavel me-1 text-success"></i>Recruiter-Decisioned Full-Skip
+                                </h6>
+                                <small class="text-muted">
+                                    Once a recruiter has noted a candidate AFTER an AI screen for a
+                                    given job, fully skip future re-screens of that <strong>same
+                                    (candidate × job)</strong> pair. New jobs the candidate has never
+                                    been screened for are unaffected — cross-role discovery preserved.
+                                </small>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="recruiter_decision_skip_enabled"
+                                       {% if settings.recruiter_decision_skip_enabled %}checked{% endif %}>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="mt-2">
+                            <small class="text-info">
+                                <i class="fas fa-info-circle me-1"></i>Currently:
+                                {% if settings.recruiter_decision_skip_enabled %}
+                                    <strong class="text-success">ON</strong> — re-applications to a
+                                    previously-decisioned job are skipped (qualified or rejected).
+                                {% else %}
+                                    <strong class="text-warning">OFF</strong> — every re-application
+                                    triggers a fresh screen, even when a recruiter has already weighed in.
+                                {% endif %}
+                            </small>
+                        </div>
+                    </div>
+
                     <!-- Recruiter-Activity Pause Gate (Task D) -->
                     <div class="mb-4 p-3 border rounded" style="border-color: rgba(255,255,255,0.08) !important;">
                         <div class="d-flex justify-content-between align-items-center gap-3 mb-2">

@@ -2,7 +2,7 @@
 from datetime import datetime
 
 from flask import current_app, flash, redirect, render_template, request, url_for
-from flask_login import login_required
+from flask_login import current_user, login_required
 
 from routes.vetting import vetting_bp
 from routes.vetting_handlers._shared import get_db
@@ -34,6 +34,9 @@ def vetting_settings():
         # Recruiter-activity gate (Task D)
         'recruiter_activity_check_enabled': True,
         'recruiter_activity_lookback_minutes': 1440,
+        # Self-screen cooldown + recruiter-decisioned skip (May 2026)
+        'self_screen_cooldown_minutes': 60,
+        'recruiter_decision_skip_enabled': True,
         # Quality auditor controls (Task #11 rescope)
         'quality_auditor_model': 'gpt-5.4',
         'platform_age_ceilings': '',
@@ -50,10 +53,11 @@ def vetting_settings():
         if value is not None:
             if key in ('vetting_enabled', 'send_recruiter_emails',
                        'screening_audit_enabled', 'recruiter_activity_check_enabled',
-                       'scout_vetting_enabled'):
+                       'scout_vetting_enabled', 'recruiter_decision_skip_enabled'):
                 settings[key] = value.lower() == 'true'
             elif key in ('match_threshold', 'batch_size',
                          'recruiter_activity_lookback_minutes',
+                         'self_screen_cooldown_minutes',
                          'qualified_audit_sample_rate'):
                 try:
                     settings[key] = int(value)
@@ -62,6 +66,7 @@ def vetting_settings():
                         80 if key == 'match_threshold'
                         else 25 if key == 'batch_size'
                         else 1440 if key == 'recruiter_activity_lookback_minutes'
+                        else 60 if key == 'self_screen_cooldown_minutes'
                         else 10
                     )
             elif key == 'embedding_similarity_threshold':
@@ -168,6 +173,9 @@ def save_vetting_settings():
         # Recruiter-activity gate (Task D)
         recruiter_gate_enabled = 'recruiter_activity_check_enabled' in request.form
         recruiter_lookback_raw = request.form.get('recruiter_activity_lookback_minutes', '1440')
+        # Self-screen cooldown + recruiter-decisioned skip (May 2026)
+        self_screen_cooldown_raw = request.form.get('self_screen_cooldown_minutes', '60')
+        recruiter_decision_skip_enabled = 'recruiter_decision_skip_enabled' in request.form
         # Quality auditor controls (Task #11 rescope)
         # When the audit toggle is OFF the three fields below are disabled
         # in the UI and won't be submitted. Detect that case so we preserve
@@ -218,6 +226,14 @@ def save_vetting_settings():
                 recruiter_lookback = 1440
         except (ValueError, TypeError):
             recruiter_lookback = 1440
+
+        # Validate self-screen cooldown minutes (0 disables; cap at 720 = 12h)
+        try:
+            self_screen_cooldown = int(str(self_screen_cooldown_raw).strip())
+            if self_screen_cooldown < 0 or self_screen_cooldown > 720:
+                self_screen_cooldown = 60
+        except (ValueError, TypeError):
+            self_screen_cooldown = 60
 
         # Validate qualified_audit_sample_rate (0-100; 0 disables Phase 2).
         # Skipped entirely when fields weren't submitted (audit toggle off).
@@ -285,6 +301,9 @@ def save_vetting_settings():
             ('recruiter_activity_check_enabled',
              'true' if recruiter_gate_enabled else 'false'),
             ('recruiter_activity_lookback_minutes', str(recruiter_lookback)),
+            ('self_screen_cooldown_minutes', str(self_screen_cooldown)),
+            ('recruiter_decision_skip_enabled',
+             'true' if recruiter_decision_skip_enabled else 'false'),
         ])
         if auditor_fields_submitted:
             settings_to_save.extend([
@@ -332,6 +351,8 @@ def save_vetting_settings():
                 'match_threshold': threshold,
                 'recruiter_activity_check_enabled': bool(recruiter_gate_enabled),
                 'recruiter_activity_lookback_minutes': recruiter_lookback,
+                'self_screen_cooldown_minutes': self_screen_cooldown,
+                'recruiter_decision_skip_enabled': bool(recruiter_decision_skip_enabled),
                 'actor_email': actor_email,
             }
             if auditor_fields_submitted:

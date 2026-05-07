@@ -151,10 +151,29 @@ class NoteBuilderMixin:
                         f"Allowing new complete result to supersede."
                     )
                 else:
+                    # Visibility metric (May 2026) — track every dedupe rejection
+                    # so we can quantify how often the safeguard fires and whether
+                    # it correlates with upstream loop bugs. Module-level Counter
+                    # is checkpointed by app startup; survives gunicorn worker
+                    # restarts via aggregated logs (Sentry/Datadog grep).
+                    try:
+                        from screening import note_builder as _nb_mod
+                        if not hasattr(_nb_mod, '_DEDUPE_REJECTION_COUNTER'):
+                            _nb_mod._DEDUPE_REJECTION_COUNTER = 0
+                        _nb_mod._DEDUPE_REJECTION_COUNTER += 1
+                        _counter_val = _nb_mod._DEDUPE_REJECTION_COUNTER
+                    except Exception:
+                        _counter_val = -1
+                    _existing_actions = sorted({
+                        (n.get('action') or 'unknown') for n in existing_notes
+                    })
                     logger.warning(
                         f"⚠️ DUPLICATE SAFEGUARD: Candidate {vetting_log.bullhorn_candidate_id} already has "
                         f"{len(existing_notes)} AI vetting note(s) in Bullhorn from last 6h. "
-                        f"Skipping duplicate note creation."
+                        f"Skipping duplicate note creation. "
+                        f"event=note_dedupe_blocked counter={_counter_val} "
+                        f"vetting_log_id={vetting_log.id} candidate_id={vetting_log.bullhorn_candidate_id} "
+                        f"existing_actions={_existing_actions}"
                     )
                     vetting_log.note_created = True
                     vetting_log.bullhorn_note_id = existing_notes[0].get('id')

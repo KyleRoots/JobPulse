@@ -371,6 +371,17 @@ def seed_vetting_config(db, VettingConfig):
             # Killswitch and tunable window so admins can adjust without a deploy.
             'recruiter_activity_check_enabled': 'true',
             'recruiter_activity_lookback_minutes': '1440',
+            # Self-screen cooldown gate (May 2026) — kills the back-to-back
+            # vetting loop bug. Skips ANY re-screen of the same candidate
+            # within this many minutes of a prior vetting_log row,
+            # regardless of applied_job_id. 0 disables.
+            'self_screen_cooldown_minutes': '60',
+            # Recruiter-decisioned full-skip gate (May 2026) — once a human
+            # recruiter has noted a candidate AFTER the most recent Scout
+            # Screen note for a previously-screened (candidate × job) pair,
+            # skip the entire re-screen for THAT job. New jobs the candidate
+            # has never been screened for are unaffected. Killswitch — default ON.
+            'recruiter_decision_skip_enabled': 'true',
             # Scout Vetting (Layer 2) — independent toggle for the conversational follow-up engine.
             # Off by default; user enables via UI once Layer 1 screening is stable.
             'scout_vetting_enabled': 'false',
