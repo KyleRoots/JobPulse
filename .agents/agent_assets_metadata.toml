@@ -95,3 +95,9 @@ id = "R3lPxFvPKauUmS1b0Anjj"
 uri = "file://discovery_industrial_audit/SPOTCHECK_review_me.csv"
 type = "table"
 title = "Industrial Resume False-Negative Spot-Check (50 rows)"
+
+[[outputs]]
+id = "cyFXF73VGGMRGkgC4td2-"
+uri = "file://discovery_industrial_audit/SPOTCHECK_review_me_20rows.csv"
+type = "table"
+title = "Industrial Spot-Check (20 rows, ~1 hour)"
