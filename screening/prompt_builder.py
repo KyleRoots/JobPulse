@@ -404,7 +404,7 @@ Format as a bullet-point list. Be specific and concise."""
 
         job_description = re.sub(r'<[^>]+>', '', job_description)
 
-        max_resume_len = 20000
+        max_resume_len = 14000
         max_desc_len = 4000
         resume_text = resume_text[:max_resume_len] if resume_text else ''
         job_description = job_description[:max_desc_len] if job_description else ''
