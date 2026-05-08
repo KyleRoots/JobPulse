@@ -1,0 +1,226 @@
+{% extends "admin_base.html" %}
+
+{% block title %}Embedding Model A/B Analysis · AI Cost{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h2 class="mb-1">
+        <i class="fas fa-flask text-info"></i>
+        Embedding Model A/B Analysis
+      </h2>
+      <small class="text-muted">
+        Shadow-mode comparison of <code>{{ primary_model or 'text-embedding-3-large' }}</code>
+        (production gate) vs <code>{{ shadow_model or 'text-embedding-3-small' }}</code> (candidate replacement).
+        Phase A of the May 2026 embedding-cutover decision (S3).
+      </small>
+    </div>
+    <div>
+      <a href="{{ url_for('ai_cost.ai_cost_dashboard') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="fas fa-arrow-left"></i> Back to AI Cost
+      </a>
+    </div>
+  </div>
+
+  <!-- Window selector -->
+  <div class="card bg-dark border-secondary mb-3">
+    <div class="card-body py-2">
+      <form method="GET" class="d-flex align-items-center gap-2 mb-0">
+        <label class="mb-0 me-2"><strong>Window:</strong></label>
+        {% for h in [24, 48, 72, 168, 720] %}
+          <a href="?hours={{ h }}"
+             class="btn btn-sm {% if hours == h %}btn-info{% else %}btn-outline-info{% endif %}">
+            {% if h < 168 %}{{ h }}h{% elif h == 168 %}7d{% else %}30d{% endif %}
+          </a>
+        {% endfor %}
+        <span class="text-muted ms-3">since {{ since_iso }}</span>
+      </form>
+    </div>
+  </div>
+
+  {% if total_pairs == 0 %}
+    <div class="alert alert-warning">
+      <i class="fas fa-info-circle"></i>
+      <strong>No shadow data in window.</strong>
+      Set <code>EMBEDDING_AB_SHADOW_ENABLED=true</code> in the environment and wait
+      for screening cycles to run. Each (candidate × job) pair vetted while shadow
+      mode is on adds one row.
+    </div>
+  {% else %}
+    <!-- Headline metrics -->
+    <div class="row g-3 mb-4">
+      <div class="col-md-3">
+        <div class="card bg-dark border-secondary text-center">
+          <div class="card-body">
+            <div class="text-muted small">Pairs Sampled</div>
+            <div class="display-6">{{ total_pairs }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card bg-dark border-{{ 'success' if concordance_pct >= 95 else ('warning' if concordance_pct >= 90 else 'danger') }} text-center">
+          <div class="card-body">
+            <div class="text-muted small">Concordance</div>
+            <div class="display-6 text-{{ 'success' if concordance_pct >= 95 else ('warning' if concordance_pct >= 90 else 'danger') }}">
+              {{ '%.1f' % concordance_pct }}%
+            </div>
+            <div class="small text-muted">target ≥ 95%</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card bg-dark border-{{ 'success' if false_negative_pct <= 2 else ('warning' if false_negative_pct <= 5 else 'danger') }} text-center">
+          <div class="card-body">
+            <div class="text-muted small">False Negatives</div>
+            <div class="display-6 text-{{ 'success' if false_negative_pct <= 2 else ('warning' if false_negative_pct <= 5 else 'danger') }}">
+              {{ '%.1f' % false_negative_pct }}%
+            </div>
+            <div class="small text-muted">{{ false_negatives }} qualified candidates lost · target ≤ 2%</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card bg-dark border-secondary text-center">
+          <div class="card-body">
+            <div class="text-muted small">False Positives</div>
+            <div class="display-6">{{ '%.1f' % false_positive_pct }}%</div>
+            <div class="small text-muted">{{ false_positives }} extra GPT calls · target ≤ 5%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Decision verdict -->
+    <div class="alert alert-{{ verdict_class }}">
+      <strong><i class="fas fa-{{ verdict_icon }}"></i> Verdict:</strong> {{ verdict_text }}
+    </div>
+
+    <!-- Score correlation + averages -->
+    <div class="row g-3 mb-4">
+      <div class="col-md-6">
+        <div class="card bg-dark border-secondary">
+          <div class="card-header"><strong>Score Statistics</strong></div>
+          <div class="card-body">
+            <table class="table table-sm table-dark mb-0">
+              <tr><td>Avg primary similarity</td><td class="text-end"><code>{{ '%.4f' % avg_primary }}</code></td></tr>
+              <tr><td>Avg shadow similarity</td><td class="text-end"><code>{{ '%.4f' % avg_shadow }}</code></td></tr>
+              <tr><td>Avg score delta (shadow − primary)</td><td class="text-end"><code>{{ '%+.4f' % avg_delta }}</code></td></tr>
+              <tr><td>Pearson correlation</td><td class="text-end">
+                <code>{{ '%.3f' % pearson_r }}</code>
+                <span class="badge bg-{{ 'success' if pearson_r >= 0.85 else 'warning' }}">
+                  {{ 'good' if pearson_r >= 0.85 else 'weak' }}
+                </span>
+              </td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card bg-dark border-secondary">
+          <div class="card-header"><strong>Decision Counts</strong></div>
+          <div class="card-body">
+            <table class="table table-sm table-dark mb-0">
+              <tr><td>Both passed gate (agree)</td><td class="text-end"><code>{{ both_pass }}</code></td></tr>
+              <tr><td>Both blocked (agree)</td><td class="text-end"><code>{{ both_block }}</code></td></tr>
+              <tr><td>Primary passed, shadow blocked (FN)</td><td class="text-end text-warning"><code>{{ false_negatives }}</code></td></tr>
+              <tr><td>Primary blocked, shadow passed (FP)</td><td class="text-end"><code>{{ false_positives }}</code></td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Threshold sweep -->
+    <div class="card bg-dark border-secondary mb-4">
+      <div class="card-header">
+        <strong>Threshold Sweep</strong>
+        <small class="text-muted ms-2">
+          Concordance and false-negative rate at alternative thresholds for the shadow model.
+          Use this to find a threshold that recovers concordance if the small model needs different tuning.
+        </small>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm table-dark mb-0">
+          <thead>
+            <tr>
+              <th>Shadow Threshold</th>
+              <th class="text-end">Concordance</th>
+              <th class="text-end">False Negatives</th>
+              <th class="text-end">False Positives</th>
+              <th class="text-end">Shadow Pass Rate</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in threshold_sweep %}
+              <tr {% if row.recommended %}class="table-success"{% endif %}>
+                <td>
+                  <code>{{ '%.3f' % row.threshold }}</code>
+                  {% if row.recommended %}<span class="badge bg-success">recommended</span>{% endif %}
+                </td>
+                <td class="text-end">{{ '%.1f' % row.concordance_pct }}%</td>
+                <td class="text-end">{{ '%.1f' % row.false_negative_pct }}%</td>
+                <td class="text-end">{{ '%.1f' % row.false_positive_pct }}%</td>
+                <td class="text-end">{{ '%.1f' % row.shadow_pass_pct }}%</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Flagged pairs -->
+    {% if flagged_pairs %}
+      <div class="card bg-dark border-warning mb-4">
+        <div class="card-header bg-warning text-dark">
+          <strong><i class="fas fa-exclamation-triangle"></i> Flagged False Negatives</strong>
+          <small class="ms-2">Candidates the small model would have blocked while the production model let them through.
+          Cross-check the highest-scoring ones against actual screening outcomes before cutting over.</small>
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-sm table-dark mb-0">
+            <thead>
+              <tr>
+                <th>Candidate</th>
+                <th>Job</th>
+                <th class="text-end">Primary Score</th>
+                <th class="text-end">Shadow Score</th>
+                <th class="text-end">Delta</th>
+                <th>When</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in flagged_pairs %}
+                <tr>
+                  <td>{{ p.candidate_name or 'Candidate' }} <code class="text-muted">#{{ p.bullhorn_candidate_id }}</code></td>
+                  <td>{{ p.job_title or 'Position' }} <code class="text-muted">#{{ p.bullhorn_job_id }}</code></td>
+                  <td class="text-end"><code>{{ '%.4f' % p.primary_score }}</code></td>
+                  <td class="text-end"><code>{{ '%.4f' % p.shadow_score }}</code></td>
+                  <td class="text-end text-warning">{{ '%+.4f' % (p.shadow_score - p.primary_score) }}</td>
+                  <td><small>{{ p.created_at.strftime('%Y-%m-%d %H:%M') if p.created_at else '' }}</small></td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% endif %}
+
+    <!-- Cutover instructions -->
+    <div class="card bg-dark border-info">
+      <div class="card-header"><strong><i class="fas fa-flag-checkered"></i> Cutover Controls</strong></div>
+      <div class="card-body small">
+        <p class="mb-1">When you're ready to flip production to the shadow model:</p>
+        <ol class="mb-2">
+          <li>Set <code>MODEL_TIER_OVERRIDE_EMBEDDING_SERVICE_CANDIDATE=text-embedding-3-small</code> in the environment.</li>
+          <li>Workers pick it up on next restart (or rolling restart for zero-downtime).</li>
+          <li>Leave <code>EMBEDDING_AB_SHADOW_ENABLED=true</code> for 7 days post-cutover so this page now monitors regression risk against <code>text-embedding-3-large</code>.</li>
+        </ol>
+        <p class="mb-0 text-muted">
+          To revert: unset the override env var and restart. Job-embedding cache is per-model so old large-model vectors remain valid.
+        </p>
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

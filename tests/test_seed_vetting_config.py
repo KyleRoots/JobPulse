@@ -87,6 +87,9 @@ EXPECTED_KEYS = {
     'owner_reassignment_heartbeat_hours',
     # commit 771e29e6: Screening skip for human-owned candidates
     'screening_skip_human_owned',
+    # May 2026 Loop-Killer skip-gate batch
+    'self_screen_cooldown_minutes',
+    'recruiter_decision_skip_enabled',
 }
 
 

@@ -375,7 +375,7 @@ def seed_vetting_config(db, VettingConfig):
             # vetting loop bug. Skips ANY re-screen of the same candidate
             # within this many minutes of a prior vetting_log row,
             # regardless of applied_job_id. 0 disables.
-            'self_screen_cooldown_minutes': '60',
+            'self_screen_cooldown_minutes': '120',
             # Recruiter-decisioned full-skip gate (May 2026) — once a human
             # recruiter has noted a candidate AFTER the most recent Scout
             # Screen note for a previously-screened (candidate × job) pair,

@@ -370,6 +370,97 @@ class EmbeddingService:
         # Default: enabled
         return True
     
+    def _generate_with_model(self, text: str, model: str, site_id: str) -> Optional[List[float]]:
+        """Generate an embedding using an explicit model + cost-telemetry site_id.
+
+        Used by shadow-mode A/B logging so the shadow model's spend shows up as
+        a distinct row in the AI cost dashboard rather than mingling with the
+        primary embedding cost. Fail-soft: returns None on any error so the
+        shadow path can be skipped silently without breaking production.
+        """
+        if not self.openai_client or not text or not text.strip():
+            return None
+        try:
+            truncated_text, _was_trunc, _orig_tok = self._truncate_for_embedding(text)
+            from services.openai_helper import log_call
+            response = self.openai_client.embeddings.create(
+                input=truncated_text,
+                model=model,
+            )
+            log_call(site_id, model, response)
+            return response.data[0].embedding
+        except Exception as e:
+            logger.warning(f"Shadow embedding generation failed ({model}): {e}")
+            return None
+
+    @staticmethod
+    def _shadow_enabled() -> bool:
+        """Read EMBEDDING_AB_SHADOW_ENABLED env var. Off by default."""
+        return os.environ.get('EMBEDDING_AB_SHADOW_ENABLED', '').lower() in ('true', '1', 'yes')
+
+    @staticmethod
+    def _shadow_max_jobs() -> int:
+        """Per-candidate cap on shadow comparisons. Bounds shadow OpenAI cost.
+
+        Read from EMBEDDING_AB_SHADOW_MAX_JOBS env var (default 25). Set to 0
+        for unlimited (not recommended in production). Invalid values fall
+        back to the default.
+        """
+        raw = os.environ.get('EMBEDDING_AB_SHADOW_MAX_JOBS', '25')
+        try:
+            n = int(raw)
+            return n if n >= 0 else 25
+        except (TypeError, ValueError):
+            return 25
+
+    @staticmethod
+    def _pick_shadow_model(primary_model: str) -> str:
+        """Choose the OTHER model for shadow comparison.
+
+        If primary is `-3-large`, shadow is `-3-small` (testing the
+        cost-savings cutover). If primary is anything else (e.g. -3-small
+        post-cutover), shadow is `-3-large` (regression-watch on the
+        downgrade). Returns the model id string.
+        """
+        if 'large' in (primary_model or '').lower():
+            return 'text-embedding-3-small'
+        return 'text-embedding-3-large'
+
+    def _save_ab_log_batch(self, entries: List[Dict]) -> None:
+        """Batch-insert shadow A/B comparison rows on an ISOLATED transaction.
+
+        Critical: shadow logging must NEVER affect the calling request's
+        ORM session. We use a short-lived raw connection so a write failure
+        rolls back only the AB insert — not any pending production writes
+        the caller has staged. Fully fail-soft.
+        """
+        if not entries:
+            return
+        try:
+            from app import db
+            from sqlalchemy import text as _text
+            sql = _text(
+                "INSERT INTO embedding_ab_log "
+                "(vetting_log_id, bullhorn_candidate_id, candidate_name, "
+                " bullhorn_job_id, job_title, primary_model, shadow_model, "
+                " primary_score, shadow_score, threshold_used, "
+                " primary_passed, shadow_would_pass, created_at) "
+                "VALUES "
+                "(:vetting_log_id, :bullhorn_candidate_id, :candidate_name, "
+                " :bullhorn_job_id, :job_title, :primary_model, :shadow_model, "
+                " :primary_score, :shadow_score, :threshold_used, "
+                " :primary_passed, :shadow_would_pass, :created_at)"
+            )
+            now = datetime.utcnow()
+            payload = [{**e, 'created_at': now} for e in entries]
+            with db.engine.begin() as conn:
+                conn.execute(sql, payload)
+            logger.info(f"📊 Shadow A/B: logged {len(entries)} pair comparisons")
+        except Exception as exc:
+            # Isolated connection auto-rolls-back on context exit. Caller's
+            # ORM session is untouched.
+            logger.warning(f"Failed to save embedding A/B log batch: {exc}")
+
     def filter_relevant_jobs(
         self,
         resume_text: str,
@@ -416,7 +507,36 @@ class EmbeddingService:
         
         relevant_jobs = []
         filtered_entries = []
-        
+
+        # Shadow-mode A/B setup: if EMBEDDING_AB_SHADOW_ENABLED is on, also
+        # compute similarities using the OTHER embedding model and log each
+        # (candidate × job) comparison for offline analysis. Fully fail-soft —
+        # any error in the shadow path leaves production behavior untouched.
+        # Per-candidate cap (env var EMBEDDING_AB_SHADOW_MAX_JOBS, default 25)
+        # bounds the extra OpenAI cost incurred during the shadow window so
+        # large tearsheets don't blow up the cost envelope.
+        ab_shadow_on = self._shadow_enabled()
+        ab_shadow_remaining = self._shadow_max_jobs()
+        ab_log_entries: List[Dict] = []
+        shadow_model: Optional[str] = None
+        shadow_resume_emb: Optional[List[float]] = None
+        primary_model_label = self.embedding_model
+        if ab_shadow_on:
+            try:
+                from services.openai_helper import resolve_model
+                primary_model_label = resolve_model('embedding_service.candidate', self.embedding_model)
+                shadow_model = self._pick_shadow_model(primary_model_label)
+                shadow_resume_emb = self._generate_with_model(
+                    resume_text, shadow_model, 'embedding_service.shadow'
+                )
+                if shadow_resume_emb is None:
+                    # Couldn't get shadow resume embedding — disable for this call
+                    logger.warning("Shadow A/B: resume embedding failed, skipping shadow comparisons")
+                    ab_shadow_on = False
+            except Exception as exc:
+                logger.warning(f"Shadow A/B setup failed: {exc}")
+                ab_shadow_on = False
+
         for job in jobs:
             job_id = job.get('id', 0)
             job_title = job.get('title', 'Unknown')
@@ -437,7 +557,8 @@ class EmbeddingService:
             # Compute similarity
             similarity = self.compute_similarity(resume_embedding, job_embedding)
             
-            if similarity >= threshold:
+            primary_passed = similarity >= threshold
+            if primary_passed:
                 relevant_jobs.append(job)
             else:
                 # Filtered — log for audit
@@ -451,11 +572,46 @@ class EmbeddingService:
                     'resume_snippet': resume_snippet,
                     'vetting_log_id': vetting_log_id
                 })
+
+            # Shadow A/B per-job comparison (best effort, fail-soft).
+            # Capped at EMBEDDING_AB_SHADOW_MAX_JOBS per candidate (default 25;
+            # 0 means unlimited). Bounds shadow OpenAI cost.
+            shadow_cap = self._shadow_max_jobs()
+            shadow_under_cap = (shadow_cap == 0) or (ab_shadow_remaining > 0)
+            if (ab_shadow_on and shadow_model and shadow_resume_emb and shadow_under_cap):
+                if shadow_cap != 0:
+                    ab_shadow_remaining -= 1
+                try:
+                    shadow_job_emb = self._generate_with_model(
+                        job_description, shadow_model, 'embedding_service.shadow'
+                    )
+                    if shadow_job_emb:
+                        shadow_sim = self.compute_similarity(shadow_resume_emb, shadow_job_emb)
+                        ab_log_entries.append({
+                            'vetting_log_id': vetting_log_id,
+                            'bullhorn_candidate_id': candidate_id,
+                            'candidate_name': candidate_name,
+                            'bullhorn_job_id': job_id,
+                            'job_title': job_title,
+                            'primary_model': primary_model_label,
+                            'shadow_model': shadow_model,
+                            'primary_score': round(float(similarity), 6),
+                            'shadow_score': round(float(shadow_sim), 6),
+                            'threshold_used': float(threshold),
+                            'primary_passed': bool(primary_passed),
+                            'shadow_would_pass': bool(shadow_sim >= threshold),
+                        })
+                except Exception as exc:
+                    logger.warning(f"Shadow A/B per-job comparison failed (job {job_id}): {exc}")
         
         # Batch-write filtered entries to EmbeddingFilterLog
         filtered_count = len(filtered_entries)
         if filtered_entries:
             self._save_filter_logs(filtered_entries)
+
+        # Batch-write shadow A/B entries (no-op if shadow off or no entries)
+        if ab_log_entries:
+            self._save_ab_log_batch(ab_log_entries)
         
         logger.info(
             f"🔍 Embedding pre-filter for {candidate_name} (ID: {candidate_id}): "

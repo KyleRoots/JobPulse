@@ -1,13 +1,16 @@
-"""AI Cost dashboard + Module-Based Forecaster.
+"""AI Cost dashboard + Module-Based Forecaster + Embedding A/B Analysis.
 
-Super-admin-only. Two routes:
-  /admin/ai-cost            — per-site spend breakdown over a window
-  /admin/ai-cost/forecast   — module-based monthly cost projector
+Super-admin-only. Three routes:
+  /admin/ai-cost                — per-site spend breakdown over a window
+  /admin/ai-cost/forecast       — module-based monthly cost projector
+  /admin/ai-cost/embedding-ab   — shadow-mode embedding A/B analysis (S3 Phase A)
 
-Both read from `openai_call_log`. The forecaster additionally reads/writes
-`cost_forecast_override` and `cost_forecast_scenario`.
+The first two read from `openai_call_log`. The forecaster additionally
+reads/writes `cost_forecast_override` and `cost_forecast_scenario`.
+The A/B page reads from `embedding_ab_log`.
 """
 import logging
+import math
 from datetime import datetime, timedelta
 from decimal import Decimal
 
@@ -352,4 +355,206 @@ def ai_cost_forecast():
         projection=projection,
         flash_message=flash_message,
         saved_scenarios=saved_scenarios,
+    )
+
+
+# ============================================================================
+# Embedding Model A/B Analysis (S3 Phase A — May 2026)
+# ============================================================================
+
+# Threshold sweep grid for the analysis page.
+_THRESHOLD_SWEEP = [0.15, 0.18, 0.20, 0.22, 0.25, 0.28, 0.30, 0.35]
+
+# Verdict thresholds.
+_CUTOVER_CONCORDANCE_PASS = 95.0
+_CUTOVER_FN_PASS = 2.0
+
+
+def _pearson(xs, ys):
+    """Pearson correlation. Returns 0.0 on degenerate input."""
+    n = len(xs)
+    if n < 2:
+        return 0.0
+    mx = sum(xs) / n
+    my = sum(ys) / n
+    num = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+    dx = math.sqrt(sum((x - mx) ** 2 for x in xs))
+    dy = math.sqrt(sum((y - my) ** 2 for y in ys))
+    if dx == 0 or dy == 0:
+        return 0.0
+    return num / (dx * dy)
+
+
+def _build_threshold_sweep(rows):
+    """For each threshold in _THRESHOLD_SWEEP, recompute concordance / FN / FP.
+    `rows` is a list of dicts with primary_score, shadow_score, primary_passed.
+    """
+    out = []
+    if not rows:
+        return out
+    n = len(rows)
+    best_idx = -1
+    best_concordance = -1.0
+    for i, t in enumerate(_THRESHOLD_SWEEP):
+        agree = fn = fp = shadow_pass = 0
+        for r in rows:
+            shadow_pass_at_t = r['shadow_score'] >= t
+            primary_pass = r['primary_passed']
+            if shadow_pass_at_t == primary_pass:
+                agree += 1
+            elif primary_pass and not shadow_pass_at_t:
+                fn += 1
+            else:
+                fp += 1
+            if shadow_pass_at_t:
+                shadow_pass += 1
+        concordance = (agree / n) * 100.0
+        fn_pct = (fn / n) * 100.0
+        fp_pct = (fp / n) * 100.0
+        # Recommendation policy: ONLY mark recommended when FN ≤ 2%
+        # (the cutover safety policy). Among qualifying thresholds, pick
+        # the highest concordance. If no threshold meets the FN floor, no
+        # row is marked recommended — operators must conclude the small
+        # model is too divergent at any threshold in the sweep.
+        if fn_pct <= _CUTOVER_FN_PASS and concordance > best_concordance:
+            best_concordance = concordance
+            best_idx = i
+        out.append({
+            'threshold': t,
+            'concordance_pct': concordance,
+            'false_negative_pct': fn_pct,
+            'false_positive_pct': fp_pct,
+            'shadow_pass_pct': (shadow_pass / n) * 100.0,
+            'recommended': False,
+        })
+    if best_idx >= 0:
+        out[best_idx]['recommended'] = True
+    return out
+
+
+@ai_cost_bp.route('/embedding-ab', methods=['GET'])
+@login_required
+def embedding_ab_analysis():
+    _require_admin()
+
+    try:
+        hours = int(request.args.get('hours', '48'))
+    except (TypeError, ValueError):
+        hours = 48
+    hours = max(1, min(hours, 24 * 30))
+    since = datetime.utcnow() - timedelta(hours=hours)
+
+    # Pull raw rows in the window.
+    rows = []
+    primary_model = ''
+    shadow_model = ''
+    try:
+        result = db.session.execute(
+            text(
+                "SELECT primary_model, shadow_model, primary_score, shadow_score, "
+                "       threshold_used, primary_passed, shadow_would_pass, "
+                "       bullhorn_candidate_id, candidate_name, "
+                "       bullhorn_job_id, job_title, created_at "
+                "FROM embedding_ab_log "
+                "WHERE created_at >= :since "
+                "ORDER BY created_at DESC"
+            ),
+            {'since': since},
+        ).fetchall()
+        for r in result:
+            rows.append({
+                'primary_model': r[0],
+                'shadow_model': r[1],
+                'primary_score': float(r[2] or 0.0),
+                'shadow_score': float(r[3] or 0.0),
+                'threshold_used': float(r[4] or 0.0),
+                'primary_passed': bool(r[5]),
+                'shadow_would_pass': bool(r[6]),
+                'bullhorn_candidate_id': r[7],
+                'candidate_name': r[8],
+                'bullhorn_job_id': r[9],
+                'job_title': r[10],
+                'created_at': r[11],
+            })
+        if rows:
+            primary_model = rows[0]['primary_model']
+            shadow_model = rows[0]['shadow_model']
+    except Exception as exc:
+        logger.warning(f"embedding_ab query failed: {exc}")
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+
+    total_pairs = len(rows)
+    both_pass = sum(1 for r in rows if r['primary_passed'] and r['shadow_would_pass'])
+    both_block = sum(1 for r in rows if not r['primary_passed'] and not r['shadow_would_pass'])
+    false_negatives = sum(1 for r in rows if r['primary_passed'] and not r['shadow_would_pass'])
+    false_positives = sum(1 for r in rows if not r['primary_passed'] and r['shadow_would_pass'])
+
+    if total_pairs > 0:
+        concordance_pct = ((both_pass + both_block) / total_pairs) * 100.0
+        false_negative_pct = (false_negatives / total_pairs) * 100.0
+        false_positive_pct = (false_positives / total_pairs) * 100.0
+        avg_primary = sum(r['primary_score'] for r in rows) / total_pairs
+        avg_shadow = sum(r['shadow_score'] for r in rows) / total_pairs
+        avg_delta = avg_shadow - avg_primary
+        pearson_r = _pearson(
+            [r['primary_score'] for r in rows],
+            [r['shadow_score'] for r in rows],
+        )
+    else:
+        concordance_pct = false_negative_pct = false_positive_pct = 0.0
+        avg_primary = avg_shadow = avg_delta = pearson_r = 0.0
+
+    # Verdict
+    if total_pairs == 0:
+        verdict_class, verdict_icon, verdict_text = 'secondary', 'info-circle', 'No data yet.'
+    elif concordance_pct >= _CUTOVER_CONCORDANCE_PASS and false_negative_pct <= _CUTOVER_FN_PASS:
+        verdict_class, verdict_icon = 'success', 'check-circle'
+        verdict_text = (f"Cut over recommended. Concordance {concordance_pct:.1f}% "
+                        f"(target ≥ {_CUTOVER_CONCORDANCE_PASS}%) and false-negatives "
+                        f"{false_negative_pct:.1f}% (target ≤ {_CUTOVER_FN_PASS}%) both pass.")
+    elif concordance_pct >= 90.0:
+        verdict_class, verdict_icon = 'warning', 'exclamation-triangle'
+        verdict_text = (f"Threshold tuning recommended. Concordance is {concordance_pct:.1f}% — "
+                        f"check the sweep table below for a better shadow threshold before deciding.")
+    else:
+        verdict_class, verdict_icon = 'danger', 'times-circle'
+        verdict_text = (f"Cutover NOT recommended at this time. Concordance {concordance_pct:.1f}% "
+                        f"is below the 90% safety floor; the small model is too divergent.")
+
+    # Top false-negative pairs (limit 25 by descending primary score)
+    flagged_pairs = sorted(
+        [r for r in rows if r['primary_passed'] and not r['shadow_would_pass']],
+        key=lambda r: r['primary_score'],
+        reverse=True,
+    )[:25]
+
+    threshold_sweep = _build_threshold_sweep(rows)
+
+    return render_template(
+        'admin_ai_cost_embedding_ab.html',
+        active_page='ai_cost',
+        hours=hours,
+        since_iso=since.isoformat() + 'Z',
+        primary_model=primary_model,
+        shadow_model=shadow_model,
+        total_pairs=total_pairs,
+        both_pass=both_pass,
+        both_block=both_block,
+        false_negatives=false_negatives,
+        false_positives=false_positives,
+        concordance_pct=concordance_pct,
+        false_negative_pct=false_negative_pct,
+        false_positive_pct=false_positive_pct,
+        avg_primary=avg_primary,
+        avg_shadow=avg_shadow,
+        avg_delta=avg_delta,
+        pearson_r=pearson_r,
+        verdict_class=verdict_class,
+        verdict_icon=verdict_icon,
+        verdict_text=verdict_text,
+        flagged_pairs=flagged_pairs,
+        threshold_sweep=threshold_sweep,
     )
