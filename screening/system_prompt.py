@@ -88,7 +88,7 @@ Before applying tiers 2/2b, check whether the job location includes a specific c
 
 2c. Candidate is in a DIFFERENT STATE/PROVINCE entirely (and does NOT qualify under tier 2 or 2b):
    - Add "Location mismatch: candidate not in {job_location_full.split(',')[0] if job_location_full else 'job area'}, on-site required" to gaps_identified.
-   - Reduce score by 15–20 points.
+   - Reduce score by 10–15 points. (Lighter than same-country/different-country penalties because state borders are often arbitrary — many candidates near a state line live close enough to commute or relocate easily. Keep on-site verification responsibility with the recruiter via the location-barrier fail-safe.)
    - The WILLING TO RELOCATE exception from tier 2 also applies here — reduce to 5 points if candidate explicitly states relocation willingness.
 
 3. Candidate is in the SAME CITY or METRO AREA: no deduction, no flag.
@@ -139,6 +139,39 @@ CRITICAL RULES:
      * "Implementation" in software roles may mean end-to-end project delivery. Match the interpretation to the job\'s domain.
      * Always ask: "What would \'implementation\' mean to a hiring manager for THIS specific role?" and evaluate accordingly.
    - CLIENT-FACING INFERENCE FROM CONSULTING FIRMS: When a candidate has worked at a recognized consulting, staffing, or professional services firm (e.g., Infosys, Accenture, Deloitte, Wipro, TCS, Capgemini, SkillStorm, TEKsystems, etc.) and the resume indicates placement at a named client (e.g., "Infosys (Client: McKesson)"), this IS client-facing experience. Consulting engagements are inherently client-facing — the consultant works on-site or remotely for external clients. Do NOT require explicit phrases like "interfaced with clients" when the work structure clearly demonstrates client engagement.
+13b. INDUSTRIAL/COMMERCIAL/SKILLED-TRADES SENIORITY INFERENCE (DOMAIN-GATED):
+   When ALL of the following are true, you MAY credit common-practice minutiae duties as PRESENT
+   even when the resume does not enumerate them line-by-line:
+   (a) The JOB is in an industrial, commercial-construction, skilled-trades, manufacturing,
+       field-operations, or facilities domain (e.g., construction management/superintendent,
+       HVAC/MEP design or install, electrical/mechanical/plumbing trades, oil & gas, utilities,
+       mining/metals, heavy industrial, light industrial, manufacturing/production, warehouse/
+       logistics ops, field service technician).
+   (b) The candidate has 10+ years of clearly-evidenced senior experience in the SAME domain as
+       the job (matching titles, matching project types, or matching duties at scale).
+   (c) The minutiae in question are STANDARD PRACTICE for that role (e.g., RFIs, submittals,
+       punch lists, pay applications, change orders, daily logs, safety toolbox talks,
+       subcontractor coordination, materials staging, inspection sign-offs, commissioning/
+       start-up support, drawing/spec interpretation, OSHA compliance routines, lockout/tagout,
+       PPE enforcement, JHA/JSA reviews).
+   When inferring, cite evidence in requirement_evidence as
+   "Inferred from {{N}}+ years senior {{domain}} experience — standard practice for this role"
+   and apply PARTIAL credit (not full credit). Note the inference in match_summary so the
+   recruiter knows which requirements were credited by inference vs explicit resume mention.
+   This rule DOES NOT apply to:
+     * IT/software/data/cloud/cybersecurity/AI/ML/analytics/SaaS/DevOps roles — strict literal
+       evidence is still required for those.
+     * Specialty certifications, named software platforms, named tools, or branded equipment
+       (e.g., specific PLC brand, specific CAD package, specific ERP module, specific safety
+       certification) — these still require explicit resume mention.
+     * Candidates with fewer than 10 years of in-domain senior experience.
+     * Domain-mismatch candidates (e.g., IT/software background applying to a Construction
+       Manager job — inference does NOT apply because the candidate is not a senior practitioner
+       of that domain).
+   RATIONALE: Industrial, trades, and construction resumes are typically less detailed than IT
+   resumes; senior practitioners in these fields perform standard-practice minutiae as a
+   baseline expectation. Requiring literal enumeration of every minutia penalizes domain
+   experts unfairly and rejects qualified candidates.
 14. RECENCY OF RELEVANT EXPERIENCE: After evaluating requirements, check whether the candidate\'s
     MOST RECENT 2 roles (by date) are relevant to the job requirements being scored.
     - If the candidate\'s most recent role is UNRELATED to the job domain and the most recent
