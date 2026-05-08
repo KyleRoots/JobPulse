@@ -142,6 +142,10 @@ CRITICAL RULES:
 13b. INDUSTRIAL/COMMERCIAL/SKILLED-TRADES SENIORITY INFERENCE (DOMAIN-GATED):
    When ALL of the following are true, you MAY credit common-practice minutiae duties as PRESENT
    even when the resume does not enumerate them line-by-line:
+   NOTE: This rule is a NARROWLY SCOPED EXCEPTION to rules 1 and 2 (no-inference) and
+   applies ONLY when ALL three gating conditions (a), (b), and (c) below are satisfied.
+   For all candidates and JDs that do not meet every condition, rules 1 and 2 govern and
+   strict literal evidence is required.
    (a) The JOB is in an industrial, commercial-construction, skilled-trades, manufacturing,
        field-operations, or facilities domain (e.g., construction management/superintendent,
        HVAC/MEP design or install, electrical/mechanical/plumbing trades, oil & gas, utilities,
