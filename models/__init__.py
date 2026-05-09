@@ -68,6 +68,7 @@ from models.embedding import (
     JobEmbedding,
     EmbeddingFilterLog,
     EmbeddingABLog,
+    ScreeningABLog,
 )
 from models.automation import (
     AutomationTask,
@@ -110,7 +111,7 @@ __all__ = [
     # candidate
     'ParsedResumeCache', 'CandidateMergeLog', 'CandidateProfileEmbedding', 'FuzzyEvaluationQueue',
     # embedding
-    'JobEmbedding', 'EmbeddingFilterLog', 'EmbeddingABLog',
+    'JobEmbedding', 'EmbeddingFilterLog', 'EmbeddingABLog', 'ScreeningABLog',
     # automation
     'AutomationTask', 'AutomationLog', 'AutomationChat',
     # support

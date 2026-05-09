@@ -1,13 +1,15 @@
-"""AI Cost dashboard + Module-Based Forecaster + Embedding A/B Analysis.
+"""AI Cost dashboard + Module-Based Forecaster + A/B Analyses.
 
-Super-admin-only. Three routes:
+Super-admin-only. Four routes:
   /admin/ai-cost                — per-site spend breakdown over a window
   /admin/ai-cost/forecast       — module-based monthly cost projector
   /admin/ai-cost/embedding-ab   — shadow-mode embedding A/B analysis (S3 Phase A)
+  /admin/ai-cost/screening-ab   — shadow-mode screening A/B analysis (S2 Phase A)
 
 The first two read from `openai_call_log`. The forecaster additionally
 reads/writes `cost_forecast_override` and `cost_forecast_scenario`.
-The A/B page reads from `embedding_ab_log`.
+The embedding A/B page reads from `embedding_ab_log`. The screening
+A/B page reads from `screening_ab_log`.
 """
 import logging
 import math
@@ -557,4 +559,282 @@ def embedding_ab_analysis():
         verdict_text=verdict_text,
         flagged_pairs=flagged_pairs,
         threshold_sweep=threshold_sweep,
+    )
+
+
+# --- S2 Screening Shadow A/B Analysis ---------------------------------------
+
+_SCREENING_THRESHOLD_SWEEP = [60, 65, 70, 75, 80, 85, 90]
+
+
+def _screening_band(score):
+    if score < 40:
+        return '<40'
+    if score < 70:
+        return '40-69'
+    if score < 90:
+        return '70-89'
+    return '≥90'
+
+
+@ai_cost_bp.route('/screening-ab', methods=['GET'])
+@login_required
+def screening_ab_analysis():
+    """Shadow-mode screening A/B dashboard (S2). Reads `screening_ab_log`."""
+    _require_admin()
+
+    try:
+        hours = int(request.args.get('hours', '168'))
+    except (TypeError, ValueError):
+        hours = 168
+    hours = max(1, min(hours, 24 * 30))
+    since = datetime.utcnow() - timedelta(hours=hours)
+
+    rows = []
+    prod_model = ''
+    shadow_model = ''
+    try:
+        result = db.session.execute(
+            text(
+                "SELECT prod_model, shadow_model, prod_score, shadow_score, "
+                "       score_delta, prod_qualified, shadow_qualified_inferred, "
+                "       bullhorn_candidate_id, bullhorn_job_id, job_title, "
+                "       shadow_input_tokens, shadow_output_tokens, "
+                "       shadow_estimated_cost_usd, shadow_duration_ms, "
+                "       shadow_error, created_at "
+                "FROM screening_ab_log "
+                "WHERE created_at >= :since "
+                "ORDER BY created_at DESC"
+            ),
+            {'since': since},
+        ).fetchall()
+        for r in result:
+            rows.append({
+                'prod_model': r[0],
+                'shadow_model': r[1],
+                'prod_score': float(r[2] or 0.0),
+                'shadow_score': float(r[3]) if r[3] is not None else None,
+                'score_delta': float(r[4]) if r[4] is not None else None,
+                'prod_qualified': bool(r[5]) if r[5] is not None else None,
+                'shadow_qualified_inferred': bool(r[6]) if r[6] is not None else None,
+                'bullhorn_candidate_id': r[7],
+                'bullhorn_job_id': r[8],
+                'job_title': r[9],
+                'shadow_input_tokens': r[10],
+                'shadow_output_tokens': r[11],
+                'shadow_estimated_cost_usd': float(r[12]) if r[12] is not None else 0.0,
+                'shadow_duration_ms': r[13],
+                'shadow_error': r[14],
+                'created_at': r[15],
+            })
+        if rows:
+            prod_model = rows[0]['prod_model']
+            shadow_model = rows[0]['shadow_model']
+    except Exception as exc:
+        logger.warning(f"screening_ab query failed: {exc}")
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+
+    # Filter to rows with successful shadow scores for paired metrics
+    paired = [r for r in rows if r['shadow_score'] is not None]
+    total_pairs = len(paired)
+    total_attempts = len(rows)
+    shadow_errors = sum(1 for r in rows if r['shadow_error'])
+    shadow_total_cost = sum(r['shadow_estimated_cost_usd'] for r in rows)
+
+    # Headline metrics
+    if total_pairs > 0:
+        avg_prod = sum(r['prod_score'] for r in paired) / total_pairs
+        avg_shadow = sum(r['shadow_score'] for r in paired) / total_pairs
+        avg_delta = avg_shadow - avg_prod
+        pearson_r = _pearson(
+            [r['prod_score'] for r in paired],
+            [r['shadow_score'] for r in paired],
+        )
+        # Acceptance-bar metrics
+        deltas_borderline = [abs(r['shadow_score'] - r['prod_score'])
+                             for r in paired if 40 <= r['prod_score'] < 90]
+        avg_drift_borderline = (sum(deltas_borderline) / len(deltas_borderline)
+                                if deltas_borderline else 0.0)
+        deltas_risk = [abs(r['shadow_score'] - r['prod_score'])
+                       for r in paired if 70 <= r['prod_score'] < 90]
+        max_drift_risk = max(deltas_risk) if deltas_risk else 0.0
+        # Hard-reject false negatives: shadow <40 AND prod >=80
+        hard_reject_fns = [r for r in paired
+                           if r['shadow_score'] < 40 and r['prod_score'] >= 80]
+        hard_reject_fn_count = len(hard_reject_fns)
+    else:
+        avg_prod = avg_shadow = avg_delta = pearson_r = 0.0
+        avg_drift_borderline = max_drift_risk = 0.0
+        hard_reject_fns = []
+        hard_reject_fn_count = 0
+
+    # Confusion matrices at multiple thresholds
+    confusion_by_threshold = []
+    for t in [40, 80, 90]:
+        if total_pairs == 0:
+            confusion_by_threshold.append({
+                'threshold': t,
+                'both_pass': 0, 'both_block': 0, 'fn': 0, 'fp': 0,
+                'concordance_pct': 0.0, 'fn_pct': 0.0,
+            })
+            continue
+        bp = bb = fn = fp = 0
+        for r in paired:
+            prod_pass = r['prod_score'] >= t
+            shadow_pass = r['shadow_score'] >= t
+            if prod_pass and shadow_pass:
+                bp += 1
+            elif (not prod_pass) and (not shadow_pass):
+                bb += 1
+            elif prod_pass and not shadow_pass:
+                fn += 1
+            else:
+                fp += 1
+        confusion_by_threshold.append({
+            'threshold': t,
+            'both_pass': bp, 'both_block': bb, 'fn': fn, 'fp': fp,
+            'concordance_pct': ((bp + bb) / total_pairs) * 100.0,
+            'fn_pct': (fn / total_pairs) * 100.0,
+        })
+
+    # Threshold sweep — find a shadow gate that meets the acceptance bar
+    threshold_sweep = []
+    best_idx = -1
+    best_concordance = -1.0
+    if total_pairs > 0:
+        for i, t in enumerate(_SCREENING_THRESHOLD_SWEEP):
+            agree = fn = fp = shadow_pass = 0
+            for r in paired:
+                # Compare against prod's qualification at the conventional 80 floor
+                prod_pass = r['prod_score'] >= 80
+                sh_pass = r['shadow_score'] >= t
+                if sh_pass == prod_pass:
+                    agree += 1
+                elif prod_pass and not sh_pass:
+                    fn += 1
+                else:
+                    fp += 1
+                if sh_pass:
+                    shadow_pass += 1
+            concordance = (agree / total_pairs) * 100.0
+            fn_pct = (fn / total_pairs) * 100.0
+            fp_pct = (fp / total_pairs) * 100.0
+            # Recommend ONLY when FN ≤ 2% (acceptance bar policy)
+            if fn_pct <= 2.0 and concordance > best_concordance:
+                best_concordance = concordance
+                best_idx = i
+            threshold_sweep.append({
+                'threshold': t,
+                'concordance_pct': concordance,
+                'fn_pct': fn_pct,
+                'fp_pct': fp_pct,
+                'shadow_pass_pct': (shadow_pass / total_pairs) * 100.0,
+                'recommended': False,
+            })
+        if best_idx >= 0:
+            threshold_sweep[best_idx]['recommended'] = True
+
+    # Critical disagreements: 70-89 prod band where |delta| >= 10
+    critical_disagreements = sorted(
+        [r for r in paired
+         if 70 <= r['prod_score'] < 90 and abs(r['shadow_score'] - r['prod_score']) >= 10],
+        key=lambda r: abs(r['shadow_score'] - r['prod_score']),
+        reverse=True,
+    )[:25]
+
+    # Top-25 hard-reject false negatives
+    top_hard_reject_fns = sorted(
+        hard_reject_fns,
+        key=lambda r: r['prod_score'],
+        reverse=True,
+    )[:25]
+
+    # Score-band breakdown
+    band_stats = {}
+    for r in paired:
+        band = _screening_band(r['prod_score'])
+        if band not in band_stats:
+            band_stats[band] = {'count': 0, 'sum_delta': 0.0, 'max_abs_delta': 0.0}
+        band_stats[band]['count'] += 1
+        delta = r['shadow_score'] - r['prod_score']
+        band_stats[band]['sum_delta'] += delta
+        band_stats[band]['max_abs_delta'] = max(band_stats[band]['max_abs_delta'], abs(delta))
+    band_breakdown = []
+    for band in ['<40', '40-69', '70-89', '≥90']:
+        s = band_stats.get(band, {'count': 0, 'sum_delta': 0.0, 'max_abs_delta': 0.0})
+        avg_d = (s['sum_delta'] / s['count']) if s['count'] else 0.0
+        band_breakdown.append({
+            'band': band,
+            'count': s['count'],
+            'pct': (s['count'] / total_pairs * 100.0) if total_pairs else 0.0,
+            'avg_delta': avg_d,
+            'max_abs_delta': s['max_abs_delta'],
+        })
+
+    # Acceptance-bar verdict
+    acceptance_target_pairs = 6000
+    bar_pairs_ok = total_pairs >= acceptance_target_pairs
+    bar_hard_reject_ok = hard_reject_fn_count == 0
+    bar_avg_drift_ok = avg_drift_borderline <= 3.0
+    bar_max_drift_ok = max_drift_risk <= 8.0
+    all_bars_pass = bar_pairs_ok and bar_hard_reject_ok and bar_avg_drift_ok and bar_max_drift_ok
+
+    if total_pairs == 0:
+        verdict_class, verdict_icon, verdict_text = 'secondary', 'info-circle', 'No data yet — flip SCREENING_AB_SHADOW_ENABLED=true and wait for screening cycles.'
+    elif all_bars_pass:
+        verdict_class, verdict_icon = 'success', 'check-circle'
+        verdict_text = ('All acceptance-bar gates PASSED. Two-stage cutover is safe to '
+                        'propose at the recommended shadow threshold below.')
+    elif not bar_pairs_ok:
+        verdict_class, verdict_icon = 'info', 'hourglass-half'
+        verdict_text = (f'Need more data: {total_pairs:,} / {acceptance_target_pairs:,} paired scores collected. '
+                        f'Continue running the shadow.')
+    elif not bar_hard_reject_ok:
+        verdict_class, verdict_icon = 'danger', 'times-circle'
+        verdict_text = (f'BLOCKER: {hard_reject_fn_count} hard-rejected qualifications '
+                        f'(shadow <40 while prod ≥80). The mini model is missing real qualified candidates.')
+    else:
+        verdict_class, verdict_icon = 'warning', 'exclamation-triangle'
+        details = []
+        if not bar_avg_drift_ok:
+            details.append(f'avg drift {avg_drift_borderline:.1f}pt > 3pt floor')
+        if not bar_max_drift_ok:
+            details.append(f'max risk-band drift {max_drift_risk:.1f}pt > 8pt floor')
+        verdict_text = ('Acceptance bar NOT met: ' + '; '.join(details) +
+                        '. Investigate before proposing cutover.')
+
+    return render_template(
+        'admin_ai_cost_screening_ab.html',
+        active_page='ai_cost',
+        hours=hours,
+        since_iso=since.isoformat() + 'Z',
+        prod_model=prod_model,
+        shadow_model=shadow_model,
+        total_pairs=total_pairs,
+        total_attempts=total_attempts,
+        shadow_errors=shadow_errors,
+        shadow_total_cost=shadow_total_cost,
+        avg_prod=avg_prod,
+        avg_shadow=avg_shadow,
+        avg_delta=avg_delta,
+        pearson_r=pearson_r,
+        avg_drift_borderline=avg_drift_borderline,
+        max_drift_risk=max_drift_risk,
+        hard_reject_fn_count=hard_reject_fn_count,
+        confusion_by_threshold=confusion_by_threshold,
+        threshold_sweep=threshold_sweep,
+        critical_disagreements=critical_disagreements,
+        top_hard_reject_fns=top_hard_reject_fns,
+        band_breakdown=band_breakdown,
+        bar_pairs_ok=bar_pairs_ok,
+        bar_hard_reject_ok=bar_hard_reject_ok,
+        bar_avg_drift_ok=bar_avg_drift_ok,
+        bar_max_drift_ok=bar_max_drift_ok,
+        acceptance_target_pairs=acceptance_target_pairs,
+        verdict_class=verdict_class,
+        verdict_icon=verdict_icon,
+        verdict_text=verdict_text,
     )

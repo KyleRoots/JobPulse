@@ -15,8 +15,11 @@ Sub-modules:
 """
 
 import json
+import os
 import re
+import time
 import logging
+import threading
 from datetime import datetime, date, timedelta
 from typing import Dict, Optional
 
@@ -28,6 +31,214 @@ from screening.prestige import (
     detect_prestige_employer,
 )
 from screening.system_prompt import build_system_message, build_location_instruction
+
+
+# --- Shadow A/B harness (S2) -------------------------------------------------
+# Module-level helpers + per-hour rate cap. Behavior is gated entirely by the
+# env var SCREENING_AB_SHADOW_ENABLED (default off). When the cap is hit, the
+# shadow path is silently skipped — production scoring is never affected.
+_SHADOW_RATE_LOCK = threading.Lock()
+_SHADOW_RATE_WINDOW_START: float = 0.0
+_SHADOW_RATE_COUNT: int = 0
+
+
+def _shadow_screening_enabled() -> bool:
+    """Read SCREENING_AB_SHADOW_ENABLED env var. Off by default."""
+    return os.environ.get('SCREENING_AB_SHADOW_ENABLED', '').lower() in ('true', '1', 'yes')
+
+
+def _shadow_screening_max_per_hour() -> int:
+    """Per-hour cap on shadow scoring calls (env SCREENING_AB_SHADOW_MAX_CALLS_PER_HOUR).
+    Default 100. Set to 0 for unlimited (not recommended in production)."""
+    raw = os.environ.get('SCREENING_AB_SHADOW_MAX_CALLS_PER_HOUR', '100')
+    try:
+        n = int(raw)
+        return n if n >= 0 else 100
+    except (TypeError, ValueError):
+        return 100
+
+
+def _shadow_screening_pick_model(prod_model: str) -> str:
+    """Pick the OTHER model for shadow comparison.
+    If prod is gpt-5.4 (current), shadow is gpt-4.1-mini. Otherwise shadow is
+    gpt-5.4 (regression-watch on a downgraded prod)."""
+    p = (prod_model or '').lower()
+    if 'mini' in p or '4.1' in p:
+        return 'gpt-5.4'
+    return 'gpt-4.1-mini'
+
+
+def _shadow_screening_rate_check() -> bool:
+    """Atomic check + increment of the per-hour rate counter.
+    Returns True if the call is allowed, False if the cap is hit."""
+    global _SHADOW_RATE_WINDOW_START, _SHADOW_RATE_COUNT
+    cap = _shadow_screening_max_per_hour()
+    if cap == 0:
+        return True
+    now = time.time()
+    with _SHADOW_RATE_LOCK:
+        # Roll the window forward every 3600s
+        if now - _SHADOW_RATE_WINDOW_START >= 3600.0:
+            _SHADOW_RATE_WINDOW_START = now
+            _SHADOW_RATE_COUNT = 0
+        if _SHADOW_RATE_COUNT >= cap:
+            return False
+        _SHADOW_RATE_COUNT += 1
+        return True
+
+
+def _save_screening_ab_row(row: Dict) -> None:
+    """Insert one shadow A/B row on an ISOLATED transaction.
+
+    Critical: shadow logging must NEVER affect the calling request's ORM
+    session. We use a short-lived raw connection so a write failure rolls
+    back only the AB insert — not any pending production writes the caller
+    has staged. Fully fail-soft.
+    """
+    try:
+        from app import db
+        from sqlalchemy import text as _text
+        sql = _text(
+            "INSERT INTO screening_ab_log "
+            "(vetting_log_id, candidate_job_match_id, bullhorn_candidate_id, "
+            " bullhorn_job_id, job_title, prod_model, shadow_model, "
+            " prod_score, shadow_score, score_delta, "
+            " prod_qualified, shadow_qualified_inferred, "
+            " shadow_input_tokens, shadow_output_tokens, "
+            " shadow_estimated_cost_usd, shadow_duration_ms, shadow_error, "
+            " created_at) "
+            "VALUES "
+            "(:vetting_log_id, :candidate_job_match_id, :bullhorn_candidate_id, "
+            " :bullhorn_job_id, :job_title, :prod_model, :shadow_model, "
+            " :prod_score, :shadow_score, :score_delta, "
+            " :prod_qualified, :shadow_qualified_inferred, "
+            " :shadow_input_tokens, :shadow_output_tokens, "
+            " :shadow_estimated_cost_usd, :shadow_duration_ms, :shadow_error, "
+            " :created_at)"
+        )
+        row.setdefault('created_at', datetime.utcnow())
+        with db.engine.begin() as conn:
+            conn.execute(sql, row)
+    except Exception as exc:
+        # Isolated connection auto-rolls-back on context exit. Caller's
+        # ORM session is untouched.
+        logging.getLogger(__name__).warning(
+            f"Failed to save screening A/B row: {exc}"
+        )
+
+
+def _run_screening_shadow(
+    *,
+    system_message: str,
+    user_prompt: str,
+    prod_model: str,
+    prod_score: float,
+    prod_qualified: Optional[bool],
+    job_id,
+    job_title: str,
+    openai_client,
+) -> None:
+    """Run the gpt-4.1-mini shadow scoring call and log the comparison.
+
+    Fully fail-soft: any error is swallowed so production scoring is never
+    affected. Cost-tagged via log_call(site_id='screening.scoring.shadow').
+    """
+    try:
+        if not _shadow_screening_enabled():
+            return
+        if openai_client is None:
+            return
+        if not _shadow_screening_rate_check():
+            # Rate cap hit — skip silently
+            return
+
+        shadow_model = _shadow_screening_pick_model(prod_model)
+        from services.openai_helper import log_call, _extract_usage, estimate_cost
+
+        # Use the explicit shadow model (no env override): we want the actual
+        # comparison candidate, not whatever the env may have rerouted.
+        call_model = shadow_model
+
+        t0 = time.time()
+        shadow_error: Optional[str] = None
+        shadow_score: Optional[float] = None
+        shadow_qualified: Optional[bool] = None
+        shadow_input_tokens: Optional[int] = None
+        shadow_output_tokens: Optional[int] = None
+        shadow_cost_usd = None
+        shadow_response = None
+
+        try:
+            shadow_response = openai_client.chat.completions.create(
+                model=call_model,
+                messages=[
+                    {"role": "system", "content": system_message},
+                    {"role": "user", "content": user_prompt},
+                ],
+                response_format={"type": "json_object"},
+                max_completion_tokens=3750,
+            )
+            log_call('screening.scoring.shadow', call_model, shadow_response)
+
+            # Compute cost deterministically from THIS response's usage data
+            # (avoids racing other workers' inserts into openai_call_log).
+            try:
+                inp_tok, cached_tok, out_tok = _extract_usage(shadow_response)
+                shadow_input_tokens = inp_tok
+                shadow_output_tokens = out_tok
+                shadow_cost_usd = estimate_cost(call_model, inp_tok, cached_tok, out_tok)
+            except Exception:
+                pass
+
+            content = shadow_response.choices[0].message.content if shadow_response.choices else None
+            if content and content.strip():
+                try:
+                    parsed = json.loads(content)
+                    raw_score = parsed.get('match_score')
+                    if raw_score is not None:
+                        shadow_score = float(raw_score)
+                        # Mini does NOT run prod's post-processing gates (this is
+                        # measurement-only). qualified_inferred is the raw model
+                        # output crossing the conventional 80 floor.
+                        shadow_qualified = shadow_score >= 80.0
+                except (ValueError, TypeError) as parse_err:
+                    shadow_error = f"parse_error: {parse_err}"[:500]
+            else:
+                finish_reason = (
+                    shadow_response.choices[0].finish_reason
+                    if shadow_response.choices else 'unknown'
+                )
+                shadow_error = f"empty_response (finish={finish_reason})"[:500]
+        except Exception as call_err:
+            shadow_error = f"call_error: {call_err}"[:500]
+
+        shadow_duration_ms = int((time.time() - t0) * 1000)
+        score_delta = (shadow_score - prod_score) if shadow_score is not None else None
+
+        _save_screening_ab_row({
+            'vetting_log_id': None,
+            'candidate_job_match_id': None,
+            'bullhorn_candidate_id': None,
+            'bullhorn_job_id': int(job_id) if isinstance(job_id, (int, str)) and str(job_id).isdigit() else None,
+            'job_title': (job_title or '')[:500],
+            'prod_model': prod_model,
+            'shadow_model': shadow_model,
+            'prod_score': float(prod_score),
+            'shadow_score': shadow_score,
+            'score_delta': score_delta,
+            'prod_qualified': prod_qualified,
+            'shadow_qualified_inferred': shadow_qualified,
+            'shadow_input_tokens': shadow_input_tokens,
+            'shadow_output_tokens': shadow_output_tokens,
+            'shadow_estimated_cost_usd': shadow_cost_usd,
+            'shadow_duration_ms': shadow_duration_ms,
+            'shadow_error': shadow_error,
+        })
+    except Exception as outer_err:
+        # Absolute outermost guard — shadow path can NEVER raise.
+        logging.getLogger(__name__).warning(
+            f"Screening shadow A/B outer failure (suppressed): {outer_err}"
+        )
 from screening.post_processing import (
     normalize_response_fields,
     coerce_scores,
@@ -524,6 +735,24 @@ GLOBAL SCREENING INSTRUCTIONS (apply to all jobs):
                 logger.warning(f"⚠️ AI did not return key_requirements for job {job_id} - requirements will not be saved")
             elif custom_requirements:
                 logger.info(f"📝 Job {job_id} has custom requirements - AI interpretation will ALSO be saved (custom supplements AI)")
+
+            # Shadow A/B (S2): fire-and-forget gpt-4.1-mini comparison call.
+            # Gated by env SCREENING_AB_SHADOW_ENABLED (default off). Fully
+            # fail-soft — never raises, never affects prod scoring.
+            try:
+                _prod_score_for_shadow = float(result.get('match_score', 0) or 0)
+                _run_screening_shadow(
+                    system_message=system_message,
+                    user_prompt=prompt,
+                    prod_model=_model,
+                    prod_score=_prod_score_for_shadow,
+                    prod_qualified=(_prod_score_for_shadow >= 80.0),
+                    job_id=job_id,
+                    job_title=job_title,
+                    openai_client=self.openai_client,
+                )
+            except Exception as _shadow_outer:
+                logger.debug(f"Shadow A/B invocation suppressed: {_shadow_outer}")
 
             return result
 

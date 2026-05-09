@@ -1,81 +1,125 @@
-2026-05-08 14:40:40,568 - sentry_config - INFO - Sentry disabled – SENTRY_DSN not set
-2026-05-08 14:40:40,973 - seeding.migrations - INFO - ℹ️ Column is_company_admin already exists on user table
-2026-05-08 14:40:40,975 - seeding.migrations - INFO - ℹ️ Column last_active_at already exists on user table
-2026-05-08 14:40:40,979 - seeding.migrations - INFO - ℹ️ Column is_sandbox already exists on candidate_vetting_log table
-2026-05-08 14:40:40,982 - seeding.migrations - INFO - ℹ️ Column is_sandbox already exists on scout_vetting_session table
-2026-05-08 14:40:40,986 - seeding.migrations - INFO - ℹ️ Column thread_message_id already exists on scout_vetting_session table
-2026-05-08 14:40:40,991 - seeding.migrations - INFO - ℹ️ Column resolution_note already exists on support_ticket table
-2026-05-08 14:40:40,994 - seeding.migrations - INFO - ℹ️ Column resolved_by already exists on support_ticket table
-2026-05-08 14:40:40,998 - seeding.migrations - INFO - ℹ️ Column sent_to_build_at already exists on support_ticket table
-2026-05-08 14:40:41,000 - seeding.migrations - INFO - ℹ️ Column sent_to_build_by already exists on support_ticket table
-2026-05-08 14:40:41,002 - seeding.migrations - INFO - ℹ️ Column build_summary already exists on support_ticket table
-2026-05-08 14:40:41,007 - seeding.migrations - INFO - ℹ️ Column deployed_at already exists on support_ticket table
-2026-05-08 14:40:41,009 - seeding.migrations - INFO - ℹ️ Column deployed_by already exists on support_ticket table
-2026-05-08 14:40:41,012 - seeding.migrations - INFO - ℹ️ Column deploy_commit_link already exists on support_ticket table
-2026-05-08 14:40:41,014 - seeding.migrations - INFO - ℹ️ Column onedrive_item_id already exists on knowledge_document table
-2026-05-08 14:40:41,018 - seeding.migrations - INFO - ℹ️ Column onedrive_etag already exists on knowledge_document table
-2026-05-08 14:40:41,022 - seeding.migrations - INFO - ℹ️ Column onedrive_folder_id already exists on knowledge_document table
-2026-05-08 14:40:41,027 - seeding.migrations - INFO - ℹ️ Column vetting_retry_count already exists on parsed_email table
-2026-05-08 14:40:41,030 - seeding.migrations - INFO - ℹ️ Column conversation_id already exists on support_attachment table
-2026-05-08 14:40:41,052 - seeding.migrations - INFO - ℹ️ UNIQUE constraint on candidate_vetting_log.bullhorn_candidate_id already removed
-2026-05-08 14:40:41,053 - seeding.migrations - INFO - ℹ️ pg_trgm extension ensured
-2026-05-08 14:40:41,053 - seeding.migrations - INFO - ℹ️ Trigram GIN index creation skipped in dev workspace (runs on deployed prod only)
-2026-05-08 14:40:41,056 - seeding.migrations - INFO - ℹ️ Composite index idx_match_job_created already exists
-2026-05-08 14:40:41,060 - seeding.migrations - INFO - ℹ️ Prospector table 'prospector_profile' exists
-2026-05-08 14:40:41,062 - seeding.migrations - INFO - ℹ️ Prospector table 'prospector_run' exists
-2026-05-08 14:40:41,063 - seeding.migrations - INFO - ℹ️ Prospector table 'prospect' exists
-2026-05-08 14:40:41,312 - seed_database - INFO - 🌱 Starting database seeding for production environment...
-2026-05-08 14:40:41,315 - seeding.users - INFO - ✅ Admin user already exists: admin (kroots@myticas.com)
-2026-05-08 14:40:41,449 - seeding.users - INFO - 🔄 Updated admin user: password (rotated from env)
-2026-05-08 14:40:41,455 - seeding.settings - INFO - ℹ️ Preserving credential setting: sftp_hostname
-2026-05-08 14:40:41,456 - seeding.settings - INFO - ℹ️ Preserving credential setting: sftp_username
-2026-05-08 14:40:41,457 - seeding.settings - INFO - ℹ️ Preserving credential setting: sftp_password
-2026-05-08 14:40:41,458 - seeding.settings - INFO - ℹ️ Preserving credential setting: sftp_port
-2026-05-08 14:40:41,459 - seeding.settings - INFO - ℹ️ Preserving credential setting: sftp_directory
-2026-05-08 14:40:41,459 - seeding.settings - INFO - ℹ️ Preserving credential setting: bullhorn_client_id
-2026-05-08 14:40:41,460 - seeding.settings - INFO - ℹ️ Preserving credential setting: bullhorn_client_secret
-2026-05-08 14:40:41,461 - seeding.settings - INFO - ℹ️ Preserving credential setting: bullhorn_username
-2026-05-08 14:40:41,462 - seeding.settings - INFO - ℹ️ Preserving credential setting: bullhorn_password
-2026-05-08 14:40:41,463 - seeding.settings - INFO - ℹ️ Preserving user setting: sftp_enabled=false
-2026-05-08 14:40:41,464 - seeding.settings - INFO - ℹ️ Preserving user setting: automated_uploads_enabled=false
-2026-05-08 14:40:41,465 - seeding.settings - INFO - ℹ️ Preserving user setting: candidate_cleanup_enabled=false
-2026-05-08 14:40:41,466 - seeding.settings - INFO - ℹ️ Preserving user setting: candidate_cleanup_batch_size=50
-2026-05-08 14:40:41,466 - seeding.settings - INFO - ✅ Global settings already up to date
-2026-05-08 14:40:41,474 - seeding.settings - INFO - ✅ All 5 Bullhorn monitors already configured correctly
-2026-05-08 14:40:41,477 - seeding.settings - INFO - ✅ Production environment monitoring already configured
-2026-05-08 14:40:41,483 - seeding.settings - INFO - ✅ RefreshLog has 3 entries (most recent: 2026-05-03 15:33:32.965419 UTC) - preserving history
-2026-05-08 14:40:41,519 - seeding.settings - INFO - ✅ All 40 recruiter mappings already up to date
-2026-05-08 14:40:41,523 - seeding.settings - INFO - ✅ Loaded global screening prompt from /home/runner/workspace/config/global_screening_prompt.txt (6946 chars)
-2026-05-08 14:40:41,528 - seeding.settings - INFO - ℹ️ Preserving vetting setting: vetting_enabled=false
-2026-05-08 14:40:41,530 - seeding.settings - INFO - ℹ️ Preserving vetting setting: match_threshold=80
-2026-05-08 14:40:41,531 - seeding.settings - INFO - ℹ️ Preserving vetting setting: batch_size=25
-2026-05-08 14:40:41,533 - seeding.settings - INFO - ℹ️ Preserving vetting setting: admin_notification_email=kroots@myticas.com
-2026-05-08 14:40:41,534 - seeding.settings - INFO - ℹ️ Preserving vetting setting: health_alert_email=kroots@myticas.com
-2026-05-08 14:40:41,535 - seeding.settings - INFO - ℹ️ Preserving vetting setting: send_recruiter_emails=false
-2026-05-08 14:40:41,536 - seeding.settings - INFO - ℹ️ Preserving vetting setting: embedding_filter_enabled=true
-2026-05-08 14:40:41,537 - seeding.settings - INFO - ℹ️ Preserving vetting setting: embedding_similarity_threshold=0.25
-2026-05-08 14:40:41,538 - seeding.settings - INFO - ℹ️ Preserving vetting setting: escalation_low=60
-2026-05-08 14:40:41,539 - seeding.settings - INFO - ℹ️ Preserving vetting setting: escalation_high=85
-2026-05-08 14:40:41,540 - seeding.settings - INFO - ℹ️ Preserving vetting setting: layer2_model=gpt-5.4
-2026-05-08 14:40:41,541 - seeding.settings - INFO - ℹ️ Preserving vetting setting: vetting_cutoff_date=
-2026-05-08 14:40:41,542 - seeding.settings - INFO - ℹ️ Preserving vetting setting: screening_audit_enabled=false
-2026-05-08 14:40:41,543 - seeding.settings - INFO - ℹ️ Preserving vetting setting: quality_auditor_model=gpt-5.4
-2026-05-08 14:40:41,544 - seeding.settings - INFO - ℹ️ Preserving vetting setting: platform_age_ceilings={"databricks": 8.0, "delta lake": 7.0, "azure synapse": 6.0, "azure synapse analytics": 6.0, "microsoft fabric": 3.0, "snowflake": 10.0, "dbt": 8.0, "data build tool": 8.0, "apache flink": 10.0, "kubernetes": 10.0, "apache kafka": 14.0, "terraform": 10.0, "docker": 12.0}
-2026-05-08 14:40:41,545 - seeding.settings - INFO - ℹ️ Preserving vetting setting: qualified_audit_sample_rate=10
-2026-05-08 14:40:41,546 - seeding.settings - INFO - ℹ️ Preserving vetting setting: auditor_cooldown_hours=6
-2026-05-08 14:40:41,547 - seeding.settings - INFO - ℹ️ Preserving vetting setting: recruiter_activity_check_enabled=true
-2026-05-08 14:40:41,548 - seeding.settings - INFO - ℹ️ Preserving vetting setting: recruiter_activity_lookback_minutes=1440
-2026-05-08 14:40:41,549 - seeding.settings - INFO - ℹ️ Preserving vetting setting: self_screen_cooldown_minutes=120
-2026-05-08 14:40:41,551 - seeding.settings - INFO - ℹ️ Preserving vetting setting: recruiter_decision_skip_enabled=true
-2026-05-08 14:40:41,552 - seeding.settings - INFO - ℹ️ Preserving vetting setting: scout_vetting_enabled=true
-2026-05-08 14:40:41,553 - seeding.settings - INFO - ℹ️ Preserving vetting setting: auto_reassign_owner_enabled=false
-2026-05-08 14:40:41,554 - seeding.settings - INFO - ℹ️ Preserving vetting setting: api_user_ids=4582015
-2026-05-08 14:40:41,555 - seeding.settings - INFO - ℹ️ Preserving vetting setting: reassign_owner_note_enabled=true
-2026-05-08 14:40:41,556 - seeding.settings - INFO - ℹ️ Preserving vetting setting: owner_reassignment_cooldown_enabled=true
-2026-05-08 14:40:41,556 - seeding.settings - INFO - ℹ️ Preserving vetting setting: owner_reassignment_cooldown_hours=24
-2026-05-08 14:40:41,557 - seeding.settings - INFO - ℹ️ Preserving vetting setting: screening_skip_human_owned=true
-2026-05-08 14:40:41,558 - seeding.settings - INFO - ℹ️ Preserving vetting setting: owner_reassignment_heartbeat_hours=1
-2026-05-08 14:40:41,559 - seeding.settings - INFO - ℹ️ Preserving vetting setting: global_custom_requirements=WORK AUTHORIZATION & SECURITY CLEARANCE INFERENCE RULES
+2026-05-08 14:40:40,633 - extensions - INFO - App environment set to: production
+2026-05-08 14:40:40,688 - sentry_config - INFO - Sentry disabled – SENTRY_DSN not set
+2026-05-08 14:40:40,703 - sentry_config - INFO - Sentry disabled – SENTRY_DSN not set
+2026-05-08 14:40:41,018 - seeding.migrations - INFO - ℹ️ Column is_company_admin already exists on user table
+2026-05-08 14:40:41,020 - seeding.migrations - INFO - ℹ️ Column last_active_at already exists on user table
+2026-05-08 14:40:41,022 - seeding.migrations - INFO - ℹ️ Column is_sandbox already exists on candidate_vetting_log table
+2026-05-08 14:40:41,025 - seeding.migrations - INFO - ℹ️ Column is_sandbox already exists on scout_vetting_session table
+2026-05-08 14:40:41,050 - seeding.migrations - INFO - ℹ️ Column thread_message_id already exists on scout_vetting_session table
+2026-05-08 14:40:41,055 - seeding.migrations - INFO - ℹ️ Column resolution_note already exists on support_ticket table
+2026-05-08 14:40:41,059 - seeding.migrations - INFO - ℹ️ Column resolved_by already exists on support_ticket table
+2026-05-08 14:40:41,063 - seeding.migrations - INFO - ℹ️ Column sent_to_build_at already exists on support_ticket table
+2026-05-08 14:40:41,066 - seeding.migrations - INFO - ℹ️ Column sent_to_build_by already exists on support_ticket table
+2026-05-08 14:40:41,069 - seeding.migrations - INFO - ℹ️ Column build_summary already exists on support_ticket table
+2026-05-08 14:40:41,071 - seeding.migrations - INFO - ℹ️ Column deployed_at already exists on support_ticket table
+2026-05-08 14:40:41,074 - seeding.migrations - INFO - ℹ️ Column deployed_by already exists on support_ticket table
+2026-05-08 14:40:41,077 - seeding.migrations - INFO - ℹ️ Column deploy_commit_link already exists on support_ticket table
+2026-05-08 14:40:41,082 - seeding.migrations - INFO - ℹ️ Column onedrive_item_id already exists on knowledge_document table
+2026-05-08 14:40:41,085 - seeding.migrations - INFO - ℹ️ Column onedrive_etag already exists on knowledge_document table
+2026-05-08 14:40:41,087 - seeding.migrations - INFO - ℹ️ Column onedrive_folder_id already exists on knowledge_document table
+2026-05-08 14:40:41,089 - seeding.migrations - INFO - ℹ️ Column vetting_retry_count already exists on parsed_email table
+2026-05-08 14:40:41,092 - seeding.migrations - INFO - ℹ️ Column conversation_id already exists on support_attachment table
+2026-05-08 14:40:41,100 - seeding.migrations - INFO - ℹ️ UNIQUE constraint on candidate_vetting_log.bullhorn_candidate_id already removed
+2026-05-08 14:40:41,102 - seeding.migrations - INFO - ℹ️ pg_trgm extension ensured
+2026-05-08 14:40:41,102 - seeding.migrations - INFO - ℹ️ Trigram GIN index creation skipped in dev workspace (runs on deployed prod only)
+2026-05-08 14:40:41,104 - seeding.migrations - INFO - ℹ️ Composite index idx_match_job_created already exists
+2026-05-08 14:40:41,106 - seeding.migrations - INFO - ℹ️ Prospector table 'prospector_profile' exists
+2026-05-08 14:40:41,107 - seeding.migrations - INFO - ℹ️ Prospector table 'prospector_run' exists
+2026-05-08 14:40:41,108 - seeding.migrations - INFO - ℹ️ Prospector table 'prospect' exists
+2026-05-08 14:40:41,145 - seeding.migrations - INFO - ℹ️ Column is_company_admin already exists on user table
+2026-05-08 14:40:41,147 - seeding.migrations - INFO - ℹ️ Column last_active_at already exists on user table
+2026-05-08 14:40:41,149 - seeding.migrations - INFO - ℹ️ Column is_sandbox already exists on candidate_vetting_log table
+2026-05-08 14:40:41,152 - seeding.migrations - INFO - ℹ️ Column is_sandbox already exists on scout_vetting_session table
+2026-05-08 14:40:41,154 - seeding.migrations - INFO - ℹ️ Column thread_message_id already exists on scout_vetting_session table
+2026-05-08 14:40:41,156 - seeding.migrations - INFO - ℹ️ Column resolution_note already exists on support_ticket table
+2026-05-08 14:40:41,158 - seeding.migrations - INFO - ℹ️ Column resolved_by already exists on support_ticket table
+2026-05-08 14:40:41,160 - seeding.migrations - INFO - ℹ️ Column sent_to_build_at already exists on support_ticket table
+2026-05-08 14:40:41,162 - seeding.migrations - INFO - ℹ️ Column sent_to_build_by already exists on support_ticket table
+2026-05-08 14:40:41,164 - seeding.migrations - INFO - ℹ️ Column build_summary already exists on support_ticket table
+2026-05-08 14:40:41,166 - seeding.migrations - INFO - ℹ️ Column deployed_at already exists on support_ticket table
+2026-05-08 14:40:41,168 - seeding.migrations - INFO - ℹ️ Column deployed_by already exists on support_ticket table
+2026-05-08 14:40:41,172 - seeding.migrations - INFO - ℹ️ Column deploy_commit_link already exists on support_ticket table
+2026-05-08 14:40:41,174 - seeding.migrations - INFO - ℹ️ Column onedrive_item_id already exists on knowledge_document table
+2026-05-08 14:40:41,176 - seeding.migrations - INFO - ℹ️ Column onedrive_etag already exists on knowledge_document table
+2026-05-08 14:40:41,178 - seeding.migrations - INFO - ℹ️ Column onedrive_folder_id already exists on knowledge_document table
+2026-05-08 14:40:41,180 - seeding.migrations - INFO - ℹ️ Column vetting_retry_count already exists on parsed_email table
+2026-05-08 14:40:41,182 - seeding.migrations - INFO - ℹ️ Column conversation_id already exists on support_attachment table
+2026-05-08 14:40:41,184 - seeding.migrations - INFO - ℹ️ UNIQUE constraint on candidate_vetting_log.bullhorn_candidate_id already removed
+2026-05-08 14:40:41,185 - seeding.migrations - INFO - ℹ️ pg_trgm extension ensured
+2026-05-08 14:40:41,185 - seeding.migrations - INFO - ℹ️ Trigram GIN index creation skipped in dev workspace (runs on deployed prod only)
+2026-05-08 14:40:41,188 - seeding.migrations - INFO - ℹ️ Composite index idx_match_job_created already exists
+2026-05-08 14:40:41,189 - seeding.migrations - INFO - ℹ️ Prospector table 'prospector_profile' exists
+2026-05-08 14:40:41,190 - seeding.migrations - INFO - ℹ️ Prospector table 'prospector_run' exists
+2026-05-08 14:40:41,193 - seeding.migrations - INFO - ℹ️ Prospector table 'prospect' exists
+2026-05-08 14:40:41,357 - seed_database - INFO - 🌱 Starting database seeding for production environment...
+2026-05-08 14:40:41,360 - seeding.users - INFO - ✅ Admin user already exists: admin (kroots@myticas.com)
+2026-05-08 14:40:41,425 - seed_database - INFO - 🌱 Starting database seeding for production environment...
+2026-05-08 14:40:41,427 - seeding.users - INFO - ✅ Admin user already exists: admin (kroots@myticas.com)
+2026-05-08 14:40:41,488 - seeding.users - INFO - 🔄 Updated admin user: password (rotated from env)
+2026-05-08 14:40:41,494 - seeding.settings - INFO - ℹ️ Preserving credential setting: sftp_hostname
+2026-05-08 14:40:41,495 - seeding.settings - INFO - ℹ️ Preserving credential setting: sftp_username
+2026-05-08 14:40:41,497 - seeding.settings - INFO - ℹ️ Preserving credential setting: sftp_password
+2026-05-08 14:40:41,498 - seeding.settings - INFO - ℹ️ Preserving credential setting: sftp_port
+2026-05-08 14:40:41,500 - seeding.settings - INFO - ℹ️ Preserving credential setting: sftp_directory
+2026-05-08 14:40:41,502 - seeding.settings - INFO - ℹ️ Preserving credential setting: bullhorn_client_id
+2026-05-08 14:40:41,503 - seeding.settings - INFO - ℹ️ Preserving credential setting: bullhorn_client_secret
+2026-05-08 14:40:41,504 - seeding.settings - INFO - ℹ️ Preserving credential setting: bullhorn_username
+2026-05-08 14:40:41,505 - seeding.settings - INFO - ℹ️ Preserving credential setting: bullhorn_password
+2026-05-08 14:40:41,507 - seeding.settings - INFO - ℹ️ Preserving user setting: sftp_enabled=false
+2026-05-08 14:40:41,508 - seeding.settings - INFO - ℹ️ Preserving user setting: automated_uploads_enabled=false
+2026-05-08 14:40:41,509 - seeding.settings - INFO - ℹ️ Preserving user setting: candidate_cleanup_enabled=false
+2026-05-08 14:40:41,510 - seeding.settings - INFO - ℹ️ Preserving user setting: candidate_cleanup_batch_size=50
+2026-05-08 14:40:41,510 - seeding.settings - INFO - ✅ Global settings already up to date
+2026-05-08 14:40:41,518 - seeding.settings - INFO - ✅ All 5 Bullhorn monitors already configured correctly
+2026-05-08 14:40:41,520 - seeding.settings - INFO - ✅ Production environment monitoring already configured
+2026-05-08 14:40:41,528 - seeding.settings - INFO - ✅ RefreshLog has 3 entries (most recent: 2026-05-03 15:33:32.965419 UTC) - preserving history
+2026-05-08 14:40:41,561 - seeding.settings - INFO - ✅ All 40 recruiter mappings already up to date
+2026-05-08 14:40:41,564 - seeding.settings - INFO - ✅ Loaded global screening prompt from /home/runner/workspace/config/global_screening_prompt.txt (6946 chars)
+2026-05-08 14:40:41,567 - seeding.settings - INFO - ℹ️ Preserving vetting setting: vetting_enabled=false
+2026-05-08 14:40:41,568 - seeding.settings - INFO - ℹ️ Preserving vetting setting: match_threshold=80
+2026-05-08 14:40:41,568 - seeding.settings - INFO - ℹ️ Preserving vetting setting: batch_size=25
+2026-05-08 14:40:41,569 - seeding.settings - INFO - ℹ️ Preserving vetting setting: admin_notification_email=kroots@myticas.com
+2026-05-08 14:40:41,570 - seeding.settings - INFO - ℹ️ Preserving vetting setting: health_alert_email=kroots@myticas.com
+2026-05-08 14:40:41,570 - seeding.users - INFO - 🔄 Updated admin user: password (rotated from env)
+2026-05-08 14:40:41,571 - seeding.settings - INFO - ℹ️ Preserving vetting setting: send_recruiter_emails=false
+2026-05-08 14:40:41,572 - seeding.settings - INFO - ℹ️ Preserving vetting setting: embedding_filter_enabled=true
+2026-05-08 14:40:41,573 - seeding.settings - INFO - ℹ️ Preserving vetting setting: embedding_similarity_threshold=0.25
+2026-05-08 14:40:41,574 - seeding.settings - INFO - ℹ️ Preserving vetting setting: escalation_low=60
+2026-05-08 14:40:41,575 - seeding.settings - INFO - ℹ️ Preserving vetting setting: escalation_high=85
+2026-05-08 14:40:41,577 - seeding.settings - INFO - ℹ️ Preserving vetting setting: layer2_model=gpt-5.4
+2026-05-08 14:40:41,578 - seeding.settings - INFO - ℹ️ Preserving credential setting: sftp_hostname
+2026-05-08 14:40:41,579 - seeding.settings - INFO - ℹ️ Preserving vetting setting: vetting_cutoff_date=
+2026-05-08 14:40:41,579 - seeding.settings - INFO - ℹ️ Preserving credential setting: sftp_username
+2026-05-08 14:40:41,580 - seeding.settings - INFO - ℹ️ Preserving vetting setting: screening_audit_enabled=false
+2026-05-08 14:40:41,581 - seeding.settings - INFO - ℹ️ Preserving vetting setting: quality_auditor_model=gpt-5.4
+2026-05-08 14:40:41,581 - seeding.settings - INFO - ℹ️ Preserving credential setting: sftp_password
+2026-05-08 14:40:41,582 - seeding.settings - INFO - ℹ️ Preserving credential setting: sftp_port
+2026-05-08 14:40:41,582 - seeding.settings - INFO - ℹ️ Preserving vetting setting: platform_age_ceilings={"databricks": 8.0, "delta lake": 7.0, "azure synapse": 6.0, "azure synapse analytics": 6.0, "microsoft fabric": 3.0, "snowflake": 10.0, "dbt": 8.0, "data build tool": 8.0, "apache flink": 10.0, "kubernetes": 10.0, "apache kafka": 14.0, "terraform": 10.0, "docker": 12.0}
+2026-05-08 14:40:41,583 - seeding.settings - INFO - ℹ️ Preserving vetting setting: qualified_audit_sample_rate=10
+2026-05-08 14:40:41,584 - seeding.settings - INFO - ℹ️ Preserving credential setting: sftp_directory
+2026-05-08 14:40:41,584 - seeding.settings - INFO - ℹ️ Preserving credential setting: bullhorn_client_id
+2026-05-08 14:40:41,585 - seeding.settings - INFO - ℹ️ Preserving vetting setting: auditor_cooldown_hours=6
+2026-05-08 14:40:41,586 - seeding.settings - INFO - ℹ️ Preserving credential setting: bullhorn_client_secret
+2026-05-08 14:40:41,586 - seeding.settings - INFO - ℹ️ Preserving vetting setting: recruiter_activity_check_enabled=true
+2026-05-08 14:40:41,587 - seeding.settings - INFO - ℹ️ Preserving vetting setting: recruiter_activity_lookback_minutes=1440
+2026-05-08 14:40:41,587 - seeding.settings - INFO - ℹ️ Preserving credential setting: bullhorn_username
+2026-05-08 14:40:41,589 - seeding.settings - INFO - ℹ️ Preserving credential setting: bullhorn_password
+2026-05-08 14:40:41,589 - seeding.settings - INFO - ℹ️ Preserving vetting setting: self_screen_cooldown_minutes=120
+2026-05-08 14:40:41,589 - seeding.settings - INFO - ℹ️ Preserving user setting: sftp_enabled=false
+2026-05-08 14:40:41,591 - seeding.settings - INFO - ℹ️ Preserving user setting: automated_uploads_enabled=false
+2026-05-08 14:40:41,592 - seeding.settings - INFO - ℹ️ Preserving vetting setting: recruiter_decision_skip_enabled=true
+2026-05-08 14:40:41,592 - seeding.settings - INFO - ℹ️ Preserving user setting: candidate_cleanup_enabled=false
+2026-05-08 14:40:41,594 - seeding.settings - INFO - ℹ️ Preserving vetting setting: scout_vetting_enabled=true
+2026-05-08 14:40:41,594 - seeding.settings - INFO - ℹ️ Preserving user setting: candidate_cleanup_batch_size=50
+2026-05-08 14:40:41,594 - seeding.settings - INFO - ✅ Global settings already up to date
+2026-05-08 14:40:41,595 - seeding.settings - INFO - ℹ️ Preserving vetting setting: auto_reassign_owner_enabled=false
+2026-05-08 14:40:41,597 - seeding.settings - INFO - ℹ️ Preserving vetting setting: api_user_ids=4582015
+2026-05-08 14:40:41,598 - seeding.settings - INFO - ℹ️ Preserving vetting setting: reassign_owner_note_enabled=true
+2026-05-08 14:40:41,599 - seeding.settings - INFO - ℹ️ Preserving vetting setting: owner_reassignment_cooldown_enabled=true
+2026-05-08 14:40:41,600 - seeding.settings - INFO - ℹ️ Preserving vetting setting: owner_reassignment_cooldown_hours=24
+2026-05-08 14:40:41,601 - seeding.settings - INFO - ℹ️ Preserving vetting setting: screening_skip_human_owned=true
+2026-05-08 14:40:41,602 - seeding.settings - INFO - ℹ️ Preserving vetting setting: owner_reassignment_heartbeat_hours=1
+2026-05-08 14:40:41,604 - seeding.settings - INFO - ℹ️ Preserving vetting setting: global_custom_requirements=WORK AUTHORIZATION & SECURITY CLEARANCE INFERENCE RULES
 
 These rules supplement — never override — the core scoring guidelines above.
 These rules are purely reactive: they ONLY activate when the job description explicitly contains trigger language. If a job makes no mention of work authorization or clearance, ignore these rules entirely.
@@ -144,744 +188,154 @@ Inference tiers (based on TOTAL Canadian work experience calculated above):
 • Canadian clearance rules activate ONLY when the job description contains clearance trigger language AND the job is Canadian-based (not US-based — see geographic guard above).
 • NEVER cross-apply rules (e.g., do not apply US authorization logic when clearance language is present, or vice versa).
 • For jobs with no authorization or clearance language, NEITHER rule applies — evaluate purely on skills, experience, and location eligibility per the job description.
-2026-05-08 14:40:41,560 - seeding.settings - INFO - ✅ Vetting settings already up to date
-2026-05-08 14:40:41,566 - seeding.migrations - INFO - 🔒 STARTUP AUDIT — critical settings: vetting_enabled=false | send_recruiter_emails=false | embedding_filter_enabled=true | embedding_similarity_threshold=0.25 | vetting_cutoff_date= | match_threshold=80 | batch_size=25 | layer2_model=gpt-5.4 | sftp_enabled=false | automated_uploads_enabled=false
-2026-05-08 14:40:41,572 - seeding.settings - INFO - ✅ All 12 built-in automations already exist
-2026-05-08 14:40:41,575 - seeding.migrations - INFO - ℹ️ No legacy custom_requirements rows needed migration
-2026-05-08 14:40:41,576 - seeding.migrations - INFO - ℹ️ recruiter_activity_lookback_minutes already updated or not set to legacy default
-2026-05-08 14:40:41,580 - seeding.users - INFO - ✅ All 24 Myticas support contacts already up to date
-2026-05-08 14:40:41,582 - seeding.users - INFO - ✅ All 14 STSI support contacts already up to date
-2026-05-08 14:40:41,586 - seeding.users - INFO - ✅ All STSI user accounts already exist
-2026-05-08 14:40:41,592 - seeding.users - INFO - ✅ All Myticas user accounts already exist
-2026-05-08 14:40:41,598 - seeding.users - INFO - ✅ Myticas user restoration verified: all 24 contacts have an account (by email)
-2026-05-08 14:40:41,603 - seeding.users - INFO - ✅ All users already have correct module subscriptions
-2026-05-08 14:40:41,603 - seed_database - INFO - ✅ Database seeding completed successfully for production
-2026-05-08 14:40:41,603 - extensions - INFO - 🌱 Database seeding: Admin user already exists (admin)
-2026-05-08 14:40:41,611 - scheduler_setup - INFO - ✅ Process 5360 acquired scheduler lock - will run as PRIMARY scheduler
-2026-05-08 14:40:41,611 - extensions - INFO - 📌 Process Scheduled XML Files job DISABLED - Enhanced 8-Step Monitor handles all XML updates
-2026-05-08 14:40:41,612 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-05-08 14:40:41,612 - extensions - INFO - ✅ 5-minute tearsheet monitoring ENABLED - provides UI visibility before 30-minute upload cycle
-2026-05-08 14:40:41,612 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-05-08 14:40:41,612 - extensions - INFO - Monitor health check enabled - periodic check every 2 hours for manual workflow
-2026-05-08 14:40:41,612 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-05-08 14:40:41,612 - extensions - INFO - Environment monitoring enabled - checking production status every 5 minutes
-2026-05-08 14:40:41,613 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-05-08 14:40:41,685 - bullhorn_service._core - INFO - 🔄 Bullhorn One API mode ENABLED - using new fixed endpoints
-2026-05-08 14:40:41,686 - bullhorn_service._core - INFO -    Auth URL: https://auth-east.bullhornstaffing.com/oauth/authorize
-2026-05-08 14:40:41,686 - bullhorn_service._core - INFO -    Token URL: https://auth-east.bullhornstaffing.com/oauth/token
-2026-05-08 14:40:41,686 - bullhorn_service._core - INFO -    REST Login URL: https://rest-east.bullhornstaffing.com/rest-services/login
-2026-05-08 14:40:41,686 - bullhorn_service._core - INFO -    REST URL: https://rest45.bullhornstaffing.com/rest-services/dcc900/
-2026-05-08 14:40:41,690 - bullhorn_service.auth - INFO - 🔄 Using Bullhorn One fixed endpoints for authentication
-2026-05-08 14:40:41,690 - bullhorn_service.auth - INFO - Using redirect URI: https://app.scoutgenius.ai/bullhorn/oauth/callback
-2026-05-08 14:40:41,691 - bullhorn_service.auth - INFO - Auth endpoint: https://auth-east.bullhornstaffing.com/oauth/authorize
-2026-05-08 14:40:41,820 - bullhorn_service.auth - INFO - Auth response status: 302
-2026-05-08 14:40:41,820 - bullhorn_service.auth - INFO - Auth response headers: [redacted for security]
-2026-05-08 14:40:41,821 - bullhorn_service.auth - INFO - Got authorization code (first 10 chars): 28404_8195...
-2026-05-08 14:40:41,821 - bullhorn_service.auth - INFO - Exchanging auth code at token endpoint: https://auth-east.bullhornstaffing.com/oauth/token
-2026-05-08 14:40:41,982 - bullhorn_service.auth - INFO - Getting REST token from: https://rest-east.bullhornstaffing.com/rest-services/login
-2026-05-08 14:40:42,162 - bullhorn_service.auth - INFO - REST login response keys: ['BhRestToken', 'restUrl']
-2026-05-08 14:40:42,162 - bullhorn_service.auth - INFO - Bullhorn authentication successful. Base URL: https://rest45.bullhornstaffing.com/rest-services/dcc900/
-2026-05-08 14:40:42,162 - bullhorn_service.auth - INFO - REST Token: ***846a
-2026-05-08 14:40:42,162 - bullhorn_service.auth - WARNING - ⚠️ No userId in REST response, querying current user...
-2026-05-08 14:40:42,302 - bullhorn_service.auth - INFO - Got user ID from settings endpoint: 1147490
-2026-05-08 14:40:42,302 - bullhorn_service.auth - INFO - User ID for note creation: 1147490
-2026-05-08 14:40:42,564 - bullhorn_service.jobs - INFO - Tearsheet 1231: Entity API reports 50 total jobs
-2026-05-08 14:40:43,070 - bullhorn_service.jobs - WARNING - Tearsheet 1231: Entity API reports 50 jobs but Search API returned 52. Using Search API results (authoritative for tearsheet membership).
-2026-05-08 14:40:43,320 - bullhorn_service.jobs - INFO - Tearsheet 1232: Entity API reports 2 total jobs
-2026-05-08 14:40:43,565 - bullhorn_service.jobs - INFO - Tearsheet 1233: Entity API reports 0 total jobs
-2026-05-08 14:40:43,863 - bullhorn_service.jobs - INFO - Tearsheet 1474: Entity API reports 7 total jobs
-2026-05-08 14:40:44,640 - bullhorn_service.jobs - INFO - Tearsheet 1531: Entity API reports 14 total jobs
-2026-05-08 14:40:45,170 - bullhorn_service.jobs - WARNING - Tearsheet 1531: Entity API reports 14 jobs but Search API returned 15. Using Search API results (authoritative for tearsheet membership).
-2026-05-08 14:40:45,520 - bullhorn_service.jobs - INFO - Tearsheet 1239: Entity API reports 9 total jobs
-2026-05-08 14:40:48,442 - bullhorn_service.jobs - INFO - 📧 Fetched emails for 20/20 users
-2026-05-08 14:40:48,442 - screening.job_management - INFO - Loaded 85 jobs from 6 tearsheets with 20 user emails
-2026-05-08 14:40:48,487 - extensions - INFO - 🔄 Active job IDs cache refreshed: 85 jobs
-2026-05-08 14:40:48,494 - extensions - INFO - Active job IDs background cache refresh enabled (5-min interval)
-2026-05-08 14:40:48,496 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-05-08 14:40:48,496 - extensions - INFO - 📋 Scheduled activity retention cleanup (15 days)
-2026-05-08 14:40:48,497 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-05-08 14:40:48,497 - extensions - INFO - 📦 Scheduled nightly database backup (2 AM UTC → OneDrive)
-2026-05-08 14:40:48,497 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-05-08 14:40:48,497 - extensions - INFO - 📊 Log monitoring enabled - checking Render logs every 15 minutes
-2026-05-08 14:40:48,497 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-05-08 14:40:48,497 - extensions - INFO - 📧 Scheduled email parsing timeout cleanup (10 min threshold, every 5 min)
-2026-05-08 14:40:48,497 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-05-08 14:40:48,497 - extensions - INFO - 🧹 Scheduled data retention cleanup (daily at 3 AM UTC)
-2026-05-08 14:40:48,498 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-05-08 14:40:48,498 - extensions - INFO - 🩺 Scheduled vetting system health check (every 10 minutes)
-2026-05-08 14:40:48,498 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-05-08 14:40:48,498 - extensions - INFO - 🎯 Scheduled AI candidate vetting cycle (every 1 minute)
-2026-05-08 14:40:48,498 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-05-08 14:40:48,498 - extensions - INFO - 📤 Scheduled automated uploads every 30 minutes
-2026-05-08 14:40:48,503 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-05-08 14:40:48,503 - extensions - INFO - 🔗 LinkedIn source cleanup enabled — runs hourly to update stale source tags
-2026-05-08 14:40:48,503 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-05-08 14:40:48,503 - extensions - INFO - 🌐 Enforce tearsheet jobs public enabled — runs every 30 minutes to set isPublic=true on all active tearsheet jobs
-2026-05-08 14:40:48,504 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-05-08 14:40:48,504 - extensions - INFO - 🔄 Owner reassignment task registered — runs every 5 minutes (gated on auto_reassign_owner_enabled)
-2026-05-08 14:40:48,504 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-05-08 14:40:48,504 - extensions - INFO - 🔄 Owner reassignment daily sweep registered — runs at 2:00 AM UTC (90-day lookback)
-2026-05-08 14:40:48,504 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-05-08 14:40:48,504 - extensions - INFO - 🔍 Requirements maintenance enabled — auto-extracts for new jobs and re-interprets modified descriptions every 5 minutes
-2026-05-08 14:40:48,505 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-05-08 14:40:48,505 - extensions - INFO - 🏢 Scheduled Sales Rep display name sync every 30 minutes
-2026-05-08 14:40:48,505 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-05-08 14:40:48,505 - extensions - INFO - ⏰ Scheduled stale platform ticket escalation check every 6 hours
-2026-05-08 14:40:48,505 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-05-08 14:40:48,505 - extensions - INFO - 🔀 Scheduled duplicate candidate merge check every 60 minutes
-2026-05-08 14:40:48,505 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-05-08 14:40:48,506 - extensions - INFO - ☁️ Scheduled OneDrive knowledge sync every 4 hours
-2026-05-08 14:40:48,508 - extensions - INFO - 📝 Reference refresh: last_run=2026-05-03 15:33:32 UTC, next_run=2026-05-08 15:33:32 UTC, overdue=false (0.9h remaining)
-2026-05-08 14:40:48,508 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-05-08 14:40:48,508 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-05-08 14:40:48,509 - extensions - INFO - 🧹 Candidate data cleanup scheduled — runs every 15 minutes when enabled
-2026-05-08 14:40:48,509 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-05-08 14:40:48,509 - extensions - INFO - ♻️  Incomplete rescreen job scheduled — runs every 15 minutes when enabled
-2026-05-08 14:40:48,509 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-05-08 14:40:48,509 - extensions - INFO - 🔍 Screening quality audit job scheduled — runs every 15 minutes when enabled
-2026-05-08 14:40:48,509 - extensions - INFO - 📧 XML Change Monitor: Auto-notifications DISABLED - notifications now sent only during manual downloads
-2026-05-08 14:40:48,509 - main - INFO - Flask application imported successfully
-2026-05-08 14:40:48,513 - main - INFO - Health check passed during startup
-2026-05-08 14:40:48,514 - apscheduler.scheduler - INFO - Added job "5-Minute Tearsheet Monitor with Keyword Classification" to job store "default"
-2026-05-08 14:40:48,514 - apscheduler.scheduler - INFO - Added job "Monitor Health Check (Manual Workflow)" to job store "default"
-2026-05-08 14:40:48,514 - apscheduler.scheduler - INFO - Added job "Production Environment Monitoring" to job store "default"
-2026-05-08 14:40:48,514 - apscheduler.scheduler - INFO - Added job "Active Job IDs Cache Refresh (5 min)" to job store "default"
-2026-05-08 14:40:48,514 - apscheduler.scheduler - INFO - Added job "Activity Retention Cleanup (15 days)" to job store "default"
-2026-05-08 14:40:48,515 - apscheduler.scheduler - INFO - Added job "Nightly Database Backup (2 AM UTC)" to job store "default"
-2026-05-08 14:40:48,515 - apscheduler.scheduler - INFO - Added job "Render Log Monitoring (Self-Healing) - 15min" to job store "default"
-2026-05-08 14:40:48,515 - apscheduler.scheduler - INFO - Added job "Email Parsing Timeout Cleanup (10 min)" to job store "default"
-2026-05-08 14:40:48,515 - apscheduler.scheduler - INFO - Added job "Data Retention Cleanup (Daily)" to job store "default"
-2026-05-08 14:40:48,515 - apscheduler.scheduler - INFO - Added job "Vetting System Health Check" to job store "default"
-2026-05-08 14:40:48,515 - apscheduler.scheduler - INFO - Added job "AI Candidate Vetting Cycle" to job store "default"
-2026-05-08 14:40:48,515 - apscheduler.scheduler - INFO - Added job "Automated Upload (Every 30 Minutes)" to job store "default"
-2026-05-08 14:40:48,515 - apscheduler.scheduler - INFO - Added job "LinkedIn Source Cleanup (hourly)" to job store "default"
-2026-05-08 14:40:48,516 - apscheduler.scheduler - INFO - Added job "Enforce Tearsheet Jobs Public (Every 30 Minutes)" to job store "default"
-2026-05-08 14:40:48,516 - apscheduler.scheduler - INFO - Added job "API User → Recruiter Ownership Reassignment (5 min)" to job store "default"
-2026-05-08 14:40:48,516 - apscheduler.scheduler - INFO - Added job "Owner Reassignment — 90-Day Deep Sweep (daily 2 AM)" to job store "default"
-2026-05-08 14:40:48,516 - apscheduler.scheduler - INFO - Added job "Requirements Maintenance — New & Modified Jobs (5 min)" to job store "default"
-2026-05-08 14:40:48,516 - apscheduler.scheduler - INFO - Added job "Sales Rep Display Name Sync (Every 30 Minutes)" to job store "default"
-2026-05-08 14:40:48,516 - apscheduler.scheduler - INFO - Added job "Stale Platform Ticket Escalation Check (Every 6 Hours)" to job store "default"
-2026-05-08 14:40:48,516 - apscheduler.scheduler - INFO - Added job "Duplicate Candidate Merge Check (Every 60 Minutes)" to job store "default"
-2026-05-08 14:40:48,516 - apscheduler.scheduler - INFO - Added job "OneDrive Knowledge Sync (Every 4 Hours)" to job store "default"
-2026-05-08 14:40:48,516 - apscheduler.scheduler - INFO - Added job "120-Hour Reference Number Refresh" to job store "default"
-2026-05-08 14:40:48,517 - apscheduler.scheduler - INFO - Added job "Candidate Data Cleanup (Every 15 Minutes)" to job store "default"
-2026-05-08 14:40:48,517 - apscheduler.scheduler - INFO - Added job "Incomplete Candidate Rescreen (Every 15 Minutes)" to job store "default"
-2026-05-08 14:40:48,517 - apscheduler.scheduler - INFO - Added job "Scout Screening Quality Audit (15 min)" to job store "default"
-2026-05-08 14:40:48,517 - apscheduler.scheduler - INFO - Scheduler started
-2026-05-08 14:40:48,517 - extensions - INFO - Background scheduler started/restarted successfully
-2026-05-08 14:40:48,517 - extensions - INFO - 📡 Scheduler job execution listeners registered
-2026-05-08 14:40:48,522 - extensions - INFO - Forced immediate check for 6 monitors after restart
-2026-05-08 14:40:48,522 - main - INFO - Monitoring system auto-started successfully on boot
-2026-05-08 14:41:48,498 - apscheduler.executors.default - INFO - Running job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-05-08 14:42:48 UTC)" (scheduled at 2026-05-08 14:41:48.498264+00:00)
-2026-05-08 14:41:48,501 - apscheduler.executors.default - INFO - Job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-05-08 14:42:48 UTC)" executed successfully
-2026-05-08 14:42:48,498 - apscheduler.executors.default - INFO - Running job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-05-08 14:43:48 UTC)" (scheduled at 2026-05-08 14:42:48.498264+00:00)
-2026-05-08 14:42:48,515 - apscheduler.executors.default - INFO - Job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-05-08 14:43:48 UTC)" executed successfully
-2026-05-08 14:43:48,498 - apscheduler.executors.default - INFO - Running job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-05-08 14:44:48 UTC)" (scheduled at 2026-05-08 14:43:48.498264+00:00)
-2026-05-08 14:43:48,502 - apscheduler.executors.default - INFO - Job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-05-08 14:44:48 UTC)" executed successfully
-2026-05-08 14:44:48,498 - apscheduler.executors.default - INFO - Running job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-05-08 14:45:48 UTC)" (scheduled at 2026-05-08 14:44:48.498264+00:00)
-2026-05-08 14:44:48,501 - apscheduler.executors.default - INFO - Job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-05-08 14:45:48 UTC)" executed successfully
-2026-05-08 14:45:41,612 - apscheduler.executors.default - INFO - Running job "5-Minute Tearsheet Monitor with Keyword Classification (trigger: interval[0:05:00], next run at: 2026-05-08 14:50:41 UTC)" (scheduled at 2026-05-08 14:45:41.612150+00:00)
-2026-05-08 14:45:41,613 - apscheduler.executors.default - INFO - Running job "Production Environment Monitoring (trigger: interval[0:05:00], next run at: 2026-05-08 14:50:41 UTC)" (scheduled at 2026-05-08 14:45:41.612774+00:00)
-2026-05-08 14:45:41,613 - apscheduler.executors.default - INFO - Running job "Active Job IDs Cache Refresh (5 min) (trigger: interval[0:05:00], next run at: 2026-05-08 14:50:41 UTC)" (scheduled at 2026-05-08 14:45:41.613003+00:00)
-2026-05-08 14:45:41,616 - extensions - INFO - 🔄 INCREMENTAL MONITOR: Starting simplified monitoring cycle
-2026-05-08 14:45:41,616 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:41,616 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:41,617 - extensions - INFO - Checking environment status for: https://app.scoutgenius.ai
-2026-05-08 14:45:41,630 - extensions - INFO - Using 6 database monitors
-2026-05-08 14:45:41,630 - incremental_monitoring_service - INFO - ============================================================
-2026-05-08 14:45:41,631 - incremental_monitoring_service - INFO - STARTING INCREMENTAL MONITORING CYCLE
-2026-05-08 14:45:41,631 - incremental_monitoring_service - INFO - Time: 2026-05-08 14:45:41
-2026-05-08 14:45:41,631 - incremental_monitoring_service - INFO - ============================================================
-2026-05-08 14:45:41,644 - bullhorn_service._core - INFO - 🔄 Bullhorn One API mode ENABLED - using new fixed endpoints
-2026-05-08 14:45:41,645 - bullhorn_service._core - INFO -    Auth URL: https://auth-east.bullhornstaffing.com/oauth/authorize
-2026-05-08 14:45:41,645 - bullhorn_service._core - INFO -    Token URL: https://auth-east.bullhornstaffing.com/oauth/token
-2026-05-08 14:45:41,645 - bullhorn_service._core - INFO -    REST Login URL: https://rest-east.bullhornstaffing.com/rest-services/login
-2026-05-08 14:45:41,645 - bullhorn_service._core - INFO -    REST URL: https://rest45.bullhornstaffing.com/rest-services/dcc900/
-2026-05-08 14:45:41,646 - bullhorn_service._core - INFO - 🔄 Bullhorn One API mode ENABLED - using new fixed endpoints
-2026-05-08 14:45:41,646 - bullhorn_service._core - INFO -    Auth URL: https://auth-east.bullhornstaffing.com/oauth/authorize
-2026-05-08 14:45:41,646 - bullhorn_service._core - INFO -    Token URL: https://auth-east.bullhornstaffing.com/oauth/token
-2026-05-08 14:45:41,646 - bullhorn_service._core - INFO -    REST Login URL: https://rest-east.bullhornstaffing.com/rest-services/login
-2026-05-08 14:45:41,646 - bullhorn_service._core - INFO -    REST URL: https://rest45.bullhornstaffing.com/rest-services/dcc900/
-2026-05-08 14:45:41,647 - bullhorn_service.auth - INFO - 🔄 Using Bullhorn One fixed endpoints for authentication
-2026-05-08 14:45:41,647 - bullhorn_service.auth - INFO - Using redirect URI: https://app.scoutgenius.ai/bullhorn/oauth/callback
-2026-05-08 14:45:41,647 - bullhorn_service.auth - INFO - Auth endpoint: https://auth-east.bullhornstaffing.com/oauth/authorize
-2026-05-08 14:45:41,648 - bullhorn_service.auth - INFO - 🔄 Using Bullhorn One fixed endpoints for authentication
-2026-05-08 14:45:41,649 - bullhorn_service.auth - INFO - Using redirect URI: https://app.scoutgenius.ai/bullhorn/oauth/callback
-2026-05-08 14:45:41,649 - bullhorn_service.auth - INFO - Auth endpoint: https://auth-east.bullhornstaffing.com/oauth/authorize
-2026-05-08 14:45:41,775 - bullhorn_service.auth - INFO - Auth response status: 302
-2026-05-08 14:45:41,775 - bullhorn_service.auth - INFO - Auth response headers: [redacted for security]
-2026-05-08 14:45:41,775 - bullhorn_service.auth - INFO - Got authorization code (first 10 chars): 28404_8195...
-2026-05-08 14:45:41,775 - bullhorn_service.auth - INFO - Exchanging auth code at token endpoint: https://auth-east.bullhornstaffing.com/oauth/token
-2026-05-08 14:45:41,866 - bullhorn_service.auth - INFO - Auth response status: 302
-2026-05-08 14:45:41,867 - bullhorn_service.auth - INFO - Auth response headers: [redacted for security]
-2026-05-08 14:45:41,867 - bullhorn_service.auth - INFO - Got authorization code (first 10 chars): 28404_8195...
-2026-05-08 14:45:41,867 - bullhorn_service.auth - INFO - Exchanging auth code at token endpoint: https://auth-east.bullhornstaffing.com/oauth/token
-2026-05-08 14:45:41,870 - bullhorn_service.auth - INFO - Getting REST token from: https://rest-east.bullhornstaffing.com/rest-services/login
-2026-05-08 14:45:41,970 - bullhorn_service.auth - INFO - Getting REST token from: https://rest-east.bullhornstaffing.com/rest-services/login
-2026-05-08 14:45:41,974 - extensions - INFO - Environment check successful: 200
-2026-05-08 14:45:41,982 - extensions - INFO - Environment monitoring: production is UP (consecutive failures: 0)
-2026-05-08 14:45:41,984 - apscheduler.executors.default - INFO - Job "Production Environment Monitoring (trigger: interval[0:05:00], next run at: 2026-05-08 14:50:41 UTC)" executed successfully
-2026-05-08 14:45:42,068 - bullhorn_service.auth - INFO - REST login response keys: ['BhRestToken', 'restUrl']
-2026-05-08 14:45:42,068 - bullhorn_service.auth - INFO - Bullhorn authentication successful. Base URL: https://rest45.bullhornstaffing.com/rest-services/dcc900/
-2026-05-08 14:45:42,068 - bullhorn_service.auth - INFO - REST Token: ***6e4f
-2026-05-08 14:45:42,068 - bullhorn_service.auth - WARNING - ⚠️ No userId in REST response, querying current user...
-2026-05-08 14:45:42,133 - bullhorn_service.auth - INFO - REST login response keys: ['BhRestToken', 'restUrl']
-2026-05-08 14:45:42,133 - bullhorn_service.auth - INFO - Bullhorn authentication successful. Base URL: https://rest45.bullhornstaffing.com/rest-services/dcc900/
-2026-05-08 14:45:42,133 - bullhorn_service.auth - INFO - REST Token: ***d13a
-2026-05-08 14:45:42,133 - bullhorn_service.auth - WARNING - ⚠️ No userId in REST response, querying current user...
-2026-05-08 14:45:42,217 - bullhorn_service.auth - INFO - Got user ID from settings endpoint: 1147490
-2026-05-08 14:45:42,217 - bullhorn_service.auth - INFO - User ID for note creation: 1147490
-2026-05-08 14:45:42,217 - bullhorn_service.auth - INFO - Connection test passed - valid authentication credentials available
-2026-05-08 14:45:42,242 - bullhorn_service.auth - INFO - Got user ID from settings endpoint: 1147490
-2026-05-08 14:45:42,243 - bullhorn_service.auth - INFO - User ID for note creation: 1147490
-2026-05-08 14:45:42,406 - bullhorn_service.auth - INFO - Full API connection test successful
-2026-05-08 14:45:42,407 - incremental_monitoring_service - INFO - 
-📋 Step 1: Fetching jobs from tearsheets...
-2026-05-08 14:45:42,407 - incremental_monitoring_service - INFO -   Fetching from Sponsored - OTT...
-2026-05-08 14:45:42,741 - bullhorn_service.jobs - INFO - Tearsheet 1231: Entity API reports 50 total jobs
-2026-05-08 14:45:42,776 - bullhorn_service.jobs - INFO - Tearsheet 1474: Entity API reports 7 total jobs
-2026-05-08 14:45:43,254 - bullhorn_service.jobs - WARNING - Tearsheet 1231: Entity API reports 50 jobs but Search API returned 52. Using Search API results (authoritative for tearsheet membership).
-2026-05-08 14:45:43,658 - bullhorn_service.jobs - INFO - Tearsheet 1231: Entity API reports 50 total jobs
-2026-05-08 14:45:43,826 - bullhorn_service.tearsheets - INFO - Successfully removed job 34952 from tearsheet 1231
-2026-05-08 14:45:43,826 - incremental_monitoring_service - INFO -     🗑️ AUTO-REMOVED job 34952 from tearsheet 1231: isOpen=Closed
-2026-05-08 14:45:44,149 - bullhorn_service.jobs - WARNING - Tearsheet 1231: Entity API reports 50 jobs but Search API returned 52. Using Search API results (authoritative for tearsheet membership).
-2026-05-08 14:45:44,303 - bullhorn_service.tearsheets - INFO - Successfully removed job 34629 from tearsheet 1231
-2026-05-08 14:45:44,306 - incremental_monitoring_service - INFO -     🗑️ AUTO-REMOVED job 34629 from tearsheet 1231: isOpen=Closed
-2026-05-08 14:45:44,307 - incremental_monitoring_service - INFO -     Found 50 eligible jobs, auto-removed 2 ineligible jobs
-2026-05-08 14:45:44,307 - incremental_monitoring_service - INFO -   Fetching from Sponsored - CHI...
-2026-05-08 14:45:44,442 - bullhorn_service.jobs - INFO - Tearsheet 1232: Entity API reports 2 total jobs
-2026-05-08 14:45:44,621 - bullhorn_service.jobs - INFO - Tearsheet 1232: Entity API reports 2 total jobs
-2026-05-08 14:45:44,621 - incremental_monitoring_service - INFO -     Found 2 jobs
-2026-05-08 14:45:44,621 - incremental_monitoring_service - INFO -   Fetching from Sponsored - CLE...
-2026-05-08 14:45:44,660 - bullhorn_service.jobs - INFO - Tearsheet 1233: Entity API reports 0 total jobs
-2026-05-08 14:45:44,803 - bullhorn_service.jobs - INFO - Tearsheet 1233: Entity API reports 0 total jobs
-2026-05-08 14:45:44,803 - incremental_monitoring_service - INFO -     Found 0 jobs
-2026-05-08 14:45:44,803 - incremental_monitoring_service - INFO -   Fetching from Sponsored - VMS...
-2026-05-08 14:45:44,938 - bullhorn_service.jobs - INFO - Tearsheet 1531: Entity API reports 15 total jobs
-2026-05-08 14:45:45,051 - bullhorn_service.jobs - INFO - Tearsheet 1239: Entity API reports 9 total jobs
-2026-05-08 14:45:45,412 - bullhorn_service.jobs - WARNING - Tearsheet 1531: Entity API reports 15 jobs but Search API returned 16. Using Search API results (authoritative for tearsheet membership).
-2026-05-08 14:45:45,477 - incremental_monitoring_service - INFO -     Found 9 jobs
-2026-05-08 14:45:45,478 - incremental_monitoring_service - INFO -   Fetching from Sponsored - GR...
-2026-05-08 14:45:45,768 - bullhorn_service.jobs - INFO - Tearsheet 1474: Entity API reports 7 total jobs
-2026-05-08 14:45:45,806 - bullhorn_service.jobs - INFO - Tearsheet 1239: Entity API reports 9 total jobs
-2026-05-08 14:45:46,276 - bullhorn_service.jobs - WARNING - Tearsheet 1474: Entity API reports 7 jobs but Search API returned 8. Using Search API results (authoritative for tearsheet membership).
-2026-05-08 14:45:46,584 - bullhorn_service.tearsheets - INFO - Successfully removed job 34989 from tearsheet 1474
-2026-05-08 14:45:46,585 - incremental_monitoring_service - INFO -     🗑️ AUTO-REMOVED job 34989 from tearsheet 1474: status=Placeholder/ MPC
-2026-05-08 14:45:46,585 - incremental_monitoring_service - INFO -     Found 7 eligible jobs, auto-removed 1 ineligible jobs
-2026-05-08 14:45:46,585 - incremental_monitoring_service - INFO -   Fetching from Sponsored - STSI...
-2026-05-08 14:45:46,851 - bullhorn_service.jobs - INFO - Tearsheet 1531: Entity API reports 15 total jobs
-2026-05-08 14:45:47,408 - bullhorn_service.jobs - WARNING - Tearsheet 1531: Entity API reports 15 jobs but Search API returned 16. Using Search API results (authoritative for tearsheet membership).
-2026-05-08 14:45:47,408 - incremental_monitoring_service - INFO -     Found 16 jobs
-2026-05-08 14:45:47,422 - incremental_monitoring_service - INFO - ✅ Logged 3 auto-removal activities
-2026-05-08 14:45:47,423 - incremental_monitoring_service - INFO -   ✅ TEARSHEET FETCH COMPLETED: 84 eligible jobs, 3 auto-removed
-2026-05-08 14:45:47,423 - incremental_monitoring_service - INFO - 
-📄 Step 2: Loading current XML and comparing...
-2026-05-08 14:45:47,423 - incremental_monitoring_service - INFO -   🔍 About to call _load_xml_jobs()...
-2026-05-08 14:45:47,433 - incremental_monitoring_service - INFO -   ✅ XML LOAD COMPLETED: 83 jobs
-2026-05-08 14:45:47,433 - incremental_monitoring_service - INFO -   Current XML has 83 jobs
-2026-05-08 14:45:47,433 - incremental_monitoring_service - INFO -   Changes detected: +1 -0 ~83
-2026-05-08 14:45:47,433 - incremental_monitoring_service - INFO - 
-🔄 Step 3: Applying incremental changes...
-2026-05-08 14:45:47,434 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:47,434 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:47,448 - incremental_monitoring_service - INFO -   ✅ Added job 35010: Substation Engineer
-2026-05-08 14:45:47,944 - email_service._core - INFO - Email delivery logged: new_job_notification to kroots@myticas.com - Status: sent
-2026-05-08 14:45:47,944 - email_service.xml_notifications_mixin - INFO - ✅ New job notification sent to kroots@myticas.com for job 35010
-2026-05-08 14:45:47,944 - incremental_monitoring_service - INFO -   📧 Email notification sent for new job 35010
-2026-05-08 14:45:48,497 - apscheduler.executors.default - INFO - Running job "Email Parsing Timeout Cleanup (10 min) (trigger: interval[0:05:00], next run at: 2026-05-08 14:50:48 UTC)" (scheduled at 2026-05-08 14:45:48.497504+00:00)
-2026-05-08 14:45:48,499 - apscheduler.executors.default - INFO - Running job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-05-08 14:45:48 UTC)" (scheduled at 2026-05-08 14:45:48.498264+00:00)
-2026-05-08 14:45:48,504 - apscheduler.executors.default - INFO - Running job "API User → Recruiter Ownership Reassignment (5 min) (trigger: interval[0:05:00], next run at: 2026-05-08 14:45:48 UTC)" (scheduled at 2026-05-08 14:45:48.504007+00:00)
-2026-05-08 14:45:48,506 - apscheduler.executors.default - INFO - Running job "Requirements Maintenance — New & Modified Jobs (5 min) (trigger: interval[0:05:00], next run at: 2026-05-08 14:50:48 UTC)" (scheduled at 2026-05-08 14:45:48.504749+00:00)
-2026-05-08 14:45:48,506 - apscheduler.executors.default - INFO - Job "Email Parsing Timeout Cleanup (10 min) (trigger: interval[0:05:00], next run at: 2026-05-08 14:50:48 UTC)" executed successfully
-2026-05-08 14:45:48,513 - apscheduler.executors.default - INFO - Job "Requirements Maintenance — New & Modified Jobs (5 min) (trigger: interval[0:05:00], next run at: 2026-05-08 14:50:48 UTC)" executed successfully
-2026-05-08 14:45:48,519 - apscheduler.executors.default - INFO - Job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-05-08 14:46:48 UTC)" executed successfully
-2026-05-08 14:45:48,522 - apscheduler.executors.default - INFO - Job "API User → Recruiter Ownership Reassignment (5 min) (trigger: interval[0:05:00], next run at: 2026-05-08 14:50:48 UTC)" executed successfully
-2026-05-08 14:45:48,886 - bullhorn_service.jobs - INFO - 📧 Fetched emails for 20/20 users
-2026-05-08 14:45:48,886 - screening.job_management - INFO - Loaded 86 jobs from 6 tearsheets with 20 user emails
-2026-05-08 14:45:48,893 - extensions - INFO - 🔄 Active job IDs cache refreshed: 86 jobs
-2026-05-08 14:45:48,901 - apscheduler.executors.default - INFO - Job "Active Job IDs Cache Refresh (5 min) (trigger: interval[0:05:00], next run at: 2026-05-08 14:50:41 UTC)" executed successfully
-2026-05-08 14:45:50,605 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
-2026-05-08 14:45:50,614 - screening.prompt_builder - INFO - ✅ Extracted requirements for job 35010: Substation Engineer
-2026-05-08 14:45:50,615 - screening.job_management - INFO - 📋 Job requirements extraction: 1 extracted, 0 skipped, 0 failed
-2026-05-08 14:45:50,615 - incremental_monitoring_service - INFO -   📋 Extracted requirements for 1 new jobs
-2026-05-08 14:45:50,617 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,617 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,620 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,620 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,628 - incremental_monitoring_service - INFO -   ✅ Updated job 34053: Consultant Industrial Cybersecurity (VA)
-2026-05-08 14:45:50,628 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,628 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,631 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,631 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,641 - incremental_monitoring_service - INFO -   ✅ Updated job 35063: Customer Service Representative (W-794)
-2026-05-08 14:45:50,641 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,641 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,644 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,644 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,652 - incremental_monitoring_service - INFO -   ✅ Updated job 34812: SAP GTS Functional Consultant (Senior Associate)
-2026-05-08 14:45:50,652 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,652 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,655 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,655 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,663 - incremental_monitoring_service - INFO -   ✅ Updated job 35001: ASIC / Physical Design Engineer (Int, Senior and Prinicipal)
-2026-05-08 14:45:50,663 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,664 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,666 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,666 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,677 - incremental_monitoring_service - INFO -   ✅ Updated job 34522: Senior Dayforce Implementation Consultants (5 Roles)
-2026-05-08 14:45:50,677 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,677 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,679 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,679 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,689 - incremental_monitoring_service - INFO -   ✅ Updated job 35054: Legal Invoice Analyst/Attorney (W-789)
-2026-05-08 14:45:50,689 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,690 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,693 - xml_integration_service._core - INFO - No LinkedIn tag mapping found for recruiter: Michael Scalzitti
-2026-05-08 14:45:50,694 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,694 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,696 - xml_integration_service._core - INFO - No LinkedIn tag mapping found for recruiter: Michael Scalzitti
-2026-05-08 14:45:50,703 - incremental_monitoring_service - INFO -   ✅ Updated job 34913: Electrical Revit Designer, Senior
-2026-05-08 14:45:50,703 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,703 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,705 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,705 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,712 - incremental_monitoring_service - INFO -   ✅ Updated job 34854: IBM Tech Developer
-2026-05-08 14:45:50,713 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,713 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,715 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,715 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,722 - incremental_monitoring_service - INFO -   ✅ Updated job 35014: ETL Tester (W2 only)
-2026-05-08 14:45:50,722 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,722 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,724 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,725 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,732 - incremental_monitoring_service - INFO -   ✅ Updated job 34614: QA Lab Sampler
-2026-05-08 14:45:50,732 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,732 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,734 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,734 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,743 - incremental_monitoring_service - INFO -   ✅ Updated job 34657: Lab Tech - Micro (Laboratory Testing)
-2026-05-08 14:45:50,744 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,744 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,747 - xml_integration_service._core - INFO - No LinkedIn tag mapping found for recruiter: Chris Halkai
-2026-05-08 14:45:50,747 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,747 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,750 - xml_integration_service._core - INFO - No LinkedIn tag mapping found for recruiter: Chris Halkai
-2026-05-08 14:45:50,757 - incremental_monitoring_service - INFO -   ✅ Updated job 34986: Finance & Accounting Manager
-2026-05-08 14:45:50,757 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,757 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,759 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,759 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,769 - incremental_monitoring_service - INFO -   ✅ Updated job 35043: Human Centered Change Manager (Active IRS Public Trust/MBI)
-2026-05-08 14:45:50,770 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,770 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,772 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,772 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,782 - incremental_monitoring_service - INFO -   ✅ Updated job 34983: Geotechnical Engineer
-2026-05-08 14:45:50,783 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,783 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,785 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,785 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,794 - incremental_monitoring_service - INFO -   ✅ Updated job 34935: FPGA Design Verification (DVT) Engineers (Int, Senior and Prinicipal)
-2026-05-08 14:45:50,794 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,794 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,797 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,797 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,806 - incremental_monitoring_service - INFO -   ✅ Updated job 35011: T&D Project Manager General
-2026-05-08 14:45:50,807 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,807 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,809 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,809 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,822 - incremental_monitoring_service - INFO -   ✅ Updated job 34833: EAM Business Process Consultant (SAP S/4HANA)
-2026-05-08 14:45:50,822 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,822 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,825 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,825 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,836 - incremental_monitoring_service - INFO -   ✅ Updated job 34945: Cloud Network Engineer 
-2026-05-08 14:45:50,836 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,836 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,840 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,840 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,849 - incremental_monitoring_service - INFO -   ✅ Updated job 34729: Assistant Electrical Designer
-2026-05-08 14:45:50,849 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,849 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,851 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,852 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,864 - incremental_monitoring_service - INFO -   ✅ Updated job 35012: Sr. Data Engineer - Python Developer
-2026-05-08 14:45:50,864 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,864 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,867 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,867 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,877 - incremental_monitoring_service - INFO -   ✅ Updated job 33722: ASIC Verification Engineer 
-2026-05-08 14:45:50,877 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,877 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,880 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,880 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,888 - incremental_monitoring_service - INFO -   ✅ Updated job 32938: Embedded Software Developer
-2026-05-08 14:45:50,888 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,888 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,890 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,890 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,898 - incremental_monitoring_service - INFO -   ✅ Updated job 35039: Full Stack Developer (Node / Java / Spring Boot)
-2026-05-08 14:45:50,898 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,898 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,900 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,901 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,913 - incremental_monitoring_service - INFO -   ✅ Updated job 34926: Technical Sales Representative (Montreal)
-2026-05-08 14:45:50,913 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,913 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,916 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,916 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,925 - incremental_monitoring_service - INFO -   ✅ Updated job 34671: Senior Account Manager – Electronics (Quebec & Atlantic Canada)
-2026-05-08 14:45:50,925 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,925 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,928 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,928 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,941 - incremental_monitoring_service - INFO -   ✅ Updated job 34588: RF Systems Engineer - SatCom
-2026-05-08 14:45:50,942 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,942 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,944 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,944 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,953 - incremental_monitoring_service - INFO -   ✅ Updated job 34853: RF Test Engineer
-2026-05-08 14:45:50,954 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,954 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,956 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,956 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,965 - incremental_monitoring_service - INFO -   ✅ Updated job 35041: Agentforce Developer
-2026-05-08 14:45:50,966 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,966 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,968 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,968 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,978 - incremental_monitoring_service - INFO -   ✅ Updated job 34281: FPGA / Hardware Design Engineer, Intermediate
-2026-05-08 14:45:50,978 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,979 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,981 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,981 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,990 - incremental_monitoring_service - INFO -   ✅ Updated job 34789: SAP EAM Manager / Senior Manager – M&M
-2026-05-08 14:45:50,991 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,991 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:50,995 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:50,996 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,006 - incremental_monitoring_service - INFO -   ✅ Updated job 33516: FPGA Developers (Radio Expertise - 4G/5G) - DataPath Side of RU Design
-2026-05-08 14:45:51,006 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,006 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,008 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,009 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,017 - incremental_monitoring_service - INFO -   ✅ Updated job 35002: Senior FPGA Design Engineer (Int, Sr and Prinicpal)
-2026-05-08 14:45:51,017 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,017 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,020 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,020 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,029 - incremental_monitoring_service - INFO -   ✅ Updated job 34128: Southeast Regional Sales Representative
-2026-05-08 14:45:51,030 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,030 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,033 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,033 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,045 - incremental_monitoring_service - INFO -   ✅ Updated job 34992: Logistics Professional 
-2026-05-08 14:45:51,046 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,046 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,048 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,049 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,058 - incremental_monitoring_service - INFO -   ✅ Updated job 34976: Structural Engineer, Career Level
-2026-05-08 14:45:51,058 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,058 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,061 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,061 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,069 - incremental_monitoring_service - INFO -   ✅ Updated job 34737: Guidewire Integration Lead (Integration Developer / Scrum Lead)
-2026-05-08 14:45:51,069 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,070 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,072 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,072 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,080 - incremental_monitoring_service - INFO -   ✅ Updated job 34761: SharePoint Online Developer
-2026-05-08 14:45:51,080 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,081 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,083 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,083 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,092 - incremental_monitoring_service - INFO -   ✅ Updated job 35030: Structural Revit Designer, Senior
-2026-05-08 14:45:51,092 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,093 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,095 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,096 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,105 - incremental_monitoring_service - INFO -   ✅ Updated job 34997: SRE Observability SME
-2026-05-08 14:45:51,105 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,105 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,108 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,108 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,117 - incremental_monitoring_service - INFO -   ✅ Updated job 35058: Azure Cloud Migration  Engineer (VMWare to Azure)
-2026-05-08 14:45:51,117 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,118 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,120 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,120 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,129 - incremental_monitoring_service - INFO -   ✅ Updated job 34934: Construction Manager
-2026-05-08 14:45:51,130 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,130 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,132 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,132 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,140 - incremental_monitoring_service - INFO -   ✅ Updated job 35050: SAP Data Migration Lead
-2026-05-08 14:45:51,141 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,141 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,143 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,144 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,153 - incremental_monitoring_service - INFO -   ✅ Updated job 35055: Application Rationalization Lead – Azure Migration & Networking
-2026-05-08 14:45:51,153 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,154 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,156 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,156 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,166 - incremental_monitoring_service - INFO -   ✅ Updated job 34931: Sr. Structural Engineer 
-2026-05-08 14:45:51,166 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,166 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,169 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,169 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,178 - incremental_monitoring_service - INFO -   ✅ Updated job 34731: Technology Governance Lead
-2026-05-08 14:45:51,178 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,178 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,181 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,181 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,190 - incremental_monitoring_service - INFO -   ✅ Updated job 34972: Senior / Intermediate RF and Test Engineer
-2026-05-08 14:45:51,190 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,190 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,193 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,193 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,202 - incremental_monitoring_service - INFO -   ✅ Updated job 35019: Solution Delivery Architect (Intermediate)
-2026-05-08 14:45:51,202 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,203 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,205 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,205 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,217 - incremental_monitoring_service - INFO -   ✅ Updated job 35015: EDW Medicaid Subject Expert - Data Specialist/Federal Reporting
-2026-05-08 14:45:51,217 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,217 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,221 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,221 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,230 - incremental_monitoring_service - INFO -   ✅ Updated job 34890: SAP Data Migration Delivery Lead
-2026-05-08 14:45:51,230 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,230 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,233 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,233 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,246 - incremental_monitoring_service - INFO -   ✅ Updated job 34723: Sr Telecom Systems Engineer
-2026-05-08 14:45:51,246 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,246 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,249 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,249 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,258 - incremental_monitoring_service - INFO -   ✅ Updated job 34978: Principal Syndigo / Riversand Architect – Hands-On Senior Developer (MDM/PIM SME)
-2026-05-08 14:45:51,259 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,259 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,262 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,262 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,270 - incremental_monitoring_service - INFO -   ✅ Updated job 34030: ASIC Development Engineer
-2026-05-08 14:45:51,271 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,271 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,273 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,273 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,282 - incremental_monitoring_service - INFO -   ✅ Updated job 35040: Salesforce Solution Architect (Active IRS Public Trust/MBI)
-2026-05-08 14:45:51,282 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,283 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,286 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,286 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,296 - incremental_monitoring_service - INFO -   ✅ Updated job 34967: Fullstack Application Developer
-2026-05-08 14:45:51,296 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,296 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,299 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,299 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,308 - incremental_monitoring_service - INFO -   ✅ Updated job 35052: Admin Assistant (W-786)
-2026-05-08 14:45:51,308 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,308 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,311 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,311 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,320 - incremental_monitoring_service - INFO -   ✅ Updated job 35004: InRiver (PIM) Lead/Architect 
-2026-05-08 14:45:51,320 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,320 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,323 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,323 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,332 - incremental_monitoring_service - INFO -   ✅ Updated job 34968: Software Developer
-2026-05-08 14:45:51,332 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,333 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,335 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,336 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,345 - incremental_monitoring_service - INFO -   ✅ Updated job 34950: Cloud Application Integration Specialist 
-2026-05-08 14:45:51,345 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,346 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,348 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,348 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,359 - incremental_monitoring_service - INFO -   ✅ Updated job 35059: Fulfillment Associate (W-792)
-2026-05-08 14:45:51,359 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,359 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,363 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,363 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,374 - incremental_monitoring_service - INFO -   ✅ Updated job 35042: Agentforce Business Analyst (Active IRS Public Trust/MBI)
-2026-05-08 14:45:51,375 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,375 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,378 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,378 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,390 - incremental_monitoring_service - INFO -   ✅ Updated job 34937: ASIC Design Verification / Validation Engineer (Intermediate, Senior, Principal Levels)
-2026-05-08 14:45:51,391 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,391 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,394 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,394 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,408 - incremental_monitoring_service - INFO -   ✅ Updated job 34918: Event Coordinator 
-2026-05-08 14:45:51,408 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,408 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,412 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,412 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,425 - incremental_monitoring_service - INFO -   ✅ Updated job 35008: Project Manager (Transmission & Substation Projects)
-2026-05-08 14:45:51,425 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,425 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,428 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,428 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,438 - incremental_monitoring_service - INFO -   ✅ Updated job 34949: Manager, Critical Operational Systems
-2026-05-08 14:45:51,438 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,438 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,441 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,441 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,448 - incremental_monitoring_service - INFO -   ✅ Updated job 35038: Credit Card Business Systems Analyst (BSA)
-2026-05-08 14:45:51,449 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,449 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,451 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,451 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,460 - incremental_monitoring_service - INFO -   ✅ Updated job 34715: Principle RF/EM Engineer
-2026-05-08 14:45:51,460 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,460 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,462 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,462 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,471 - incremental_monitoring_service - INFO -   ✅ Updated job 34951: Mid-Level Electrical Engineer (Energy and Power)
-2026-05-08 14:45:51,471 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,471 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,473 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,473 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,484 - incremental_monitoring_service - INFO -   ✅ Updated job 34777: Staff Civil Site Engineer 
-2026-05-08 14:45:51,485 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,485 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,487 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,487 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,500 - incremental_monitoring_service - INFO -   ✅ Updated job 33473: Senior Network Architect 
-2026-05-08 14:45:51,500 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,500 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,504 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,504 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,512 - incremental_monitoring_service - INFO -   ✅ Updated job 34965: Senior HR Program Manager – Talent & Development
-2026-05-08 14:45:51,512 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,513 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,515 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,516 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,524 - incremental_monitoring_service - INFO -   ✅ Updated job 35062: Marketing Communications Operations Consultant
-2026-05-08 14:45:51,524 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,524 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,527 - xml_integration_service._core - INFO - No LinkedIn tag mapping found for recruiter: Michael Scalzitti
-2026-05-08 14:45:51,527 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,528 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,531 - xml_integration_service._core - INFO - No LinkedIn tag mapping found for recruiter: Michael Scalzitti
-2026-05-08 14:45:51,539 - incremental_monitoring_service - INFO -   ✅ Updated job 35061: Electrical Engineer,  Associate
-2026-05-08 14:45:51,540 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,540 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,543 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,543 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,553 - incremental_monitoring_service - INFO -   ✅ Updated job 33329: SAP Commodities Management /OTC
-2026-05-08 14:45:51,553 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,553 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,556 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,556 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,565 - incremental_monitoring_service - INFO -   ✅ Updated job 34733: FPGA Developer, Principal
-2026-05-08 14:45:51,565 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,565 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,571 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,571 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,587 - incremental_monitoring_service - INFO -   ✅ Updated job 34885: Cyber Security Solutions Architect (AI / Azure)
-2026-05-08 14:45:51,587 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,588 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,594 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,594 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,607 - incremental_monitoring_service - INFO -   ✅ Updated job 35070:  Customer Service Representative (W-795)
-2026-05-08 14:45:51,608 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,608 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,611 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,611 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,623 - incremental_monitoring_service - INFO -   ✅ Updated job 35021: Security Systems Administrator
-2026-05-08 14:45:51,623 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,624 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,626 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,627 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,639 - incremental_monitoring_service - INFO -   ✅ Updated job 35060: DevOps Engineer (AWS)
-2026-05-08 14:45:51,639 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,640 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,643 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,643 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,655 - incremental_monitoring_service - INFO -   ✅ Updated job 35034: Senior VMware Cloud & Backup Specialist
-2026-05-08 14:45:51,655 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,655 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,659 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,659 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,673 - incremental_monitoring_service - INFO -   ✅ Updated job 35057: Azure Migration Lead (VMware to Azure)
-2026-05-08 14:45:51,673 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,673 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,678 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,678 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,688 - incremental_monitoring_service - INFO -   ✅ Updated job 34903: Operator in Training
-2026-05-08 14:45:51,688 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,688 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,691 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,692 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,705 - incremental_monitoring_service - INFO -   ✅ Updated job 34282:  Senior, FPGA / Hardware Design Engineer (2 Positions)
-2026-05-08 14:45:51,706 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,706 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,709 - job_classification_service - INFO - 🔧 Enhanced keyword classifier initialized (28 functions, 20 industries, 5 seniority levels)
-2026-05-08 14:45:51,710 - job_classification_service - INFO - ⚡ Keyword-only classifier initialized (AI permanently disabled)
-2026-05-08 14:45:51,723 - incremental_monitoring_service - INFO -   ✅ Updated job 34574: Software Architect
-2026-05-08 14:45:51,732 - incremental_monitoring_service - INFO - 
-📊 Step 4: Monitoring complete - ready for manual download
-2026-05-08 14:45:51,733 - incremental_monitoring_service - INFO -   ✅ XML updated locally - use manual download for publishing
-2026-05-08 14:45:51,733 - incremental_monitoring_service - INFO -   📋 Job counts: Add +1, Remove -0, Update ~83, Excluded 0, Auto-Removed 3
-2026-05-08 14:45:51,733 - incremental_monitoring_service - INFO - 
-🔄 Step 5: Checking for job changes (AI requirements refresh)...
-2026-05-08 14:45:51,755 - screening.job_management - INFO - 🔄 Checking 84 jobs for modifications...
-2026-05-08 14:45:51,850 - incremental_monitoring_service - INFO -   ✅ No job modifications detected requiring AI refresh
-2026-05-08 14:45:51,852 - bullhorn_service._core - INFO - 🔄 Bullhorn One API mode ENABLED - using new fixed endpoints
-2026-05-08 14:45:51,852 - bullhorn_service._core - INFO -    Auth URL: https://auth-east.bullhornstaffing.com/oauth/authorize
-2026-05-08 14:45:51,852 - bullhorn_service._core - INFO -    Token URL: https://auth-east.bullhornstaffing.com/oauth/token
-2026-05-08 14:45:51,852 - bullhorn_service._core - INFO -    REST Login URL: https://rest-east.bullhornstaffing.com/rest-services/login
-2026-05-08 14:45:51,852 - bullhorn_service._core - INFO -    REST URL: https://rest45.bullhornstaffing.com/rest-services/dcc900/
-2026-05-08 14:45:51,861 - bullhorn_service.auth - INFO - 🔄 Using Bullhorn One fixed endpoints for authentication
-2026-05-08 14:45:51,862 - bullhorn_service.auth - INFO - Using redirect URI: https://app.scoutgenius.ai/bullhorn/oauth/callback
-2026-05-08 14:45:51,862 - bullhorn_service.auth - INFO - Auth endpoint: https://auth-east.bullhornstaffing.com/oauth/authorize
-2026-05-08 14:45:52,006 - bullhorn_service.auth - INFO - Auth response status: 302
-2026-05-08 14:45:52,006 - bullhorn_service.auth - INFO - Auth response headers: [redacted for security]
-2026-05-08 14:45:52,006 - bullhorn_service.auth - INFO - Got authorization code (first 10 chars): 28404_8195...
-2026-05-08 14:45:52,007 - bullhorn_service.auth - INFO - Exchanging auth code at token endpoint: https://auth-east.bullhornstaffing.com/oauth/token
-2026-05-08 14:45:52,075 - bullhorn_service.auth - INFO - Getting REST token from: https://rest-east.bullhornstaffing.com/rest-services/login
-2026-05-08 14:45:52,255 - bullhorn_service.auth - INFO - REST login response keys: ['BhRestToken', 'restUrl']
-2026-05-08 14:45:52,256 - bullhorn_service.auth - INFO - Bullhorn authentication successful. Base URL: https://rest45.bullhornstaffing.com/rest-services/dcc900/
-2026-05-08 14:45:52,256 - bullhorn_service.auth - INFO - REST Token: ***70f2
-2026-05-08 14:45:52,256 - bullhorn_service.auth - WARNING - ⚠️ No userId in REST response, querying current user...
-2026-05-08 14:45:52,387 - bullhorn_service.auth - INFO - Got user ID from settings endpoint: 1147490
-2026-05-08 14:45:52,387 - bullhorn_service.auth - INFO - User ID for note creation: 1147490
-2026-05-08 14:45:52,791 - bullhorn_service.jobs - INFO - Tearsheet 1474: Entity API reports 7 total jobs
-2026-05-08 14:45:53,329 - bullhorn_service.jobs - WARNING - Tearsheet 1474: Entity API reports 7 jobs but Search API returned 8. Using Search API results (authoritative for tearsheet membership).
-2026-05-08 14:45:53,650 - bullhorn_service.jobs - INFO - Tearsheet 1231: Entity API reports 50 total jobs
-2026-05-08 14:45:54,507 - bullhorn_service.jobs - WARNING - Tearsheet 1231: Entity API reports 50 jobs but Search API returned 52. Using Search API results (authoritative for tearsheet membership).
-2026-05-08 14:45:54,872 - bullhorn_service.jobs - INFO - Tearsheet 1232: Entity API reports 2 total jobs
-2026-05-08 14:45:55,273 - bullhorn_service.jobs - INFO - Tearsheet 1233: Entity API reports 0 total jobs
-2026-05-08 14:45:55,638 - bullhorn_service.jobs - INFO - Tearsheet 1531: Entity API reports 16 total jobs
-2026-05-08 14:45:56,425 - bullhorn_service.jobs - WARNING - Tearsheet 1531: Entity API reports 16 jobs but Search API returned 17. Using Search API results (authoritative for tearsheet membership).
-2026-05-08 14:45:56,804 - bullhorn_service.jobs - INFO - Tearsheet 1239: Entity API reports 9 total jobs
-2026-05-08 14:46:00,795 - bullhorn_service.jobs - INFO - 📧 Fetched emails for 20/20 users
-2026-05-08 14:46:00,796 - screening.job_management - INFO - Loaded 88 jobs from 6 tearsheets with 20 user emails
-2026-05-08 14:46:00,804 - screening.job_management - INFO - ✅ AI requirements in sync with 88 active tearsheet jobs
-2026-05-08 14:46:00,813 - incremental_monitoring_service - INFO - ✅ Activity logged: Monitoring cycle completed
-2026-05-08 14:46:00,813 - incremental_monitoring_service - INFO - 
-============================================================
-2026-05-08 14:46:00,814 - incremental_monitoring_service - INFO - CYCLE COMPLETED in 19.2s
-2026-05-08 14:46:00,814 - incremental_monitoring_service - INFO - Results: +1 -0 ~83 🗑️3 auto-removed
-2026-05-08 14:46:00,814 - incremental_monitoring_service - INFO - Total jobs: 84
-2026-05-08 14:46:00,814 - incremental_monitoring_service - INFO - ============================================================
-2026-05-08 14:46:00,837 - extensions - INFO - ✅ Updated timing for 6 monitors
-2026-05-08 14:46:00,837 - extensions - INFO - ✅ Incremental monitoring completed: {'timestamp': '2026-05-08T14:45:41.630930', 'jobs_added': 1, 'jobs_removed': 0, 'jobs_updated': 83, 'jobs_auto_removed': 3, 'total_jobs': 84, 'upload_success': False, 'cycle_time': 19.17747139930725, 'errors': [], 'requirements_extracted': 1, 'cycle_success': True, 'excluded_jobs': 0, 'jobs_requirements_refreshed': 0}
-2026-05-08 14:46:00,837 - extensions - INFO - 📊 MONITOR CYCLE COMPLETE - Incremental monitoring handled all updates
-2026-05-08 14:46:00,840 - apscheduler.executors.default - INFO - Job "5-Minute Tearsheet Monitor with Keyword Classification (trigger: interval[0:05:00], next run at: 2026-05-08 14:50:41 UTC)" executed successfully
-2026-05-08 14:46:48,498 - apscheduler.executors.default - INFO - Running job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-05-08 14:47:48 UTC)" (scheduled at 2026-05-08 14:46:48.498264+00:00)
-2026-05-08 14:46:48,501 - apscheduler.executors.default - INFO - Job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-05-08 14:47:48 UTC)" executed successfully
-2026-05-08 14:47:48,498 - apscheduler.executors.default - INFO - Running job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-05-08 14:48:48 UTC)" (scheduled at 2026-05-08 14:47:48.498264+00:00)
-2026-05-08 14:47:48,512 - apscheduler.executors.default - INFO - Job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-05-08 14:48:48 UTC)" executed successfully
-2026-05-08 14:48:48,498 - apscheduler.executors.default - INFO - Running job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-05-08 14:49:48 UTC)" (scheduled at 2026-05-08 14:48:48.498264+00:00)
-2026-05-08 14:48:48,512 - apscheduler.executors.default - INFO - Job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-05-08 14:49:48 UTC)" executed successfully
-2026-05-08 14:49:48,498 - apscheduler.executors.default - INFO - Running job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-05-08 14:50:48 UTC)" (scheduled at 2026-05-08 14:49:48.498264+00:00)
-2026-05-08 14:49:48,512 - apscheduler.executors.default - INFO - Job "AI Candidate Vetting Cycle (trigger: interval[0:01:00], next run at: 2026-05-08 14:50:48 UTC)" executed successfully
-2026-05-08 14:50:19,358 - scheduler_setup - INFO - 🔓 Released scheduler lock on process exit
-2026-05-08 14:50:19,358 - apscheduler.scheduler - INFO - Scheduler has been shut down
+2026-05-08 14:40:41,610 - seeding.settings - INFO - ✅ Vetting settings already up to date
+2026-05-08 14:40:41,606 - seeding.settings - INFO - ✅ All 5 Bullhorn monitors already configured correctly
+2026-05-08 14:40:41,616 - seeding.settings - INFO - ✅ Production environment monitoring already configured
+2026-05-08 14:40:41,619 - seeding.migrations - INFO - 🔒 STARTUP AUDIT — critical settings: vetting_enabled=false | send_recruiter_emails=false | embedding_filter_enabled=true | embedding_similarity_threshold=0.25 | vetting_cutoff_date= | match_threshold=80 | batch_size=25 | layer2_model=gpt-5.4 | sftp_enabled=false | automated_uploads_enabled=false
+2026-05-08 14:40:41,624 - seeding.settings - INFO - ✅ RefreshLog has 3 entries (most recent: 2026-05-03 15:33:32.965419 UTC) - preserving history
+2026-05-08 14:40:41,625 - seeding.settings - INFO - ✅ All 12 built-in automations already exist
+2026-05-08 14:40:41,626 - seeding.migrations - INFO - ℹ️ No legacy custom_requirements rows needed migration
+2026-05-08 14:40:41,627 - seeding.migrations - INFO - ℹ️ recruiter_activity_lookback_minutes already updated or not set to legacy default
+2026-05-08 14:40:41,636 - seeding.users - INFO - ✅ All 24 Myticas support contacts already up to date
+2026-05-08 14:40:41,645 - seeding.users - INFO - ✅ All 14 STSI support contacts already up to date
+2026-05-08 14:40:41,651 - seeding.users - INFO - ✅ All STSI user accounts already exist
+2026-05-08 14:40:41,657 - seeding.users - INFO - ✅ All Myticas user accounts already exist
+2026-05-08 14:40:41,662 - seeding.users - INFO - ✅ Myticas user restoration verified: all 24 contacts have an account (by email)
+2026-05-08 14:40:41,667 - seeding.users - INFO - ✅ All users already have correct module subscriptions
+2026-05-08 14:40:41,669 - seed_database - INFO - ✅ Database seeding completed successfully for production
+2026-05-08 14:40:41,669 - extensions - INFO - 🌱 Database seeding: Admin user already exists (admin)
+2026-05-08 14:40:41,672 - scheduler_setup - INFO - ⚠️ Process 5363 could not acquire scheduler lock - another scheduler is already running
+2026-05-08 14:40:41,672 - extensions - INFO - 📌 Process Scheduled XML Files job DISABLED - Enhanced 8-Step Monitor handles all XML updates
+2026-05-08 14:40:41,672 - extensions - INFO - ⚠️ Process 5363 skipping scheduler setup - another worker handles scheduling
+2026-05-08 14:40:41,672 - main - INFO - Flask application imported successfully
+2026-05-08 14:40:41,684 - main - INFO - Health check passed during startup
+2026-05-08 14:40:41,685 - apscheduler.scheduler - INFO - Scheduler started
+2026-05-08 14:40:41,687 - extensions - INFO - Background scheduler started/restarted successfully
+2026-05-08 14:40:41,687 - extensions - INFO - 📡 Scheduler job execution listeners registered
+2026-05-08 14:40:41,692 - seeding.settings - INFO - ✅ All 40 recruiter mappings already up to date
+2026-05-08 14:40:41,695 - seeding.settings - INFO - ✅ Loaded global screening prompt from /home/runner/workspace/config/global_screening_prompt.txt (6946 chars)
+2026-05-08 14:40:41,698 - extensions - INFO - Forced immediate check for 6 monitors after restart
+2026-05-08 14:40:41,698 - main - INFO - Monitoring system auto-started successfully on boot
+2026-05-08 14:40:41,700 - seeding.settings - INFO - ℹ️ Preserving vetting setting: vetting_enabled=false
+2026-05-08 14:40:41,702 - seeding.settings - INFO - ℹ️ Preserving vetting setting: match_threshold=80
+2026-05-08 14:40:41,703 - seeding.settings - INFO - ℹ️ Preserving vetting setting: batch_size=25
+2026-05-08 14:40:41,703 - seeding.settings - INFO - ℹ️ Preserving vetting setting: admin_notification_email=kroots@myticas.com
+2026-05-08 14:40:41,704 - seeding.settings - INFO - ℹ️ Preserving vetting setting: health_alert_email=kroots@myticas.com
+2026-05-08 14:40:41,705 - seeding.settings - INFO - ℹ️ Preserving vetting setting: send_recruiter_emails=false
+2026-05-08 14:40:41,706 - seeding.settings - INFO - ℹ️ Preserving vetting setting: embedding_filter_enabled=true
+2026-05-08 14:40:41,708 - seeding.settings - INFO - ℹ️ Preserving vetting setting: embedding_similarity_threshold=0.25
+2026-05-08 14:40:41,709 - seeding.settings - INFO - ℹ️ Preserving vetting setting: escalation_low=60
+2026-05-08 14:40:41,710 - seeding.settings - INFO - ℹ️ Preserving vetting setting: escalation_high=85
+2026-05-08 14:40:41,711 - seeding.settings - INFO - ℹ️ Preserving vetting setting: layer2_model=gpt-5.4
+2026-05-08 14:40:41,711 - seeding.settings - INFO - ℹ️ Preserving vetting setting: vetting_cutoff_date=
+2026-05-08 14:40:41,712 - seeding.settings - INFO - ℹ️ Preserving vetting setting: screening_audit_enabled=false
+2026-05-08 14:40:41,713 - seeding.settings - INFO - ℹ️ Preserving vetting setting: quality_auditor_model=gpt-5.4
+2026-05-08 14:40:41,714 - seeding.settings - INFO - ℹ️ Preserving vetting setting: platform_age_ceilings={"databricks": 8.0, "delta lake": 7.0, "azure synapse": 6.0, "azure synapse analytics": 6.0, "microsoft fabric": 3.0, "snowflake": 10.0, "dbt": 8.0, "data build tool": 8.0, "apache flink": 10.0, "kubernetes": 10.0, "apache kafka": 14.0, "terraform": 10.0, "docker": 12.0}
+2026-05-08 14:40:41,715 - seeding.settings - INFO - ℹ️ Preserving vetting setting: qualified_audit_sample_rate=10
+2026-05-08 14:40:41,716 - seeding.settings - INFO - ℹ️ Preserving vetting setting: auditor_cooldown_hours=6
+2026-05-08 14:40:41,717 - seeding.settings - INFO - ℹ️ Preserving vetting setting: recruiter_activity_check_enabled=true
+2026-05-08 14:40:41,718 - seeding.settings - INFO - ℹ️ Preserving vetting setting: recruiter_activity_lookback_minutes=1440
+2026-05-08 14:40:41,719 - seeding.settings - INFO - ℹ️ Preserving vetting setting: self_screen_cooldown_minutes=120
+2026-05-08 14:40:41,720 - seeding.settings - INFO - ℹ️ Preserving vetting setting: recruiter_decision_skip_enabled=true
+2026-05-08 14:40:41,721 - seeding.settings - INFO - ℹ️ Preserving vetting setting: scout_vetting_enabled=true
+2026-05-08 14:40:41,722 - seeding.settings - INFO - ℹ️ Preserving vetting setting: auto_reassign_owner_enabled=false
+2026-05-08 14:40:41,722 - seeding.settings - INFO - ℹ️ Preserving vetting setting: api_user_ids=4582015
+2026-05-08 14:40:41,723 - seeding.settings - INFO - ℹ️ Preserving vetting setting: reassign_owner_note_enabled=true
+2026-05-08 14:40:41,724 - seeding.settings - INFO - ℹ️ Preserving vetting setting: owner_reassignment_cooldown_enabled=true
+2026-05-08 14:40:41,725 - seeding.settings - INFO - ℹ️ Preserving vetting setting: owner_reassignment_cooldown_hours=24
+2026-05-08 14:40:41,725 - seeding.settings - INFO - ℹ️ Preserving vetting setting: screening_skip_human_owned=true
+2026-05-08 14:40:41,726 - seeding.settings - INFO - ℹ️ Preserving vetting setting: owner_reassignment_heartbeat_hours=1
+2026-05-08 14:40:41,727 - seeding.settings - INFO - ℹ️ Preserving vetting setting: global_custom_requirements=WORK AUTHORIZATION & SECURITY CLEARANCE INFERENCE RULES
+
+These rules supplement — never override — the core scoring guidelines above.
+These rules are purely reactive: they ONLY activate when the job description explicitly contains trigger language. If a job makes no mention of work authorization or clearance, ignore these rules entirely.
+
+=== RULE 0: EXPLICIT AUTHORIZATION STATEMENTS (HIGHEST PRIORITY) ===
+If the resume or candidate profile explicitly states work authorization status — for example: "Green Card", "Permanent Resident", "US Citizen", "Authorized to work in the US", "WA: Green Card", "H-1B", "EAD", "Canadian Citizen", "PR" — this OVERRIDES the inference tiers in Rules 1 and 2 below.
+• Accept the stated authorization at face value with NO score penalty.
+• Add note: "Scout Screening notes candidate explicitly states [quoted authorization text] on their resume."
+• Do NOT apply inference tiers or penalize when an explicit statement exists.
+• This rule takes absolute precedence over Rules 1 and 2.
+
+=== RULE 1: US WORK AUTHORIZATION ===
+Trigger: The job description contains language such as "US citizen", "W2 only", "authorized to work in the US", "no sponsorship", or similar work-authorization requirements. The job description language is the primary trigger; job location metadata (if US) is a confirming signal but is NOT required. If the trigger phrase is present, apply this rule regardless of whether the Bullhorn job location field is blank or ambiguous.
+Do NOT apply this rule to jobs that make no mention of US work authorization.
+
+Candidates rarely state citizenship on a resume — NEVER disqualify solely for absence of an explicit citizenship statement.
+
+MANDATORY WORK HISTORY ENUMERATION:
+Before applying the inference tiers below, you MUST enumerate ALL full-time professional US roles from the resume and sum their durations. Do NOT count only the most recent role.
+
+Step 1: List every full-time US-based role with start and end dates
+Step 2: Calculate months for each role: (end_year - start_year) × 12 + (end_month - start_month)
+Step 3: Sum total months across ALL US roles
+Step 4: Convert total months to years (total_months / 12)
+Step 5: Apply the appropriate inference tier based on total years
+
+Example:
+- Role 1: Software Engineer at Acme Corp (08/2016 – 02/2023) = (2023-2016)×12 + (2-8) = 78 months
+- Role 2: Senior Engineer at Beta Inc (03/2023 – 02/2026) = (2026-2023)×12 + (2-3) = 35 months
+- Total: 78 + 35 = 113 months = 9.4 years → 5+ tier, no score penalty
+
+CRITICAL: You MUST sum ALL roles, not just the most recent one. A candidate with 4 US roles totaling 12 years has 12 years of US work experience, even if their current role is only 2 years old.
+
+Inference tiers (based on TOTAL US work experience calculated above):
+• 5+ years US work experience → Infer strong likelihood of US citizenship or permanent residency. No score penalty. Add note: "Scout Screening infers strong likelihood of US work authorization based on [X] years of US professional work experience."
+• 3–4 years US work experience → Treat as a soft gap. Apply a minor score reduction (3-5 points). Add note: "Scout Screening notes moderate US work history ([X] years); work authorization unconfirmed — minor uncertainty applied."
+• Under 3 years US work experience → Flag as a gap. Apply standard gap scoring. Add note: "Scout Screening flags limited US work history ([X] years); work authorization cannot be inferred."
+
+=== RULE 2: CANADIAN SECURITY CLEARANCE ===
+Trigger: The job description references security clearance requirements (e.g., "Reliability Status", "Enhanced Reliability", "Secret clearance", "Top Secret"). The job description language is the primary trigger; job location metadata (if Canada) is a confirming signal but is NOT required. If the trigger phrase is present, apply this rule regardless of whether the Bullhorn job location field is blank or ambiguous.
+Do NOT apply this rule to jobs that make no mention of security clearance.
+
+IMPORTANT GEOGRAPHIC GUARD: This rule applies to Canadian clearance eligibility inference only. If a US-based job mentions security clearance requirements (e.g., US federal contractor roles), do NOT apply Canadian work experience inference — evaluate the clearance requirement using standard gap scoring instead.
+
+Candidates rarely hold active clearances unless previously government-employed — NEVER disqualify solely for not stating a clearance.
+
+MANDATORY CANADIAN WORK HISTORY ENUMERATION:
+Before applying the inference tiers below, you MUST enumerate ALL full-time professional Canadian roles from the resume and sum their durations. Do NOT count only the most recent role.
+
+Step 1: List every full-time Canadian-based role with start and end dates
+Step 2: Calculate months for each role: (end_year - start_year) × 12 + (end_month - start_month)
+Step 3: Sum total months across ALL Canadian roles
+Step 4: Convert total months to years (total_months / 12)
+Step 5: Apply the appropriate inference tier based on total years
+
+CRITICAL: You MUST sum ALL Canadian roles, not just the most recent one.
+
+Inference tiers (based on TOTAL Canadian work experience calculated above):
+• Enhanced Reliability / Reliability Status required + candidate has 5+ years Canadian work experience → Eligible to obtain. No score penalty. Add note: "Scout Screening notes candidate is likely eligible to obtain Enhanced Reliability clearance based on [X] years of Canadian professional work experience."
+• Secret-level clearance required + candidate has 10+ years Canadian work experience → Eligible to obtain. No score penalty. Add note: "Scout Screening notes candidate is likely eligible to obtain Secret clearance based on [X] years of Canadian professional work experience."
+• Top Secret clearance required + candidate has 15+ years Canadian work experience → Eligible to obtain. No score penalty. Add note: "Scout Screening notes candidate is likely eligible to obtain Top Secret clearance based on [X] years of Canadian professional work experience."
+• Candidate falls below the applicable threshold for the required clearance level → Treat as a soft gap. Apply a minor score reduction (3-5 points). Add note: "Scout Screening notes candidate has [X] years of Canadian work experience; clearance eligibility is uncertain for [clearance level]."
+
+=== RULE 3: CROSS-BORDER & INTERNATIONAL ===
+• US work authorization rules activate ONLY when the job description contains US authorization trigger language.
+• Canadian clearance rules activate ONLY when the job description contains clearance trigger language AND the job is Canadian-based (not US-based — see geographic guard above).
+• NEVER cross-apply rules (e.g., do not apply US authorization logic when clearance language is present, or vice versa).
+• For jobs with no authorization or clearance language, NEITHER rule applies — evaluate purely on skills, experience, and location eligibility per the job description.
+2026-05-08 14:40:41,728 - seeding.settings - INFO - ✅ Vetting settings already up to date
+2026-05-08 14:40:41,735 - seeding.migrations - INFO - 🔒 STARTUP AUDIT — critical settings: vetting_enabled=false | send_recruiter_emails=false | embedding_filter_enabled=true | embedding_similarity_threshold=0.25 | vetting_cutoff_date= | match_threshold=80 | batch_size=25 | layer2_model=gpt-5.4 | sftp_enabled=false | automated_uploads_enabled=false
+2026-05-08 14:40:41,739 - seeding.settings - INFO - ✅ All 12 built-in automations already exist
+2026-05-08 14:40:41,740 - seeding.migrations - INFO - ℹ️ No legacy custom_requirements rows needed migration
+2026-05-08 14:40:41,741 - seeding.migrations - INFO - ℹ️ recruiter_activity_lookback_minutes already updated or not set to legacy default
+2026-05-08 14:40:41,743 - seeding.users - INFO - ✅ All 24 Myticas support contacts already up to date
+2026-05-08 14:40:41,744 - seeding.users - INFO - ✅ All 14 STSI support contacts already up to date
+2026-05-08 14:40:41,747 - seeding.users - INFO - ✅ All STSI user accounts already exist
+2026-05-08 14:40:41,749 - seeding.users - INFO - ✅ All Myticas user accounts already exist
+2026-05-08 14:40:41,752 - seeding.users - INFO - ✅ Myticas user restoration verified: all 24 contacts have an account (by email)
+2026-05-08 14:40:41,754 - seeding.users - INFO - ✅ All users already have correct module subscriptions
+2026-05-08 14:40:41,754 - seed_database - INFO - ✅ Database seeding completed successfully for production
+2026-05-08 14:40:41,754 - extensions - INFO - 🌱 Database seeding: Admin user already exists (admin)
+2026-05-08 14:40:41,755 - scheduler_setup - INFO - ⚠️ Process 5361 could not acquire scheduler lock - another scheduler is already running
+2026-05-08 14:40:41,755 - extensions - INFO - 📌 Process Scheduled XML Files job DISABLED - Enhanced 8-Step Monitor handles all XML updates
+2026-05-08 14:40:41,756 - extensions - INFO - ⚠️ Process 5361 skipping scheduler setup - another worker handles scheduling
+2026-05-08 14:40:41,756 - main - INFO - Flask application imported successfully
+2026-05-08 14:40:41,760 - main - INFO - Health check passed during startup
+2026-05-08 14:40:41,760 - apscheduler.scheduler - INFO - Scheduler started
+2026-05-08 14:40:41,761 - extensions - INFO - Background scheduler started/restarted successfully
+2026-05-08 14:40:41,761 - extensions - INFO - 📡 Scheduler job execution listeners registered
+2026-05-08 14:40:41,766 - extensions - INFO - Forced immediate check for 6 monitors after restart
+2026-05-08 14:40:41,766 - main - INFO - Monitoring system auto-started successfully on boot
+2026-05-08 14:50:19,356 - apscheduler.scheduler - INFO - Scheduler has been shut down
+2026-05-08 14:50:19,356 - apscheduler.scheduler - INFO - Scheduler has been shut down

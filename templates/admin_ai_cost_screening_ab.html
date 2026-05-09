@@ -1,0 +1,278 @@
+{% extends "base_layout.html" %}
+
+{% block title %}Screening Model A/B Analysis — Scout Genius™{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h2 class="mb-1">
+        <i class="fas fa-flask text-info"></i>
+        Screening Model A/B Analysis (S2)
+      </h2>
+      <small class="text-muted">
+        Shadow-mode comparison of <code>{{ prod_model or 'gpt-5.4' }}</code>
+        (production scoring) vs <code>{{ shadow_model or 'gpt-4.1-mini' }}</code> (candidate replacement).
+        Phase A of the May 2026 two-stage screening cutover decision (S2).
+      </small>
+    </div>
+    <div>
+      <a href="{{ url_for('ai_cost.ai_cost_dashboard') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="fas fa-arrow-left"></i> Back to AI Cost
+      </a>
+    </div>
+  </div>
+
+  <!-- Window selector -->
+  <div class="card bg-dark border-secondary mb-3">
+    <div class="card-body py-2">
+      <form method="GET" class="d-flex align-items-center gap-2 mb-0">
+        <label class="mb-0 me-2"><strong>Window:</strong></label>
+        {% for h in [24, 48, 72, 168, 336, 720] %}
+          <a href="?hours={{ h }}"
+             class="btn btn-sm {% if hours == h %}btn-info{% else %}btn-outline-info{% endif %}">
+            {% if h < 168 %}{{ h }}h{% elif h == 168 %}7d{% elif h == 336 %}14d{% else %}30d{% endif %}
+          </a>
+        {% endfor %}
+        <span class="text-muted ms-3">since {{ since_iso }}</span>
+      </form>
+    </div>
+  </div>
+
+  <!-- Verdict banner -->
+  <div class="alert alert-{{ verdict_class }}">
+    <i class="fas fa-{{ verdict_icon }}"></i>
+    <strong>{{ verdict_text }}</strong>
+  </div>
+
+  {% if total_pairs == 0 %}
+    <div class="alert alert-warning">
+      <i class="fas fa-info-circle"></i>
+      <strong>No shadow data in window.</strong>
+      Set <code>SCREENING_AB_SHADOW_ENABLED=true</code> in the environment and wait
+      for screening cycles to run. Each (candidate × job) pair scored while shadow
+      mode is on adds one row. Per-hour cap controlled by
+      <code>SCREENING_AB_SHADOW_MAX_CALLS_PER_HOUR</code> (default 100).
+    </div>
+  {% else %}
+    <!-- Acceptance bar status -->
+    <div class="card bg-dark border-secondary mb-4">
+      <div class="card-header"><strong>Acceptance Bar (S2 Cutover Gates)</strong></div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-3">
+            <div class="d-flex align-items-center">
+              <i class="fas fa-{{ 'check-circle text-success' if bar_pairs_ok else 'hourglass-half text-info' }} me-2 fa-lg"></i>
+              <div>
+                <div class="text-muted small">Pairs collected</div>
+                <strong>{{ '{:,}'.format(total_pairs) }} / {{ '{:,}'.format(acceptance_target_pairs) }}</strong>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="d-flex align-items-center">
+              <i class="fas fa-{{ 'check-circle text-success' if bar_hard_reject_ok else 'times-circle text-danger' }} me-2 fa-lg"></i>
+              <div>
+                <div class="text-muted small">Hard-reject FNs (shadow&lt;40, prod≥80)</div>
+                <strong>{{ hard_reject_fn_count }}</strong> <small class="text-muted">target = 0</small>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="d-flex align-items-center">
+              <i class="fas fa-{{ 'check-circle text-success' if bar_avg_drift_ok else 'exclamation-triangle text-warning' }} me-2 fa-lg"></i>
+              <div>
+                <div class="text-muted small">Avg drift in 40-89 band</div>
+                <strong>{{ '%.2f' % avg_drift_borderline }}pt</strong> <small class="text-muted">target ≤ 3pt</small>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="d-flex align-items-center">
+              <i class="fas fa-{{ 'check-circle text-success' if bar_max_drift_ok else 'exclamation-triangle text-warning' }} me-2 fa-lg"></i>
+              <div>
+                <div class="text-muted small">Max drift in 70-89 risk band</div>
+                <strong>{{ '%.1f' % max_drift_risk }}pt</strong> <small class="text-muted">target ≤ 8pt</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Headline metrics -->
+    <div class="row g-3 mb-4">
+      <div class="col-md-3">
+        <div class="card bg-dark border-secondary text-center">
+          <div class="card-body">
+            <div class="text-muted small">Pairs Sampled</div>
+            <div class="display-6">{{ '{:,}'.format(total_pairs) }}</div>
+            <small class="text-muted">{{ shadow_errors }} shadow errors / {{ '{:,}'.format(total_attempts) }} attempts</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card bg-dark border-secondary text-center">
+          <div class="card-body">
+            <div class="text-muted small">Pearson r (prod vs shadow)</div>
+            <div class="display-6">{{ '%.3f' % pearson_r }}</div>
+            <small class="text-muted">1.0 = perfect agreement</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card bg-dark border-secondary text-center">
+          <div class="card-body">
+            <div class="text-muted small">Avg Score Delta</div>
+            <div class="display-6">{{ '%+.1f' % avg_delta }}pt</div>
+            <small class="text-muted">prod {{ '%.1f' % avg_prod }} → shadow {{ '%.1f' % avg_shadow }}</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card bg-dark border-secondary text-center">
+          <div class="card-body">
+            <div class="text-muted small">Shadow Spend (window)</div>
+            <div class="display-6">${{ '%.2f' % shadow_total_cost }}</div>
+            <small class="text-muted">gpt-4.1-mini calls</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Confusion at thresholds -->
+    <div class="card bg-dark border-secondary mb-4">
+      <div class="card-header"><strong>Confusion Matrix at Each Threshold</strong>
+        <small class="text-muted">— would mini have flipped the gate decision?</small>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-dark table-sm mb-0">
+          <thead>
+            <tr>
+              <th>Threshold</th><th>Both Pass</th><th>Both Block</th>
+              <th>FN (prod ≥ T, shadow &lt; T)</th><th>FP (prod &lt; T, shadow ≥ T)</th>
+              <th>Concordance</th><th>FN Rate</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in confusion_by_threshold %}
+              <tr>
+                <td><strong>{{ c.threshold }}</strong></td>
+                <td>{{ c.both_pass }}</td>
+                <td>{{ c.both_block }}</td>
+                <td class="{{ 'text-danger' if c.fn > 0 else '' }}">{{ c.fn }}</td>
+                <td>{{ c.fp }}</td>
+                <td>{{ '%.1f' % c.concordance_pct }}%</td>
+                <td class="{{ 'text-danger' if c.fn_pct > 2 else 'text-success' }}">{{ '%.2f' % c.fn_pct }}%</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Threshold sweep -->
+    <div class="card bg-dark border-secondary mb-4">
+      <div class="card-header"><strong>Shadow Threshold Sweep</strong>
+        <small class="text-muted">— vs prod's 80 qualification floor; recommended only if FN ≤ 2%</small>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-dark table-sm mb-0">
+          <thead>
+            <tr><th>Shadow Threshold</th><th>Concordance</th><th>FN Rate</th><th>FP Rate</th><th>Shadow Pass %</th><th></th></tr>
+          </thead>
+          <tbody>
+            {% for s in threshold_sweep %}
+              <tr class="{{ 'table-success' if s.recommended else '' }}">
+                <td><strong>{{ s.threshold }}</strong></td>
+                <td>{{ '%.1f' % s.concordance_pct }}%</td>
+                <td class="{{ 'text-danger' if s.fn_pct > 2 else 'text-success' }}">{{ '%.2f' % s.fn_pct }}%</td>
+                <td>{{ '%.2f' % s.fp_pct }}%</td>
+                <td>{{ '%.1f' % s.shadow_pass_pct }}%</td>
+                <td>{% if s.recommended %}<span class="badge bg-success">Recommended</span>{% endif %}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Score-band breakdown -->
+    <div class="card bg-dark border-secondary mb-4">
+      <div class="card-header"><strong>Score-Band Breakdown</strong></div>
+      <div class="card-body p-0">
+        <table class="table table-dark table-sm mb-0">
+          <thead>
+            <tr><th>Prod Score Band</th><th>Count</th><th>% of Pairs</th><th>Avg Delta (shadow − prod)</th><th>Max |Delta|</th></tr>
+          </thead>
+          <tbody>
+            {% for b in band_breakdown %}
+              <tr>
+                <td><strong>{{ b.band }}</strong></td>
+                <td>{{ b.count }}</td>
+                <td>{{ '%.1f' % b.pct }}%</td>
+                <td>{{ '%+.2f' % b.avg_delta }}pt</td>
+                <td>{{ '%.1f' % b.max_abs_delta }}pt</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Hard-reject FNs -->
+    {% if top_hard_reject_fns %}
+    <div class="card bg-dark border-danger mb-4">
+      <div class="card-header text-danger"><strong>Top Hard-Reject False Negatives</strong>
+        <small class="text-muted">— mini scored &lt;40 while prod scored ≥80 (qualification missed)</small>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-dark table-sm mb-0">
+          <thead>
+            <tr><th>Candidate</th><th>Job</th><th>Prod Score</th><th>Shadow Score</th><th>Delta</th><th>When</th></tr>
+          </thead>
+          <tbody>
+            {% for r in top_hard_reject_fns %}
+              <tr>
+                <td>{{ r.bullhorn_candidate_id or '—' }}</td>
+                <td>{{ (r.job_title or '')[:60] }} <small class="text-muted">#{{ r.bullhorn_job_id or '—' }}</small></td>
+                <td class="text-success"><strong>{{ '%.0f' % r.prod_score }}</strong></td>
+                <td class="text-danger"><strong>{{ '%.0f' % r.shadow_score }}</strong></td>
+                <td>{{ '%+.0f' % (r.shadow_score - r.prod_score) }}pt</td>
+                <td><small class="text-muted">{{ r.created_at.strftime('%Y-%m-%d %H:%M') if r.created_at else '' }}</small></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Critical disagreements -->
+    {% if critical_disagreements %}
+    <div class="card bg-dark border-warning mb-4">
+      <div class="card-header text-warning"><strong>Critical Disagreements (70-89 risk band, |Δ| ≥ 10pt)</strong></div>
+      <div class="card-body p-0">
+        <table class="table table-dark table-sm mb-0">
+          <thead>
+            <tr><th>Candidate</th><th>Job</th><th>Prod</th><th>Shadow</th><th>Delta</th><th>When</th></tr>
+          </thead>
+          <tbody>
+            {% for r in critical_disagreements %}
+              <tr>
+                <td>{{ r.bullhorn_candidate_id or '—' }}</td>
+                <td>{{ (r.job_title or '')[:60] }} <small class="text-muted">#{{ r.bullhorn_job_id or '—' }}</small></td>
+                <td><strong>{{ '%.0f' % r.prod_score }}</strong></td>
+                <td><strong>{{ '%.0f' % r.shadow_score }}</strong></td>
+                <td>{{ '%+.0f' % (r.shadow_score - r.prod_score) }}pt</td>
+                <td><small class="text-muted">{{ r.created_at.strftime('%Y-%m-%d %H:%M') if r.created_at else '' }}</small></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+  {% endif %}
+</div>
+{% endblock %}
