@@ -802,10 +802,25 @@ class NotificationMixin:
         )
         top_tech = top_match.technical_score or top_match.match_score or 0
         top_final = top_match.match_score or 0
+        top_job_title = (getattr(top_match, 'job_title', None) or 'Position').strip() or 'Position'
+        top_job_id = getattr(top_match, 'bullhorn_job_id', None)
 
+        # Subject mirrors the qualified-email pattern (Job #{ID} + "+N more")
+        # while preserving the "📍 Location Review:" prefix so existing inbox
+        # filters/rules keep working. May 2026 — added Job ID + multi-match suffix.
+        if top_job_id:
+            subject_head = (
+                f"📍 Location Review: {candidate_name} — {top_job_title} (Job #{top_job_id}) — "
+                f"{top_tech:.0f}% Tech Fit → {top_final:.0f}% after location"
+            )
+        else:
+            subject_head = (
+                f"📍 Location Review: {candidate_name} — {top_job_title} — "
+                f"{top_tech:.0f}% Tech Fit → {top_final:.0f}% after location"
+            )
+        extra_matches = len(location_matches) - 1
         subject = (
-            f"📍 Location Review: {candidate_name} — "
-            f"{top_tech:.0f}% Technical Fit (knocked to {top_final:.0f}% by location)"
+            f"{subject_head} +{extra_matches} more" if extra_matches > 0 else subject_head
         )
 
         transparency_note = ""
