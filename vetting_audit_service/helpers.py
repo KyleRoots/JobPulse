@@ -25,7 +25,7 @@ DEFAULT_PLATFORM_AGE_CEILINGS = {
 }
 
 DEFAULT_AUDITOR_MODEL = 'gpt-5.4'
-DEFAULT_QUALIFIED_SAMPLE_RATE = 10
+DEFAULT_QUALIFIED_SAMPLE_RATE = 0
 DEFAULT_REVET_CAP_PER_24H = 2
 DEFAULT_REVET_SCORE_TOLERANCE = 5.0
 DEFAULT_AUDIT_COOLDOWN_HOURS = 6
@@ -193,8 +193,17 @@ def get_qualified_sample_rate() -> int:
     """Load the Qualified false-positive sample rate (percent, 0-100).
 
     Returns the configured percentage of Qualified results to audit per
-    cycle. 0 disables the Qualified audit branch entirely. Defaults to
-    DEFAULT_QUALIFIED_SAMPLE_RATE (10%) if missing or malformed.
+    cycle. 0 disables the Qualified audit branch entirely (Phase 2).
+    Defaults to DEFAULT_QUALIFIED_SAMPLE_RATE (0 = disabled) if the
+    config row is missing or malformed.
+
+    Note (May 2026 — S6 cost optimization): seed default and code-level
+    fallback both lowered to 0 after 30-day prod data showed Phase 2
+    produced ~zero operational value (724 audits → 1 revet, 0
+    qualification flips). Phase 1 auto-trigger heuristic checks remain
+    at 100% and catch all flips. Aligning the fallback with the seed
+    default ensures a missing/malformed row cannot silently re-enable
+    Phase 2.
     """
     try:
         from models import VettingConfig

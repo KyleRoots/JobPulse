@@ -358,10 +358,15 @@ def seed_vetting_config(db, VettingConfig):
             # platform itself is younger than X. JSON-encoded dict of
             # platform_name (lowercase) -> max_years_float.
             'platform_age_ceilings': _default_platform_age_ceilings_json(),
-            # Sample rate (percent, 0-100) for the new Qualified false-positive
-            # audit phase. 0 disables it; 10 means 10% of recent Qualified
-            # results are sampled per cycle.
-            'qualified_audit_sample_rate': '10',
+            # Sample rate (percent, 0-100) for the Qualified false-positive
+            # audit phase (Phase 2). 0 disables it; 10 means 10% of recent
+            # Qualified results are sampled per cycle.
+            # Default lowered to 0 (May 2026 cost-optimization S6) after
+            # 30-day prod data showed 724 Phase-2 audits produced 1 revet,
+            # 0 score changes ≥10pt, 0 qualification flips. Auto-trigger
+            # heuristic checks (Phase 1) keep running at 100% and catch
+            # all qualification flips. See .local/session_plan.md (S6).
+            'qualified_audit_sample_rate': '0',
             # Audit cooldown: skip re-examining a (candidate, job) pair within
             # this many hours when the prior audit produced a non-actionable
             # outcome (no_action, revet_skipped_*). Set to 0 to disable.

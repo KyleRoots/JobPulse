@@ -462,3 +462,45 @@ def migrate_recruiter_lookback_to_24h(db):
         logger.warning(
             f"⚠️ recruiter_activity_lookback_minutes migration skipped: {str(e)}"
         )
+
+
+def migrate_qualified_audit_sample_rate_to_zero(db):
+    """
+    One-time migration: disable the Quality Auditor's Phase 2 (random
+    sampling of Qualified candidates) by flipping
+    ``qualified_audit_sample_rate`` from the legacy default of '10' to '0'.
+
+    Background (May 2026 cost-optimization S6): 30-day prod analysis of
+    ``vetting_audit_log`` showed Phase 2 produced 724 audits → 1 revet,
+    0 score changes ≥10pt, 0 qualification flips. Phase 1 (auto-trigger
+    heuristic checks) keeps catching every qualification flip and stays
+    at 100%. See `.local/session_plan.md` (S6) for full data.
+
+    Only fires if the value is still exactly '10' — administrators who
+    have already customised it (e.g. raised it to 25, or already disabled
+    to 0) are left untouched.
+    """
+    try:
+        from models import VettingConfig
+        row = VettingConfig.query.filter_by(
+            setting_key='qualified_audit_sample_rate'
+        ).first()
+        if row and row.setting_value == '10':
+            row.setting_value = '0'
+            db.session.commit()
+            logger.info(
+                "✅ Migrated qualified_audit_sample_rate: 10 → 0 "
+                "(Phase 2 disabled per S6 data — Phase 1 auto-triggers "
+                "remain at 100%)"
+            )
+        else:
+            current = row.setting_value if row else 'MISSING'
+            logger.info(
+                f"ℹ️ qualified_audit_sample_rate already customised "
+                f"or not at legacy default (current={current}) — skipping"
+            )
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(
+            f"⚠️ qualified_audit_sample_rate migration skipped: {str(e)}"
+        )
