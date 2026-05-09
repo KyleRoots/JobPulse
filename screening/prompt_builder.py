@@ -461,7 +461,7 @@ GLOBAL SCREENING INSTRUCTIONS (apply to all jobs):
                     {"role": "user", "content": prompt}
                 ],
                 response_format={"type": "json_object"},
-                max_completion_tokens=4096
+                max_completion_tokens=3750
             )
             log_call('screening.scoring', _model, response)
 
