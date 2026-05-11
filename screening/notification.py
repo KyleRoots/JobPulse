@@ -682,7 +682,7 @@ class NotificationMixin:
 
         Fires when a candidate is not_qualified (final score below threshold)
         but their technical fit met or exceeded the threshold and only a small
-        location penalty (≤ 10 pts) — or a legacy AI-flagged hard barrier within
+        location penalty (≤ 15 pts) — or a legacy AI-flagged hard barrier within
         the 15-pt buffer — knocked them under. The recruiter should make the
         call rather than the system silently rejecting.
 

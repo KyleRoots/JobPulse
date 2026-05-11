@@ -255,7 +255,7 @@ class NoteBuilderMixin:
         
         # ── LOCATION REVIEW DETECTION ──
         # Candidates who are technically at or above threshold but were knocked
-        # below it by either (a) a small location penalty (≤ 10 pts) or
+        # below it by either (a) a small location penalty (≤ 15 pts) or
         # (b) a hard AI-flagged location barrier on an on-site/hybrid role.
         # In both cases the technical fit is real and the recruiter should make
         # the judgment call rather than the system silently rejecting them.

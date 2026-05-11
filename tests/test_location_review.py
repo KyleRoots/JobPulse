@@ -213,5 +213,36 @@ def test_per_job_lower_threshold_qualifies_candidate_who_misses_global():
 # ── Sanity: the constant is what we documented to the user ──────────────────
 
 
-def test_penalty_cap_constant_is_ten():
-    assert LOCATION_NEAR_MISS_PENALTY_CAP == 10
+def test_penalty_cap_constant_is_fifteen():
+    """Cap raised from 10 → 15 in May 2026 to match the new same-province
+    penalty maximum, so candidates hit only by an in-province distance
+    penalty remain visible to recruiters in the Location Review tier."""
+    assert LOCATION_NEAR_MISS_PENALTY_CAP == 15
+
+
+def test_toronto_ottawa_same_province_distance_penalty_qualifies():
+    """Toronto → Ottawa scenario (~450 km, same province, on-site) should
+    land in the Location Review tier under the May 2026 tune. Distance band
+    is 300–500 km → -12pt penalty. Candidate at tech 85, final 73 (penalty
+    12) is below the 80% threshold but the gap is purely the in-province
+    distance penalty — recruiter should see and judge relocation
+    willingness, not have the candidate silently rejected."""
+    match = _make_match(
+        technical_score=85,
+        match_score=73,
+        gaps_identified="Location mismatch: candidate not in Ottawa, on-site required. "
+                        "Technical fit: 85%. Location penalty: -12 pts.",
+    )
+    assert is_location_review_match(match, threshold=80) is True
+
+
+def test_same_province_max_distance_penalty_qualifies():
+    """A same-province candidate with the maximum -15 pt distance penalty
+    (>800 km within the same province, e.g. Vancouver → Prince George BC)
+    must still surface in the Location Review tier."""
+    match = _make_match(
+        technical_score=82,
+        match_score=82 - 15,
+        gaps_identified="Location mismatch: candidate not in Prince George, on-site required.",
+    )
+    assert is_location_review_match(match, threshold=80) is True

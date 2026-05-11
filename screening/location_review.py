@@ -23,9 +23,16 @@ Used by:
 # Not-Recommended result (the location gap is a hard barrier rather than
 # a soft penalty worth a recruiter's judgment call).
 #
+# Raised from 10 → 15 in May 2026 alongside the same-province/same-state
+# penalty tune (Tier 2 reduced from -15 to -20 down to -10 to -15 with
+# distance scaling). The cap matches the new maximum same-province
+# penalty so any candidate hit only by an in-province distance penalty
+# remains visible in the Location Review tier for recruiter judgment
+# instead of being silently rejected.
+#
 # Hard-coded for v1. If recruiters want to tune this without a code
 # change in the future, promote to a VettingConfig setting.
-LOCATION_NEAR_MISS_PENALTY_CAP = 10
+LOCATION_NEAR_MISS_PENALTY_CAP = 15
 
 
 def resolve_match_threshold(match, job_threshold_map, global_threshold: float) -> float:

@@ -74,9 +74,14 @@ Before applying tiers 2/2b, check whether the job location includes a specific c
 
 2. Candidate is in the SAME STATE/PROVINCE but a DIFFERENT CITY that is FAR from the job city (more than approximately 100 miles / 160 km apart):
    - Add "Location mismatch: candidate not in {job_location_full.split(',')[0] if job_location_full else 'job area'}, on-site required" to gaps_identified.
-   - Reduce score by 15–20 points.
+   - Reduce score by 10–15 points, scaled by the approximate distance between candidate city and job city. Use your knowledge of U.S. and Canadian geography to estimate distance, then apply the appropriate band:
+     • 160–300 km / 100–185 mi: -10 points (e.g., Toronto ↔ Kingston ON, Los Angeles ↔ San Diego CA, Houston ↔ Austin TX)
+     • 300–500 km / 185–310 mi: -12 points (e.g., Toronto ↔ Ottawa ON, Edmonton ↔ Calgary AB, Dallas ↔ Houston TX)
+     • 500–800 km / 310–500 mi: -14 points (e.g., Calgary ↔ Vancouver BC border, San Francisco ↔ Los Angeles CA on the high end)
+     • Greater than 800 km / 500 mi: -15 points (cap; e.g., Vancouver ↔ Prince George BC, El Paso ↔ Houston TX)
+   - When uncertain about exact distance, choose the lower band (more lenient). The candidate is in the same state/province, so the penalty should not exceed -15.
    - EXCEPTION — WILLING TO RELOCATE: If the candidate explicitly states willingness to relocate anywhere on their resume (e.g., "open to relocation", "willing to relocate", "open to moving", "relocation considered"):
-     → Reduce the deduction to exactly 5 points (not 15–20).
+     → Reduce the deduction to exactly 5 points (regardless of distance band).
      → Do NOT use the word "mismatch" in the gap note. Instead write: "Location note: candidate not local to [city/area] but explicitly states willingness to relocate — recruiter should verify relocation timeline and logistics."
      → This treats relocation willingness as a logistics item for the recruiter, not a qualification gap.
 
@@ -455,11 +460,13 @@ In all cases, only set total_professional_years above 5.0 if explicit date range
 TWO-PHASE SCORING (MANDATORY):
 You MUST produce TWO scores:
 1. technical_score (integer 0-100): Assess the candidate\'s fit based SOLELY on technical skills, experience depth, years of experience, education, and qualifications. DO NOT consider location, work type, or geographic factors in this score. This score answers: "How well does this candidate fit the role if location were irrelevant?"
-2. match_score (integer 0-100): The final score AFTER applying any location penalty. If the candidate\'s location matches the job requirements, match_score equals technical_score. If there is a location mismatch, reduce match_score by:
-   - On-site jobs, candidate not in city/metro area: reduce by 20-30 points
-   - Hybrid jobs, candidate not reasonably commutable: reduce by 15-25 points
-   - Remote jobs, candidate in wrong country: reduce by 20-30 points
-   - If no location issue exists: match_score = technical_score
+2. match_score (integer 0-100): The final score AFTER applying any location penalty. If the candidate\'s location matches the job requirements, match_score equals technical_score. If there is a location mismatch, apply the EXACT penalty from the MANDATORY LOCATION PENALTY TIERS section above (do not improvise — use the tier that matches the candidate/job geography):
+   - Different country (on-site/hybrid): -25 to -35 points (Tier 1)
+   - Same state/province, FAR (>160 km): -10 to -15 points, distance-scaled per the bands in Tier 2
+   - Same state/province, NEARBY (≤160 km): -5 points (Tier 2b)
+   - Different state/province (same country): -10 to -15 points (Tier 2c)
+   - Remote, wrong country: -25 to -35 points (Remote tier)
+   - Same city/metro: 0 — match_score = technical_score
 When a location penalty is applied, you MUST document it explicitly in gaps_identified:
    "Location mismatch: candidate in [X], job requires [work type] in [Y]. Technical fit: [technical_score]%. Location penalty: -[N] pts."
 IMPORTANT: You MUST complete the full technical assessment (all requirement_evidence entries, years_analysis, skills_match, experience_match) BEFORE considering location. A location mismatch must NEVER cause you to skip or abbreviate the technical analysis.
