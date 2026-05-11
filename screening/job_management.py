@@ -383,6 +383,10 @@ class JobManagementMixin:
                             job_location, job_work_type
                         )
                         if extracted:
+                            self._save_ai_interpreted_requirements(
+                                int(job_id), job_title, extracted,
+                                job_location, job_work_type
+                            )
                             logger.info(f"  ✅ Refreshed AI interpretation for job {job_id}")
                         else:
                             logger.warning(f"  ⚠️ Could not refresh AI interpretation for job {job_id}")
@@ -619,6 +623,12 @@ class JobManagementMixin:
             try:
                 extracted = self.extract_job_requirements(int(job_id), job_title, job_description, job_location, job_work_type)
                 if extracted:
+                    # PERSIST: extract_job_requirements only returns text; the maintenance
+                    # loop must explicitly save it or the row never lands in the DB and the
+                    # job stays "Pending" forever (re-extracted every cycle, burning tokens).
+                    self._save_ai_interpreted_requirements(
+                        int(job_id), job_title, extracted, job_location, job_work_type
+                    )
                     results['extracted'] += 1
                 else:
                     results['failed'] += 1
