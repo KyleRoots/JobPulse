@@ -922,6 +922,13 @@ class NotificationMixin:
 
         # ── Send ──
         try:
+            # Best-effort resume attachment — same fail-open contract as the
+            # qualified-candidate path (May 2026). Notification > attachment.
+            resume_attachments = self._fetch_resume_attachment(
+                candidate_id=candidate_id,
+                candidate_name=candidate_name,
+            )
+
             admin_bcc_email = 'kroots@myticas.com'
             job_titles = ', '.join(set(m.job_title for m in location_matches if m.job_title)) or 'unknown'
             changes_summary = (
@@ -937,6 +944,7 @@ class NotificationMixin:
                 cc_emails=cc_recruiter_emails,
                 bcc_emails=[admin_bcc_email],
                 changes_summary=changes_summary,
+                attachments=resume_attachments,
             )
             if result is True or (isinstance(result, dict) and result.get('success', False)):
                 for match in location_matches:
