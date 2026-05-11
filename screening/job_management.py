@@ -44,6 +44,7 @@ class JobManagementMixin:
             'active_jobs': 0,
             'requirements_before': 0,
             'removed': 0,
+            'preserved_edits': 0,
             'success': False,
             'error': None
         }
@@ -66,14 +67,35 @@ class JobManagementMixin:
                 return results
             
             # Find and remove orphaned requirements
+            # EDIT-PRESERVING GUARD (May 2026): a row with non-empty edited_requirements
+            # represents recruiter tuning that the audit log cannot reconstruct. Never
+            # delete it just because the job temporarily fell off active tearsheets.
+            # Companion guard exists in incremental_monitoring_service._log_auto_removal_activity.
+            preserved_ids = []
             for req in all_requirements:
-                if req.bullhorn_job_id not in active_job_ids:
-                    db.session.delete(req)
-                    results['removed'] += 1
+                if req.bullhorn_job_id in active_job_ids:
+                    continue
+                if (req.edited_requirements or '').strip():
+                    results['preserved_edits'] += 1
+                    preserved_ids.append(req.bullhorn_job_id)
+                    logger.warning(
+                        f"event=sync_orphan_edit_protected job_id={req.bullhorn_job_id} "
+                        f"job_title={(req.job_title or '')[:80]!r} edited_by={req.requirements_edited_by} "
+                        f"edited_at={req.requirements_edited_at} — preserving edited_requirements; "
+                        f"orphan row will NOT be deleted"
+                    )
+                    continue
+                db.session.delete(req)
+                results['removed'] += 1
             
-            if results['removed'] > 0:
+            if results['removed'] > 0 or results['preserved_edits'] > 0:
                 db.session.commit()
                 logger.info(f"🧹 Synced AI requirements: removed {results['removed']} orphaned entries (not in active tearsheets)")
+                if results['preserved_edits']:
+                    logger.info(
+                        f"🛡️ Edit-preserving guard kept {results['preserved_edits']} orphan row(s) "
+                        f"with recruiter edits intact: {sorted(preserved_ids)}"
+                    )
             else:
                 logger.info(f"✅ AI requirements in sync with {results['active_jobs']} active tearsheet jobs")
             

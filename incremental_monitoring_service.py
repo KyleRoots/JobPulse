@@ -599,11 +599,37 @@ This alert was triggered by the zero-job detection safeguard.
                         self.logger.warning(f"Skipping invalid job_id during cleanup: {jid}")
                         
                 if valid_job_ids:
-                    removed_reqs = JobVettingRequirements.query.filter(
-                        JobVettingRequirements.bullhorn_job_id.in_(valid_job_ids)
-                    ).delete(synchronize_session=False)
-                    if removed_reqs > 0:
-                        self.logger.info(f"🧹 Cleaned up {removed_reqs} AI requirements for removed jobs")
+                    # EDIT-PRESERVING GUARD (May 2026): never delete a row that has
+                    # recruiter-edited requirements. The auto-removal/re-add cycle
+                    # was wiping recruiter tuning across jobs (no row ever survived
+                    # with edited_requirements populated). Audit-log records only
+                    # the action, not the edit text — losses cannot be reconstructed.
+                    protected_rows = JobVettingRequirements.query.filter(
+                        JobVettingRequirements.bullhorn_job_id.in_(valid_job_ids),
+                        JobVettingRequirements.edited_requirements.isnot(None),
+                        db.func.length(db.func.coalesce(JobVettingRequirements.edited_requirements, '')) > 0,
+                    ).all()
+                    protected_ids = {r.bullhorn_job_id for r in protected_rows}
+                    for r in protected_rows:
+                        self.logger.warning(
+                            f"event=auto_removal_edit_protected job_id={r.bullhorn_job_id} "
+                            f"job_title={(r.job_title or '')[:80]!r} edited_by={r.requirements_edited_by} "
+                            f"edited_at={r.requirements_edited_at} — preserving edited_requirements; "
+                            f"row will NOT be deleted"
+                        )
+
+                    deletable_ids = [jid for jid in valid_job_ids if jid not in protected_ids]
+                    if deletable_ids:
+                        removed_reqs = JobVettingRequirements.query.filter(
+                            JobVettingRequirements.bullhorn_job_id.in_(deletable_ids)
+                        ).delete(synchronize_session=False)
+                        if removed_reqs > 0:
+                            self.logger.info(f"🧹 Cleaned up {removed_reqs} AI requirements for removed jobs")
+                    if protected_ids:
+                        self.logger.info(
+                            f"🛡️ Edit-preserving guard kept {len(protected_ids)} requirement row(s) "
+                            f"with recruiter edits intact: {sorted(protected_ids)}"
+                        )
                 
                 db.session.commit()
                 self.logger.info(f"✅ Logged {count} auto-removal activities")
