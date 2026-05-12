@@ -108,31 +108,51 @@ IMPORTANT:
 - If multiple issues are confirmed, pick the MOST impactful one as finding_type
 - "no_issue" means the original assessment was correct despite the heuristic flag"""
 
+        # NOTE: Previously used a raw httpx.post() that bypassed the OpenAI SDK
+        # AND the openai_helper telemetry layer. That made this site (the highest-
+        # volume non-screening auditor — up to ~1,920 calls/day) invisible to
+        # /admin/ai-cost. Routing through the SDK + log_call() restores cost
+        # visibility and enables per-site MODEL_TIER_OVERRIDE_VETTING_AUDIT.
+        import time as _time
+        from openai import OpenAI
+        from services.openai_helper import log_call, resolve_model
+
+        _audit_model = resolve_model('vetting_audit', get_auditor_model())
+        _t0 = _time.monotonic()
+        _api_response = None
         try:
-            import httpx
-            response = httpx.post(
-                'https://api.openai.com/v1/chat/completions',
-                headers={
-                    'Authorization': f'Bearer {self.openai_api_key}',
-                    'Content-Type': 'application/json'
-                },
-                json={
-                    'model': get_auditor_model(),
-                    'messages': [
-                        {'role': 'system', 'content': 'You are a quality auditor. Respond only in valid JSON.'},
-                        {'role': 'user', 'content': prompt}
-                    ],
-                    'max_completion_tokens': 1500,
-                    'response_format': {'type': 'json_object'}
-                },
-                timeout=30.0
+            _client = OpenAI(api_key=self.openai_api_key, timeout=30.0)
+            _api_response = _client.chat.completions.create(
+                model=_audit_model,
+                messages=[
+                    {'role': 'system', 'content': 'You are a quality auditor. Respond only in valid JSON.'},
+                    {'role': 'user', 'content': prompt}
+                ],
+                max_completion_tokens=1500,
+                response_format={'type': 'json_object'}
             )
-            response.raise_for_status()
-            result = response.json()
-            content = result['choices'][0]['message']['content']
+            log_call(
+                'vetting_audit', _audit_model, response=_api_response,
+                duration_ms=int((_time.monotonic() - _t0) * 1000),
+                entity_type='JobMatch',
+                entity_id=getattr(job_match, 'id', None),
+            )
+            content = _api_response.choices[0].message.content
             return json.loads(content)
 
         except Exception as e:
+            # Telemetry for failed calls (still incurs partial cost on some errors)
+            try:
+                log_call(
+                    'vetting_audit', _audit_model, response=_api_response,
+                    duration_ms=int((_time.monotonic() - _t0) * 1000),
+                    entity_type='JobMatch',
+                    entity_id=getattr(job_match, 'id', None),
+                    success=False,
+                    error_type=type(e).__name__,
+                )
+            except Exception:
+                pass
             # I5: Distinguish AI/network failures from genuine "no_issue" findings
             # so failed audits don't pollute clean-audit metrics. The orchestration
             # layer treats anything other than 'no_issue' + high/medium confidence
