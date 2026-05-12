@@ -56,10 +56,18 @@ Step 5: Apply the appropriate inference tier based on total years
 
 CRITICAL: You MUST sum ALL Canadian roles, not just the most recent one.
 
-Inference tiers (based on TOTAL Canadian work experience calculated above):
-• Enhanced Reliability / Reliability Status required + candidate has 5+ years Canadian work experience → Eligible to obtain. No score penalty. Add note: "Scout Screening notes candidate is likely eligible to obtain Enhanced Reliability clearance based on [X] years of Canadian professional work experience."
-• Secret-level clearance required + candidate has 10+ years Canadian work experience → Eligible to obtain. No score penalty. Add note: "Scout Screening notes candidate is likely eligible to obtain Secret clearance based on [X] years of Canadian professional work experience."
-• Top Secret clearance required + candidate has 15+ years Canadian work experience → Eligible to obtain. No score penalty. Add note: "Scout Screening notes candidate is likely eligible to obtain Top Secret clearance based on [X] years of Canadian professional work experience."
+JD-SPECIFIED THRESHOLD OVERRIDE (check this BEFORE applying the default tiers below):
+If the job description specifies its OWN clearance eligibility threshold (e.g., "must reside in Canada 5+ years", "minimum 7 years Canadian residency", "eligible after 3+ years in-country"), you MUST use the JD-stated threshold INSTEAD OF the standard tier values below. The JD's stated threshold takes absolute precedence — clients sometimes use less stringent or more stringent bars than the federal default.
+When using a JD-specified threshold, your output note MUST cite BOTH the JD's threshold AND the candidate's actual tenure, in this exact format:
+  "Scout Screening notes candidate meets the JD's stated [N]-year Canadian residency requirement for [clearance level] eligibility (candidate has [X] years of Canadian professional work experience)."
+or, if below the JD's stated bar:
+  "Scout Screening notes candidate falls short of the JD's stated [N]-year Canadian residency requirement for [clearance level] eligibility (candidate has [X] years of Canadian professional work experience)." — Apply a minor score reduction (3-5 points).
+NEVER write "based on [X] years" alone when a JD threshold exists — that wording conflates the candidate's tenure with the eligibility bar and is ambiguous to recruiters.
+
+Default inference tiers (use ONLY when the JD is silent on clearance eligibility threshold):
+• Enhanced Reliability / Reliability Status required + candidate has 5+ years Canadian work experience → Eligible to obtain. No score penalty. Add note: "Scout Screening notes candidate is likely eligible to obtain Enhanced Reliability clearance based on [X] years of Canadian professional work experience (no JD-specified threshold; default 5-year bar applied)."
+• Secret-level clearance required + candidate has 10+ years Canadian work experience → Eligible to obtain. No score penalty. Add note: "Scout Screening notes candidate is likely eligible to obtain Secret clearance based on [X] years of Canadian professional work experience (no JD-specified threshold; default 10-year bar applied)."
+• Top Secret clearance required + candidate has 15+ years Canadian work experience → Eligible to obtain. No score penalty. Add note: "Scout Screening notes candidate is likely eligible to obtain Top Secret clearance based on [X] years of Canadian professional work experience (no JD-specified threshold; default 15-year bar applied)."
 • Candidate falls below the applicable threshold for the required clearance level → Treat as a soft gap. Apply a minor score reduction (3-5 points). Add note: "Scout Screening notes candidate has [X] years of Canadian work experience; clearance eligibility is uncertain for [clearance level]."
 
 === RULE 3: CROSS-BORDER & INTERNATIONAL ===
