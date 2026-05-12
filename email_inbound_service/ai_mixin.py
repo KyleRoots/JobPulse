@@ -199,10 +199,127 @@ Resume text:
             self.logger.warning(f"Last-resort AI extraction failed ({type(e).__name__}): {e}")
             return {}
 
+    _ARCHIVE_REDIRECT_MAX_HOPS = 5
+
+    def _resolve_archive_redirect(self, match: Dict, bullhorn_service=None) -> Optional[int]:
+        """Defense-in-depth check: if a Bullhorn search match has status='Archive',
+        follow the CandidateMergeLog chain to the live winner. Handles chained
+        merges (A→B→C) by walking the chain up to ARCHIVE_REDIRECT_MAX_HOPS
+        with a visited-set to prevent loops. Returns None if no live winner
+        can be reached — caller should skip this match.
+
+        bullhorn_service.search_candidates already filters out archives at the
+        query layer (see candidates.py include_archived flag). This helper is
+        belt-and-suspenders in case (a) a future caller passes
+        include_archived=True, (b) the Bullhorn query syntax changes and the
+        filter silently stops working, or (c) a record is archived between
+        the search and the consume.
+
+        Triggered by the live bug where a 5/11/2026 job application for Ram
+        Pathak landed on archived BH ID 4020713 instead of merge-winner
+        BH ID 4452544.
+
+        Args:
+            match: Bullhorn candidate dict with at least 'id' and 'status'.
+            bullhorn_service: Optional. If provided, the redirected winner's
+                live archive status is re-verified via Bullhorn lookup. If
+                that record is also Archive, the chain is followed further.
+                If omitted, we trust the merge-log chain alone.
+        """
+        matched_id = match.get('id')
+        status = (match.get('status') or '').strip()
+        if status.lower() != 'archive':
+            return matched_id
+
+        try:
+            from models import CandidateMergeLog
+        except Exception as e:
+            self.logger.warning(
+                f"Archive-redirect import failed for candidate {matched_id}: "
+                f"{type(e).__name__}: {e}"
+            )
+            self.logger.warning(
+                f"⛔ ARCHIVE BLOCK: matched candidate {matched_id} is Archive and "
+                f"merge-log lookup unavailable — skipping this match"
+            )
+            return None
+
+        visited: set = {matched_id}
+        current_id = matched_id
+        chain: list = [matched_id]
+
+        for hop in range(self._ARCHIVE_REDIRECT_MAX_HOPS):
+            try:
+                log_row = (
+                    CandidateMergeLog.query
+                    .filter_by(duplicate_candidate_id=current_id, skipped=False)
+                    .order_by(CandidateMergeLog.merged_at.desc())
+                    .first()
+                )
+            except Exception as e:
+                self.logger.warning(
+                    f"Archive-redirect lookup failed at hop {hop} for candidate "
+                    f"{current_id}: {type(e).__name__}: {e}"
+                )
+                break
+
+            if not log_row or not log_row.primary_candidate_id:
+                break
+
+            winner_id = log_row.primary_candidate_id
+            if winner_id in visited:
+                self.logger.warning(
+                    f"⛔ ARCHIVE REDIRECT LOOP detected at candidate {winner_id} "
+                    f"(chain so far: {chain}) — aborting"
+                )
+                return None
+            visited.add(winner_id)
+            chain.append(winner_id)
+
+            # If we have a Bullhorn service, verify the winner is actually live.
+            # If it's also Archive, keep walking the chain.
+            winner_status_archive = False
+            if bullhorn_service is not None:
+                try:
+                    winner_record = bullhorn_service.get_candidate_by_id(winner_id) \
+                        if hasattr(bullhorn_service, 'get_candidate_by_id') else None
+                    if winner_record:
+                        wstatus = (winner_record.get('status') or '').strip().lower()
+                        winner_status_archive = (wstatus == 'archive')
+                except Exception as e:
+                    self.logger.warning(
+                        f"Could not verify status of redirect target {winner_id}: "
+                        f"{type(e).__name__}: {e} — trusting merge-log chain"
+                    )
+
+            if not winner_status_archive:
+                self.logger.warning(
+                    f"🔀 ARCHIVE REDIRECT: matched candidate {matched_id} is Archive — "
+                    f"redirecting to live winner {winner_id} via chain {chain} "
+                    f"(merged {log_row.merged_at} via {log_row.match_type})"
+                )
+                return winner_id
+
+            # Winner is also archived — keep walking
+            current_id = winner_id
+
+        self.logger.warning(
+            f"⛔ ARCHIVE BLOCK: candidate {matched_id} is Archive and chain {chain} "
+            f"yielded no live winner within {self._ARCHIVE_REDIRECT_MAX_HOPS} hops — "
+            f"skipping this match to avoid writing to a tombstoned record"
+        )
+        return None
+
     def find_duplicate_candidate(self, email: str, phone: str, first_name: str, last_name: str,
                                   bullhorn_service) -> Tuple[Optional[int], float]:
         """
         Search Bullhorn for existing candidate using multi-layer matching.
+
+        Each match strategy passes its hit through `_resolve_archive_redirect`
+        so that archived (merged-loser) records either redirect to the live
+        winner via CandidateMergeLog or are skipped entirely. The caller will
+        then either fall through to the next match strategy or create a new
+        candidate, but it will never write to a tombstoned record.
 
         Returns:
             Tuple of (candidate_id, confidence_score)
@@ -218,41 +335,48 @@ Resume text:
             if normalized_email:
                 results = bullhorn_service.search_candidates(email=normalized_email)
                 if results and len(results) > 0:
-                    match = results[0]
-                    candidate_id = match.get('id')
-                    matched_field = 'email'
-                    existing_email = (match.get('email') or '').strip().lower()
-                    existing_email2 = (match.get('email2') or '').strip().lower()
-                    existing_email3 = (match.get('email3') or '').strip().lower()
+                    # Iterate all results (not just [0]) so that an archived
+                    # first hit doesn't shadow a live later hit.
+                    for match in results:
+                        candidate_id = self._resolve_archive_redirect(match, bullhorn_service)
+                        if candidate_id is None:
+                            continue
+                        matched_field = 'email'
+                        existing_email = (match.get('email') or '').strip().lower()
+                        existing_email2 = (match.get('email2') or '').strip().lower()
+                        existing_email3 = (match.get('email3') or '').strip().lower()
 
-                    if normalized_email == existing_email:
-                        confidence = 1.0
-                        matched_field = 'email (primary)'
-                    elif normalized_email == existing_email2:
-                        confidence = 0.95
-                        matched_field = 'email2'
-                    elif normalized_email == existing_email3:
-                        confidence = 0.95
-                        matched_field = 'email3'
-                    else:
-                        confidence = 0.95
-                        matched_field = 'email (search match)'
+                        if normalized_email == existing_email:
+                            confidence = 1.0
+                            matched_field = 'email (primary)'
+                        elif normalized_email == existing_email2:
+                            confidence = 0.95
+                            matched_field = 'email2'
+                        elif normalized_email == existing_email3:
+                            confidence = 0.95
+                            matched_field = 'email3'
+                        else:
+                            confidence = 0.95
+                            matched_field = 'email (search match)'
 
-                    self.logger.info(f"DUPLICATE FOUND by {matched_field}: candidate {candidate_id} "
-                                   f"(existing: {match.get('firstName')} {match.get('lastName')}, "
-                                   f"email={existing_email}), confidence={confidence}")
-                    return candidate_id, confidence
+                        self.logger.info(f"DUPLICATE FOUND by {matched_field}: candidate {candidate_id} "
+                                       f"(existing: {match.get('firstName')} {match.get('lastName')}, "
+                                       f"email={existing_email}), confidence={confidence}")
+                        return candidate_id, confidence
                 else:
                     self.logger.info(f"No email match found for '{normalized_email}' across email/email2/email3")
 
             if normalized_phone and len(normalized_phone) >= 10:
                 results = bullhorn_service.search_candidates(phone=normalized_phone)
                 if results and len(results) > 0:
-                    candidate_id = results[0].get('id')
-                    self.logger.info(f"DUPLICATE FOUND by phone: candidate {candidate_id} "
-                                   f"(existing: {results[0].get('firstName')} {results[0].get('lastName')}, "
-                                   f"phone={results[0].get('phone')}), confidence=0.9")
-                    return candidate_id, 0.9
+                    for match in results:
+                        candidate_id = self._resolve_archive_redirect(match, bullhorn_service)
+                        if candidate_id is None:
+                            continue
+                        self.logger.info(f"DUPLICATE FOUND by phone: candidate {candidate_id} "
+                                       f"(existing: {match.get('firstName')} {match.get('lastName')}, "
+                                       f"phone={match.get('phone')}), confidence=0.9")
+                        return candidate_id, 0.9
                 else:
                     self.logger.info(f"No phone match found for '{normalized_phone}'")
 
@@ -262,18 +386,24 @@ Resume text:
                     last_name=last_name
                 )
                 if results and len(results) > 0:
-                    confidence = self._ai_validate_duplicate(
-                        first_name, last_name, email, phone, results[0]
-                    )
-                    if confidence >= 0.7:
-                        candidate_id = results[0].get('id')
+                    for match in results:
+                        confidence = self._ai_validate_duplicate(
+                            first_name, last_name, email, phone, match
+                        )
+                        if confidence < 0.7:
+                            self.logger.info(f"Name match found but AI confidence too low ({confidence}): "
+                                           f"{match.get('firstName')} {match.get('lastName')} (ID: {match.get('id')})")
+                            continue
+                        candidate_id = self._resolve_archive_redirect(match, bullhorn_service)
+                        if candidate_id is None:
+                            continue
                         self.logger.info(f"DUPLICATE FOUND by name+AI: candidate {candidate_id} "
-                                       f"(existing: {results[0].get('firstName')} {results[0].get('lastName')}), "
+                                       f"(existing: {match.get('firstName')} {match.get('lastName')}), "
                                        f"confidence={confidence}")
                         return candidate_id, confidence
                     else:
                         self.logger.info(f"Name match found but AI confidence too low ({confidence}): "
-                                       f"{results[0].get('firstName')} {results[0].get('lastName')} (ID: {results[0].get('id')})")
+                                       f"{match.get('firstName')} {match.get('lastName')} (ID: {match.get('id')})")
 
             self.logger.info(f"DUPLICATE CHECK COMPLETE: No duplicate found for {first_name} {last_name} ({normalized_email})")
             return None, 0.0

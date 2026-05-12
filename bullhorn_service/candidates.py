@@ -15,7 +15,8 @@ class CandidatesMixin:
     """Mixin providing candidates-related Bullhorn API methods."""
 
     def search_candidates(self, email: str = None, phone: str = None, 
-                          first_name: str = None, last_name: str = None) -> List[Dict]:
+                          first_name: str = None, last_name: str = None,
+                          include_archived: bool = False) -> List[Dict]:
         """
         Search for candidates by email, phone, or name.
         Email search covers email, email2, and email3 fields with case-insensitive matching.
@@ -26,6 +27,14 @@ class CandidatesMixin:
             phone: Candidate phone number (digits only)
             first_name: First name
             last_name: Last name
+            include_archived: If False (default), excludes records with
+                status='Archive' or isDeleted=1 from results. This prevents
+                new applications/inbound emails from landing on a
+                previously-merged loser record (which is the live bug that
+                caused candidate Ram Pathak's 5/11/2026 application to update
+                archived BH ID 4020713 instead of live BH ID 4452544). Set
+                True only for diagnostic flows that explicitly need
+                tombstoned records (e.g. merge audit, manual cleanup).
             
         Returns:
             List of matching candidate records
@@ -54,6 +63,11 @@ class CandidatesMixin:
             return []
         
         query = " OR ".join(query_parts)
+        if not include_archived:
+            # Mirrors the filter used by duplicate_merge_service._search_all_candidates_batch
+            # (candidates.py:504). Without this clause, archived (merged-loser)
+            # records leak into intake matching and get updated in place.
+            query = f"({query}) AND -isDeleted:1 AND -status:Archive"
         
         url = f"{self.base_url}search/Candidate"
         params = {
