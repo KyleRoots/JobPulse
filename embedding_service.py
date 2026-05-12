@@ -55,6 +55,16 @@ class EmbeddingService:
         self.openai_client = None
         self.embedding_model = DEFAULT_EMBEDDING_MODEL
         self._init_openai()
+        try:
+            shadow_on = self._shadow_enabled()
+            shadow_cap = self._shadow_max_jobs()
+            logger.info(
+                f"🧪 EmbeddingService init: A/B shadow enabled={shadow_on}, "
+                f"max_jobs_per_candidate={shadow_cap if shadow_cap else 'unlimited'}, "
+                f"primary_model={self.embedding_model}"
+            )
+        except Exception as exc:
+            logger.warning(f"EmbeddingService init: shadow flag probe failed: {exc}")
     
     def _init_openai(self):
         """Initialize OpenAI client for embedding generation"""
@@ -533,6 +543,12 @@ class EmbeddingService:
                     # Couldn't get shadow resume embedding — disable for this call
                     logger.warning("Shadow A/B: resume embedding failed, skipping shadow comparisons")
                     ab_shadow_on = False
+                else:
+                    logger.info(
+                        f"🧪 Shadow A/B setup OK for candidate {candidate_id}: "
+                        f"primary={primary_model_label}, shadow={shadow_model}, "
+                        f"job_cap={ab_shadow_remaining if ab_shadow_remaining else 'unlimited'}"
+                    )
             except Exception as exc:
                 logger.warning(f"Shadow A/B setup failed: {exc}")
                 ab_shadow_on = False
@@ -612,6 +628,15 @@ class EmbeddingService:
         # Batch-write shadow A/B entries (no-op if shadow off or no entries)
         if ab_log_entries:
             self._save_ab_log_batch(ab_log_entries)
+            logger.info(
+                f"🧪 Shadow A/B flushed {len(ab_log_entries)} comparisons "
+                f"for candidate {candidate_id} (primary={primary_model_label}, shadow={shadow_model})"
+            )
+        elif ab_shadow_on:
+            logger.info(
+                f"🧪 Shadow A/B was enabled for candidate {candidate_id} but produced 0 comparisons "
+                f"(jobs={len(jobs)}, cap_remaining={ab_shadow_remaining})"
+            )
         
         logger.info(
             f"🔍 Embedding pre-filter for {candidate_name} (ID: {candidate_id}): "
