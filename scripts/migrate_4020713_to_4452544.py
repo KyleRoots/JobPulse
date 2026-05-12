@@ -148,29 +148,36 @@ def _build_migrated_note_body(orig_note: Dict, src_id: int) -> str:
 
 
 def _build_audit_note_for_winner(inv_archived: Dict, src_id: int, dst_id: int,
-                                  copied_note_ids: List[int]) -> str:
+                                  copied_note_ids: List[int],
+                                  new_submission_map: Dict[int, int],
+                                  new_file_map: Dict[int, int]) -> str:
     js_lines = []
     for s in inv_archived['web_responses_5_11']:
         jo = s.get('jobOrder') or {}
+        new_sid = new_submission_map.get(s['id'])
+        marker = f"→ NEW JobSubmission #{new_sid} created here" if new_sid else "→ NOT MIGRATED"
         js_lines.append(
-            f"  - JobSubmission id={s['id']}, job={jo.get('id')} ({jo.get('title')}), "
-            f"status={s.get('status')}, source={s.get('source')}, dated {_ms_to_iso(s.get('dateAdded'))}"
+            f"  - Original JobSubmission id={s['id']}, job={jo.get('id')} ({jo.get('title')}), "
+            f"status={s.get('status')}, source={s.get('source')}, dated {_ms_to_iso(s.get('dateAdded'))} {marker}"
         )
-    file_lines = [
-        f"  - File id={f.get('id')} name={f.get('name')!r} type={f.get('type')} dated {_ms_to_iso(f.get('dateAdded'))}"
-        for f in inv_archived['files_5_11']
-    ]
+    file_lines = []
+    for f in inv_archived['files_5_11']:
+        new_fid = new_file_map.get(f.get('id'))
+        marker = f"→ NEW File #{new_fid} uploaded here" if new_fid else "→ NOT MIGRATED"
+        file_lines.append(
+            f"  - Original File id={f.get('id')} name={f.get('name')!r} type={f.get('type')} dated {_ms_to_iso(f.get('dateAdded'))} {marker}"
+        )
     return (
         f"{AUDIT_MARKER} Misrouted intake artifacts moved here from archived candidate {src_id}.\n"
         f"Root cause: pre-fix archive-redirect bug (fixed commit 2bf5316).\n"
-        f"5/11/2026 notes copied to this record: {copied_note_ids}\n"
-        f"5/11/2026 JobSubmissions still on archived record {src_id} (read-only in BH, NOT moved):\n"
+        f"Notes copied to this record: {copied_note_ids}\n"
+        f"JobSubmissions:\n"
         + ("\n".join(js_lines) if js_lines else "  (none)") + "\n"
-        f"5/11/2026 Files still on archived record {src_id} (NOT moved — manual re-upload if needed):\n"
+        f"Files:\n"
         + ("\n".join(file_lines) if file_lines else "  (none)") + "\n"
-        f"Recommendation: recruiter review attached job(s) and re-create the application "
-        f"on this live record if desired. The archived record {src_id} has been left "
-        f"intact for full audit trail."
+        f"Note: A NEW JobSubmission was created here (the original on {src_id} is read-only "
+        f"and could not be re-parented). Status mirrors the original. Original entities are "
+        f"preserved on {src_id} for full audit trail."
     )
 
 
@@ -181,6 +188,103 @@ def _build_audit_note_for_loser(dst_id: int, copied_note_ids: List[int]) -> str:
         f"to the live winner candidate {dst_id} (notes {copied_note_ids}). "
         f"This archived record remains in place for audit trail."
     )
+
+
+def _create_job_submission(bh, candidate_id: int, orig_sub: Dict) -> Optional[int]:
+    """Create a NEW JobSubmission on candidate_id mirroring the original (job, status, source).
+    Returns the new submission id, or None on failure."""
+    jo = orig_sub.get('jobOrder') or {}
+    job_id = jo.get('id')
+    if not job_id:
+        log.error(f"  Cannot create JobSubmission — original {orig_sub.get('id')} has no jobOrder.id")
+        return None
+
+    payload = {
+        'candidate': {'id': int(candidate_id)},
+        'jobOrder': {'id': int(job_id)},
+        'status': orig_sub.get('status') or 'New Lead',
+        'source': orig_sub.get('source') or 'LinkedIn Job Board',
+        'isDeleted': False,
+    }
+    url = f"{bh.base_url}entity/JobSubmission"
+    params = {'BhRestToken': bh.rest_token}
+    try:
+        r = bh.session.put(url, params=params, json=payload, timeout=60)
+        if r.status_code == 401:
+            bh.rest_token = None
+            if bh.authenticate():
+                params['BhRestToken'] = bh.rest_token
+                r = bh.session.put(url, params=params, json=payload, timeout=60)
+        if r.status_code in (200, 201):
+            data = r.json() or {}
+            new_id = data.get('changedEntityId')
+            log.info(f"  ✅ Created JobSubmission #{new_id} on candidate {candidate_id} (job={job_id}, status={payload['status']!r}, source={payload['source']!r})")
+            return new_id
+        log.error(f"  ❌ JobSubmission create failed: HTTP {r.status_code} body={r.text[:300]}")
+        return None
+    except Exception as e:
+        log.error(f"  ❌ JobSubmission create exception: {e}")
+        return None
+
+
+def _copy_file(bh, src_candidate_id: int, dst_candidate_id: int, file_meta: Dict) -> Optional[int]:
+    """Download a file from src candidate then upload to dst candidate.
+    Returns new file id or None."""
+    file_id = file_meta.get('id')
+    if not file_id:
+        return None
+    # 1) DOWNLOAD — Bullhorn returns JSON with base64 fileContent
+    dl_url = f"{bh.base_url}file/Candidate/{src_candidate_id}/{file_id}"
+    params = {'BhRestToken': bh.rest_token}
+    try:
+        r = bh.session.get(dl_url, params=params, timeout=120)
+        if r.status_code == 401:
+            bh.rest_token = None
+            if bh.authenticate():
+                params['BhRestToken'] = bh.rest_token
+                r = bh.session.get(dl_url, params=params, timeout=120)
+        if r.status_code != 200:
+            log.error(f"  ❌ File download failed: HTTP {r.status_code} body={r.text[:300]}")
+            return None
+        body = r.json() or {}
+        f_obj = body.get('File') or body.get('file') or body
+        file_content_b64 = f_obj.get('fileContent')
+        if not file_content_b64:
+            log.error(f"  ❌ File download response missing fileContent (keys={list(f_obj.keys())[:10]})")
+            return None
+    except Exception as e:
+        log.error(f"  ❌ File download exception: {e}")
+        return None
+
+    # 2) UPLOAD — PUT /file/Candidate/{dst} with JSON body
+    up_url = f"{bh.base_url}file/Candidate/{dst_candidate_id}"
+    up_payload = {
+        'externalID': f'migrated-from-{src_candidate_id}-{file_id}',
+        'fileType': f_obj.get('fileType') or file_meta.get('fileType') or 'SAMPLE',
+        'name': f_obj.get('name') or file_meta.get('name') or f'migrated_{file_id}.dat',
+        'fileContent': file_content_b64,
+        'contentType': f_obj.get('contentType') or file_meta.get('contentType') or 'application/octet-stream',
+        'description': f'Migrated from archived candidate {src_candidate_id}, original file id {file_id}',
+        'type': f_obj.get('type') or file_meta.get('type') or 'Resume',
+    }
+    up_params = {'BhRestToken': bh.rest_token}
+    try:
+        r = bh.session.put(up_url, params=up_params, json=up_payload, timeout=120)
+        if r.status_code == 401:
+            bh.rest_token = None
+            if bh.authenticate():
+                up_params['BhRestToken'] = bh.rest_token
+                r = bh.session.put(up_url, params=up_params, json=up_payload, timeout=120)
+        if r.status_code in (200, 201):
+            data = r.json() or {}
+            new_id = data.get('fileId') or data.get('changedEntityId')
+            log.info(f"  ✅ Uploaded file '{up_payload['name']}' to candidate {dst_candidate_id} as file id {new_id}")
+            return new_id
+        log.error(f"  ❌ File upload failed: HTTP {r.status_code} body={r.text[:300]}")
+        return None
+    except Exception as e:
+        log.error(f"  ❌ File upload exception: {e}")
+        return None
 
 
 def main(apply: bool = False) -> int:
@@ -228,11 +332,17 @@ def main(apply: bool = False) -> int:
     print(f"  → COPY {len(notes_to_copy)} note(s) to live candidate {LIVE_ID}:")
     for n in notes_to_copy:
         print(f"      • {n.get('action')!r} (orig id {n['id']}, {_ms_to_iso(n.get('dateAdded'))})")
+    print(f"  → CREATE {len(inv['web_responses_5_11'])} new JobSubmission(s) on live candidate {LIVE_ID}:")
+    for s in inv['web_responses_5_11']:
+        jo = s.get('jobOrder') or {}
+        print(f"      • job={jo.get('id')} ({jo.get('title')}), status={s.get('status')}, source={s.get('source')}  (mirrors orig {s['id']})")
+    print(f"  → COPY {len(inv['files_5_11'])} file(s) (download + re-upload) to live candidate {LIVE_ID}:")
+    for f in inv['files_5_11']:
+        print(f"      • {f.get('name')!r} type={f.get('type')}  (mirrors orig file id {f.get('id')})")
     print(f"  → WRITE 1 audit-trail note on live candidate {LIVE_ID}")
     print(f"  → WRITE 1 audit-trail note on archived candidate {ARCHIVED_ID}")
-    print(f"  → DO NOT TOUCH JobSubmissions (Bullhorn-side read-only — documented in audit note)")
-    print(f"  → DO NOT TOUCH file attachments (would require download+re-upload — documented in audit note)")
-    print(f"  → DO NOT TOUCH any other field on either record")
+    print(f"  → DO NOT TOUCH candidate.status on either record (4452544 stays 'Placed', 4020713 stays 'Archive')")
+    print(f"  → DO NOT delete original notes/submissions/files on {ARCHIVED_ID} — preserved for audit")
 
     if not apply:
         print("\n[DRY RUN] No writes performed. Re-run with --apply to execute.")
@@ -245,6 +355,10 @@ def main(apply: bool = False) -> int:
     # Phase 2: writes
     print(f"\n────── EXECUTING WRITES ──────")
     copied_note_ids: List[int] = []
+    new_submission_map: Dict[int, int] = {}
+    new_file_map: Dict[int, int] = {}
+
+    # 1) Notes
     for n in notes_to_copy:
         body = _build_migrated_note_body(n, ARCHIVED_ID)
         new_id = bh.create_candidate_note(LIVE_ID, body, action=n.get('action') or 'General Notes')
@@ -254,10 +368,23 @@ def main(apply: bool = False) -> int:
         else:
             log.error(f"❌ FAILED to copy note (orig {n['id']}) — see logs above; continuing")
 
+    # 2) JobSubmissions (web responses)
+    for s in inv['web_responses_5_11']:
+        new_sid = _create_job_submission(bh, LIVE_ID, s)
+        if new_sid:
+            new_submission_map[s['id']] = new_sid
+
+    # 3) Files
+    for f in inv['files_5_11']:
+        new_fid = _copy_file(bh, ARCHIVED_ID, LIVE_ID, f)
+        if new_fid:
+            new_file_map[f['id']] = new_fid
+
     # Audit on winner
     audit_winner_id = bh.create_candidate_note(
         LIVE_ID,
-        _build_audit_note_for_winner(inv, ARCHIVED_ID, LIVE_ID, copied_note_ids),
+        _build_audit_note_for_winner(inv, ARCHIVED_ID, LIVE_ID, copied_note_ids,
+                                      new_submission_map, new_file_map),
         action='General Notes',
     )
     log.info(f"✅ Wrote winner audit note id={audit_winner_id} on {LIVE_ID}")
