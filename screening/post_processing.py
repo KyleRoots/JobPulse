@@ -286,6 +286,88 @@ def enforce_recency_hard_gate(result, job_id):
                 result['gaps_identified'] = recency_note
 
 
+_CONTINUITY_GAP_ENFORCER_COUNTER = 0
+
+
+def enforce_employment_continuity_gap(result, job_id):
+    """
+    Safety-net enforcer for the EMPLOYMENT CONTINUITY rule (system_prompt.py rule 15).
+
+    The prompt instructs the AI to compute months_since_last_role and apply a
+    tiered technical_score penalty (-8 / -12 / -15 for 12-23 / 24-35 / 36+ month
+    gaps since the candidate's most recent role ended). When the AI silently
+    skips this rule — typically anchored on a strong technical match — this
+    enforcer catches the miss using the AI's own employment_gap_analysis.gap_months
+    field and floors the penalty to the correct tier.
+
+    Pairs with enforce_midcareer_gap (gaps BETWEEN roles) and
+    enforce_recency_hard_gate (domain drift). This one covers gaps SINCE the
+    most recent role ended — a previously uncovered failure mode.
+
+    Fail-soft: if employment_gap_analysis is missing or malformed, no-op.
+    """
+    global _CONTINUITY_GAP_ENFORCER_COUNTER
+
+    gap_analysis = result.get('employment_gap_analysis', {})
+    if not isinstance(gap_analysis, dict) or not gap_analysis:
+        return
+
+    try:
+        gap_months = int(gap_analysis.get('gap_months', 0))
+    except (ValueError, TypeError):
+        return
+
+    raw_penalty = gap_analysis.get('penalty_applied', None)
+    if raw_penalty is None or raw_penalty == '':
+        return
+    try:
+        ai_penalty = abs(int(raw_penalty))
+    except (ValueError, TypeError):
+        return
+
+    if gap_months >= 36:
+        target_penalty = 15
+    elif gap_months >= 24:
+        target_penalty = 12
+    elif gap_months >= 12:
+        target_penalty = 8
+    else:
+        return
+
+    if ai_penalty >= target_penalty:
+        return
+
+    delta = target_penalty - ai_penalty
+    tech_before = result.get('technical_score', result['match_score'])
+    result['technical_score'] = max(0, tech_before - delta)
+    match_before = result['match_score']
+    result['match_score'] = max(0, match_before - delta)
+
+    last_end = gap_analysis.get('last_role_end_date', 'unknown')
+    logger.info(
+        f"📉 Continuity gap enforcer: AI applied {ai_penalty}pts but target is "
+        f"{target_penalty}pts for {gap_months}-month gap (last role ended {last_end}). "
+        f"Added delta {delta}pts for job {job_id}. "
+        f"technical_score: {tech_before}→{result['technical_score']}, "
+        f"match_score: {match_before}→{result['match_score']} "
+        f"event=continuity_gap_enforced counter={_CONTINUITY_GAP_ENFORCER_COUNTER + 1}"
+    )
+
+    _CONTINUITY_GAP_ENFORCER_COUNTER += 1
+
+    continuity_note = (
+        f"Employment gap: candidate last employed {last_end} "
+        f"({gap_months} months ago) — penalty -{target_penalty}pts."
+    )
+    existing_gaps = result.get('gaps_identified', '') or ''
+    continuity_signature = 'candidate last employed'
+    if continuity_signature not in existing_gaps.lower():
+        if existing_gaps:
+            result['gaps_identified'] = f"{existing_gaps} | {continuity_note}"
+        else:
+            result['gaps_identified'] = continuity_note
+
+
 def enforce_midcareer_gap(result, job_id):
     _gap_analysis = result.get('employment_gap_analysis', {})
     if not isinstance(_gap_analysis, dict) or not _gap_analysis:

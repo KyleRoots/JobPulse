@@ -225,6 +225,18 @@ CRITICAL RULES:
 
 15. EMPLOYMENT CONTINUITY: Check whether the candidate is currently employed by looking at
     the end date of their most recent role (any role, regardless of relevance).
+    - MANDATORY SHOW-YOUR-WORK STEP (do this BEFORE you decide on a score):
+      a) Identify the END DATE of the candidate's most recent role from the resume (any role,
+         regardless of relevance to this job). Write it as YYYY-MM.
+      b) Compute `months_since_last_role` = (today_year × 12 + today_month) −
+         (last_end_year × 12 + last_end_month). Today's date is provided at the top of this prompt.
+      c) Apply the tier table below using the COMPUTED value — do NOT eyeball it, do NOT skip
+         this step because the technical fit is strong. A 90% technical fit with a 25-month gap
+         is NOT the same as a 90% technical fit with no gap.
+      WORKED EXAMPLE: Today = 2026-05. Resume's most recent role ends "Apr 2024" → last_end = 2024-04
+      → months_since_last_role = (2026×12+5) − (2024×12+4) = 24313 − 24292 = 25 months → falls in
+      the 24–35 tier → reduce technical_score by 12 points AND add the gap note to gaps_identified.
+      Populate `employment_gap_analysis.gap_months = 25` and `penalty_applied = 12`.
     - "Currently employed" means the most recent role has an end date of "Present", "Current",
       "Now", or a date within the last 12 months of today's date (provided at the top of this prompt).
     - If currently employed OR last role ended less than 12 months ago: NO penalty.

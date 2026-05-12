@@ -655,11 +655,13 @@ class AdminHealthService:
         try:
             from screening import dedup as _dedup_mod
             from screening import note_builder as _nb_mod
+            from screening import post_processing as _pp_mod
             from models import VettingConfig
 
             cooldown_blocks = int(getattr(_dedup_mod, '_COOLDOWN_BLOCK_COUNTER', 0) or 0)
             recruiter_blocks = int(getattr(_dedup_mod, '_RECRUITER_DECISION_BLOCK_COUNTER', 0) or 0)
             dedupe_blocks = int(getattr(_nb_mod, '_DEDUPE_REJECTION_COUNTER', 0) or 0)
+            continuity_enforced = int(getattr(_pp_mod, '_CONTINUITY_GAP_ENFORCER_COUNTER', 0) or 0)
 
             try:
                 cooldown_min = int((VettingConfig.get_value('self_screen_cooldown_minutes') or '60').strip())
@@ -696,7 +698,8 @@ class AdminHealthService:
             value = f'{total_blocks:,} block(s)'
             subtext = (
                 f'cooldown={cooldown_blocks} · recruiter-decision={recruiter_blocks} · '
-                f'note-dedupe={dedupe_blocks} (per-worker since boot) · '
+                f'note-dedupe={dedupe_blocks} · continuity-enforced={continuity_enforced} '
+                f'(per-worker since boot) · '
                 f'cooldown={cooldown_min}min · recruiter-skip={recruiter_state}'
             )
             return HealthTile(

@@ -245,6 +245,7 @@ from screening.post_processing import (
     enforce_remote_location,
     enforce_years_hard_gate,
     enforce_recency_hard_gate,
+    enforce_employment_continuity_gap,
     enforce_midcareer_gap,
     enforce_experience_floor,
     apply_prestige_detection,
@@ -710,6 +711,7 @@ GLOBAL SCREENING INSTRUCTIONS (apply to all jobs):
             enforce_remote_location(result, job_id, work_type)
             enforce_years_hard_gate(result, job_id, job_title, resume_text, self._recheck_years_calculation)
             enforce_recency_hard_gate(result, job_id)
+            enforce_employment_continuity_gap(result, job_id)
             enforce_midcareer_gap(result, job_id)
             enforce_experience_floor(result, job_id, custom_requirements, job_description)
             apply_prestige_detection(result, job_id, resume_text)
