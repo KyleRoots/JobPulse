@@ -1,0 +1,290 @@
+{% extends "base_layout.html" %}
+
+{% block title %}Quality Auditor — Scout Genius™{% endblock %}
+
+{% block page_title %}Scout Quality Auditor{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Audit funnel, phase split, cost, heuristic breakdown, backlog, and live tunables. Source: vetting_audit_log + openai_call_log.</p>{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .qa-window { margin-bottom: 16px; display: flex; align-items: center; flex-wrap: wrap; }
+    .qa-window a {
+        display: inline-block; padding: 6px 12px; margin-right: 8px;
+        border-radius: 6px; background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.1);
+        color: inherit; text-decoration: none; font-size: 13px;
+    }
+    .qa-window a.active { background: rgba(99,102,241,0.25); border-color: rgba(99,102,241,0.5); }
+    .qa-grid {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 16px; margin-bottom: 24px;
+    }
+    .qa-card {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 10px; padding: 18px 20px;
+    }
+    .qa-card .lbl { font-size: 12px; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.5px; }
+    .qa-card .val { font-size: 26px; font-weight: 700; margin-top: 4px; }
+    .qa-card .sub { font-size: 12px; opacity: 0.65; margin-top: 4px; }
+    .qa-section {
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 10px; padding: 18px 20px; margin-bottom: 20px;
+    }
+    .qa-section h3 {
+        margin: 0 0 14px 0; font-size: 16px; font-weight: 600;
+        opacity: 0.9; display: flex; align-items: center; gap: 8px;
+    }
+    .qa-table { width: 100%; border-collapse: collapse; }
+    .qa-table th, .qa-table td {
+        padding: 8px 10px; text-align: left;
+        border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 13px;
+    }
+    .qa-table th { font-weight: 600; opacity: 0.75; text-transform: uppercase; letter-spacing: 0.4px; font-size: 11px; }
+    .qa-table td.numeric { text-align: right; font-variant-numeric: tabular-nums; }
+    .qa-table tr:hover { background: rgba(255,255,255,0.03); }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+    .pill-green { background: rgba(74,222,128,0.18); color: #4ade80; }
+    .pill-yellow { background: rgba(251,191,36,0.18); color: #fbbf24; }
+    .pill-red { background: rgba(248,113,113,0.18); color: #f87171; }
+    .pill-blue { background: rgba(96,165,250,0.18); color: #60a5fa; }
+    .pill-grey { background: rgba(255,255,255,0.08); opacity: 0.75; }
+    .phase-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 720px) { .phase-grid { grid-template-columns: 1fr; } }
+    .phase-card {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 8px; padding: 14px 16px;
+    }
+    .phase-card h4 { margin: 0 0 8px 0; font-size: 14px; font-weight: 600; }
+    .phase-card .row { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; }
+    .phase-card .row .k { opacity: 0.75; }
+    .empty-note { padding: 14px; opacity: 0.65; font-size: 13px; font-style: italic; }
+    .nowrap { white-space: nowrap; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="qa-window">
+    {% for w in windows %}
+        <a href="?window={{ w }}" class="{% if primary_window == w %}active{% endif %}">{{ w }}</a>
+    {% endfor %}
+    <span style="opacity: 0.6; font-size: 12px; margin-left: 12px;">Primary window since {{ since_iso }} · match threshold {{ '%.0f' % threshold }}</span>
+    <a href="{{ url_for('ai_cost.ai_cost_dashboard') }}" style="margin-left: auto;">&larr; AI Cost</a>
+</div>
+
+{% set fp = funnels[primary_window] %}
+{% set cp = costs[primary_window] %}
+
+<div class="qa-grid">
+    <div class="qa-card">
+        <div class="lbl">Audits Run ({{ primary_window }})</div>
+        <div class="val">{{ '{:,}'.format(fp.audits if fp else 0) }}</div>
+        <div class="sub">candidates reviewed by auditor</div>
+    </div>
+    <div class="qa-card">
+        <div class="lbl">Findings</div>
+        <div class="val">{{ '{:,}'.format(fp.findings if fp else 0) }}</div>
+        <div class="sub">{{ '%.1f' % (fp.finding_rate_pct if fp else 0) }}% of audits flagged an issue</div>
+    </div>
+    <div class="qa-card">
+        <div class="lbl">Re-vets Triggered</div>
+        <div class="val">{{ '{:,}'.format(fp.revets if fp else 0) }}</div>
+        <div class="sub">{{ '%.1f' % (fp.revet_rate_pct if fp else 0) }}% of audits → re-vet</div>
+    </div>
+    <div class="qa-card">
+        <div class="lbl">Score Flips</div>
+        <div class="val">{{ '{:,}'.format(fp.flips if fp else 0) }}</div>
+        <div class="sub">{{ '%.1f' % (fp.flip_rate_pct if fp else 0) }}% of re-vets crossed the threshold</div>
+    </div>
+    <div class="qa-card">
+        <div class="lbl">False-Neg Rescues</div>
+        <div class="val">{{ '{:,}'.format(fp.false_neg_rescues if fp else 0) }}</div>
+        <div class="sub">below → at/above {{ '%.0f' % threshold }}</div>
+    </div>
+    <div class="qa-card">
+        <div class="lbl">False-Pos Catches</div>
+        <div class="val">{{ '{:,}'.format(fp.false_pos_catches if fp else 0) }}</div>
+        <div class="sub">at/above {{ '%.0f' % threshold }} → below</div>
+    </div>
+    <div class="qa-card">
+        <div class="lbl">Auditor Cost ({{ primary_window }})</div>
+        <div class="val">${{ '%.2f' % cp.cost }}</div>
+        <div class="sub">{{ '{:,}'.format(cp.calls) }} GPT calls · avg ${{ '%.4f' % cp.avg_cost }}/call</div>
+    </div>
+    <div class="qa-card">
+        <div class="lbl">Backlog (7d)</div>
+        <div class="val">{{ '{:,}'.format(backlog.unaudited) }}</div>
+        <div class="sub">unaudited completed screens · oldest {{ '%.1f' % backlog.oldest_age_hours }}h</div>
+    </div>
+</div>
+
+<div class="qa-section">
+    <h3><i class="fas fa-stream"></i> Funnel — All Windows</h3>
+    <table class="qa-table">
+        <thead>
+            <tr>
+                <th>Window</th>
+                <th class="numeric">Audits</th>
+                <th class="numeric">Findings</th>
+                <th class="numeric">High Conf.</th>
+                <th class="numeric">Re-vets</th>
+                <th class="numeric">Flips</th>
+                <th class="numeric">Flip %</th>
+                <th class="numeric">Pending</th>
+                <th class="numeric">Cost</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for w in windows %}
+                {% set f = funnels[w] %}
+                {% set c = costs[w] %}
+                <tr>
+                    <td><strong>{{ w }}</strong></td>
+                    <td class="numeric">{{ '{:,}'.format(f.audits if f else 0) }}</td>
+                    <td class="numeric">{{ '{:,}'.format(f.findings if f else 0) }}</td>
+                    <td class="numeric">{{ '{:,}'.format(f.high_conf_findings if f else 0) }}</td>
+                    <td class="numeric">{{ '{:,}'.format(f.revets if f else 0) }}</td>
+                    <td class="numeric">{{ '{:,}'.format(f.flips if f else 0) }}</td>
+                    <td class="numeric">{{ '%.1f' % (f.flip_rate_pct if f else 0) }}%</td>
+                    <td class="numeric">{{ '{:,}'.format(f.revets_pending if f else 0) }}</td>
+                    <td class="numeric">${{ '%.2f' % (c.cost if c else 0) }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="qa-section">
+    <h3><i class="fas fa-layer-group"></i> Phase Split ({{ primary_window }})</h3>
+    {% set ps = phase_splits[primary_window] %}
+    <div class="phase-grid">
+        <div class="phase-card">
+            <h4><span class="pill pill-blue">Phase 1</span> Not-Qualified Sweep</h4>
+            {% if ps.phase_1 %}
+                <div class="row"><span class="k">Audits</span><span>{{ '{:,}'.format(ps.phase_1.audits) }}</span></div>
+                <div class="row"><span class="k">Findings</span><span>{{ '{:,}'.format(ps.phase_1.findings) }}</span></div>
+                <div class="row"><span class="k">Re-vets</span><span>{{ '{:,}'.format(ps.phase_1.revets) }}</span></div>
+                <div class="row"><span class="k">Skipped (capped)</span><span>{{ '{:,}'.format(ps.phase_1.revets_capped) }}</span></div>
+                <div class="row"><span class="k">Skipped (stable)</span><span>{{ '{:,}'.format(ps.phase_1.revets_stable) }}</span></div>
+            {% else %}
+                <div class="empty-note">No Phase 1 audits in this window.</div>
+            {% endif %}
+        </div>
+        <div class="phase-card">
+            <h4><span class="pill pill-yellow">Phase 2</span> Qualified Sample (false-positive check)</h4>
+            {% if ps.phase_2 %}
+                <div class="row"><span class="k">Audits</span><span>{{ '{:,}'.format(ps.phase_2.audits) }}</span></div>
+                <div class="row"><span class="k">Findings</span><span>{{ '{:,}'.format(ps.phase_2.findings) }}</span></div>
+                <div class="row"><span class="k">Re-vets</span><span>{{ '{:,}'.format(ps.phase_2.revets) }}</span></div>
+                <div class="row"><span class="k">Skipped (capped)</span><span>{{ '{:,}'.format(ps.phase_2.revets_capped) }}</span></div>
+                <div class="row"><span class="k">Skipped (stable)</span><span>{{ '{:,}'.format(ps.phase_2.revets_stable) }}</span></div>
+            {% else %}
+                <div class="empty-note">No Phase 2 audits in this window — check <code>qualified_audit_sample_rate</code> below.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="qa-section">
+    <h3><i class="fas fa-tags"></i> Heuristic Breakdown ({{ primary_window }})</h3>
+    {% if finding_breakdown %}
+        <table class="qa-table">
+            <thead><tr><th>Finding Type</th><th class="numeric">Count</th></tr></thead>
+            <tbody>
+                {% for f in finding_breakdown %}
+                    <tr>
+                        <td>
+                            {% if f.finding_type == 'no_issue' %}
+                                <span class="pill pill-green">{{ f.finding_type }}</span>
+                            {% elif f.finding_type == 'unknown' %}
+                                <span class="pill pill-grey">{{ f.finding_type }}</span>
+                            {% else %}
+                                <span class="pill pill-yellow">{{ f.finding_type }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="numeric">{{ '{:,}'.format(f.count) }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="empty-note">No audit findings recorded in this window.</div>
+    {% endif %}
+</div>
+
+<div class="qa-section">
+    <h3><i class="fas fa-sliders-h"></i> Live Tunable Settings <small style="opacity:0.6;font-weight:400;">(from <code>vetting_config</code>)</small></h3>
+    <table class="qa-table">
+        <tbody>
+            {% for k, v in settings.items() %}
+                <tr>
+                    <td style="width: 60%;"><code>{{ k }}</code></td>
+                    <td class="numeric">
+                        {% if v is none or v == '' %}
+                            <span class="pill pill-grey">unset</span>
+                        {% else %}
+                            <strong>{{ v }}</strong>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div style="margin-top: 10px; font-size: 12px; opacity: 0.7;">
+        Edit at <a href="/vetting/settings">/vetting/settings</a>.
+    </div>
+</div>
+
+<div class="qa-section">
+    <h3><i class="fas fa-history"></i> Recent Audit Actions ({{ primary_window }}, last 25)</h3>
+    {% if recent_actions %}
+        <table class="qa-table">
+            <thead>
+                <tr>
+                    <th>When (UTC)</th>
+                    <th>Candidate</th>
+                    <th>Job</th>
+                    <th class="numeric">Orig</th>
+                    <th class="numeric">New</th>
+                    <th>Finding</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in recent_actions %}
+                    <tr>
+                        <td class="nowrap">{{ r.created_at.strftime('%Y-%m-%d %H:%M') if r.created_at else '' }}</td>
+                        <td>{{ r.candidate_name or '—' }} <small style="opacity:0.55;">#{{ r.candidate_id }}</small></td>
+                        <td>{{ (r.job_title or '—')|truncate(40) }} {% if r.job_id %}<small style="opacity:0.55;">#{{ r.job_id }}</small>{% endif %}</td>
+                        <td class="numeric">{{ '%.0f' % r.original_score if r.original_score is not none else '—' }}</td>
+                        <td class="numeric">{{ '%.0f' % r.revet_new_score if r.revet_new_score is not none else '—' }}</td>
+                        <td>
+                            {% if r.finding_type == 'no_issue' %}
+                                <span class="pill pill-green">{{ r.finding_type }}</span>
+                            {% else %}
+                                <span class="pill pill-yellow">{{ r.finding_type or '—' }}</span>
+                            {% endif %}
+                            {% if r.confidence %}<small style="opacity:0.6;">({{ r.confidence }})</small>{% endif %}
+                        </td>
+                        <td>
+                            {% if r.action_taken == 'revet_triggered' %}
+                                <span class="pill pill-blue">{{ r.action_taken }}</span>
+                            {% elif r.action_taken in ('revet_skipped_capped', 'revet_skipped_stable') %}
+                                <span class="pill pill-grey">{{ r.action_taken }}</span>
+                            {% elif r.action_taken in ('none', 'no_action') %}
+                                <span class="pill pill-grey">{{ r.action_taken }}</span>
+                            {% else %}
+                                <span class="pill pill-yellow">{{ r.action_taken or '—' }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="empty-note">No audits in this window.</div>
+    {% endif %}
+</div>
+{% endblock %}

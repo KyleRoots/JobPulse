@@ -55,7 +55,10 @@
         <a href="?hours={{ h }}" class="{% if hours == h %}active{% endif %}">{{ label }}</a>
     {% endfor %}
     <span style="opacity: 0.6; font-size: 12px; margin-left: 12px;">Since {{ since_iso }}</span>
-    <a href="{{ url_for('ai_cost.embedding_ab_analysis') }}" style="margin-left: auto; background: rgba(13,202,240,0.25); border-color: rgba(13,202,240,0.5);">
+    <a href="{{ url_for('ai_cost.auditor_dashboard') }}" style="margin-left: auto; background: rgba(74,222,128,0.25); border-color: rgba(74,222,128,0.5);">
+        Quality Auditor &rarr;
+    </a>
+    <a href="{{ url_for('ai_cost.embedding_ab_analysis') }}" style="margin-left: 0.5rem; background: rgba(13,202,240,0.25); border-color: rgba(13,202,240,0.5);">
         Embedding A/B &rarr;
     </a>
     <a href="{{ url_for('ai_cost.ai_cost_forecast') }}" style="margin-left: 0.5rem; background: rgba(99,102,241,0.25); border-color: rgba(99,102,241,0.5);">

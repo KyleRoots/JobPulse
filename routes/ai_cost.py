@@ -562,6 +562,343 @@ def embedding_ab_analysis():
     )
 
 
+# --- Quality Auditor Dashboard (Task 1 — Auditor Visibility) ----------------
+
+_AUDIT_DEFAULT_THRESHOLD = 80.0
+
+
+def _resolve_audit_threshold() -> float:
+    """Pull the global match threshold so flip-rate math uses the live value."""
+    try:
+        from models import VettingConfig
+        raw = VettingConfig.get_value('match_threshold')
+        return float(raw) if raw else _AUDIT_DEFAULT_THRESHOLD
+    except Exception:
+        return _AUDIT_DEFAULT_THRESHOLD
+
+
+def _audit_phase_split(since, threshold):
+    """Per-phase counts derived from the audit row's IMMUTABLE original_score.
+
+    Phase 1 = not-qualified sweep (original_score < threshold at audit time).
+    Phase 2 = qualified sample (original_score >= threshold at audit time).
+
+    We deliberately bucket off `val.original_score` rather than joining to
+    `candidate_vetting_log.is_qualified`: that field is mutated by later
+    re-vetting runs, so a Phase 1 false-negative rescue could be silently
+    re-bucketed as Phase 2 after the fact. `val.original_score` is the
+    score the auditor saw at audit time and never changes.
+
+    Rows with NULL original_score (rare; defensive) are placed in
+    `phase_unknown` rather than silently dropped.
+    """
+    sql = """
+        SELECT
+            CASE
+                WHEN val.original_score IS NULL THEN 'phase_unknown'
+                WHEN val.original_score >= :thr THEN 'phase_2'
+                ELSE 'phase_1'
+            END AS phase,
+            COUNT(*) AS audits,
+            SUM(CASE WHEN val.finding_type IS NOT NULL AND val.finding_type <> 'no_issue' THEN 1 ELSE 0 END) AS findings,
+            SUM(CASE WHEN val.action_taken = 'revet_triggered' THEN 1 ELSE 0 END) AS revets,
+            SUM(CASE WHEN val.action_taken = 'revet_skipped_capped' THEN 1 ELSE 0 END) AS revets_capped,
+            SUM(CASE WHEN val.action_taken = 'revet_skipped_stable' THEN 1 ELSE 0 END) AS revets_stable
+        FROM vetting_audit_log val
+        WHERE val.created_at >= :since
+        GROUP BY 1
+    """
+    try:
+        rows = db.session.execute(text(sql), {'since': since, 'thr': threshold}).fetchall()
+    except Exception as exc:
+        logger.warning(f"audit phase split query failed: {exc}")
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        return {'phase_1': None, 'phase_2': None, 'phase_unknown': None}
+
+    out = {'phase_1': None, 'phase_2': None, 'phase_unknown': None}
+    for r in rows:
+        bucket = r[0] or 'phase_unknown'
+        out[bucket] = {
+            'audits': int(r[1] or 0),
+            'findings': int(r[2] or 0),
+            'revets': int(r[3] or 0),
+            'revets_capped': int(r[4] or 0),
+            'revets_stable': int(r[5] or 0),
+        }
+    return out
+
+
+def _audit_funnel(since, threshold):
+    """Aggregate audit funnel + flip counts for one time window."""
+    sql = """
+        SELECT
+            COUNT(*) AS audits,
+            SUM(CASE WHEN val.finding_type IS NOT NULL AND val.finding_type <> 'no_issue' THEN 1 ELSE 0 END) AS findings,
+            SUM(CASE WHEN val.confidence = 'high' AND val.finding_type <> 'no_issue' THEN 1 ELSE 0 END) AS high_conf_findings,
+            SUM(CASE WHEN val.action_taken = 'revet_triggered' THEN 1 ELSE 0 END) AS revets,
+            SUM(CASE
+                    WHEN val.action_taken = 'revet_triggered'
+                     AND val.original_score IS NOT NULL
+                     AND val.revet_new_score IS NOT NULL
+                     AND (
+                          (val.original_score <  :thr AND val.revet_new_score >= :thr) OR
+                          (val.original_score >= :thr AND val.revet_new_score <  :thr)
+                     )
+                THEN 1 ELSE 0
+            END) AS flips,
+            SUM(CASE
+                    WHEN val.action_taken = 'revet_triggered'
+                     AND val.original_score IS NOT NULL
+                     AND val.revet_new_score IS NOT NULL
+                     AND val.original_score <  :thr
+                     AND val.revet_new_score >= :thr
+                THEN 1 ELSE 0
+            END) AS false_neg_rescues,
+            SUM(CASE
+                    WHEN val.action_taken = 'revet_triggered'
+                     AND val.original_score IS NOT NULL
+                     AND val.revet_new_score IS NOT NULL
+                     AND val.original_score >= :thr
+                     AND val.revet_new_score <  :thr
+                THEN 1 ELSE 0
+            END) AS false_pos_catches,
+            SUM(CASE WHEN val.action_taken = 'revet_triggered' AND val.revet_new_score IS NULL THEN 1 ELSE 0 END) AS revets_pending
+        FROM vetting_audit_log val
+        WHERE val.created_at >= :since
+    """
+    try:
+        row = db.session.execute(text(sql), {'since': since, 'thr': threshold}).fetchone()
+    except Exception as exc:
+        logger.warning(f"audit funnel query failed: {exc}")
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        return None
+    if not row:
+        return None
+    audits = int(row[0] or 0)
+    revets = int(row[3] or 0)
+    flips = int(row[4] or 0)
+    return {
+        'audits': audits,
+        'findings': int(row[1] or 0),
+        'high_conf_findings': int(row[2] or 0),
+        'revets': revets,
+        'flips': flips,
+        'false_neg_rescues': int(row[5] or 0),
+        'false_pos_catches': int(row[6] or 0),
+        'revets_pending': int(row[7] or 0),
+        'finding_rate_pct': (int(row[1] or 0) / audits * 100.0) if audits else 0.0,
+        'revet_rate_pct': (revets / audits * 100.0) if audits else 0.0,
+        'flip_rate_pct': (flips / revets * 100.0) if revets else 0.0,
+    }
+
+
+def _audit_finding_breakdown(since):
+    sql = """
+        SELECT finding_type, COUNT(*) AS n
+        FROM vetting_audit_log
+        WHERE created_at >= :since
+        GROUP BY finding_type
+        ORDER BY n DESC
+    """
+    try:
+        rows = db.session.execute(text(sql), {'since': since}).fetchall()
+    except Exception as exc:
+        logger.warning(f"audit finding breakdown query failed: {exc}")
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        return []
+    return [{'finding_type': r[0] or 'unknown', 'count': int(r[1] or 0)} for r in rows]
+
+
+def _audit_cost(since):
+    sql = """
+        SELECT
+            COUNT(*) AS calls,
+            COALESCE(SUM(input_tokens), 0) AS in_tok,
+            COALESCE(SUM(output_tokens), 0) AS out_tok,
+            COALESCE(SUM(estimated_cost_usd), 0) AS cost,
+            COALESCE(AVG(duration_ms), 0) AS avg_ms
+        FROM openai_call_log
+        WHERE call_site_id = 'vetting_audit' AND created_at >= :since
+    """
+    try:
+        row = db.session.execute(text(sql), {'since': since}).fetchone()
+    except Exception as exc:
+        logger.warning(f"audit cost query failed: {exc}")
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        return {'calls': 0, 'tokens': 0, 'cost': 0.0, 'avg_cost': 0.0, 'avg_ms': 0.0}
+    if not row:
+        return {'calls': 0, 'tokens': 0, 'cost': 0.0, 'avg_cost': 0.0, 'avg_ms': 0.0}
+    calls = int(row[0] or 0)
+    cost = float(row[3] or 0)
+    return {
+        'calls': calls,
+        'tokens': int(row[1] or 0) + int(row[2] or 0),
+        'cost': cost,
+        'avg_cost': (cost / calls) if calls else 0.0,
+        'avg_ms': float(row[4] or 0),
+    }
+
+
+def _audit_backlog():
+    """Completed candidate vetting logs in the last 7 days that have NOT been audited."""
+    sql = """
+        SELECT
+            COUNT(*) AS unaudited,
+            MIN(cvl.analyzed_at) AS oldest_at
+        FROM candidate_vetting_log cvl
+        LEFT JOIN vetting_audit_log val ON val.candidate_vetting_log_id = cvl.id
+        WHERE cvl.status = 'completed'
+          AND COALESCE(cvl.is_sandbox, FALSE) = FALSE
+          AND cvl.analyzed_at >= NOW() - INTERVAL '7 days'
+          AND val.id IS NULL
+    """
+    try:
+        row = db.session.execute(text(sql)).fetchone()
+    except Exception as exc:
+        logger.warning(f"audit backlog query failed: {exc}")
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        return {'unaudited': 0, 'oldest_at': None, 'oldest_age_hours': 0.0}
+    if not row:
+        return {'unaudited': 0, 'oldest_at': None, 'oldest_age_hours': 0.0}
+    oldest_at = row[1]
+    age_hours = 0.0
+    if oldest_at:
+        try:
+            age_hours = (datetime.utcnow() - oldest_at).total_seconds() / 3600.0
+        except Exception:
+            age_hours = 0.0
+    return {
+        'unaudited': int(row[0] or 0),
+        'oldest_at': oldest_at,
+        'oldest_age_hours': age_hours,
+    }
+
+
+def _audit_recent_actions(since, limit=25):
+    sql = """
+        SELECT id, created_at, bullhorn_candidate_id, candidate_name,
+               job_id, job_title, original_score, revet_new_score,
+               finding_type, confidence, action_taken
+        FROM vetting_audit_log
+        WHERE created_at >= :since
+        ORDER BY created_at DESC
+        LIMIT :lim
+    """
+    try:
+        rows = db.session.execute(text(sql), {'since': since, 'lim': limit}).fetchall()
+    except Exception as exc:
+        logger.warning(f"audit recent actions query failed: {exc}")
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        return []
+    out = []
+    for r in rows:
+        out.append({
+            'id': r[0],
+            'created_at': r[1],
+            'candidate_id': r[2],
+            'candidate_name': r[3],
+            'job_id': r[4],
+            'job_title': r[5],
+            'original_score': float(r[6]) if r[6] is not None else None,
+            'revet_new_score': float(r[7]) if r[7] is not None else None,
+            'finding_type': r[8] or '',
+            'confidence': r[9] or '',
+            'action_taken': r[10] or '',
+        })
+    return out
+
+
+def _read_audit_settings():
+    """Pull the live tunable knobs so the UI shows them in context."""
+    try:
+        from models import VettingConfig
+    except Exception:
+        return {}
+    keys = [
+        'qualified_audit_sample_rate',
+        'quality_auditor_model',
+        'auditor_revet_cap_per_24h',
+        'auditor_cooldown_hours',
+        'auditor_revet_score_tolerance',
+    ]
+    out = {}
+    for k in keys:
+        try:
+            out[k] = VettingConfig.get_value(k)
+        except Exception:
+            out[k] = None
+    return out
+
+
+@ai_cost_bp.route('/auditor', methods=['GET'])
+@login_required
+def auditor_dashboard():
+    """Scout Quality Auditor visibility dashboard.
+
+    Shows the audits → revets → flips funnel, phase split (false-negative
+    vs false-positive sweeps), heuristic breakdown, cost, backlog, and the
+    live tunable settings. Read-only — no writes.
+    """
+    _require_admin()
+
+    threshold = _resolve_audit_threshold()
+    now = datetime.utcnow()
+    windows = {
+        '24h': now - timedelta(hours=24),
+        '7d':  now - timedelta(days=7),
+        '30d': now - timedelta(days=30),
+    }
+
+    funnels = {label: _audit_funnel(since, threshold) for label, since in windows.items()}
+    phase_splits = {label: _audit_phase_split(since, threshold) for label, since in windows.items()}
+    costs = {label: _audit_cost(since) for label, since in windows.items()}
+
+    # Choose the "primary" window for headline numbers from query string.
+    primary = request.args.get('window', '7d')
+    if primary not in windows:
+        primary = '7d'
+    since_primary = windows[primary]
+
+    finding_breakdown = _audit_finding_breakdown(since_primary)
+    backlog = _audit_backlog()
+    recent_actions = _audit_recent_actions(since_primary, limit=25)
+    settings = _read_audit_settings()
+
+    return render_template(
+        'admin_ai_cost_auditor.html',
+        active_page='ai_cost',
+        threshold=threshold,
+        primary_window=primary,
+        windows=list(windows.keys()),
+        funnels=funnels,
+        phase_splits=phase_splits,
+        costs=costs,
+        finding_breakdown=finding_breakdown,
+        backlog=backlog,
+        recent_actions=recent_actions,
+        settings=settings,
+        since_iso=since_primary.isoformat() + 'Z',
+    )
+
+
 # --- S2 Screening Shadow A/B Analysis ---------------------------------------
 
 _SCREENING_THRESHOLD_SWEEP = [60, 65, 70, 75, 80, 85, 90]

@@ -160,6 +160,16 @@ MODULE_DEFINITIONS: list[ModuleDef] = [
         notes='AI fuzzy-match second-pass on suspected duplicate candidates.',
     ),
     ModuleDef(
+        key='quality_auditor',
+        label='Quality Auditor',
+        unit='audit run',
+        primary_site='vetting_audit',
+        sites=(
+            'vetting_audit',
+        ),
+        notes='Background AI audit of screening results (false-negative + false-positive checks).',
+    ),
+    ModuleDef(
         key='embeddings',
         label='Embeddings',
         unit='embedding generated',
