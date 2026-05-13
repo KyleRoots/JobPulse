@@ -205,6 +205,20 @@ class VettingCycleMixin:
                         else:
                             logger.info(f"⏭️ Skipping note creation - already exists for candidate {vetting_log.bullhorn_candidate_id}")
 
+                        # Backfill the audit revet_new_score AFTER the Bullhorn note has
+                        # been written. The note's revet banner (note_builder._build_revet_banner)
+                        # looks up audit rows where revet_new_score IS NULL — closing out the
+                        # audit row earlier would suppress the banner on the very screen it
+                        # describes. Fail-soft: errors must never block notifications.
+                        try:
+                            from vetting_audit_service import backfill_revet_new_score
+                            backfill_revet_new_score(vetting_log.bullhorn_candidate_id, vetting_log=vetting_log)
+                        except Exception as backfill_err:
+                            logger.warning(
+                                f"⚠️ Audit revet_new_score back-fill failed for "
+                                f"candidate {vetting_log.bullhorn_candidate_id}: {backfill_err!r}"
+                            )
+
                         notif_count = self.send_recruiter_notifications(vetting_log)
                         summary['notifications_sent'] += notif_count
 

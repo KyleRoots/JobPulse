@@ -629,14 +629,10 @@ class CandidateProcessingMixin:
 
             logger.info(f"✅ Completed analysis for {candidate_name} (ID: {candidate_id}): {len(qualified_matches)} qualified matches out of {len(all_match_results)} jobs")
 
-            try:
-                from vetting_audit_service import backfill_revet_new_score
-                backfill_revet_new_score(candidate_id, vetting_log=vetting_log)
-            except Exception as backfill_err:
-                logger.warning(
-                    f"⚠️ Audit revet_new_score back-fill failed for "
-                    f"candidate {candidate_id}: {backfill_err!r}"
-                )
+            # NOTE: backfill_revet_new_score moved to candidate_vetting_service/cycle.py
+            # — it must run AFTER create_candidate_note writes the Bullhorn note, so the
+            # revet banner (screening/note_builder._build_revet_banner) can still detect
+            # the open audit row (action_taken='revet_triggered', revet_new_score IS NULL).
 
             return vetting_log
 

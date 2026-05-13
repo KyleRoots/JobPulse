@@ -20,6 +20,89 @@ from screening.location_review import is_location_review_match, resolve_match_th
 class NoteBuilderMixin:
     """Bullhorn note formatting and creation."""
 
+    def _build_revet_banner(self, candidate_id: int, applied_job_id):
+        """Return banner lines explaining the AI Quality Auditor revet, if applicable.
+
+        Fires when the most recent VettingAuditLog row for this (candidate, job)
+        has action_taken='revet_triggered' AND revet_new_score IS NULL — meaning
+        this screening cycle was queued by the auditor and the audit row hasn't
+        been closed out yet (backfill runs AFTER note write, per cycle.py).
+
+        Fully fail-soft: any DB error returns []. Banner never blocks note creation.
+        """
+        if not candidate_id or not applied_job_id:
+            return []
+        try:
+            from models import VettingAuditLog
+            cutoff = datetime.utcnow() - timedelta(days=14)
+            row = (
+                VettingAuditLog.query
+                .filter(
+                    VettingAuditLog.bullhorn_candidate_id == int(candidate_id),
+                    VettingAuditLog.job_id == int(applied_job_id),
+                    VettingAuditLog.action_taken == 'revet_triggered',
+                    VettingAuditLog.revet_new_score.is_(None),
+                    VettingAuditLog.created_at >= cutoff,
+                )
+                .order_by(VettingAuditLog.created_at.desc())
+                .first()
+            )
+            if not row:
+                return []
+
+            orig = row.original_score
+            try:
+                from services.vetting_config_service import VettingConfig
+                threshold_raw = VettingConfig.get_value('match_threshold')
+                threshold = float(threshold_raw) if threshold_raw else 80.0
+            except Exception:
+                threshold = 80.0
+
+            delta_txt = ''
+            if orig is not None:
+                try:
+                    delta = threshold - float(orig)
+                    if delta > 0:
+                        delta_txt = f" (just {delta:.0f} points below the {threshold:.0f}% threshold)"
+                    else:
+                        delta_txt = f" ({abs(delta):.0f} points above the {threshold:.0f}% threshold)"
+                except Exception:
+                    pass
+
+            finding = (row.audit_finding or '').strip()
+            if len(finding) > 300:
+                finding = finding[:297].rstrip() + '…'
+            if not finding:
+                finding = (
+                    'The Quality Auditor identified this screen as a borderline call '
+                    'with elevated risk of being a false negative.'
+                )
+
+            orig_str = f"{float(orig):.0f}%" if orig is not None else 'n/a'
+            orig_date = (
+                row.created_at.strftime('%Y-%m-%d %H:%M UTC')
+                if row.created_at else 'n/a'
+            )
+
+            return [
+                "🔁 SCOUT AI AUDITOR — SELF-CORRECTION RE-EVALUATION",
+                "─────────────────────────────────────────────────",
+                "The Scout Quality Auditor flagged this candidate for a second look.",
+                "",
+                f"Original screening: {orig_str}{delta_txt}",
+                f"Flagged on: {orig_date}",
+                f"Auditor reasoning: {finding}",
+                "",
+                "Scout's quality auditor automatically re-evaluates borderline screenings",
+                "to catch cases where the original decision may have been too strict or",
+                "too lenient. The fresh evaluation result is below.",
+                "─────────────────────────────────────────────────",
+                "",
+            ]
+        except Exception as e:
+            logger.warning(f"_build_revet_banner: failed for candidate {candidate_id}: {e!r}")
+            return []
+
     def _format_match_note_block(self, match, job_threshold_map, is_applied=False, show_gaps=False, candidate_id=None):
         lines = []
         lines.append(f"• Job ID: {match.bullhorn_job_id} - {match.job_title}")
@@ -285,7 +368,17 @@ class NoteBuilderMixin:
             # (avoids stating a global threshold that may not apply to this
             # candidate's actual matched position).
             top_match_threshold = resolve_match_threshold(top_lr[0], job_threshold_map, threshold) if top_lr else threshold
-            note_lines = [
+            _lr_applied = next((m for m in location_review_matches if getattr(m, 'is_applied_job', False)), None)
+            _lr_job_id = (
+                getattr(vetting_log, 'applied_job_id', None)
+                or (_lr_applied.bullhorn_job_id if _lr_applied else None)
+                or (top_lr[0].bullhorn_job_id if top_lr else None)
+            )
+            _revet_banner_lines = self._build_revet_banner(
+                vetting_log.bullhorn_candidate_id,
+                _lr_job_id,
+            )
+            note_lines = list(_revet_banner_lines) + [
                 f"📍 SCOUT SCREENING - LOCATION REVIEW REQUIRED",
                 f"",
                 f"Analysis Date: {vetting_log.analyzed_at.strftime('%Y-%m-%d %H:%M UTC') if vetting_log.analyzed_at else 'N/A'}",
@@ -355,7 +448,21 @@ class NoteBuilderMixin:
 
         elif vetting_log.is_qualified:
             # Qualified candidate note
-            note_lines = [
+            applied_match = None
+            other_qualified = []
+            for match in qualified_matches:
+                if match.is_applied_job:
+                    applied_match = match
+                else:
+                    other_qualified.append(match)
+
+            _revet_banner_lines = self._build_revet_banner(
+                vetting_log.bullhorn_candidate_id,
+                getattr(vetting_log, 'applied_job_id', None)
+                    or (applied_match.bullhorn_job_id if applied_match else None),
+            )
+
+            note_lines = list(_revet_banner_lines) + [
                 f"🎯 SCOUT SCREENING - QUALIFIED CANDIDATE",
                 f"",
                 f"Analysis Date: {vetting_log.analyzed_at.strftime('%Y-%m-%d %H:%M UTC') if vetting_log.analyzed_at else 'N/A'}",
@@ -364,14 +471,6 @@ class NoteBuilderMixin:
                 f"Highest Match Score: {vetting_log.highest_match_score:.0f}%",
                 f"",
             ]
-            
-            applied_match = None
-            other_qualified = []
-            for match in qualified_matches:
-                if match.is_applied_job:
-                    applied_match = match
-                else:
-                    other_qualified.append(match)
             
             other_qualified.sort(key=lambda m: m.match_score, reverse=True)
             
@@ -390,7 +489,21 @@ class NoteBuilderMixin:
                 note_lines += self._format_match_note_block(match, job_threshold_map)
         else:
             # Not qualified note
-            note_lines = [
+            applied_match = None
+            other_matches = []
+            for match in matches:
+                if match.is_applied_job:
+                    applied_match = match
+                else:
+                    other_matches.append(match)
+
+            _revet_banner_lines = self._build_revet_banner(
+                vetting_log.bullhorn_candidate_id,
+                getattr(vetting_log, 'applied_job_id', None)
+                    or (applied_match.bullhorn_job_id if applied_match else None),
+            )
+
+            note_lines = list(_revet_banner_lines) + [
                 f"📋 SCOUT SCREENING - NOT RECOMMENDED",
                 f"",
                 f"Analysis Date: {vetting_log.analyzed_at.strftime('%Y-%m-%d %H:%M UTC') if vetting_log.analyzed_at else 'N/A'}",
@@ -401,14 +514,6 @@ class NoteBuilderMixin:
                 f"This candidate did not meet the {threshold}% match threshold for any current open positions.",
                 f"",
             ]
-            
-            applied_match = None
-            other_matches = []
-            for match in matches:
-                if match.is_applied_job:
-                    applied_match = match
-                else:
-                    other_matches.append(match)
             
             other_matches.sort(key=lambda m: m.match_score, reverse=True)
             
