@@ -83,6 +83,96 @@ WORK_AUTH_PHRASES = {
     "lawful permanent",
 }
 
+# Two-word call-to-action phrases scraped from job-board email bodies
+# (LinkedIn, Indeed, Dice, ZipRecruiter, etc.) that have leaked into
+# candidate name fields in production. Production failure: LinkedIn
+# application emails contain an "Invite a Friend" CTA in the email
+# footer; a fallback name extractor captured "Invite Friend" and shipped
+# it to Bullhorn as firstName="Invite" / lastName="Friend" for two
+# different real candidates (#3822915 Sujatha Devineni, #3817209 Sai
+# Charan Mittapalli) across multiple re-applications.
+#
+# Matched as a full-pair check inside ``is_valid_name`` AND as a
+# substring on the lowercased, whitespace-normalised "first last"
+# string so variants like "Invite a Friend" and "Apply Now Here" are
+# caught even when intermediate tokens are stripped.
+#
+# Single tokens like "apply", "click", "view" are too ambiguous to
+# blanket-reject on their own (e.g. surname "Click" exists) — they only
+# trigger rejection when they appear AS PART OF a known CTA phrase.
+CTA_PHRASES = {
+    "invite friend",
+    "invite a friend",
+    "apply now",
+    "apply here",
+    "apply today",
+    "view profile",
+    "view candidate",
+    "view application",
+    "view resume",
+    "view job",
+    "see profile",
+    "see candidate",
+    "see resume",
+    "see more",
+    "click here",
+    "click below",
+    "click apply",
+    "learn more",
+    "get started",
+    "sign up",
+    "sign in",
+    "log in",
+    "save job",
+    "save this",
+    "share job",
+    "share this",
+    "follow company",
+    "follow us",
+    "connect now",
+    "message candidate",
+    "message recruiter",
+    "download resume",
+    "download app",
+    "open app",
+    "unsubscribe here",
+    "manage preferences",
+    "full profile",
+    "read more",
+    "find jobs",
+    "find candidates",
+    "post job",
+    "no reply",
+    "noreply",
+    "do not",
+    "team scout",
+    "scout genius",
+}
+
+
+def is_cta_phrase(text: Optional[str]) -> bool:
+    """Return True if ``text`` is a job-board call-to-action phrase.
+
+    Substring match (case-insensitive, whitespace-normalised) against
+    :data:`CTA_PHRASES`. Used by :func:`is_valid_name` as a final
+    sanity gate so a CTA fragment like "Invite Friend" or "Apply Now"
+    can never be committed as a candidate's first + last name.
+
+    Defensive against typical leak vectors: LinkedIn email footer
+    buttons, Dice/Indeed action links, ZipRecruiter unsubscribe lines,
+    and platform navigation breadcrumbs that AI extractors sometimes
+    capture when the resume itself lacks a clear name header.
+    """
+    if not text:
+        return False
+    normalised = " ".join(text.strip().lower().split())
+    if not normalised:
+        return False
+    for phrase in CTA_PHRASES:
+        if phrase in normalised:
+            return True
+    return False
+
 NAME_TOKEN_RE = r"[A-Za-z][A-Za-z'\-]*"
 # Non-greedy multi-token name capture so trailing suffix anchors match
 # correctly. Allows 1-5 additional tokens after the first.
@@ -170,6 +260,14 @@ def is_valid_name(first_name: Optional[str], last_name: Optional[str]) -> bool:
     # name and shipped it to Bullhorn as the candidate's name.
     combined = f"{first} {last}"
     if is_work_auth_phrase(combined):
+        return False
+
+    # Reject job-board call-to-action phrases ("Invite Friend",
+    # "Apply Now", "View Profile", etc.). Production failure: LinkedIn
+    # email-footer "Invite a Friend" CTA was captured by a fallback name
+    # extractor and committed to Bullhorn as firstName="Invite" /
+    # lastName="Friend" for two real candidates.
+    if is_cta_phrase(combined):
         return False
 
     # Validate first name: must be a single valid token

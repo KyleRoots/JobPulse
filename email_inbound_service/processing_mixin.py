@@ -4,6 +4,7 @@ from typing import Dict, Any
 
 from utils.candidate_name_extraction import (
     build_extraction_summary,
+    is_cta_phrase,
     is_valid_name,
     parse_name_from_email_address,
     parse_name_from_filename,
@@ -120,6 +121,34 @@ class ProcessingMixin:
             candidate_phone = email_candidate.get('phone') or resume_data.get('phone')
             first_name = email_candidate.get('first_name') or resume_data.get('first_name')
             last_name = email_candidate.get('last_name') or resume_data.get('last_name')
+
+            # CTA-Reject Guard: if the resolved (first, last) pair is a
+            # job-board call-to-action phrase ("Invite Friend", "Apply
+            # Now", "View Profile", etc.), drop it and let the recovery
+            # layers below (filename → email local-part → last-resort
+            # AI) try again. Prefers resume_data alone first since the
+            # poisoned value typically comes from the email body, not
+            # the AI resume parser.
+            if first_name and last_name and is_cta_phrase(f"{first_name} {last_name}"):
+                self.logger.warning(
+                    f"CTA-style name rejected: '{first_name} {last_name}' "
+                    f"(likely scraped from email body). Trying resume_data alone, "
+                    f"then falling to recovery layers."
+                )
+                rd_first = resume_data.get('first_name')
+                rd_last = resume_data.get('last_name')
+                if (rd_first and rd_last
+                        and not is_cta_phrase(f"{rd_first} {rd_last}")
+                        and is_valid_name(rd_first, rd_last)):
+                    first_name, last_name = rd_first, rd_last
+                    parsed_email.candidate_name = f"{first_name} {last_name}".strip()
+                    self.logger.info(
+                        f"CTA-Reject Guard recovered name from resume_data: "
+                        f"{first_name} {last_name}"
+                    )
+                else:
+                    first_name = None
+                    last_name = None
 
             has_name = is_valid_name(first_name, last_name)
             has_contact = bool(candidate_email or candidate_phone)
