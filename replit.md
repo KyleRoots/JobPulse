@@ -17,7 +17,13 @@ Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
 Post-Deploy Checkpoints: After every production deploy, schedule a 24–48h follow-up health check covering: (1) workflow logs for new errors, (2) AI cost telemetry vs daily threshold, (3) pipeline throughput (vetting logs, matches, parsed_emails), (4) feature-specific success metrics (e.g. stuck-row counts for the May 2026 auditor fix), and (5) any "watch-items" called out in the original deploy summary. The agent must proactively bring this up at the next session rather than waiting for the user to ask.
 
 ## Open Watch-Items (clear once resolved)
-- **2026-05-15 follow-up**: Verify the 6 `revet_triggered` rows from 2026-05-13/14 (IDs 5833, 5918, 6163, 6242, 6251, 6297) either resolved naturally (revet_new_score populated) OR were correctly reclassified to `revet_skipped_pre_cutoff` by the new `_check_pre_cutoff_eligibility` guard. Any survivor past 24h without resolution = edge-case the new guard missed.
+- **2026-05-15 follow-up — stuck revet rows**: Of the original 6 `revet_triggered` rows from 2026-05-13/14, 2 self-resolved (5833 → new_score 18; 6297 → new_score 68) at the first post-deploy check on 2026-05-14. Remaining 4 to verify:
+  - **ID 5918** (cand 4659539, original score 56, ~20h old at last check) — closest to 24h SLA, primary concern; if still null past 24h = edge case the new guard missed
+  - **ID 6163** (cand 4660006, score 61, ~7h old) — still in window
+  - **IDs 6242, 6251** (cands 4660050, 4660054, ~1.5–1.8h old) — recent, likely fine
+  Goal: each row either has `revet_new_score` populated OR is reclassified to `revet_skipped_pre_cutoff`.
+- **2026-05-15 follow-up — AI cost trend**: 24h spend was **$112.82** at the 2026-05-14 post-deploy check (amber band on System Health tile, baseline $80 green / $200 red). Still ~28% off the $4,700/mo target so not urgent, but trending up from the prior day's $109. **Threshold to investigate: $130/24h sustained** — if tomorrow's check shows ≥ $130 it warrants a per-site drill-down on `screening.scoring`, `screening.scoring.shadow`, and any new top spenders to identify the driver. If $130 is a one-day blip, just note and move on.
+- **2026-05-15 follow-up — Recruiter Transparency batch markers**: At first post-deploy check there were 0 qualified matches (≥75%) in the prior 15min so the new `📌 Applied-job context` and `📎 Multi-recruiter resume` log markers had not yet fired. Validate at 24h that they appear in production logs on real candidates, and capture frequency of the "WITHOUT resume attachment" warning — that's the data we deployed observability to gather.
 
 ## System Architecture
 
