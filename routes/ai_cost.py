@@ -16,7 +16,7 @@ import math
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-from flask import Blueprint, render_template, request, abort, redirect, url_for
+from flask import Blueprint, render_template, request, abort, redirect, url_for, flash
 from flask_login import login_required, current_user
 from sqlalchemy import text
 
@@ -897,6 +897,125 @@ def auditor_dashboard():
         settings=settings,
         since_iso=since_primary.isoformat() + 'Z',
     )
+
+
+# --- One-shot remediation: backfill stuck revet_triggered audit rows -------
+#
+# Mirrors `scripts/backfill_stuck_revets.py` but runs in-process inside the
+# super-admin dashboard so it works on Reserved-VM deployments that don't
+# expose a shell. Idempotent — only updates rows still matching the stuck
+# criteria. Two-step UX: first POST without `confirm=yes` returns a preview
+# (dry-run); second POST with `confirm=yes` commits.
+#
+@ai_cost_bp.route('/auditor/backfill-stuck-revets', methods=['POST'])
+@login_required
+def auditor_backfill_stuck_revets():
+    _require_admin()
+
+    from scripts.backfill_stuck_revets import find_stuck_revets, reclassify
+    from screening.candidate_data import _resolve_vetting_cutoff
+
+    confirm = request.form.get('confirm') == 'yes'
+
+    try:
+        age_hours = max(1, min(720, int(request.form.get('age_hours') or 24)))
+    except (TypeError, ValueError):
+        age_hours = 24
+
+    raw_limit = (request.form.get('limit') or '').strip()
+    try:
+        limit = int(raw_limit) if raw_limit else None
+        if limit is not None and limit <= 0:
+            limit = None
+    except (TypeError, ValueError):
+        limit = None
+
+    cutoff = _resolve_vetting_cutoff()
+    if cutoff is None:
+        flash(
+            'vetting_cutoff_date is unset — backfill cannot run. '
+            "Set the cutoff first via /vetting/settings.",
+            'danger',
+        )
+        return redirect(url_for('ai_cost.auditor_dashboard'))
+
+    age_threshold = datetime.utcnow() - timedelta(hours=age_hours)
+
+    try:
+        rows = find_stuck_revets(cutoff, age_threshold, limit)
+    except Exception as exc:
+        logger.exception(f"Auditor backfill: find_stuck_revets failed: {exc}")
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        flash(f'Backfill query failed: {exc!r}', 'danger')
+        return redirect(url_for('ai_cost.auditor_dashboard'))
+
+    if not rows:
+        flash(
+            f'No stuck rows found (cutoff={cutoff.isoformat()}, '
+            f'age_threshold={age_hours}h). Nothing to do.',
+            'info',
+        )
+        return redirect(url_for('ai_cost.auditor_dashboard'))
+
+    if not confirm:
+        # Keep total flash payload < 2KB to stay well under the 4KB
+        # session-cookie ceiling (browsers drop the cookie above ~4KB,
+        # which silently logs the user out and loses the message).
+        preview_cap = 10
+        preview_rows = []
+        for row, latest_pe_at in rows[:preview_cap]:
+            pe_repr = (
+                latest_pe_at.strftime('%Y-%m-%d %H:%M')
+                if latest_pe_at else 'none'
+            )
+            preview_rows.append(
+                f"#{row.id} cand=#{row.bullhorn_candidate_id} "
+                f"job=#{row.job_id} audit={row.created_at.strftime('%Y-%m-%d %H:%M') if row.created_at else '?'} "
+                f"latest_pe={pe_repr}"
+            )
+        more = (
+            f"\n…and {len(rows) - preview_cap} more (full list omitted to keep session cookie small)"
+            if len(rows) > preview_cap else ''
+        )
+        flash(
+            f"PREVIEW — {len(rows)} stuck row(s) eligible for backfill "
+            f"(cutoff={cutoff.isoformat()}, age={age_hours}h). "
+            f"Sample (first {min(preview_cap, len(rows))}):\n"
+            + '\n'.join(preview_rows)
+            + more
+            + "\n\nIf the count looks right, click 'Confirm & Commit Backfill'.",
+            'warning',
+        )
+        return redirect(url_for('ai_cost.auditor_dashboard'))
+
+    # Commit path
+    try:
+        for row, latest_pe_at in rows:
+            reclassify(row, latest_pe_at, cutoff)
+        db.session.commit()
+    except Exception as exc:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        logger.exception(f"Auditor backfill: commit failed: {exc}")
+        flash(f'Backfill commit failed — rolled back, no rows updated: {exc!r}', 'danger')
+        return redirect(url_for('ai_cost.auditor_dashboard'))
+
+    actor = getattr(current_user, 'username', None) or 'unknown'
+    logger.info(
+        f"event=auditor_backfill_committed actor={actor} "
+        f"rows={len(rows)} cutoff={cutoff.isoformat()} age_threshold_hours={age_hours}"
+    )
+    flash(
+        f'✅ Backfill complete: {len(rows)} row(s) reclassified to '
+        f"'revet_skipped_pre_cutoff'. Funnel will refresh on next page load.",
+        'success',
+    )
+    return redirect(url_for('ai_cost.auditor_dashboard'))
 
 
 # --- S2 Screening Shadow A/B Analysis ---------------------------------------
