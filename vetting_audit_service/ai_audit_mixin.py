@@ -54,7 +54,9 @@ For each suspected signal, consider:
 1. If gaps mention multiple mandatory skills missing, are those skills genuinely absent from the resume? (If absent, the score should NOT be Qualified.)
 2. If the summary uses negative language ("lacks", "limited experience", "no evidence"), does that contradict a score of {score}%?
 3. If years_analysis shows large experience shortfalls (less than half required years), did the AI under-weight the requirement?
-4. Is there a clear mandatory requirement (e.g., active security clearance, specific certification, location/work-authorization compliance) that the resume cannot satisfy?
+4. Is there a clear mandatory requirement that the resume cannot satisfy? IMPORTANT — distinguish between two categories:
+   (a) HARD-FAIL requirements (resume genuinely cannot satisfy): explicit "US citizens only / no sponsorship" with no US work history, an active credential with verifiable expiry the candidate clearly lacks (PE license, specific named certification), or a location/work-authorization compliance issue.
+   (b) INFERENCE-ELIGIBLE requirements (do NOT treat as hard fail): Canadian Government security clearances (Reliability, Enhanced Reliability, Secret, Top Secret) are typically SPONSORED by the hiring employer for eligible candidates — they are not credentials candidates usually bring with them. RULE 2 of the Global Screening Instructions defines default eligibility thresholds (5+ yrs Canadian work history for Reliability/Enhanced Reliability, 10+ yrs for Secret, 15+ yrs for Top Secret) that the screener applies via the canadian_clearance_analysis JSON section. If canadian_clearance_analysis.score_adjustment indicates "No penalty applied" because the candidate met the applicable RULE 2 threshold (or a JD-specified threshold), that is NOT a false-positive — do NOT recommend a revet purely because clearance is "missing" from the resume. Only flag as a finding if the candidate clearly fell BELOW the applicable threshold AND the screener still applied no penalty (a genuine RULE 2 violation).
 
 Respond in JSON format:
 {{

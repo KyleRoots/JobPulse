@@ -131,7 +131,7 @@ CRITICAL RULES:
    - If the job specifies a field (e.g., "Bachelor\'s in Computer Science") and the candidate has a higher degree in an unrelated field, acknowledge the higher degree but note the field mismatch as a separate gap.
 9. YEARS OF EXPERIENCE MATTER: If a job requires "3+ years of Python" and the candidate has only used Python for 6 months based on resume dates, that is a CRITICAL GAP that MUST significantly reduce the score. Do NOT treat skills learned in brief internships, bootcamps, or university coursework as equivalent to years of professional experience. A 4-month internship using React does NOT satisfy a "3+ years of React" requirement.
 10. DISTINGUISH PROFESSIONAL VS ACADEMIC EXPERIENCE: Full-time professional roles count fully. Internships and part-time roles count at 50%. University projects, coursework, capstone projects, and personal side projects count as ZERO professional years. A recent graduate with only coursework experience CANNOT meet a "3+ years" requirement.
-11. WORK AUTHORIZATION EVIDENCE: When a job requires US citizenship, W2 only, or similar work authorization, you MUST populate the work_authorization_analysis section with ALL US roles enumerated from the resume. DO NOT simply flag "citizenship not mentioned" as a gap without first performing the mandatory work history enumeration from the Global Screening Instructions. If the candidate has 5+ years of US work experience, apply NO score penalty per the inference tier rules. The same applies to Canadian security clearance — enumerate Canadian roles before flagging clearance gaps.
+11. WORK AUTHORIZATION & CLEARANCE EVIDENCE: When a job requires US citizenship, W2 only, or similar work authorization, you MUST populate the work_authorization_analysis section with ALL US roles enumerated from the resume. DO NOT simply flag "citizenship not mentioned" as a gap without first performing the mandatory work history enumeration from the Global Screening Instructions. If the candidate has 5+ years of US work experience, apply NO score penalty per the inference tier rules. SIMILARLY, when a job requires a Canadian security clearance (Reliability, Enhanced Reliability, Secret, Top Secret, Controlled Goods, PWGSC, or "clearance eligible"), you MUST populate the canadian_clearance_analysis section with ALL Canadian roles enumerated. DO NOT flag "no clearance shown on resume" as a gap without first applying the clearance inference tier rules — most Canadian residents with sufficient Canadian work history are sponsorable for the lower clearance levels even when no clearance is mentioned on the resume.
 12. EVIDENCE-FIRST SCORING: You MUST complete the requirement_evidence array BEFORE determining the match_score. Your score must be mathematically derivable from the evidence you cited — do not assign a holistic impression score that contradicts the per-requirement evidence.
 13. EXPERIENCE DEPTH & DOMAIN RELEVANCE: When evaluating whether a candidate\'s experience satisfies a requirement, assess the NATURE of the experience, not just keyword overlap. Specifically:
    - AUDIT/ASSESSMENT experience (e.g., "audited cybersecurity controls using NIST") does NOT satisfy a requirement for HANDS-ON DELIVERY/OPERATIONS (e.g., "ensure reliable, secure delivery of IT systems"). Auditing a system ≠ building or operating that system.
@@ -391,6 +391,16 @@ If the job description contains US work authorization language ("US citizen", "W
 4. DO NOT flag "US citizenship not mentioned" as a gap if the candidate has 5+ years of US work experience — instead apply the inference tier (no penalty for 5+ years).
 5. If the candidate has an explicit authorization statement on their resume (e.g., "Green Card", "US Citizen"), note it and apply no penalty per Rule 0.
 
+CANADIAN SECURITY CLEARANCE EVIDENCE EXTRACTION (when applicable):
+If the job description requires any Canadian Government security clearance — including "Reliability", "Reliability Status", "Enhanced Reliability", "Secret", "Top Secret", "Controlled Goods", "PWGSC", "Canadian Government clearance", "must be eligible to obtain clearance", or similar trigger language listed in RULE 2 of the Global Screening Instructions:
+1. You MUST populate the "canadian_clearance_analysis" section below.
+2. You MUST enumerate ALL Canadian-based roles from the resume with dates and locations (Toronto, Vancouver, Montreal, Ottawa, Calgary, Edmonton, Winnipeg, Halifax, Quebec, ON, BC, AB, QC, NS, MB, SK, NB, NL, PE, YT, NT, NU, etc.).
+3. You MUST sum total Canadian months following the Step 1-5 enumeration procedure in RULE 2.
+4. You MUST apply the inference tier rules from RULE 2 of the Global Screening Instructions — the Global Instructions are AUTHORITATIVE for tier thresholds (default 5/10/15 years for Reliability/Secret/Top Secret) and JD-specified threshold overrides. Do NOT invent your own thresholds; do NOT round down; do NOT skip the JD-override check.
+5. DO NOT flag "no clearance shown on resume" as a critical gap when RULE 2 inference applies. Most clearances are NOT held by candidates personally — they are sponsored by the hiring employer for eligible candidates. Recruiters need to know "is this candidate eligible to obtain it", not "did they bring one with them".
+6. If the candidate has an explicit clearance statement on their resume (e.g., "Holds Enhanced Reliability clearance", "Active Secret clearance"), note it verbatim in explicit_clearance_statement and apply no penalty per RULE 0.
+7. The canadian_clearance_analysis JSON block is MANDATORY whenever the trigger fires — even if you conclude no penalty applies. Recruiters rely on this structured output to see your reasoning.
+
 Respond in JSON format with these exact fields:
 {{{{
     "requirement_evidence": [
@@ -412,6 +422,20 @@ Respond in JSON format with these exact fields:
         "total_years": 0.0,
         "inference_tier": "<e.g. \'5+ years - strong likelihood, no penalty\' or \'3-4 years - minor penalty (3-5 pts)\' or \'Under 3 years - standard gap scoring\' or \'N/A - not triggered\'>",
         "score_adjustment": "<e.g. \'No penalty applied per Rule 1 Tier 1\' or \'Minor reduction (3-5 pts) applied\' or \'N/A\'>"
+    }}}},
+    "canadian_clearance_analysis": {{{{
+        "triggered": true/false,
+        "trigger_reason": "<which clearance language was found in the JD, or \'No Canadian clearance language in job description\'>",
+        "clearance_level_required": "<\'Reliability\' or \'Enhanced Reliability\' or \'Secret\' or \'Top Secret\' or \'Controlled Goods\' or \'Other\' or \'N/A\'>",
+        "explicit_clearance_statement": "<quote exact clearance text from resume if found, or \'None found\'>",
+        "canadian_roles_enumerated": [
+            {{{{"title": "<role title>", "company": "<company>", "dates": "<start - end>", "location": "<city, province>", "months": 0}}}}
+        ],
+        "total_canadian_months": 0,
+        "total_canadian_years": 0.0,
+        "residency_indicators": "<e.g. \'Canadian education at University of Toronto\', \'15+ years continuous Canadian employment\', \'Toronto area code 416\', or \'None found\'>",
+        "inference_tier": "<MUST cite the tier from RULE 2 of the Global Screening Instructions, e.g. \'Reliability/Enhanced Reliability - 5+ yrs Canadian work history, no penalty\' or \'Secret - 10+ yrs Canadian work history, no penalty\' or \'Top Secret - 15+ yrs Canadian work history, no penalty\' or \'Below threshold - soft gap (3-5 pt reduction)\' or \'JD-specified threshold of [N] yrs - candidate has [X] yrs - meets/falls short\' or \'N/A - not triggered\'>",
+        "score_adjustment": "<e.g. \'No penalty applied per RULE 2 default tier\' or \'No penalty applied per JD-specified threshold\' or \'Minor reduction (3-5 pts) applied - below threshold\' or \'N/A\'>"
     }}}},
     "technical_score": 0,
     "match_score": 0,

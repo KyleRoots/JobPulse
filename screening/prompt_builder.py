@@ -498,7 +498,7 @@ Format as a bullet-point list. Be specific and concise."""
             global_req_block = ''
             if global_requirements:
                 global_req_block = (
-                    f"\nGlobal screening requirements:\n{global_requirements[:500]}\n"
+                    f"\nGlobal screening requirements:\n{global_requirements}\n"
                 )
 
             prompt = (
