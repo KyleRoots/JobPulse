@@ -14,6 +14,10 @@ Task Plans: Every project task plan must include the recommended autonomy level 
 TL;DR Required: Whenever the agent produces a thorough output (analysis, recommendation, multi-step plan, build summary, post-deploy report, or anything substantial), it must lead with — or include up front — a TL;DR section using the **Problem → Fix → Benefit** pattern (or equivalent compact summary for non-build outputs). The TL;DR comes BEFORE the deep-dive so the user can grasp intent and direction without reading everything. Apply this to single tasks and multi-task batches alike.
 Source of Truth: GitHub repository (KyleRoots/Scout Genius) — main branch.
 Dev Admin Credentials: username=`admin`, password=`MyticasXML2025!`
+Post-Deploy Checkpoints: After every production deploy, schedule a 24–48h follow-up health check covering: (1) workflow logs for new errors, (2) AI cost telemetry vs daily threshold, (3) pipeline throughput (vetting logs, matches, parsed_emails), (4) feature-specific success metrics (e.g. stuck-row counts for the May 2026 auditor fix), and (5) any "watch-items" called out in the original deploy summary. The agent must proactively bring this up at the next session rather than waiting for the user to ask.
+
+## Open Watch-Items (clear once resolved)
+- **2026-05-15 follow-up**: Verify the 6 `revet_triggered` rows from 2026-05-13/14 (IDs 5833, 5918, 6163, 6242, 6251, 6297) either resolved naturally (revet_new_score populated) OR were correctly reclassified to `revet_skipped_pre_cutoff` by the new `_check_pre_cutoff_eligibility` guard. Any survivor past 24h without resolution = edge-case the new guard missed.
 
 ## System Architecture
 
