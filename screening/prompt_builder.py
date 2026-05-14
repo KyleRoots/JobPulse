@@ -96,7 +96,8 @@ def _save_screening_ab_row(row: Dict) -> None:
     has staged. Fully fail-soft.
     """
     try:
-        from app import db
+        from app import db, app
+        from flask import has_app_context
         from sqlalchemy import text as _text
         sql = _text(
             "INSERT INTO screening_ab_log "
@@ -117,8 +118,18 @@ def _save_screening_ab_row(row: Dict) -> None:
             " :created_at)"
         )
         row.setdefault('created_at', datetime.utcnow())
-        with db.engine.begin() as conn:
-            conn.execute(sql, row)
+        # Ensure a Flask app context is active before touching db.engine —
+        # the screening pipeline runs both inside Flask requests AND from
+        # APScheduler background threads (which have no implicit context).
+        # Skip the push/pop overhead on the request-path where a context
+        # already exists.
+        if has_app_context():
+            with db.engine.begin() as conn:
+                conn.execute(sql, row)
+        else:
+            with app.app_context():
+                with db.engine.begin() as conn:
+                    conn.execute(sql, row)
     except Exception as exc:
         # Isolated connection auto-rolls-back on context exit. Caller's
         # ORM session is untouched.
