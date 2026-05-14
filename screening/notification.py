@@ -158,6 +158,37 @@ class NotificationMixin:
             return 0
         
         logger.info(f"  📨 Found {len(matches)} unsent qualified matches")
+
+        # ── Recruiter transparency (May 2026) — Applied-job context ──
+        # When a candidate qualifies for related jobs but NOT for the role they
+        # actually applied to, the recipient recruiter has no way to know that
+        # context. Pull the applied-job match (regardless of qualified status)
+        # and pass it to the email renderer as a separate "context" block so
+        # the recruiter sees "this person applied to Job X, scored Y%, here's
+        # why they're being shown to you for Job Z instead." Canonical
+        # reproducer: candidate 3808669 (Lei Gao). Fail-soft: any DB error
+        # here just suppresses the context block — never blocks the email.
+        applied_context_match = None
+        try:
+            applied_already_in_matches = any(
+                getattr(m, 'is_applied_job', False) for m in matches
+            )
+            if not applied_already_in_matches and getattr(vetting_log, 'applied_job_id', None):
+                applied_context_match = CandidateJobMatch.query.filter_by(
+                    vetting_log_id=vetting_log.id,
+                    is_applied_job=True,
+                ).first()
+                if applied_context_match:
+                    logger.info(
+                        f"  📌 Applied-job context: Job #{applied_context_match.bullhorn_job_id} "
+                        f"\"{applied_context_match.job_title}\" — "
+                        f"{(applied_context_match.match_score or 0):.0f}% (below qualifying threshold)"
+                    )
+        except Exception as ctx_err:
+            logger.warning(
+                f"Applied-job context lookup failed (proceeding without): {ctx_err!r}"
+            )
+            applied_context_match = None
         
         # Determine primary recruiter (from applied job) and CC list
         # Note: recruiter_email may now be comma-separated (multiple recruiters per job)
@@ -248,7 +279,30 @@ class NotificationMixin:
                 matches=matches,
                 cc_emails=cc_recruiter_emails,  # All other recruiters CC'd
                 attachments=resume_attachments,
+                applied_context_match=applied_context_match,
             )
+
+            # Multi-recruiter resume attach observability (May 2026):
+            # Recruiters reported intermittent missing-resume cases on multi-position
+            # notifications. Log explicitly so we can quantify how often the
+            # attachment was missing AND how many recruiters were on the thread,
+            # making it trivial to grep prod for "team-thread without resume" cases.
+            try:
+                _recipient_count = 1 + len(cc_recruiter_emails or [])
+                if resume_attachments:
+                    logger.info(
+                        f"📎 Resume attached to recruiter notification: "
+                        f"recipients={_recipient_count} (1 to + {len(cc_recruiter_emails or [])} cc) "
+                        f"candidate={vetting_log.bullhorn_candidate_id}"
+                    )
+                elif _recipient_count > 1:
+                    logger.warning(
+                        f"📎 Multi-recruiter notification sent WITHOUT resume attachment: "
+                        f"recipients={_recipient_count} candidate={vetting_log.bullhorn_candidate_id} "
+                        f"(check earlier 📎 log lines for fetch failure reason)"
+                    )
+            except Exception:
+                pass  # Observability must never block the send
 
             if success:
                 # Mark ALL matches as notified
@@ -340,7 +394,8 @@ class NotificationMixin:
                                candidate_name: str, candidate_id: int,
                                matches: List[CandidateJobMatch],
                                cc_emails: list = None,
-                               attachments: Optional[list] = None) -> bool:
+                               attachments: Optional[list] = None,
+                               applied_context_match: Optional['CandidateJobMatch'] = None) -> bool:
         """
         Send notification email to a recruiter about a qualified candidate.
         
@@ -426,6 +481,60 @@ class NotificationMixin:
                 </div>
             """
         
+        # ── Applied-job context block (May 2026) ──
+        # Renders ONLY when the candidate didn't qualify for the job they
+        # actually applied to (so the matched jobs above are all "related
+        # roles"). Gives recruiters the conversational opening they need:
+        # "I see you applied to X — you didn't quite hit the bar there, but
+        # you're a strong fit for Y." Compact one-liner per user request,
+        # not a full summary, to keep the email scannable.
+        if applied_context_match is not None:
+            # Defensive HTML escaping on AI/Bullhorn-sourced strings (May 2026
+            # architect-review hardening). The matched-position cards above
+            # don't currently escape — but rather than perpetuate the same
+            # surface, harden the new block. job_title and match_summary
+            # originate from Bullhorn job records and AI-generated text;
+            # both could theoretically contain `<`, `>`, or `&` characters.
+            import html as _html
+            _ctx_job_id = int(applied_context_match.bullhorn_job_id or 0)
+            _ctx_job_title = _html.escape(applied_context_match.job_title or 'Position')
+            _ctx_job_url = (
+                f"https://cls45.bullhornstaffing.com/BullhornSTAFFING/"
+                f"OpenWindow.cfm?Entity=JobOrder&id={_ctx_job_id}"
+            )
+            _ctx_summary_raw = (applied_context_match.match_summary or '').strip()
+            # Compact one-liner: cap at ~220 chars, ellipsize gracefully
+            _ctx_summary_truncated = (
+                _ctx_summary_raw if len(_ctx_summary_raw) <= 220
+                else _ctx_summary_raw[:217].rsplit(' ', 1)[0] + '…'
+            )
+            _ctx_summary = _html.escape(_ctx_summary_truncated)
+            _ctx_score = (applied_context_match.match_score or 0)
+            html_content += f"""
+                <h3 style="color: #495057; margin: 25px 0 10px 0;">
+                    📥 Job They Originally Applied To
+                </h3>
+                <div style="background: #fff8e1; padding: 15px; border-radius: 8px;
+                            border-left: 4px solid #f9a825; margin: 10px 0;">
+                    <h4 style="margin: 0 0 8px 0; color: #5d4037;">
+                        <a href="{_ctx_job_url}" style="color: #5d4037; text-decoration: none;">
+                            {_ctx_job_title} (Job ID: {_ctx_job_id})
+                        </a>
+                        <span style="background: #6c757d; color: white; padding: 2px 8px;
+                                     border-radius: 3px; font-size: 11px; margin-left: 8px;">
+                            BELOW THRESHOLD
+                        </span>
+                    </h4>
+                    <div style="color: #6c757d; margin-bottom: 8px; font-size: 13px;">
+                        <strong>Match Score:</strong> {_ctx_score:.0f}% &nbsp;·&nbsp;
+                        <em>This candidate didn't qualify for the role they applied to —
+                        the matched position(s) above are stronger fits via related-role logic.
+                        Useful framing for your outreach call.</em>
+                    </div>
+                    {f'<p style="margin: 0; color: #495057; font-size: 13px;">{_ctx_summary}</p>' if _ctx_summary else ''}
+                </div>
+            """
+
         html_content += f"""
                 <div style="margin-top: 25px; padding-top: 15px; border-top: 1px solid #dee2e6;">
                     <p style="color: #6c757d; font-size: 14px; margin: 0;">

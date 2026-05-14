@@ -448,13 +448,21 @@ class NoteBuilderMixin:
 
         elif vetting_log.is_qualified:
             # Qualified candidate note
+            #
+            # Recruiter-transparency fix (May 2026): The applied-job match must
+            # be searched in ALL matches, not just qualified_matches. Otherwise
+            # candidates like Lei Gao (3808669) — who applied to one job but
+            # qualified only for related roles — produce notes that never
+            # mention the role they actually applied to. Recruiters following
+            # up have no idea where to start the conversation.
             applied_match = None
-            other_qualified = []
-            for match in qualified_matches:
+            applied_match_qualified = False
+            for match in matches:
                 if match.is_applied_job:
                     applied_match = match
-                else:
-                    other_qualified.append(match)
+                    applied_match_qualified = bool(match.is_qualified)
+                    break
+            other_qualified = [m for m in qualified_matches if not m.is_applied_job]
 
             _revet_banner_lines = self._build_revet_banner(
                 vetting_log.bullhorn_candidate_id,
@@ -474,19 +482,47 @@ class NoteBuilderMixin:
             
             other_qualified.sort(key=lambda m: m.match_score, reverse=True)
             
-            if applied_match:
+            if applied_match and applied_match_qualified:
+                # Existing happy path: candidate qualified for the role they applied to
                 note_lines.append(f"APPLIED POSITION (QUALIFIED):")
                 note_lines.append(f"")
                 note_lines += self._format_match_note_block(applied_match, job_threshold_map, is_applied=True)
                 if other_qualified:
                     note_lines.append(f"")
                     note_lines.append(f"OTHER QUALIFIED POSITIONS:")
-            else:
-                note_lines.append(f"QUALIFIED POSITIONS:")
-            
-            for match in other_qualified:
+                for match in other_qualified:
+                    note_lines.append(f"")
+                    note_lines += self._format_match_note_block(match, job_threshold_map)
+            elif applied_match and not applied_match_qualified:
+                # Recruiter-transparency case: qualified for related roles only
+                # Render qualified roles FIRST (most actionable), then a compact
+                # applied-job context block at the end so recruiters know how to
+                # frame the outreach call.
+                note_lines.append(f"QUALIFIED POSITIONS (RELATED ROLES):")
+                for match in other_qualified:
+                    note_lines.append(f"")
+                    note_lines += self._format_match_note_block(match, job_threshold_map)
                 note_lines.append(f"")
-                note_lines += self._format_match_note_block(match, job_threshold_map)
+                _ctx_summary_raw = (applied_match.match_summary or '').strip()
+                _ctx_summary = (
+                    _ctx_summary_raw if len(_ctx_summary_raw) <= 220
+                    else _ctx_summary_raw[:217].rsplit(' ', 1)[0] + '…'
+                )
+                note_lines += [
+                    f"📥 JOB ORIGINALLY APPLIED TO (BELOW THRESHOLD):",
+                    f"",
+                    f"• Job ID: {applied_match.bullhorn_job_id} - {applied_match.job_title}",
+                    f"  Match Score: {(applied_match.match_score or 0):.0f}% (did not meet qualifying threshold)",
+                    f"  Note: Candidate is being recommended for the related role(s) above, not this one.",
+                ]
+                if _ctx_summary:
+                    note_lines.append(f"  Summary: {_ctx_summary}")
+            else:
+                # No applied-job record at all (e.g. inbound email scrape with no app)
+                note_lines.append(f"QUALIFIED POSITIONS:")
+                for match in other_qualified:
+                    note_lines.append(f"")
+                    note_lines += self._format_match_note_block(match, job_threshold_map)
         else:
             # Not qualified note
             applied_match = None
