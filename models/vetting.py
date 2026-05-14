@@ -367,3 +367,33 @@ class VettingAuditLog(db.Model):
 
     def __repr__(self):
         return f'<VettingAuditLog candidate={self.bullhorn_candidate_id} type={self.finding_type}>'
+
+
+class RecruiterNotificationPref(db.Model):
+    """Per-recruiter-per-job notification preference.
+
+    Built May 2026 for the per-recruiter Location-Review opt-out toggle.
+    Designed extensibly: `notification_type` lets us bolt on more toggle
+    types (prestige, threshold, etc.) without a schema change. Default
+    behavior when no row exists is ON for every notification_type — so
+    the table only carries explicit OFF records, keeping it small.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    bullhorn_job_id = db.Column(db.Integer, nullable=False, index=True)
+    notification_type = db.Column(db.String(64), nullable=False, default='location_review', index=True)
+    enabled = db.Column(db.Boolean, nullable=False, default=True, server_default='true')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            'user_id', 'bullhorn_job_id', 'notification_type',
+            name='uq_recruiter_notif_pref',
+        ),
+    )
+
+    def __repr__(self):
+        return (f'<RecruiterNotificationPref user={self.user_id} '
+                f'job={self.bullhorn_job_id} type={self.notification_type} '
+                f'enabled={self.enabled}>')

@@ -643,6 +643,7 @@
                     <th style="text-align:center; white-space:nowrap;">AI Requirements</th>
                     <th style="text-align:center; white-space:nowrap;">Custom Override</th>
                     <th style="width:130px; text-align:center; white-space:nowrap;">Threshold</th>
+                    <th style="width:160px; text-align:center; white-space:nowrap;" title="Email me when a candidate falls just below threshold due to a small location penalty">📍 Location Review</th>
                 </tr>
             </thead>
             <tbody>
@@ -699,6 +700,23 @@
                                style="width:46px; min-width:0; text-align:center; -webkit-appearance:none; -moz-appearance:textfield;">
                         <span class="threshold-feedback" id="tfb-{{ job_id }}"></span>
                     </div>
+                </td>
+                <td style="text-align:center;">
+                    {% set loc_enabled = location_review_prefs.get(job_id, True) %}
+                    <form method="POST"
+                          action="{{ url_for('scout_screening.toggle_notification_pref', job_id=job_id) }}"
+                          style="display:inline; margin:0;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="notification_type" value="location_review">
+                        <input type="hidden" name="enabled" value="{{ '0' if loc_enabled else '1' }}">
+                        <button type="submit"
+                                title="{{ 'Currently emailing you for location-review matches on this job. Click to disable.' if loc_enabled else 'Currently NOT emailing you for location-review matches on this job. Click to enable.' }}"
+                                style="background:transparent; border:1px solid {{ 'rgba(126,201,142,0.45)' if loc_enabled else 'rgba(255,255,255,0.18)' }}; border-radius:14px; padding:0.18rem 0.7rem; font-size:0.72rem; font-weight:500; cursor:pointer; color:{{ '#7ec98e' if loc_enabled else 'rgba(255,255,255,0.42)' }}; transition:all 0.15s; white-space:nowrap;"
+                                onmouseover="this.style.opacity='0.78'"
+                                onmouseout="this.style.opacity='1'">
+                            <i class="fas fa-{{ 'bell' if loc_enabled else 'bell-slash' }} me-1"></i>{{ 'On' if loc_enabled else 'Off' }}
+                        </button>
+                    </form>
                 </td>
             </tr>
             {% endfor %}

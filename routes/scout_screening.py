@@ -231,6 +231,21 @@ def dashboard():
         ).all()
         job_requirements = {r.bullhorn_job_id: r for r in reqs}
 
+    # Per-recruiter Location-Review notification prefs (default ON; only
+    # explicit OFF rows exist). Map: {bullhorn_job_id: enabled_bool}
+    location_review_prefs = {}
+    if job_ids:
+        try:
+            from models import RecruiterNotificationPref
+            pref_rows = RecruiterNotificationPref.query.filter(
+                RecruiterNotificationPref.user_id == current_user.id,
+                RecruiterNotificationPref.bullhorn_job_id.in_(job_ids),
+                RecruiterNotificationPref.notification_type == 'location_review',
+            ).all()
+            location_review_prefs = {p.bullhorn_job_id: bool(p.enabled) for p in pref_rows}
+        except Exception as e:
+            logger.warning(f"Could not load recruiter notification prefs: {e}")
+
     return render_template(
         'scout_screening.html',
         candidate_groups=groups_list,
@@ -238,10 +253,68 @@ def dashboard():
         metrics=metrics,
         jobs_map=jobs_map,
         job_requirements=job_requirements,
+        location_review_prefs=location_review_prefs,
         global_threshold=global_threshold,
         week_ago=week_ago,
         active_page='screening',
     )
+
+
+@scout_screening_bp.route('/scout-screening/job/<int:job_id>/notification-pref', methods=['POST'])
+@login_required
+def toggle_notification_pref(job_id):
+    """Toggle a per-recruiter, per-job notification preference.
+
+    Currently supports notification_type='location_review' (default ON).
+    Schema is extensible — additional types can be added without a
+    migration. Ownership-enforced: the job must be in the user's
+    assigned job set.
+    """
+    from extensions import db
+    from models import RecruiterNotificationPref
+
+    if job_id not in _get_user_job_ids():
+        flash('You do not have access to this job.', 'danger')
+        return redirect(url_for('scout_screening.dashboard'))
+
+    notification_type = (request.form.get('notification_type') or 'location_review').strip()
+    if notification_type not in ('location_review',):
+        flash('Unsupported notification type.', 'danger')
+        return redirect(url_for('scout_screening.dashboard'))
+
+    enabled = request.form.get('enabled', '1') == '1'
+
+    try:
+        pref = RecruiterNotificationPref.query.filter_by(
+            user_id=current_user.id,
+            bullhorn_job_id=job_id,
+            notification_type=notification_type,
+        ).first()
+        if pref is None:
+            pref = RecruiterNotificationPref(
+                user_id=current_user.id,
+                bullhorn_job_id=job_id,
+                notification_type=notification_type,
+                enabled=enabled,
+            )
+            db.session.add(pref)
+        else:
+            pref.enabled = enabled
+        db.session.commit()
+        logger.info(
+            f"event=notification_pref_updated user={current_user.id} "
+            f"job={job_id} type={notification_type} enabled={enabled}"
+        )
+        flash(
+            f"📍 Location-review emails {'enabled' if enabled else 'disabled'} for this job.",
+            'success',
+        )
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Failed to toggle notification pref for user={current_user.id} job={job_id}: {e}")
+        flash('Could not save preference. Please try again.', 'danger')
+
+    return redirect(url_for('scout_screening.dashboard') + '#jobSettingsCollapse')
 
 
 @scout_screening_bp.route('/scout-screening/job/<int:job_id>/save', methods=['POST'])

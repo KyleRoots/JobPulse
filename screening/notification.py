@@ -839,6 +839,48 @@ class NotificationMixin:
             f"not-qualified candidate {vetting_log.candidate_name}"
         )
 
+        # ── Per-recruiter Location-Review opt-out (May 2026) ──
+        # Load explicit OFF prefs for the jobs in this candidate's matches.
+        # Default is ON; only explicit OFF rows live in the table. Fail-open:
+        # any error here drops back to the original "send to everyone" path.
+        disabled_emails_by_job = {}
+        try:
+            from models import RecruiterNotificationPref, User
+            from extensions import db as _db
+            job_ids_in_matches = list({
+                m.bullhorn_job_id for m in location_matches if m.bullhorn_job_id
+            })
+            if job_ids_in_matches:
+                pref_rows = (
+                    _db.session.query(
+                        RecruiterNotificationPref.bullhorn_job_id, User.email
+                    )
+                    .join(User, User.id == RecruiterNotificationPref.user_id)
+                    .filter(
+                        RecruiterNotificationPref.bullhorn_job_id.in_(job_ids_in_matches),
+                        RecruiterNotificationPref.notification_type == 'location_review',
+                        RecruiterNotificationPref.enabled.is_(False),
+                    )
+                    .all()
+                )
+                for jid, email in pref_rows:
+                    if email:
+                        disabled_emails_by_job.setdefault(jid, set()).add(
+                            email.strip().lower()
+                        )
+        except Exception as e:
+            logger.warning(
+                f"location_review pref lookup failed (fail-open): {e}"
+            )
+            disabled_emails_by_job = {}
+
+        def _is_opted_out(email_str, job_id):
+            if not email_str or not job_id:
+                return False
+            return email_str.strip().lower() in disabled_emails_by_job.get(job_id, set())
+
+        filtered_out_count = 0
+
         # ── Recruiter resolution (mirrors qualified-candidate flow) ──
         primary_recruiter_email = None
         primary_recruiter_name = None
@@ -848,24 +890,44 @@ class NotificationMixin:
             if match.is_applied_job and match.recruiter_email:
                 emails = parse_emails(match.recruiter_email)
                 names = parse_names(match.recruiter_name)
-                if emails:
-                    primary_recruiter_email = emails[0]
-                    primary_recruiter_name = names[0] if names else ''
-                break
+                # Pick the first email on the applied-job match that hasn't
+                # opted out of location_review for this specific job.
+                for i, em in enumerate(emails):
+                    if em and not _is_opted_out(em, match.bullhorn_job_id):
+                        primary_recruiter_email = em
+                        primary_recruiter_name = names[i] if i < len(names) else ''
+                        break
+                    elif em:
+                        filtered_out_count += 1
+                if primary_recruiter_email:
+                    break
 
         seen_emails = set()
         for match in location_matches:
             emails = parse_emails(match.recruiter_email)
             names = parse_names(match.recruiter_name)
             for i, email in enumerate(emails):
-                if email and email not in seen_emails:
-                    seen_emails.add(email)
-                    name = names[i] if i < len(names) else ''
-                    if not primary_recruiter_email:
-                        primary_recruiter_email = email
-                        primary_recruiter_name = name
-                    elif email != primary_recruiter_email:
-                        cc_recruiter_emails.append(email)
+                if not email or email in seen_emails:
+                    continue
+                seen_emails.add(email)
+                if _is_opted_out(email, match.bullhorn_job_id):
+                    filtered_out_count += 1
+                    continue
+                name = names[i] if i < len(names) else ''
+                if not primary_recruiter_email:
+                    primary_recruiter_email = email
+                    primary_recruiter_name = name
+                elif email != primary_recruiter_email:
+                    cc_recruiter_emails.append(email)
+
+        if filtered_out_count:
+            logger.info(
+                f"event=location_review_pref_filtered "
+                f"candidate={vetting_log.bullhorn_candidate_id} "
+                f"filtered={filtered_out_count} "
+                f"remaining_primary={'yes' if primary_recruiter_email else 'no'} "
+                f"remaining_cc={len(cc_recruiter_emails)}"
+            )
 
         # ── Kill-switch + admin fallback (same as Qualified path) ──
         send_setting = VettingConfig.query.filter_by(setting_key='send_recruiter_emails').first()
@@ -885,6 +947,22 @@ class NotificationMixin:
             primary_recruiter_name = 'Admin'
             cc_recruiter_emails = []
         elif not primary_recruiter_email:
+            # Distinguish "no recruiters at all" (admin fallback) from
+            # "all recruiters explicitly opted out" (silent drop — they
+            # asked us not to send these).
+            if filtered_out_count and not admin_email:
+                logger.info(
+                    f"📍 Location-review notification suppressed — all "
+                    f"recipients opted out for {vetting_log.candidate_name} "
+                    f"(filtered={filtered_out_count})"
+                )
+                return 0
+            if filtered_out_count:
+                logger.info(
+                    f"📍 Location-review — all recruiters opted out for "
+                    f"{vetting_log.candidate_name}; not falling back to admin"
+                )
+                return 0
             if admin_email:
                 logger.warning(
                     f"⚠️ No recruiter emails on location-review matches for {vetting_log.candidate_name} "
