@@ -41,6 +41,7 @@ class OrchestrationMixin:
             'revets_triggered': 0,
             'revets_skipped_capped': 0,
             'revets_skipped_stable': 0,
+            'revets_skipped_pre_cutoff': 0,
             'qualified_audited': 0,
             'qualified_issues_found': 0,
             'details': []
@@ -112,7 +113,8 @@ class OrchestrationMixin:
                 f"{summary['issues_found']} issues found, "
                 f"{summary['revets_triggered']} re-vets triggered, "
                 f"{summary['revets_skipped_capped']} re-vet(s) skipped (24h cap), "
-                f"{summary['revets_skipped_stable']} re-vet(s) skipped (score stable)"
+                f"{summary['revets_skipped_stable']} re-vet(s) skipped (score stable), "
+                f"{summary['revets_skipped_pre_cutoff']} re-vet(s) skipped (pre-cutoff)"
             )
 
         except Exception as e:
@@ -376,10 +378,25 @@ class OrchestrationMixin:
             elif confidence == 'medium' and finding_type != 'no_issue':
                 action_taken = 'flagged_for_review'
 
-            # Re-vet suppression: cap repeated re-vets per (candidate, job)
-            # and accept results that are already score-stable. Runs before
-            # the audit row is written so the persisted action_taken
-            # reflects what actually happened, not what we wanted to do.
+            # Re-vet suppression: cap repeated re-vets per (candidate, job),
+            # accept results that are already score-stable, and refuse to
+            # re-vet candidates whose underlying ParsedEmail predates the
+            # vetting_cutoff_date (the next vetting cycle would silently
+            # skip them, leaving an orphaned revet_triggered audit row
+            # forever). Runs before the audit row is written so the
+            # persisted action_taken reflects what actually happened.
+            if action_taken == 'revet_triggered':
+                cutoff_outcome = self._check_pre_cutoff_eligibility(
+                    vetting_log.bullhorn_candidate_id,
+                )
+                if cutoff_outcome is not None:
+                    skip_action, skip_reason = cutoff_outcome
+                    action_taken = skip_action
+                    audit_finding_text = (
+                        f"{audit_finding_text}\n\n[Auditor] {skip_reason}"
+                    ).strip()
+                    summary['revets_skipped_pre_cutoff'] += 1
+
             if action_taken == 'revet_triggered':
                 skip_outcome = self._check_revet_caps_and_stability(
                     vetting_log.bullhorn_candidate_id,

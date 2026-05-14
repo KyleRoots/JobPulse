@@ -13,7 +13,93 @@ from .helpers import get_revet_cap_per_24h, get_revet_score_tolerance
 logger = logging.getLogger(__name__)
 
 class RevetMixin:
-    """Re-vet flow — cap/stability checks and triggering re-vets for confirmed misfires."""
+    """Re-vet flow — cap/stability/cutoff checks and triggering re-vets for confirmed misfires."""
+
+    def _check_pre_cutoff_eligibility(
+        self,
+        candidate_id: int,
+    ) -> Optional[tuple]:
+        """Refuse re-vets when the candidate's underlying ParsedEmail predates
+        the configured ``vetting_cutoff_date``.
+
+        ``_trigger_revet`` resets ``parsed_email.vetted_at = None`` and deletes
+        the existing ``CandidateVettingLog``, expecting the next vetting cycle
+        to re-score the candidate. But ``screening/detection.py`` filters the
+        backlog by ``vetting_cutoff_date`` — so if the candidate's parsed_email
+        was received BEFORE the cutoff, the next cycle silently skips them
+        forever and the audit row stays as ``revet_triggered`` /
+        ``revet_new_score=NULL`` indefinitely.
+
+        Pre-flight: look up the candidate's most-recent completed
+        ParsedEmail. If its ``received_at`` is before the active cutoff,
+        suppress the re-vet with ``action_taken='revet_skipped_pre_cutoff'``
+        instead of nuking state we cannot rebuild.
+
+        Fail-open: if the cutoff is unset, the lookup throws, or the
+        ParsedEmail row cannot be found, return None and let the re-vet
+        proceed (current behaviour preserved).
+
+        Returns
+        -------
+        None
+            Re-vet may proceed.
+        tuple[str, str]
+            ``('revet_skipped_pre_cutoff', human_reason)``.
+        """
+        try:
+            from screening.candidate_data import _resolve_vetting_cutoff
+            cutoff = _resolve_vetting_cutoff()
+        except Exception as e:
+            logger.warning(
+                f"⚠️ Auditor pre-cutoff lookup failed for candidate "
+                f"{candidate_id} (cutoff resolver raised {e!r}) — proceeding "
+                f"with re-vet"
+            )
+            return None
+
+        if cutoff is None:
+            return None
+
+        try:
+            from models import ParsedEmail
+            latest_pe = (
+                ParsedEmail.query
+                .filter(
+                    ParsedEmail.bullhorn_candidate_id == candidate_id,
+                    ParsedEmail.status == 'completed',
+                )
+                .order_by(ParsedEmail.received_at.desc().nullslast())
+                .first()
+            )
+        except Exception as e:
+            logger.warning(
+                f"⚠️ Auditor pre-cutoff lookup failed for candidate "
+                f"{candidate_id} (parsed_email query raised {e!r}) — "
+                f"proceeding with re-vet"
+            )
+            return None
+
+        if latest_pe is None or latest_pe.received_at is None:
+            return None
+
+        if latest_pe.received_at >= cutoff:
+            return None
+
+        reason = (
+            f"Suppressed re-vet — candidate's most recent parsed_email "
+            f"received_at={latest_pe.received_at.isoformat()} predates "
+            f"vetting_cutoff_date={cutoff.isoformat()}. Resetting vetted_at "
+            f"would orphan the candidate (next vetting cycle would skip "
+            f"them via the cutoff filter). Audit observed but no action "
+            f"taken; bump the cutoff back if you want this candidate "
+            f"re-scored."
+        )
+        logger.info(
+            f"🛑 Auditor pre-cutoff: candidate {candidate_id} "
+            f"parsed_email received_at={latest_pe.received_at.isoformat()} "
+            f"< cutoff={cutoff.isoformat()} — skipping re-vet"
+        )
+        return ('revet_skipped_pre_cutoff', reason)
 
     def _check_revet_caps_and_stability(
         self,
