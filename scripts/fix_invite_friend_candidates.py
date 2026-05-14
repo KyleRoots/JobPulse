@@ -11,8 +11,16 @@ still matches a CTA phrase. Idempotent — already-fixed records are
 skipped with a log line.
 
 Usage:
+    # Auto-discover from local DB (works when dev DB has the parsed_email rows)
     python -m scripts.fix_invite_friend_candidates
     python -m scripts.fix_invite_friend_candidates --dry-run
+
+    # Explicit overrides — for known cases when running against a workspace
+    # whose local DB doesn't contain the affected rows (e.g. dev workspace
+    # pointed at shared Bullhorn). Bullhorn is the only system mutated.
+    python -m scripts.fix_invite_friend_candidates \\
+        --candidate 3822915="Sujatha Devineni" \\
+        --candidate 3817209="Sai Charan Mittapalli"
 """
 from __future__ import annotations
 
@@ -24,6 +32,16 @@ from app import app, db
 from models import CandidateVettingLog, ParsedEmail
 from utils.candidate_name_extraction import is_cta_phrase, split_full_name
 
+
+# Hard-coded truth names for the original production failure (May 2026).
+# Used when --use-known-cases is passed. Source: parsed_email.candidate_name
+# from production DB at the time of triage (vetting_log IDs 6365/6364/5596/4777,
+# parsed_email IDs 4149/4148/3637/3148).
+KNOWN_CASES: dict[int, str] = {
+    3822915: "Sujatha Devineni",
+    3817209: "Sai Charan Mittapalli",
+}
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
@@ -34,7 +52,13 @@ logger = logging.getLogger("fix_invite_friend")
 def find_corrupted_candidate_ids() -> dict[int, str]:
     """Return {bullhorn_candidate_id: truth_name} for candidates whose
     most-recent vetting_log name is a CTA phrase but whose linked
-    parsed_email has a valid name."""
+    parsed_email has a valid name.
+
+    Ordered by ``CandidateVettingLog.created_at DESC`` so the most
+    recently captured parsed_email truth-name wins per Bullhorn ID —
+    avoids stale/older names overwriting newer ones when a candidate
+    re-applied multiple times with different name spellings.
+    """
     rows = (
         db.session.query(
             CandidateVettingLog.bullhorn_candidate_id,
@@ -43,6 +67,7 @@ def find_corrupted_candidate_ids() -> dict[int, str]:
         )
         .join(ParsedEmail, ParsedEmail.id == CandidateVettingLog.parsed_email_id)
         .filter(CandidateVettingLog.bullhorn_candidate_id.isnot(None))
+        .order_by(CandidateVettingLog.created_at.desc())
         .all()
     )
 
@@ -54,23 +79,59 @@ def find_corrupted_candidate_ids() -> dict[int, str]:
             continue
         if is_cta_phrase(parsed_name):
             continue
-        # First wins — multiple vetting_log rows can map to the same
-        # Bullhorn ID; we only need one truth-name.
+        # First wins per Bullhorn ID — rows are pre-sorted newest-first
+        # above, so this picks the most recent valid parsed_email name.
         if bh_id not in candidates:
             candidates[bh_id] = parsed_name
     return candidates
+
+
+def _parse_candidate_arg(value: str) -> tuple[int, str]:
+    """Parse a ``--candidate ID=Full Name`` CLI value."""
+    if "=" not in value:
+        raise argparse.ArgumentTypeError(
+            f"Expected 'ID=Full Name', got {value!r}"
+        )
+    bh_id_raw, _, name = value.partition("=")
+    try:
+        bh_id = int(bh_id_raw.strip())
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            f"Invalid candidate id {bh_id_raw!r}: {exc}"
+        )
+    name = name.strip()
+    if not name:
+        raise argparse.ArgumentTypeError(f"Missing name for id {bh_id}")
+    return bh_id, name
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dry-run", action="store_true",
                         help="Print planned updates without calling Bullhorn.")
+    parser.add_argument(
+        "--candidate", action="append", type=_parse_candidate_arg, default=[],
+        metavar='ID="Full Name"',
+        help="Explicit (id, truth-name) override. May be repeated."
+    )
+    parser.add_argument(
+        "--use-known-cases", action="store_true",
+        help="Use the hard-coded KNOWN_CASES dict (the original May 2026 "
+             "production failures). Safe to combine with --candidate.",
+    )
     args = parser.parse_args()
 
     with app.app_context():
         from app import get_bullhorn_service
 
-        targets = find_corrupted_candidate_ids()
+        targets: dict[int, str] = {}
+        if args.use_known_cases:
+            targets.update(KNOWN_CASES)
+        for bh_id, name in args.candidate:
+            targets[bh_id] = name
+        if not targets:
+            # Auto-discover from local DB
+            targets = find_corrupted_candidate_ids()
         if not targets:
             logger.info("No corrupted candidates found. Nothing to do.")
             return 0

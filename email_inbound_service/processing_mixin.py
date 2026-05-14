@@ -210,12 +210,16 @@ class ProcessingMixin:
             has_name = bool(first_name or last_name)
             has_contact = bool(candidate_email or candidate_phone)
 
-            if first_name:
-                email_candidate['first_name'] = first_name
-                resume_data['first_name'] = first_name
-            if last_name:
-                email_candidate['last_name'] = last_name
-                resume_data['last_name'] = last_name
+            # Always overwrite source dicts — including to None when the
+            # CTA-Reject Guard above (or any other recovery layer) ended
+            # up with no valid name. Previously this was gated on `if
+            # first_name:` which left CTA-poisoned values in
+            # email_candidate, allowing them to leak into
+            # map_to_bullhorn_fields() below.
+            email_candidate['first_name'] = first_name
+            resume_data['first_name'] = first_name
+            email_candidate['last_name'] = last_name
+            resume_data['last_name'] = last_name
 
             extraction_summary = build_extraction_summary(
                 resume_data=resume_data or {},
