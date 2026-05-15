@@ -12,12 +12,18 @@ Contains:
 import logging
 import re
 logger = logging.getLogger(__name__)
-from datetime import datetime
-from typing import List, Optional
+from datetime import datetime, timedelta
+from typing import Dict, Iterable, List, Optional
 from app import db
 from models import CandidateJobMatch, CandidateVettingLog, VettingConfig
 from vetting.name_utils import parse_names, parse_emails
 from screening.location_review import is_location_review_match, resolve_match_threshold
+
+# Window for "this recruiter already got an email for this (candidate, job)
+# pair" dedupe. Set wide enough to absorb the auditor's same-day re-vet flow
+# but short enough that genuine re-applications a few weeks later still
+# trigger a fresh send. Task #95 — see RecruiterNotificationLedger docstring.
+_RECRUITER_NOTIFICATION_DEDUPE_WINDOW_HOURS = 24
 
 # Resume attachment cap — SendGrid hard limit is ~30MB on the full payload;
 # 10MB keeps headroom for the HTML body, base64 overhead (~33%), and matches
@@ -106,6 +112,152 @@ def _safe_resume_filename(candidate_name: str, original_filename: Optional[str])
     return f"{safe_name}_Resume{ext}"
 
 
+def _ledger_recently_sent_pairs(
+    candidate_id: int,
+    job_ids: Iterable[int],
+    notification_type: str,
+    lookback_hours: int = _RECRUITER_NOTIFICATION_DEDUPE_WINDOW_HOURS,
+) -> Dict[int, datetime]:
+    """Return a mapping of bullhorn_job_id → most-recent ``sent_at`` for
+    pairs that already had a recruiter email within the lookback window.
+
+    Used by every recruiter-notification entry point to dedupe across the
+    auditor cascade (which wipes ``CandidateJobMatch.notification_sent``).
+    Fail-open: any DB error returns an empty dict so a transient lookup
+    failure never blocks a genuine first-time email.
+    """
+    from models import RecruiterNotificationLedger
+
+    job_id_list = [int(jid) for jid in job_ids if jid is not None]
+    if not job_id_list or candidate_id is None:
+        return {}
+
+    try:
+        cutoff = datetime.utcnow() - timedelta(hours=lookback_hours)
+        rows = RecruiterNotificationLedger.query.filter(
+            RecruiterNotificationLedger.bullhorn_candidate_id == int(candidate_id),
+            RecruiterNotificationLedger.notification_type == notification_type,
+            RecruiterNotificationLedger.bullhorn_job_id.in_(job_id_list),
+            RecruiterNotificationLedger.sent_at >= cutoff,
+        ).all()
+    except Exception as e:
+        logger.warning(
+            f"⚠️ recruiter notification ledger lookup failed "
+            f"(candidate={candidate_id}, type={notification_type}): {e!r} — "
+            f"proceeding without dedupe"
+        )
+        return {}
+
+    result: Dict[int, datetime] = {}
+    for r in rows:
+        prior = result.get(r.bullhorn_job_id)
+        if prior is None or (r.sent_at and r.sent_at > prior):
+            result[r.bullhorn_job_id] = r.sent_at
+    return result
+
+
+def _record_ledger_sent(
+    candidate_id: int,
+    job_ids: Iterable[int],
+    notification_type: str,
+) -> int:
+    """Upsert ledger rows for each (candidate, job, notification_type)
+    after a successful recruiter email. Idempotent and race-tolerant —
+    a concurrent cycle that already wrote the same row simply causes a
+    rollback of the duplicate insert without surfacing an error.
+
+    Returns the number of rows successfully written/updated.
+    """
+    from models import RecruiterNotificationLedger
+    from sqlalchemy.exc import IntegrityError
+
+    if candidate_id is None:
+        return 0
+
+    written = 0
+    now = datetime.utcnow()
+    seen: set = set()
+    for jid in job_ids:
+        if jid is None or int(jid) in seen:
+            continue
+        seen.add(int(jid))
+        try:
+            existing = RecruiterNotificationLedger.query.filter_by(
+                bullhorn_candidate_id=int(candidate_id),
+                bullhorn_job_id=int(jid),
+                notification_type=notification_type,
+            ).first()
+            if existing is not None:
+                existing.sent_at = now
+            else:
+                db.session.add(RecruiterNotificationLedger(
+                    bullhorn_candidate_id=int(candidate_id),
+                    bullhorn_job_id=int(jid),
+                    notification_type=notification_type,
+                    sent_at=now,
+                ))
+            db.session.commit()
+            written += 1
+        except IntegrityError:
+            # Concurrent cycle wrote the same (candidate, job, type) row
+            # between our SELECT and INSERT. Treat as success — the dedupe
+            # signal exists either way.
+            db.session.rollback()
+            written += 1
+        except Exception as e:
+            db.session.rollback()
+            logger.warning(
+                f"⚠️ recruiter notification ledger write failed "
+                f"(candidate={candidate_id}, job={jid}, type={notification_type}): "
+                f"{e!r}"
+            )
+    return written
+
+
+def _filter_matches_by_ledger(
+    matches: List['CandidateJobMatch'],
+    candidate_id: int,
+    notification_type: str,
+) -> tuple:
+    """Split ``matches`` into (matches_to_send, suppressed_matches) using
+    the RecruiterNotificationLedger. Suppressed matches are still marked
+    ``notification_sent=True`` by the caller so subsequent regular cycles
+    keep their existing dedupe behaviour, and a structured suppression
+    log marker is emitted for observability.
+
+    Matches without a ``bullhorn_job_id`` cannot be deduped — they pass
+    through to the send list (better to risk a duplicate than drop a
+    legitimate notification when we can't identify the pair).
+    """
+    if not matches or candidate_id is None:
+        return list(matches), []
+
+    job_ids = [m.bullhorn_job_id for m in matches if m.bullhorn_job_id]
+    if not job_ids:
+        return list(matches), []
+
+    already = _ledger_recently_sent_pairs(candidate_id, job_ids, notification_type)
+    if not already:
+        return list(matches), []
+
+    to_send: List = []
+    suppressed: List = []
+    for m in matches:
+        jid = m.bullhorn_job_id
+        if jid is not None and int(jid) in already:
+            suppressed.append(m)
+            prior = already.get(int(jid))
+            logger.info(
+                f"event=recruiter_email_suppressed_already_sent "
+                f"candidate_id={candidate_id} job_id={jid} "
+                f"notification_type={notification_type} "
+                f"prior_sent_at={prior.isoformat() if prior else 'unknown'}"
+            )
+        else:
+            to_send.append(m)
+    return to_send, suppressed
+
+
 class NotificationMixin:
     """Recruiter email notifications for qualified screening matches."""
 
@@ -158,6 +310,43 @@ class NotificationMixin:
             return 0
         
         logger.info(f"  📨 Found {len(matches)} unsent qualified matches")
+
+        # ── Cross-revet dedupe (Task #95) ─────────────────────────────
+        # The Quality Auditor's clear_candidate_vetting_state cascade
+        # wipes the notification_sent flag along with the matches, so
+        # without a durable signal we'd fire a second email after a
+        # re-vet even though the Bullhorn note path correctly skips
+        # the duplicate. Filter out (candidate, job) pairs we already
+        # emailed for within the dedupe window — still mark the new
+        # rows as sent so subsequent regular cycles dedupe normally,
+        # and emit a structured suppression marker.
+        matches, suppressed_matches = _filter_matches_by_ledger(
+            matches, vetting_log.bullhorn_candidate_id, 'qualified',
+        )
+        if suppressed_matches:
+            now = datetime.utcnow()
+            for m in suppressed_matches:
+                m.notification_sent = True
+                m.notification_sent_at = now
+            try:
+                db.session.commit()
+            except Exception as commit_err:
+                logger.warning(
+                    f"⚠️ failed to mark suppressed matches as sent "
+                    f"(candidate={vetting_log.bullhorn_candidate_id}): "
+                    f"{commit_err!r}"
+                )
+                db.session.rollback()
+
+        if not matches:
+            logger.info(
+                f"  ⏭️ Skipping recruiter email for "
+                f"{vetting_log.candidate_name} — every qualified "
+                f"(candidate, job) pair was already emailed within the "
+                f"last {_RECRUITER_NOTIFICATION_DEDUPE_WINDOW_HOURS}h "
+                f"(suppressed={len(suppressed_matches)})"
+            )
+            return 0
 
         # ── Recruiter transparency (May 2026) — Applied-job context ──
         # When a candidate qualifies for related jobs but NOT for the role they
@@ -313,6 +502,17 @@ class NotificationMixin:
                 vetting_log.notifications_sent = True
                 vetting_log.notification_count = 1  # One email sent to all
                 db.session.commit()
+
+                # Cross-revet dedupe ledger (Task #95) — record each
+                # (candidate, job) pair we just emailed so the next
+                # auditor re-vet can't fire a duplicate. Best-effort:
+                # ledger failures are logged but never roll back the
+                # already-successful send.
+                _record_ledger_sent(
+                    vetting_log.bullhorn_candidate_id,
+                    [m.bullhorn_job_id for m in matches],
+                    'qualified',
+                )
                 
                 cc_info = f" (CC: {', '.join(cc_recruiter_emails)})" if cc_recruiter_emails else ""
                 logger.info(f"Sent notification to {primary_recruiter_email}{cc_info} for {vetting_log.candidate_name} (Candidate ID: {vetting_log.bullhorn_candidate_id}, {len(matches)} positions)")
@@ -630,6 +830,28 @@ class NotificationMixin:
         prestige_matches = qualified_prestige_matches
         logger.info(f"  🏢 Found {len(prestige_matches)} prestige employer matches for not-qualified candidate {vetting_log.candidate_name}")
 
+        # Cross-revet dedupe (Task #95) — see send_recruiter_notifications.
+        prestige_matches, suppressed_prestige = _filter_matches_by_ledger(
+            prestige_matches, vetting_log.bullhorn_candidate_id, 'prestige',
+        )
+        if suppressed_prestige:
+            now = datetime.utcnow()
+            for m in suppressed_prestige:
+                m.notification_sent = True
+                m.notification_sent_at = now
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+        if not prestige_matches:
+            logger.info(
+                f"  ⏭️ Skipping prestige notification for "
+                f"{vetting_log.candidate_name} — already emailed within "
+                f"the last {_RECRUITER_NOTIFICATION_DEDUPE_WINDOW_HOURS}h "
+                f"(suppressed={len(suppressed_prestige)})"
+            )
+            return 0
+
         primary_recruiter_email = None
         primary_recruiter_name = None
         cc_recruiter_emails = []
@@ -778,6 +1000,12 @@ class NotificationMixin:
                     match.notification_sent = True
                     match.notification_sent_at = datetime.utcnow()
                 db.session.commit()
+                # Cross-revet dedupe ledger (Task #95).
+                _record_ledger_sent(
+                    vetting_log.bullhorn_candidate_id,
+                    [m.bullhorn_job_id for m in prestige_matches],
+                    'prestige',
+                )
                 logger.info(f"  🏢 Prestige review notification sent to {primary_recruiter_email} for {candidate_name}")
                 return 1
             return 0
@@ -838,6 +1066,28 @@ class NotificationMixin:
             f"  📍 Found {len(location_matches)} location-review match(es) for "
             f"not-qualified candidate {vetting_log.candidate_name}"
         )
+
+        # Cross-revet dedupe (Task #95) — see send_recruiter_notifications.
+        location_matches, suppressed_loc = _filter_matches_by_ledger(
+            location_matches, vetting_log.bullhorn_candidate_id, 'location_review',
+        )
+        if suppressed_loc:
+            now = datetime.utcnow()
+            for m in suppressed_loc:
+                m.notification_sent = True
+                m.notification_sent_at = now
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+        if not location_matches:
+            logger.info(
+                f"  ⏭️ Skipping location-review notification for "
+                f"{vetting_log.candidate_name} — already emailed within "
+                f"the last {_RECRUITER_NOTIFICATION_DEDUPE_WINDOW_HOURS}h "
+                f"(suppressed={len(suppressed_loc)})"
+            )
+            return 0
 
         # ── Per-recruiter Location-Review opt-out (May 2026) ──
         # Load explicit OFF prefs for the jobs in this candidate's matches.
@@ -1138,6 +1388,12 @@ class NotificationMixin:
                     match.notification_sent = True
                     match.notification_sent_at = datetime.utcnow()
                 db.session.commit()
+                # Cross-revet dedupe ledger (Task #95).
+                _record_ledger_sent(
+                    vetting_log.bullhorn_candidate_id,
+                    [m.bullhorn_job_id for m in location_matches],
+                    'location_review',
+                )
                 logger.info(
                     f"  📍 Location review notification sent to {primary_recruiter_email} "
                     f"for {candidate_name} ({len(location_matches)} match(es))"

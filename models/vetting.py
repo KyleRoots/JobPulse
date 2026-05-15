@@ -397,3 +397,47 @@ class RecruiterNotificationPref(db.Model):
         return (f'<RecruiterNotificationPref user={self.user_id} '
                 f'job={self.bullhorn_job_id} type={self.notification_type} '
                 f'enabled={self.enabled}>')
+
+
+class RecruiterNotificationLedger(db.Model):
+    """Durable record that a recruiter email already went out for a
+    (candidate, job, notification_type) tuple.
+
+    Built May 2026 (Task #95) to stop duplicate "Qualified Candidate"
+    emails on auditor re-vet. The Quality Auditor's
+    ``clear_candidate_vetting_state`` cascade deletes the
+    ``CandidateJobMatch`` rows that previously carried the
+    ``notification_sent=True`` flag, so the next vetting cycle creates
+    fresh matches with ``notification_sent=False`` and the recruiter
+    notification path has no idempotency signal — it would fire a
+    second email even though the Bullhorn note path correctly skips
+    the duplicate via its own check.
+
+    This ledger lives **outside** the auditor cascade by design: it is
+    keyed on ``(bullhorn_candidate_id, bullhorn_job_id, notification_type)``
+    rather than ``vetting_log_id``, so re-vets that wipe vetting logs do
+    not wipe the dedupe signal. Rows are written after a successful
+    send and queried before the next send for the same pair.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    bullhorn_candidate_id = db.Column(db.Integer, nullable=False, index=True)
+    bullhorn_job_id = db.Column(db.Integer, nullable=False, index=True)
+    notification_type = db.Column(
+        db.String(64), nullable=False, default='qualified',
+        server_default='qualified', index=True,
+    )
+    sent_at = db.Column(
+        db.DateTime, nullable=False, default=datetime.utcnow, index=True,
+    )
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            'bullhorn_candidate_id', 'bullhorn_job_id', 'notification_type',
+            name='uq_recruiter_notification_ledger',
+        ),
+    )
+
+    def __repr__(self):
+        return (f'<RecruiterNotificationLedger candidate={self.bullhorn_candidate_id} '
+                f'job={self.bullhorn_job_id} type={self.notification_type} '
+                f'sent_at={self.sent_at}>')
