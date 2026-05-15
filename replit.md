@@ -22,20 +22,22 @@ Scout Genius is a Flask-based web application designed to automate XML job feed 
 - **Auditor stuck-row fix verification** (commits `862888b0` + `7deab384`, deploys `d346b9b3` + `b7af5bf0`): No new `revet_triggered`-without-resolution since deploy. Query: `SELECT COUNT(*) FROM vetting_audit_log WHERE created_at > '2026-05-14 14:45' AND action_taken='revet_triggered' AND revet_new_score IS NULL;` — goal is zero past 24h.
 
 ### Active — Stuck Revet Rows (per-row tracking)
-Goal: each row either has `revet_new_score` populated OR is reclassified to `revet_skipped_pre_cutoff`. Cluster context: 93–100% resolution rate across all finding_types post-auditor-fix; leaks are NOT a single-pattern problem.
+Goal: each row either has `revet_new_score` populated OR is reclassified to `revet_skipped_pre_cutoff`. **Cluster context (2026-05-15 checkpoint, 48 post-fix revets)**: overall resolution rate is **89.6%** (43/48) — *below* the prior 93-100% claim. Leak is NOT evenly distributed; primary offender is `employment_gap_misfire` (86%, 12/14). Breakdown: score_inconsistency 16/17 (94%), employment_gap_misfire 12/14 (86% — worst), recency_misfire 9/9, false_gap_claim 3/4, experience_undercounting 2/2, false_positive_skill_gap 1/2.
 
-| Row | Cand | Job | Original Score | Finding Type | Status |
+| Row | Cand | Job | Original Score | Finding Type | Status (2026-05-15 checkpoint) |
 |---|---|---|---|---|---|
-| 5918 | 4659539 | — | 56 | score_inconsistency | Past 24h SLA — primary concern |
-| 6163 | 4660006 | — | 61 | score_inconsistency | In window |
-| 6242 | 4660050 | — | — | employment_gap_misfire | In window |
-| 6251 | 4660054 | — | — | experience_undercounting | In window |
-| 6387 | 4660122 | 35077 | 30 | employment_gap_misfire | NEW since auditor fix; if null at 27h+, pull Bullhorn-side trace for vetting_log_id 6750 |
+| 5918 | 4659539 | — | 56 | score_inconsistency | 🔴 STUCK ~50h+ — past SLA, lone score_inconsistency leak — pull Bullhorn-side trace |
+| ~~6163~~ | ~~4660006~~ | — | ~~61~~ | ~~score_inconsistency~~ | ✅ RESOLVED — `revet_new_score=59` populated; drop after this checkpoint |
+| 6242 | 4660050 | — | — | employment_gap_misfire | 🟡 STUCK ~24h — fits gap-misfire pattern (see #2 investigation) |
+| 6251 | 4660054 | — | — | experience_undercounting | 🟡 STUCK ~24h — only experience_undercounting stuck row |
+| 6387 | 4660122 | 35077 | 30 | employment_gap_misfire | 🟡 STUCK ~20h — fits gap-misfire pattern (see #2 investigation) |
 
-Query: `SELECT id, finding_type, action_taken, revet_new_score FROM vetting_audit_log WHERE id IN (5918, 6163, 6242, 6251, 6387) ORDER BY id;`
+**Investigation kicked off 2026-05-15 PM**: combined #2+#4 — root-cause `employment_gap_misfire` revet path leak + Bullhorn-side trace for 5918.
+
+Query: `SELECT id, finding_type, action_taken, revet_new_score FROM vetting_audit_log WHERE id IN (5918, 6242, 6251, 6387) ORDER BY id;`
 
 ### Active — Operational
-- **AI cost trend**: Last check **$112.82/24h** (amber band, baseline $80 green / $200 red, $4,700/mo target). Trending up from $109 prior day. **Investigation threshold: $130/24h sustained** — at or above, drill into `screening.scoring`, `screening.scoring.shadow`, and any new top spenders. One-day blip → note and move on.
+- **AI cost trend**: Last check **$99.23/24h** (2026-05-15 PM checkpoint, GREEN band, baseline $80 green / $200 red, $4,700/mo target). Down from $112.82 prior check; flat vs $98.23 day-prior (+1%). 30d run-rate ~$2,977. Top spenders: `screening.scoring` $83.48 (84%), `screening.scoring.shadow` $9.64 (10% — holding stable). **Investigation threshold: $130/24h sustained** — at or above, drill into `screening.scoring`, `screening.scoring.shadow`, and any new top spenders. One-day blip → note and move on.
 - **Bullhorn Search API stale-index pattern (2026-05-15)**: Bullhorn's Search API has a recurring lag vs. its Entity API on tearsheet membership. Two distinct sub-patterns observed:
   - **Pattern A — short lag on closed jobs (~5-6 min)**: When a job goes `isOpen=False` or is removed via DELETE, Entity API updates immediately but Search API can serve the stale row briefly. Example: tearsheet 1231 jobs 34629 + 34952 (resolved by recruiter removal ~12:10 UTC; Search API caught up by 12:16). Auto-removal handles this correctly when the row stays in Search.
   - **Pattern B — long-lived ghost on `isDeleted=True` jobs (months)**: When a JobOrder is hard-deleted (`isDeleted=True`), Bullhorn hides it from global UI search BUT the Search API can keep returning it as a tearsheet member indefinitely until something forces a reindex. Example: tearsheet 1531 STSI ghost was JobOrder 34128 ("Southeast Regional Sales Representative", company 32671 Advanced Food Equipment, owner Tray Prewitt, deleted ~2026-01-27). **Diagnostic signature**: search bar in Bullhorn UI returns nothing OR returns a same-numbered Company/Candidate (different entity namespace); direct `entity/JobOrder/{id}` REST call returns `isDeleted: true`. **Resolution**: targeted `DELETE entity/Tearsheet/{ts}/jobOrders/{id}` clears it instantly (no lag — index-only op). Done 2026-05-15 ~12:55 UTC for 1531/34128.
