@@ -1060,6 +1060,12 @@ def screening_ab_analysis():
                 "       shadow_error, created_at "
                 "FROM screening_ab_log "
                 "WHERE created_at >= :since "
+                # Exclude prompt-cache-audit rows (tagged '{model}|{layout}').
+                # Those live alongside model-A/B rows in the same table but
+                # measure prompt-induced score drift, not model differences,
+                # and would pollute the model-A/B headline metrics.
+                "  AND COALESCE(prod_model,'')   NOT LIKE '%|%' "
+                "  AND COALESCE(shadow_model,'') NOT LIKE '%|%' "
                 "ORDER BY created_at DESC"
             ),
             {'since': since},

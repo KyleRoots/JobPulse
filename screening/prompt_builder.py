@@ -43,8 +43,115 @@ _SHADOW_RATE_COUNT: int = 0
 
 
 def _shadow_screening_enabled() -> bool:
-    """Read SCREENING_AB_SHADOW_ENABLED env var. Off by default."""
+    """Read SCREENING_AB_SHADOW_ENABLED env var. Off by default.
+
+    Killswitch (2026-05-15): SHADOW_LOGGING_DISABLED defaults to 'true'.
+    Scoring shadow was costing ~$278/mo (gpt-4.1-mini parallel calls).
+    Sufficient A/B data has been gathered; further accumulation is just
+    cost. To restore legacy env-var-only gating (e.g., for periodic
+    regression monitoring), set SHADOW_LOGGING_DISABLED=false in
+    deployment secrets.
+    """
+    if os.environ.get('SHADOW_LOGGING_DISABLED', 'true').lower() != 'false':
+        return False
     return os.environ.get('SCREENING_AB_SHADOW_ENABLED', '').lower() in ('true', '1', 'yes')
+
+
+# --- Prompt-cache-audit harness (2026-05-15) ---------------------------------
+# Two layouts of the user-message body, semantically identical, ordered
+# differently for OpenAI prompt caching. The cache-optimized layout puts
+# all stable per-job content as a contiguous prefix and all variable
+# per-candidate content in the suffix.
+
+SCREENING_PROMPT_LAYOUTS = ('legacy', 'cache_optimized')
+
+
+def _active_screening_prompt_layout() -> str:
+    """Which prompt layout to use for the PRIMARY scoring call.
+
+    Default: 'legacy' — preserves current production behavior.
+    Set SCREENING_PROMPT_LAYOUT=cache_optimized in deployment secrets to
+    cut over once shadow-validation shows acceptable score drift.
+    """
+    layout = os.environ.get('SCREENING_PROMPT_LAYOUT', 'legacy').strip().lower()
+    if layout not in SCREENING_PROMPT_LAYOUTS:
+        layout = 'legacy'
+    return layout
+
+
+def _prompt_cache_audit_enabled() -> bool:
+    """When true, the scoring path fires a fail-soft shadow call using the
+    OPPOSITE layout (same model) and logs the comparison to
+    screening_ab_log so we can quantify prompt-induced score drift before
+    cutover. Independent of SHADOW_LOGGING_DISABLED — this is a
+    short-window measurement gate, not the long-running model A/B.
+    """
+    return os.environ.get('SCREENING_PROMPT_CACHE_AUDIT_ENABLED', '').lower() in ('true', '1', 'yes')
+
+
+def build_scoring_user_prompt(
+    *,
+    layout: str,
+    today_str: str,
+    custom_requirements_block: str,
+    location_instruction: str,
+    job_id,
+    job_title: str,
+    job_location_full: str,
+    work_type: str,
+    job_description: str,
+    candidate_location_label: str,
+    resume_text: str,
+) -> str:
+    """Construct the user message for screening.scoring in either layout.
+
+    `legacy`         — historical order: date, then per-job, then per-cand.
+                       Variable-per-day prefix kills prompt caching across
+                       day boundaries.
+    `cache_optimized`— stable per-job content first (custom reqs + job
+                       details), then per-candidate variability, then date
+                       at the end as temporal context. Preserves semantic
+                       equivalence; intended to extend the cacheable
+                       prefix from ~system_message only to system_message
+                       + per-job content (~3,000 → ~4,500 tokens for
+                       typical jobs).
+    """
+    if layout == 'cache_optimized':
+        return f"""Evaluate the candidate below against the job below. Apply all instructions from your system prompt.
+{custom_requirements_block}
+
+JOB DETAILS:
+- Job ID: {job_id}
+- Title: {job_title}
+- Location: {job_location_full} (Work Type: {work_type})
+- Description: {job_description}
+{location_instruction}
+
+CANDIDATE INFORMATION:
+- {candidate_location_label}
+
+CANDIDATE RESUME:
+{resume_text}
+
+Today's date: {today_str}."""
+    # Default: legacy
+    return f"""Today's date: {today_str}.
+
+Evaluate the candidate below against the job below. Apply all instructions from your system prompt.
+{custom_requirements_block}
+{location_instruction}
+
+JOB DETAILS:
+- Job ID: {job_id}
+- Title: {job_title}
+- Location: {job_location_full} (Work Type: {work_type})
+- Description: {job_description}
+
+CANDIDATE INFORMATION:
+- {candidate_location_label}
+
+CANDIDATE RESUME:
+{resume_text}"""
 
 
 def _shadow_screening_max_per_hour() -> int:
@@ -148,22 +255,51 @@ def _run_screening_shadow(
     job_id,
     job_title: str,
     openai_client,
+    cache_audit_user_prompt: Optional[str] = None,
+    prod_layout: Optional[str] = None,
+    shadow_layout: Optional[str] = None,
 ) -> None:
-    """Run the gpt-4.1-mini shadow scoring call and log the comparison.
+    """Run a shadow scoring call and log the comparison.
+
+    Two modes:
+
+    * **Model A/B (legacy)** — when `cache_audit_user_prompt` is None: shadow
+      uses gpt-4.1-mini against the SAME prompt as prod. Gated by
+      SCREENING_AB_SHADOW_ENABLED + the SHADOW_LOGGING_DISABLED killswitch.
+
+    * **Prompt-cache audit (2026-05-15)** — when `cache_audit_user_prompt` is
+      provided: shadow uses the SAME model as prod against the OPPOSITE
+      prompt layout. Independently gated by
+      SCREENING_PROMPT_CACHE_AUDIT_ENABLED — bypasses both
+      SHADOW_LOGGING_DISABLED and the model-A/B enable flag because it's a
+      short-window measurement gate. `prod_model`/`shadow_model` are
+      tagged `{model}|{layout}` in screening_ab_log so cache-audit rows
+      are distinguishable from model-A/B rows.
 
     Fully fail-soft: any error is swallowed so production scoring is never
     affected. Cost-tagged via log_call(site_id='screening.scoring.shadow').
     """
     try:
-        if not _shadow_screening_enabled():
-            return
+        cache_audit_mode = cache_audit_user_prompt is not None
+        if cache_audit_mode:
+            # Independent gate; bypass model-A/B killswitch.
+            if not _prompt_cache_audit_enabled():
+                return
+        else:
+            if not _shadow_screening_enabled():
+                return
         if openai_client is None:
             return
         if not _shadow_screening_rate_check():
             # Rate cap hit — skip silently
             return
 
-        shadow_model = _shadow_screening_pick_model(prod_model)
+        if cache_audit_mode:
+            # Same model, alternate layout — measures prompt-induced score
+            # drift only (not model differences).
+            shadow_model = prod_model
+        else:
+            shadow_model = _shadow_screening_pick_model(prod_model)
         from services.openai_helper import log_call, _extract_usage, estimate_cost
 
         # Use the explicit shadow model (no env override): we want the actual
@@ -180,11 +316,12 @@ def _run_screening_shadow(
         shadow_response = None
 
         try:
+            _shadow_user_prompt = cache_audit_user_prompt if cache_audit_mode else user_prompt
             shadow_response = openai_client.chat.completions.create(
                 model=call_model,
                 messages=[
                     {"role": "system", "content": system_message},
-                    {"role": "user", "content": user_prompt},
+                    {"role": "user", "content": _shadow_user_prompt},
                 ],
                 response_format={"type": "json_object"},
                 max_completion_tokens=3750,
@@ -226,14 +363,24 @@ def _run_screening_shadow(
         shadow_duration_ms = int((time.time() - t0) * 1000)
         score_delta = (shadow_score - prod_score) if shadow_score is not None else None
 
+        # Tag layouts in prod_model/shadow_model so cache-audit rows are
+        # distinguishable from model-A/B rows in screening_ab_log queries.
+        # Format: "{model}|{layout}" — e.g., "gpt-5.4|legacy".
+        if cache_audit_mode and prod_layout and shadow_layout:
+            _prod_model_tag = f"{prod_model}|{prod_layout}"[:60]
+            _shadow_model_tag = f"{shadow_model}|{shadow_layout}"[:60]
+        else:
+            _prod_model_tag = prod_model
+            _shadow_model_tag = shadow_model
+
         _save_screening_ab_row({
             'vetting_log_id': None,
             'candidate_job_match_id': None,
             'bullhorn_candidate_id': None,
             'bullhorn_job_id': int(job_id) if isinstance(job_id, (int, str)) and str(job_id).isdigit() else None,
             'job_title': (job_title or '')[:500],
-            'prod_model': prod_model,
-            'shadow_model': shadow_model,
+            'prod_model': _prod_model_tag,
+            'shadow_model': _shadow_model_tag,
             'prod_score': float(prod_score),
             'shadow_score': shadow_score,
             'score_delta': score_delta,
@@ -647,23 +794,20 @@ These requirements take priority in scoring. Evaluate the candidate against ever
 
         location_instruction = build_location_instruction(work_type, job_location_full, candidate_location_label)
 
-        prompt = f"""Today's date: {_today_str}.
-
-Evaluate the candidate below against the job below. Apply all instructions from your system prompt.
-{custom_requirements_block}
-{location_instruction}
-
-JOB DETAILS:
-- Job ID: {job_id}
-- Title: {job_title}
-- Location: {job_location_full} (Work Type: {work_type})
-- Description: {job_description}
-
-CANDIDATE INFORMATION:
-- {candidate_location_label}
-
-CANDIDATE RESUME:
-{resume_text}"""
+        _layout = _active_screening_prompt_layout()
+        _prompt_kwargs = dict(
+            today_str=_today_str,
+            custom_requirements_block=custom_requirements_block,
+            location_instruction=location_instruction,
+            job_id=job_id,
+            job_title=job_title,
+            job_location_full=job_location_full,
+            work_type=work_type,
+            job_description=job_description,
+            candidate_location_label=candidate_location_label,
+            resume_text=resume_text,
+        )
+        prompt = build_scoring_user_prompt(layout=_layout, **_prompt_kwargs)
 
         try:
             global_reqs_section = ""
@@ -766,6 +910,31 @@ GLOBAL SCREENING INSTRUCTIONS (apply to all jobs):
                 )
             except Exception as _shadow_outer:
                 logger.debug(f"Shadow A/B invocation suppressed: {_shadow_outer}")
+
+            # Prompt-cache audit (2026-05-15): fire-and-forget alt-layout
+            # shadow with SAME model. Independently gated by
+            # SCREENING_PROMPT_CACHE_AUDIT_ENABLED. Reuses screening_ab_log
+            # — rows tagged "{model}|legacy" vs "{model}|cache_optimized".
+            try:
+                if _prompt_cache_audit_enabled():
+                    _alt_layout = 'cache_optimized' if _layout == 'legacy' else 'legacy'
+                    _alt_prompt = build_scoring_user_prompt(layout=_alt_layout, **_prompt_kwargs)
+                    _prod_score_for_audit = float(result.get('match_score', 0) or 0)
+                    _run_screening_shadow(
+                        system_message=system_message,
+                        user_prompt=prompt,
+                        prod_model=_model,
+                        prod_score=_prod_score_for_audit,
+                        prod_qualified=(_prod_score_for_audit >= 80.0),
+                        job_id=job_id,
+                        job_title=job_title,
+                        openai_client=self.openai_client,
+                        cache_audit_user_prompt=_alt_prompt,
+                        prod_layout=_layout,
+                        shadow_layout=_alt_layout,
+                    )
+            except Exception as _audit_outer:
+                logger.debug(f"Prompt-cache audit invocation suppressed: {_audit_outer}")
 
             return result
 

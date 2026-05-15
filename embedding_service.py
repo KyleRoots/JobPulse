@@ -405,7 +405,17 @@ class EmbeddingService:
 
     @staticmethod
     def _shadow_enabled() -> bool:
-        """Read EMBEDDING_AB_SHADOW_ENABLED env var. Off by default."""
+        """Read EMBEDDING_AB_SHADOW_ENABLED env var. Off by default.
+
+        Killswitch (2026-05-15): SHADOW_LOGGING_DISABLED defaults to 'true'.
+        We've gathered 55,961 embedding A/B comparisons (large vs small) —
+        decision-grade data; further accumulation is just cost. To restore
+        the legacy env-var-only gating (e.g., for periodic regression
+        monitoring), set SHADOW_LOGGING_DISABLED=false in deployment
+        secrets.
+        """
+        if os.environ.get('SHADOW_LOGGING_DISABLED', 'true').lower() != 'false':
+            return False
         return os.environ.get('EMBEDDING_AB_SHADOW_ENABLED', '').lower() in ('true', '1', 'yes')
 
     @staticmethod
