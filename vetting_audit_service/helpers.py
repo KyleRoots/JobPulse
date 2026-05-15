@@ -81,6 +81,118 @@ def get_auditor_model() -> str:
     return DEFAULT_AUDITOR_MODEL
 
 
+def clear_candidate_vetting_state(candidate_id: int) -> Dict[str, int]:
+    """Delete the candidate's prior vetting state so the next vetting cycle
+    re-scores them from scratch.
+
+    Shared by ``RevetMixin._trigger_revet`` (front-line auditor revet path)
+    and ``CandidateDetectionMixin.detect_pending_revet_candidates`` (the
+    audit-log-as-queue safety net that re-enqueues candidates whose revet
+    was triggered but never landed). Both call sites need the same cascade
+    semantics: drop matches → drop embedding/escalation logs → drop
+    CandidateVettingLog → reset ParsedEmail.vetted_at.
+
+    The previous in-line implementation in ``_trigger_revet`` filtered the
+    delete by ``CandidateVettingLog.parsed_email_id IN (...)`` which only
+    caught parsed_email-path candidates. PandoLogic-note / Matador /
+    Bullhorn-search-legacy intake stores ``parsed_email_id=NULL`` on the
+    vetting log, so those rows survived the delete and the
+    ``_self_screen_cooldown_active`` gate then blocked re-vetting for the
+    full cooldown window — leaving the audit row stuck as
+    ``revet_triggered`` / ``revet_new_score=NULL`` indefinitely.
+
+    Filtering by ``bullhorn_candidate_id`` instead of ``parsed_email_id``
+    closes that gap.
+
+    Returns a dict with the per-table delete counts for logging.
+    Raises on failure — the caller is responsible for rolling back its
+    transaction.
+    """
+    from app import db
+    from models import (
+        CandidateVettingLog, CandidateJobMatch, ParsedEmail,
+        EmbeddingFilterLog, EscalationLog, ScoutVettingSession,
+    )
+
+    # FK-safety pre-check (May 2026): ScoutVettingSession.vetting_log_id
+    # is a NOT NULL FK to candidate_vetting_log.id with NO ON DELETE
+    # CASCADE in migration c7e2a4f3b9d1. ANY session row pointing at a
+    # vlog we're about to delete (active OR terminal: qualified,
+    # not_qualified, declined, unresponsive) will raise IntegrityError
+    # at commit. Query for the actual FK refs that would block the
+    # delete — not just "active" sessions — and abort if any exist.
+    # Caller catches RuntimeError and reclassifies the audit row.
+    vetting_logs_for_check = CandidateVettingLog.query.filter(
+        CandidateVettingLog.bullhorn_candidate_id == candidate_id,
+    ).all()
+    log_ids_for_check = [vl.id for vl in vetting_logs_for_check]
+    if log_ids_for_check:
+        blocking_session_count = (
+            ScoutVettingSession.query
+            .filter(ScoutVettingSession.vetting_log_id.in_(log_ids_for_check))
+            .count()
+        )
+        if blocking_session_count > 0:
+            # Differentiate active vs terminal in the error message so
+            # operators can tell whether a manual session-archive +
+            # retry is reasonable or whether the conversation is live.
+            ACTIVE_SESSION_STATES = (
+                'pending', 'queued', 'outreach_sent', 'in_progress',
+            )
+            active_count = (
+                ScoutVettingSession.query
+                .filter(
+                    ScoutVettingSession.vetting_log_id.in_(log_ids_for_check),
+                    ScoutVettingSession.status.in_(ACTIVE_SESSION_STATES),
+                )
+                .count()
+            )
+            terminal_count = blocking_session_count - active_count
+            raise RuntimeError(
+                f"clear_candidate_vetting_state blocked: candidate "
+                f"{candidate_id} has {blocking_session_count} Scout "
+                f"vetting session(s) referencing its vetting logs "
+                f"({active_count} active, {terminal_count} terminal) — "
+                f"FK to candidate_vetting_log.id is NOT NULL without "
+                f"CASCADE; deleting would raise IntegrityError"
+            )
+
+    parsed_emails = ParsedEmail.query.filter(
+        ParsedEmail.bullhorn_candidate_id == candidate_id,
+        ParsedEmail.status == 'completed',
+    ).all()
+    pe_count = len(parsed_emails)
+    for pe in parsed_emails:
+        pe.vetted_at = None
+
+    # Re-fetch (in case anything changed between the pre-check and now)
+    vetting_logs = CandidateVettingLog.query.filter(
+        CandidateVettingLog.bullhorn_candidate_id == candidate_id,
+    ).all()
+    log_ids = [vl.id for vl in vetting_logs]
+
+    if log_ids:
+        EmbeddingFilterLog.query.filter(
+            EmbeddingFilterLog.vetting_log_id.in_(log_ids)
+        ).delete(synchronize_session=False)
+        EscalationLog.query.filter(
+            EscalationLog.vetting_log_id.in_(log_ids)
+        ).delete(synchronize_session=False)
+        CandidateJobMatch.query.filter(
+            CandidateJobMatch.vetting_log_id.in_(log_ids)
+        ).delete(synchronize_session=False)
+        CandidateVettingLog.query.filter(
+            CandidateVettingLog.id.in_(log_ids)
+        ).delete(synchronize_session=False)
+
+    db.session.commit()
+
+    return {
+        'vetting_logs_deleted': len(log_ids),
+        'parsed_emails_reset': pe_count,
+    }
+
+
 def backfill_revet_new_score(
     candidate_id: int,
     vetting_log=None,

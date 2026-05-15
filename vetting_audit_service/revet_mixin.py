@@ -201,58 +201,29 @@ class RevetMixin:
         return None
 
     def _trigger_revet(self, candidate_id: int, original_log_id: int) -> Optional[float]:
-        from app import db, app
-        from models import (
-            CandidateVettingLog, CandidateJobMatch, ParsedEmail,
-            EmbeddingFilterLog, EscalationLog, VettingAuditLog
-        )
+        """Reset the candidate's vetting state so the next cycle re-scores them.
+
+        Async by design: the actual re-score is performed by the next
+        ``CandidateVettingService.run_vetting_cycle`` invocation, so this
+        helper returns ``None`` and lets ``backfill_revet_new_score`` populate
+        ``revet_new_score`` once the new ``CandidateJobMatch`` rows land.
+
+        Delegates to ``clear_candidate_vetting_state`` (shared with
+        ``detect_pending_revet_candidates``) so the cascade is identical
+        whether the auditor triggered the revet directly or the safety-net
+        detector re-enqueues a stuck audit row later.
+        """
+        from app import db
+        from .helpers import clear_candidate_vetting_state
 
         try:
-            parsed_emails = ParsedEmail.query.filter(
-                ParsedEmail.bullhorn_candidate_id == candidate_id,
-                ParsedEmail.status == 'completed'
-            ).all()
-
-            if not parsed_emails:
-                logger.warning(f"No ParsedEmail records for candidate {candidate_id}")
-                return None
-
-            pe_ids = [pe.id for pe in parsed_emails]
-
-            vetting_logs = CandidateVettingLog.query.filter(
-                CandidateVettingLog.parsed_email_id.in_(pe_ids)
-            ).all()
-
-            log_ids = [vl.id for vl in vetting_logs]
-
-            if log_ids:
-                EmbeddingFilterLog.query.filter(
-                    EmbeddingFilterLog.vetting_log_id.in_(log_ids)
-                ).delete(synchronize_session=False)
-
-                EscalationLog.query.filter(
-                    EscalationLog.vetting_log_id.in_(log_ids)
-                ).delete(synchronize_session=False)
-
-                CandidateJobMatch.query.filter(
-                    CandidateJobMatch.vetting_log_id.in_(log_ids)
-                ).delete(synchronize_session=False)
-
-                CandidateVettingLog.query.filter(
-                    CandidateVettingLog.id.in_(log_ids)
-                ).delete(synchronize_session=False)
-
-            for pe in parsed_emails:
-                pe.vetted_at = None
-
-            db.session.commit()
-
+            stats = clear_candidate_vetting_state(candidate_id)
             logger.info(
                 f"🔄 Audit re-vet: reset candidate {candidate_id} — "
-                f"cleared {len(log_ids)} vetting logs, reset {len(pe_ids)} ParsedEmails. "
+                f"cleared {stats['vetting_logs_deleted']} vetting logs, "
+                f"reset {stats['parsed_emails_reset']} ParsedEmails. "
                 f"Will be picked up by next vetting cycle."
             )
-
             return None
 
         except Exception as e:

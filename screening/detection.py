@@ -602,6 +602,219 @@ class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMi
             logger.error(f"Error detecting Pandologic-note candidates: {str(e)}")
             return []
 
+    def detect_pending_revet_candidates(
+        self,
+        lookback_days: int = 7,
+        max_candidates: int = 10,
+    ) -> List[Dict]:
+        """Re-enqueue candidates whose audit log fired ``revet_triggered``
+        but whose ``revet_new_score`` is still NULL because no fresh
+        ``CandidateVettingLog`` has landed since the audit row.
+
+        Background — why this is needed even though the auditor already
+        calls ``_trigger_revet``:
+
+        ``RevetMixin._trigger_revet`` deletes the candidate's prior
+        vetting state and expects the next vetting cycle to re-score them.
+        For parsed_email-path candidates that works because
+        ``detect_unvetted_applications`` re-picks them up via
+        ``vetted_at IS NULL``. For non-parsed_email-path candidates
+        (PandoLogic notes / Matador / Bullhorn-search legacy), the upstream
+        detectors only look at the last 5–10 minutes of activity — so a
+        candidate revet that was triggered hours ago is never re-discovered,
+        leaving the audit row stuck as ``revet_triggered`` /
+        ``revet_new_score=NULL`` indefinitely. The May-2026 stuck-row
+        cluster (rows 6242, 6251, 6387 + ~4 unidentified) all fit this
+        pattern.
+
+        This detector uses the audit log itself as the durable revet
+        queue: any audit row still missing ``revet_new_score`` after
+        ``_trigger_revet`` ran is grounds to re-enqueue the candidate.
+        It also calls ``clear_candidate_vetting_state`` to fix orphaned
+        rows whose original ``_trigger_revet`` ran before the
+        ``parsed_email_id``→``bullhorn_candidate_id`` filter fix and
+        therefore left stale CandidateVettingLog rows behind (those
+        stale rows would otherwise trip ``_self_screen_cooldown_active``
+        and block the re-vet again).
+
+        Args:
+            lookback_days: How far back to scan the audit log. 7 days
+                covers the auditor's stuck-row SLA window without
+                pulling in ancient rows that should have been
+                reclassified by hand.
+            max_candidates: Per-cycle cap so a backlog of stuck rows
+                cannot starve regular pipeline work.
+
+        Returns:
+            List of candidate dicts shaped like the other detectors so
+            ``run_vetting_cycle`` can dedupe and process them through the
+            standard ``process_candidate`` path.
+        """
+        from app import db
+        from models import VettingAuditLog, CandidateVettingLog, CandidateJobMatch
+        from vetting_audit_service import clear_candidate_vetting_state
+
+        cutoff = datetime.utcnow() - timedelta(days=lookback_days)
+        try:
+            pending_audits = (
+                VettingAuditLog.query
+                .filter(
+                    VettingAuditLog.action_taken == 'revet_triggered',
+                    VettingAuditLog.revet_new_score.is_(None),
+                    VettingAuditLog.created_at >= cutoff,
+                )
+                .order_by(VettingAuditLog.created_at.asc())
+                .all()
+            )
+        except Exception as e:
+            logger.warning(
+                f"⚠️ Pending-revet detector: audit log query failed "
+                f"({type(e).__name__}: {e}); skipping this cycle"
+            )
+            return []
+
+        if not pending_audits:
+            return []
+
+        seen_candidate_ids = set()
+        candidates_to_enqueue: List[Dict] = []
+        skipped_already_revetted = 0
+        skipped_active_session = 0
+        skipped_clear_failed = 0
+
+        for audit in pending_audits:
+            if len(candidates_to_enqueue) >= max_candidates:
+                break
+
+            candidate_id = audit.bullhorn_candidate_id
+            if not candidate_id or candidate_id in seen_candidate_ids:
+                continue
+            seen_candidate_ids.add(candidate_id)
+
+            # If a fresh vlog has landed AFTER the audit row AND it
+            # produced a CandidateJobMatch for the SAME job the audit
+            # row references, then the re-vet actually ran for the
+            # right job and only the back-fill failed. Skip and let
+            # ``backfill_revet_new_score`` retry on the next vlog
+            # commit. Candidate-level only would over-skip: a vlog
+            # for a *different* job (e.g. a later application by the
+            # same candidate) does not satisfy this audit row, so we
+            # require the match to be keyed to ``audit.job_id``.
+            # When ``audit.job_id`` is NULL, fall back to a strict
+            # candidate-level guard since we have nothing finer to
+            # filter on.
+            try:
+                if audit.job_id is not None:
+                    post_audit_match_exists = db.session.query(
+                        CandidateJobMatch.id
+                    ).join(
+                        CandidateVettingLog,
+                        CandidateJobMatch.vetting_log_id == CandidateVettingLog.id,
+                    ).filter(
+                        CandidateVettingLog.bullhorn_candidate_id == candidate_id,
+                        CandidateVettingLog.status.in_(['completed', 'processing']),
+                        CandidateVettingLog.created_at > audit.created_at,
+                        CandidateJobMatch.bullhorn_job_id == audit.job_id,
+                    ).first() is not None
+                else:
+                    post_audit_match_exists = (
+                        CandidateVettingLog.query
+                        .filter(
+                            CandidateVettingLog.bullhorn_candidate_id == candidate_id,
+                            CandidateVettingLog.status.in_(['completed', 'processing']),
+                            CandidateVettingLog.created_at > audit.created_at,
+                        )
+                        .first()
+                    ) is not None
+            except Exception as e:
+                logger.warning(
+                    f"⚠️ Pending-revet detector: post-audit lookup failed for "
+                    f"candidate {candidate_id} ({type(e).__name__}: {e}); skipping"
+                )
+                continue
+            if post_audit_match_exists:
+                skipped_already_revetted += 1
+                continue
+
+            # Clear stale vetting state so ``_self_screen_cooldown_active``
+            # doesn't block the next cycle. Note: we deliberately do NOT
+            # call ``_should_skip_candidate`` here — that gate consults
+            # the same stale vlogs we are about to delete, and would
+            # self-block recovery for the very rows this detector exists
+            # to recover. The auditor's revet decision was the human-
+            # signal checkpoint; the post-audit-match guard above is the
+            # loop guard. ``clear_candidate_vetting_state`` raises
+            # ``RuntimeError`` when an active ``ScoutVettingSession``
+            # would be orphaned by the delete — treat that as a separate
+            # skip class so it shows up clearly in telemetry.
+            try:
+                stats = clear_candidate_vetting_state(candidate_id)
+            except RuntimeError as e:
+                from app import db
+                try:
+                    db.session.rollback()
+                except Exception:
+                    pass
+                logger.info(
+                    f"⏸️ Pending-revet detector: candidate {candidate_id} "
+                    f"audit row {audit.id} skipped — {e}"
+                )
+                skipped_active_session += 1
+                continue
+            except Exception as e:
+                from app import db
+                try:
+                    db.session.rollback()
+                except Exception:
+                    pass
+                logger.warning(
+                    f"⚠️ Pending-revet detector: clear_candidate_vetting_state "
+                    f"failed for candidate {candidate_id} "
+                    f"({type(e).__name__}: {e}); skipping enqueue"
+                )
+                skipped_clear_failed += 1
+                continue
+
+            name = audit.candidate_name or ''
+            first_name = name.split(' ', 1)[0] if name else None
+            last_name = name.split(' ', 1)[1] if ' ' in name else None
+
+            cand_dict: Dict = {
+                'id': candidate_id,
+                'firstName': first_name,
+                'lastName': last_name,
+                '_pending_revet_audit_id': audit.id,
+            }
+            if audit.job_id is not None:
+                cand_dict['_applied_job_id'] = audit.job_id
+                cand_dict['_applied_job_title'] = audit.job_title or ''
+            candidates_to_enqueue.append(cand_dict)
+
+            audit_age_h = (datetime.utcnow() - audit.created_at).total_seconds() / 3600
+            logger.info(
+                f"🔁 Pending-revet re-enqueue: candidate {candidate_id} "
+                f"({audit.candidate_name or 'unknown'}) audit row {audit.id} "
+                f"finding={audit.finding_type} original_score={audit.original_score} "
+                f"audit_age_hours={audit_age_h:.1f} cleared_vlogs="
+                f"{stats['vetting_logs_deleted']}"
+            )
+
+        if (
+            candidates_to_enqueue
+            or skipped_already_revetted
+            or skipped_active_session
+            or skipped_clear_failed
+        ):
+            logger.info(
+                f"🔁 Pending revets: {len(candidates_to_enqueue)} re-enqueued, "
+                f"{skipped_already_revetted} already-revetted (back-fill pending), "
+                f"{skipped_active_session} blocked by active Scout session, "
+                f"{skipped_clear_failed} failed clear, "
+                f"out of {len(pending_audits)} stuck audit row(s) in last "
+                f"{lookback_days}d"
+            )
+        return candidates_to_enqueue
+
     def detect_unvetted_applications(self, limit: int = 25) -> List[Dict]:
         """
         Find candidates from ParsedEmail records that have been successfully processed

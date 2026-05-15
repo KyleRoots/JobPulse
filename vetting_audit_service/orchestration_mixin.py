@@ -378,6 +378,50 @@ class OrchestrationMixin:
             elif confidence == 'medium' and finding_type != 'no_issue':
                 action_taken = 'flagged_for_review'
 
+            # Job-id mismatch guard (May 2026): when no CandidateJobMatch
+            # has is_applied_job=True, this method falls back to the
+            # candidate's highest-scoring match and writes its
+            # bullhorn_job_id onto the audit row. If that fallback
+            # bullhorn_job_id differs from the canonical
+            # vetting_log.applied_job_id, the audit row's job_id will
+            # never match a future re-vet's CandidateJobMatch (the re-vet
+            # scores the actual applied job, not the fallback) — so
+            # backfill_revet_new_score can never populate revet_new_score
+            # and the row stays stuck forever. Direct cause of stuck row
+            # 5918 (Shashank Puli — audit job_id=34967 vs applied=34708).
+            # Reclassify as revet_skipped_job_mismatch so the auditor
+            # observation is preserved without firing an un-backfillable
+            # re-vet.
+            if (
+                action_taken == 'revet_triggered'
+                and vetting_log.applied_job_id is not None
+                and applied_match.bullhorn_job_id is not None
+                and int(applied_match.bullhorn_job_id) != int(vetting_log.applied_job_id)
+            ):
+                mismatch_reason = (
+                    f"Suppressed re-vet — audit was scored against "
+                    f"job {applied_match.bullhorn_job_id} (fallback to "
+                    f"highest-scoring match because no is_applied_job=True "
+                    f"row exists) but the candidate actually applied to "
+                    f"job {vetting_log.applied_job_id}. A re-vet would "
+                    f"never backfill this row because the new "
+                    f"CandidateJobMatch will be keyed to the applied "
+                    f"job, not the fallback. Flag for human review."
+                )
+                logger.info(
+                    f"🛑 Auditor job-mismatch: candidate "
+                    f"{vetting_log.bullhorn_candidate_id} audit job "
+                    f"{applied_match.bullhorn_job_id} != applied job "
+                    f"{vetting_log.applied_job_id} — skipping re-vet"
+                )
+                action_taken = 'revet_skipped_job_mismatch'
+                audit_finding_text = (
+                    f"{audit_finding_text}\n\n[Auditor] {mismatch_reason}"
+                ).strip()
+                summary['revets_skipped_job_mismatch'] = (
+                    summary.get('revets_skipped_job_mismatch', 0) + 1
+                )
+
             # Re-vet suppression: cap repeated re-vets per (candidate, job),
             # accept results that are already score-stable, and refuse to
             # re-vet candidates whose underlying ParsedEmail predates the

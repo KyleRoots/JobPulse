@@ -32,6 +32,7 @@ from .helpers import (
     get_platform_age_ceilings,
     get_auditor_model,
     backfill_revet_new_score,
+    clear_candidate_vetting_state,
     get_qualified_sample_rate,
     get_revet_cap_per_24h,
     get_revet_score_tolerance,

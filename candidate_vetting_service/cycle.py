@@ -119,6 +119,25 @@ class VettingCycleMixin:
                         existing_ids.add(cand.get('id'))
                 summary['detection_method'] = f"{summary['detection_method']}+pando_note"
 
+            # Audit-log-as-queue safety net: re-enqueue candidates whose
+            # auditor revet was triggered but never produced a fresh
+            # CandidateVettingLog. Catches the non-parsed_email-path leak
+            # that left employment_gap_misfire (and other) audit rows
+            # stuck as revet_triggered/revet_new_score=NULL when the
+            # original 5-10min detector windows had already passed.
+            pending_revet_candidates = self.detect_pending_revet_candidates()
+            if pending_revet_candidates:
+                logger.info(
+                    f"🔁 Adding {len(pending_revet_candidates)} pending-revet "
+                    f"candidates to vetting queue"
+                )
+                existing_ids = {c.get('id') for c in candidates}
+                for cand in pending_revet_candidates:
+                    if cand.get('id') not in existing_ids:
+                        candidates.append(cand)
+                        existing_ids.add(cand.get('id'))
+                summary['detection_method'] = f"{summary['detection_method']}+pending_revet"
+
             summary['candidates_detected'] = len(candidates)
 
             if not candidates:
