@@ -113,3 +113,9 @@ id = "HxLnWpZBk3fX66LClUg1r"
 uri = "file://AI_COST_AUDIT_RAW.md"
 type = "text"
 title = "AI Cost Audit — Per-Call-Site Detail (Appendix)"
+
+[[outputs]]
+id = "BVF3SQGj4yJx5iYKEqRsE"
+uri = "file://docs/cost-capacity-model-2026-05.md"
+type = "text"
+title = "Scout Genius — AI Cost Capacity Model (May 2026)"
