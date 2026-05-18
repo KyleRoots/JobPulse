@@ -97,8 +97,19 @@ def ensure_subscription(bh) -> Tuple[bool, Optional[Dict[str, Any]]]:
         logger.info(f"ensure_subscription: OK id={sub_id} body={data}")
         return True, data
 
+    # Bullhorn returns 400 with body 'Subscription "X" already exists!' on
+    # PUT when the id is already registered. That's the steady-state
+    # response on every poll after the first create — must be treated as
+    # success, not failure, or the poller never drains events.
+    body = r.text[:300]
+    if r.status_code == 400 and "already exists" in body.lower():
+        logger.debug(
+            f"ensure_subscription: id={sub_id} already registered (idempotent)"
+        )
+        return True, {"already_exists": True, "subscription_id": sub_id}
+
     logger.error(
-        f"ensure_subscription: PUT returned {r.status_code} body={r.text[:300]}"
+        f"ensure_subscription: PUT returned {r.status_code} body={body}"
     )
     return False, None
 
