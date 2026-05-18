@@ -178,9 +178,13 @@ def fetch_events(bh, max_events: int = MAX_EVENTS_PER_POLL) -> List[Dict[str, An
             logger.error(f"fetch_events: retry GET failed: {exc}")
             return []
 
-    if r.status_code == 204 or not r.text.strip():
-        # No events queued — normal idle state. Bullhorn returns either
-        # HTTP 204 or HTTP 200 with an empty body when the queue is drained.
+    # Idle queue: Bullhorn returns either HTTP 204, or HTTP 200 with an
+    # empty body when the subscription has no pending events. Anything
+    # else (including a non-2xx with an empty body) must NOT be silently
+    # swallowed — it falls through to the error/warning paths below.
+    if r.status_code == 204:
+        return []
+    if r.status_code == 200 and not r.text.strip():
         return []
 
     if r.status_code != 200:
@@ -192,7 +196,9 @@ def fetch_events(bh, max_events: int = MAX_EVENTS_PER_POLL) -> List[Dict[str, An
                 f"fetch_events: subscription {sub_id} not found; needs registration"
             )
         else:
-            logger.error(f"fetch_events: returned {r.status_code} body={body}")
+            logger.error(
+                f"fetch_events: returned {r.status_code} body={body or '<empty>'}"
+            )
         return []
 
     try:
