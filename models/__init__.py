@@ -93,6 +93,7 @@ from models.prospector import (
 )
 from models.openai_telemetry import OpenAICallLog
 from models.cost_forecast import CostForecastOverride, CostForecastScenario
+from models.placement_margin import PlacementMarginCalcLog
 
 __all__ = [
     # user
@@ -123,4 +124,6 @@ __all__ = [
     'ProspectorProfile', 'ProspectorRun', 'Prospect',
     # telemetry
     'OpenAICallLog',
+    # placement margin
+    'PlacementMarginCalcLog',
 ]

@@ -78,3 +78,8 @@ integrations = ["python_openai:1.0.0", "onedrive:1.0.0"]
 scriptPath = "scripts/post-merge.sh"
 timeoutMs = 180000
 path = "scripts/post-merge.sh"
+
+[userenv]
+
+[userenv.development]
+PLACEMENT_MARGIN_SUBSCRIPTION_ID = "placement-margin-calc-dev"

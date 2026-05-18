@@ -169,6 +169,33 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
             print(f"❌ SCHEDULER INIT: Failed to add 5-minute monitoring job: {e}", flush=True)
             app.logger.error(f"Failed to add 5-minute monitoring job: {e}")
 
+    # ── Placement Net Margin Poller (every 2 minutes) ─────────────────────────
+    if is_primary_worker:
+        def run_placement_margin_poll():
+            """Drain Bullhorn Placement events and PATCH customFloat1 with margin."""
+            with app.app_context():
+                try:
+                    from bullhorn_service import BullhornService
+                    from placement_margin.worker import poll_and_process
+                    bh = BullhornService()
+                    if not bh.authenticate():
+                        app.logger.warning("placement_margin_poll: auth failed; skipping tick")
+                        return
+                    summary = poll_and_process(bh)
+                    if summary.get('events_drained'):
+                        app.logger.info(f"📐 placement_margin_poll: {summary}")
+                except Exception as e:
+                    app.logger.error(f"placement_margin_poll error: {e}", exc_info=True)
+
+        scheduler.add_job(
+            func=run_placement_margin_poll,
+            trigger=IntervalTrigger(minutes=2),
+            id='placement_margin_poll',
+            name='Placement Net Margin % Poller (2 min)',
+            replace_existing=True,
+        )
+        app.logger.info("📐 Placement Net Margin poller enabled (2-min interval)")
+
     # ── Monitor Health Check (every 2 hours) ──────────────────────────────────
     if is_primary_worker:
         from tasks import check_monitor_health
