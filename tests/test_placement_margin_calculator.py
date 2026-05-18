@@ -18,32 +18,33 @@ from placement_margin.calculator import (
 
 
 def test_happy_path_typical_placement():
-    """Bill $100, Pay $60, Burden $10, Other $5 → 25.00%."""
+    """Bill $100, Pay $60, Burden 10% (=$6), Other $5 → 29.00%."""
     result = calculate_net_margin_percent(
         MarginInputs(
             client_bill_rate=100.0,
             pay_rate=60.0,
-            custom_bill_rate_1=10.0,
+            custom_bill_rate_1=10.0,  # 10% of pay = $6
             custom_bill_rate_2=5.0,
         )
     )
     assert result.status == MarginStatus.OK
-    assert result.value == 25.00
+    # (100 - (60 + 6 + 5)) / 100 * 100 = 29.00%
+    assert result.value == 29.00
 
 
 def test_happy_path_with_decimals():
-    """Bill $87.50, Pay $52.00, Burden $7.50, Other $2.00 → 29.71%."""
+    """Bill $87.50, Pay $52.00, Burden 7.5% (=$3.90), Other $2.00 → 33.83%."""
     result = calculate_net_margin_percent(
         MarginInputs(
             client_bill_rate=87.50,
             pay_rate=52.00,
-            custom_bill_rate_1=7.50,
+            custom_bill_rate_1=7.50,  # 7.5% of pay = $3.90
             custom_bill_rate_2=2.00,
         )
     )
     assert result.status == MarginStatus.OK
-    # (87.50 - (52.00 + 7.50 + 2.00)) / 87.50 * 100 = 26/87.50 * 100 = 29.714...%
-    assert result.value == pytest.approx(29.71, abs=0.01)
+    # (87.50 - (52.00 + 3.90 + 2.00)) / 87.50 * 100 = 29.60 / 87.50 * 100 = 33.828...%
+    assert result.value == pytest.approx(33.83, abs=0.01)
 
 
 def test_decimal_inputs_preserve_precision():
@@ -52,19 +53,19 @@ def test_decimal_inputs_preserve_precision():
         MarginInputs(
             client_bill_rate=Decimal("100.00"),
             pay_rate=Decimal("60.00"),
-            custom_bill_rate_1=Decimal("10.00"),
+            custom_bill_rate_1=Decimal("10.00"),  # 10% of pay = $6
             custom_bill_rate_2=Decimal("5.00"),
         )
     )
     assert result.status == MarginStatus.OK
-    assert result.value == 25.00
+    assert result.value == 29.00
 
 
 # ── Missing burden / other costs default to zero ──────────────────────────────
 
 
 def test_missing_burden_treated_as_zero():
-    """customBillRate1 None → treated as 0."""
+    """customBillRate1 None → treated as 0% burden."""
     result = calculate_net_margin_percent(
         MarginInputs(
             client_bill_rate=100.0,
@@ -79,18 +80,18 @@ def test_missing_burden_treated_as_zero():
 
 
 def test_missing_other_costs_treated_as_zero():
-    """customBillRate2 None → treated as 0."""
+    """customBillRate2 None → treated as $0 other costs."""
     result = calculate_net_margin_percent(
         MarginInputs(
             client_bill_rate=100.0,
             pay_rate=60.0,
-            custom_bill_rate_1=10.0,
+            custom_bill_rate_1=10.0,  # 10% of pay = $6
             custom_bill_rate_2=None,
         )
     )
     assert result.status == MarginStatus.OK
-    # (100 - (60 + 10 + 0)) / 100 * 100 = 30.00%
-    assert result.value == 30.00
+    # (100 - (60 + 6 + 0)) / 100 * 100 = 34.00%
+    assert result.value == 34.00
 
 
 def test_both_burden_and_other_missing_treated_as_zero():
@@ -109,7 +110,7 @@ def test_both_burden_and_other_missing_treated_as_zero():
 
 
 def test_explicit_zero_burden_same_as_missing():
-    """customBillRate1 = 0 → equivalent to None for the math."""
+    """customBillRate1 = 0% → equivalent to None for the math."""
     result = calculate_net_margin_percent(
         MarginInputs(
             client_bill_rate=100.0,
@@ -119,7 +120,33 @@ def test_explicit_zero_burden_same_as_missing():
         )
     )
     assert result.status == MarginStatus.OK
+    # (100 - (60 + 0 + 5)) / 100 * 100 = 35.00%
     assert result.value == 35.00
+
+
+def test_burden_percentage_applied_to_pay_rate():
+    """Burden % is multiplied by pay rate to get burden dollars.
+
+    This is the critical semantic: customBillRate1 is a PERCENTAGE, not a
+    dollar amount. Regression guard against reverting to dollar-burden math.
+    """
+    # Bill 100, Pay 50, Burden 30% (= $15 burden), Other $0
+    # → (100 - (50 + 15 + 0)) / 100 * 100 = 35.00%
+    result = calculate_net_margin_percent(
+        MarginInputs(100.0, 50.0, 30.0, 0.0)
+    )
+    assert result.status == MarginStatus.OK
+    assert result.value == 35.00
+
+    # Same burden % on a higher pay rate produces proportionally larger
+    # burden dollars — proving the % truly scales with pay.
+    # Bill 100, Pay 80, Burden 30% (= $24 burden), Other $0
+    # → (100 - (80 + 24 + 0)) / 100 * 100 = -4.00%
+    result2 = calculate_net_margin_percent(
+        MarginInputs(100.0, 80.0, 30.0, 0.0)
+    )
+    assert result2.status == MarginStatus.OK
+    assert result2.value == -4.00
 
 
 # ── Bill rate edge cases (denominator) ────────────────────────────────────────
@@ -184,18 +211,22 @@ def test_missing_pay_rate_returns_null():
 
 
 def test_zero_pay_rate_computes_normally():
-    """payRate 0 is a legitimate value (no labor cost) → compute normally."""
+    """payRate 0 is a legitimate value (no labor cost) → compute normally.
+
+    Note: with burden as % of pay, zero pay rate makes burden dollars zero
+    too — even if burden % is non-zero. (10% of $0 is still $0.)
+    """
     result = calculate_net_margin_percent(
         MarginInputs(
             client_bill_rate=100.0,
             pay_rate=0.0,
-            custom_bill_rate_1=10.0,
+            custom_bill_rate_1=10.0,  # 10% of $0 = $0
             custom_bill_rate_2=5.0,
         )
     )
     assert result.status == MarginStatus.OK
-    # (100 - (0 + 10 + 5)) / 100 * 100 = 85.00%
-    assert result.value == 85.00
+    # (100 - (0 + 0 + 5)) / 100 * 100 = 95.00%
+    assert result.value == 95.00
 
 
 # ── Negative margin (red flag — should still be stored) ───────────────────────
@@ -207,13 +238,13 @@ def test_negative_margin_returned_as_is():
         MarginInputs(
             client_bill_rate=50.0,
             pay_rate=60.0,
-            custom_bill_rate_1=10.0,
+            custom_bill_rate_1=10.0,  # 10% of $60 pay = $6
             custom_bill_rate_2=5.0,
         )
     )
     assert result.status == MarginStatus.OK
-    # (50 - 75) / 50 * 100 = -50.00%
-    assert result.value == -50.00
+    # (50 - (60 + 6 + 5)) / 50 * 100 = -71/50 * 100 = -42.00%
+    assert result.value == -42.00
 
 
 def test_barely_negative_margin():
@@ -255,12 +286,13 @@ def test_numeric_string_input_accepted():
         MarginInputs(
             client_bill_rate="100.00",
             pay_rate="60.00",
-            custom_bill_rate_1="10.00",
+            custom_bill_rate_1="10.00",  # 10% of $60 pay = $6
             custom_bill_rate_2="5.00",
         )
     )
     assert result.status == MarginStatus.OK
-    assert result.value == 25.00
+    # (100 - (60 + 6 + 5)) / 100 * 100 = 29.00%
+    assert result.value == 29.00
 
 
 # ── Precision / rounding ──────────────────────────────────────────────────────

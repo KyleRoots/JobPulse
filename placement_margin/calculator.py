@@ -2,16 +2,20 @@
 
 Formula
 -------
-    Net Margin % = ((clientBillRate - (payRate + customBillRate1 + customBillRate2))
+    burden_dollars = payRate * (customBillRate1 / 100)
+    Net Margin % = ((clientBillRate - (payRate + burden_dollars + customBillRate2))
                     / clientBillRate) * 100
 
-All inputs are hourly USD amounts pulled directly from the Bullhorn
-Placement record:
+Field meaning (CONFIRMED with Finance 2026-05-18):
 
     clientBillRate    -> native Bullhorn field, Hourly Bill Rate ($/hr)
     payRate           -> native Bullhorn field, Hourly Pay Rate ($/hr)
-    customBillRate1   -> custom Bullhorn field, Hourly Burden ($/hr)
-    customBillRate2   -> custom Bullhorn field, Other Costs Hourly ($/hr)
+    customBillRate1   -> custom Bullhorn field, "Hourly Burden" — stored
+                         as a PERCENTAGE of pay rate (e.g. 21 means 21%
+                         of pay, NOT $21/hr). Standard staffing
+                         convention for employer-side payroll costs.
+    customBillRate2   -> custom Bullhorn field, "Other Costs" — stored
+                         as a flat DOLLAR amount per hour ($/hr).
 
 Output is stored as a numeric decimal value (e.g. 28.5 -> represents 28.5%).
 The "%" symbol lives in the Bullhorn field label, not in the stored value.
@@ -23,8 +27,8 @@ Edge cases
                                                   or ZERO_BILL_RATE).
     payRate is None               -> MarginResult(value=None,
                                                   status=MISSING_PAY_RATE).
-    customBillRate1 is None       -> treated as 0 (burden absent).
-    customBillRate2 is None       -> treated as 0 (other costs absent).
+    customBillRate1 is None       -> treated as 0% (no burden).
+    customBillRate2 is None       -> treated as $0 (no other costs).
     Negative result               -> returned as-is so Finance can see
                                      the red flag.
 
@@ -56,8 +60,8 @@ class MarginInputs:
 
     client_bill_rate: Optional[float]
     pay_rate: Optional[float]
-    custom_bill_rate_1: Optional[float]  # Hourly Burden $/hr
-    custom_bill_rate_2: Optional[float]  # Other Costs Hourly $/hr
+    custom_bill_rate_1: Optional[float]  # Hourly Burden — PERCENT of pay (e.g. 21 == 21%)
+    custom_bill_rate_2: Optional[float]  # Other Costs — DOLLARS per hour
 
 
 @dataclass(frozen=True)
@@ -144,14 +148,21 @@ def calculate_net_margin_percent(inputs: MarginInputs) -> MarginResult:
             inputs=inputs,
         )
 
-    # Burden and other costs default to 0 when absent — common on
-    # placements that haven't had those fields filled in yet.
-    burden_or_zero = burden if burden is not None else Decimal("0")
-    other_or_zero = other if other is not None else Decimal("0")
+    # Burden (percentage of pay) and other costs (flat dollars) default
+    # to 0 when absent — common on placements that haven't had those
+    # fields filled in yet.
+    burden_pct = burden if burden is not None else Decimal("0")
+    other_dollars = other if other is not None else Decimal("0")
+
+    # Convert burden % into burden dollars BEFORE plugging into the
+    # margin formula. Finance convention: burden % is applied to pay
+    # rate (it represents employer-side payroll costs: taxes, benefits,
+    # workers' comp — all denominated as a percentage of payroll).
+    burden_dollars = pay * (burden_pct / Decimal("100"))
 
     # Core formula.
     margin_decimal = (
-        (bill - (pay + burden_or_zero + other_or_zero)) / bill
+        (bill - (pay + burden_dollars + other_dollars)) / bill
     ) * Decimal("100")
 
     # Round to 2dp using banker's-rounding alternative (ROUND_HALF_UP
