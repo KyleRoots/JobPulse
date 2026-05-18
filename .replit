@@ -83,3 +83,6 @@ path = "scripts/post-merge.sh"
 
 [userenv.development]
 PLACEMENT_MARGIN_SUBSCRIPTION_ID = "placement-margin-calc-dev"
+
+[userenv.production]
+PLACEMENT_MARGIN_SUBSCRIPTION_ID = "placement-margin-calc-prod"
