@@ -189,12 +189,12 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
 
         scheduler.add_job(
             func=run_placement_margin_poll,
-            trigger=IntervalTrigger(seconds=30),
+            trigger=IntervalTrigger(seconds=10),
             id='placement_margin_poll',
-            name='Placement Net Margin % Poller (30 sec)',
+            name='Placement Net Margin % Poller (10 sec)',
             replace_existing=True,
         )
-        app.logger.info("📐 Placement Net Margin poller enabled (30-sec interval)")
+        app.logger.info("📐 Placement Net Margin poller enabled (10-sec interval)")
 
     # ── Monitor Health Check (every 2 hours) ──────────────────────────────────
     if is_primary_worker:

@@ -178,8 +178,9 @@ def fetch_events(bh, max_events: int = MAX_EVENTS_PER_POLL) -> List[Dict[str, An
             logger.error(f"fetch_events: retry GET failed: {exc}")
             return []
 
-    if r.status_code == 204:
-        # No events queued — normal idle state.
+    if r.status_code == 204 or not r.text.strip():
+        # No events queued — normal idle state. Bullhorn returns either
+        # HTTP 204 or HTTP 200 with an empty body when the queue is drained.
         return []
 
     if r.status_code != 200:
