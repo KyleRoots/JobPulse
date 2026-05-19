@@ -84,3 +84,4 @@ PyJWT
 defusedcsv
 defusedxml
 reportlab
+jsonschema

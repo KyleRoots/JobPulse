@@ -89,6 +89,29 @@ def _prompt_cache_audit_enabled() -> bool:
     return os.environ.get('SCREENING_PROMPT_CACHE_AUDIT_ENABLED', '').lower() in ('true', '1', 'yes')
 
 
+# --- Schema-audit harness (2026-05-19, Task #99 — output-token diet) ---------
+# Independent of both SHADOW_LOGGING_DISABLED and the cache-audit gate. Fires
+# the SAME prompt to the SAME model with the strict json_schema response
+# format, so we can quantify output-token reduction AND score parity before
+# cutover. Rows tagged "{model}|loose" (prod) vs "{model}|strict" (shadow)
+# in screening_ab_log.
+
+_SCHEMA_AUDIT_SAMPLE_RATE = 0.25  # 25% per-call sample (matches May-15 plan).
+
+
+def _schema_audit_enabled() -> bool:
+    """Master gate. Default off — must be flipped on per environment."""
+    return os.environ.get('SCREENING_SCHEMA_AUDIT_ENABLED', '').lower() in ('true', '1', 'yes')
+
+
+def _schema_audit_should_sample() -> bool:
+    """25% per-call random sampler, independent of the per-hour rate cap
+    enforced inside `_run_screening_shadow`. Belt-and-braces cost control.
+    """
+    import random
+    return random.random() < _SCHEMA_AUDIT_SAMPLE_RATE
+
+
 def build_scoring_user_prompt(
     *,
     layout: str,
@@ -258,12 +281,13 @@ def _run_screening_shadow(
     cache_audit_user_prompt: Optional[str] = None,
     prod_layout: Optional[str] = None,
     shadow_layout: Optional[str] = None,
+    schema_audit_response_format: Optional[dict] = None,
 ) -> None:
     """Run a shadow scoring call and log the comparison.
 
-    Two modes:
+    Three modes (mutually exclusive — first non-None wins):
 
-    * **Model A/B (legacy)** — when `cache_audit_user_prompt` is None: shadow
+    * **Model A/B (legacy)** — when both audit kwargs are None: shadow
       uses gpt-4.1-mini against the SAME prompt as prod. Gated by
       SCREENING_AB_SHADOW_ENABLED + the SHADOW_LOGGING_DISABLED killswitch.
 
@@ -276,12 +300,27 @@ def _run_screening_shadow(
       tagged `{model}|{layout}` in screening_ab_log so cache-audit rows
       are distinguishable from model-A/B rows.
 
+    * **Schema audit (2026-05-19, Task #99)** — when
+      `schema_audit_response_format` is provided: shadow uses the SAME model
+      and SAME prompt as prod but a strict json_schema response_format that
+      omits the three large unread fields (requirement_evidence,
+      work_authorization_analysis, canadian_clearance_analysis). Measures
+      output-token reduction AND score-parity drift before cutover.
+      Independently gated by SCREENING_SCHEMA_AUDIT_ENABLED with a 25%
+      per-call sampler applied upstream. Rows tagged "{model}|loose" vs
+      "{model}|strict".
+
     Fully fail-soft: any error is swallowed so production scoring is never
     affected. Cost-tagged via log_call(site_id='screening.scoring.shadow').
     """
     try:
-        cache_audit_mode = cache_audit_user_prompt is not None
-        if cache_audit_mode:
+        schema_audit_mode = schema_audit_response_format is not None
+        cache_audit_mode = (not schema_audit_mode) and (cache_audit_user_prompt is not None)
+        if schema_audit_mode:
+            # Independent gate; bypass model-A/B + cache-audit killswitches.
+            if not _schema_audit_enabled():
+                return
+        elif cache_audit_mode:
             # Independent gate; bypass model-A/B killswitch.
             if not _prompt_cache_audit_enabled():
                 return
@@ -294,9 +333,9 @@ def _run_screening_shadow(
             # Rate cap hit — skip silently
             return
 
-        if cache_audit_mode:
-            # Same model, alternate layout — measures prompt-induced score
-            # drift only (not model differences).
+        if cache_audit_mode or schema_audit_mode:
+            # Same model — these audits measure prompt/schema-induced
+            # drift only, not model differences.
             shadow_model = prod_model
         else:
             shadow_model = _shadow_screening_pick_model(prod_model)
@@ -317,13 +356,21 @@ def _run_screening_shadow(
 
         try:
             _shadow_user_prompt = cache_audit_user_prompt if cache_audit_mode else user_prompt
+            # Schema audit swaps the response_format; other modes keep the
+            # legacy json_object shape so the shadow output is comparable to
+            # prod.
+            _shadow_response_format = (
+                schema_audit_response_format
+                if schema_audit_mode
+                else {"type": "json_object"}
+            )
             shadow_response = openai_client.chat.completions.create(
                 model=call_model,
                 messages=[
                     {"role": "system", "content": system_message},
                     {"role": "user", "content": _shadow_user_prompt},
                 ],
-                response_format={"type": "json_object"},
+                response_format=_shadow_response_format,
                 max_completion_tokens=3750,
             )
             log_call('screening.scoring.shadow', call_model, shadow_response)
@@ -363,10 +410,13 @@ def _run_screening_shadow(
         shadow_duration_ms = int((time.time() - t0) * 1000)
         score_delta = (shadow_score - prod_score) if shadow_score is not None else None
 
-        # Tag layouts in prod_model/shadow_model so cache-audit rows are
+        # Tag layouts in prod_model/shadow_model so audit rows are
         # distinguishable from model-A/B rows in screening_ab_log queries.
-        # Format: "{model}|{layout}" — e.g., "gpt-5.4|legacy".
-        if cache_audit_mode and prod_layout and shadow_layout:
+        # Format: "{model}|{tag}" — e.g., "gpt-5.4|legacy", "gpt-5.4|strict".
+        if schema_audit_mode:
+            _prod_model_tag = f"{prod_model}|loose"[:60]
+            _shadow_model_tag = f"{shadow_model}|strict"[:60]
+        elif cache_audit_mode and prod_layout and shadow_layout:
             _prod_model_tag = f"{prod_model}|{prod_layout}"[:60]
             _shadow_model_tag = f"{shadow_model}|{shadow_layout}"[:60]
         else:
@@ -944,6 +994,32 @@ GLOBAL SCREENING INSTRUCTIONS (apply to all jobs):
                     )
             except Exception as _audit_outer:
                 logger.debug(f"Prompt-cache audit invocation suppressed: {_audit_outer}")
+
+            # Schema audit (2026-05-19, Task #99 — output-token diet):
+            # fire-and-forget strict-schema shadow against the SAME model
+            # + SAME prompt. Independently gated by
+            # SCREENING_SCHEMA_AUDIT_ENABLED with a 25% per-call sampler.
+            # Reuses screening_ab_log — rows tagged "{model}|loose" vs
+            # "{model}|strict" for downstream parity analysis.
+            try:
+                if _schema_audit_enabled() and _schema_audit_should_sample():
+                    from screening.output_schema import (
+                        build_response_format as _build_strict_response_format,
+                    )
+                    _prod_score_for_schema = float(result.get('match_score', 0) or 0)
+                    _run_screening_shadow(
+                        system_message=system_message,
+                        user_prompt=prompt,
+                        prod_model=_model,
+                        prod_score=_prod_score_for_schema,
+                        prod_qualified=(_prod_score_for_schema >= 80.0),
+                        job_id=job_id,
+                        job_title=job_title,
+                        openai_client=self.openai_client,
+                        schema_audit_response_format=_build_strict_response_format(strict=False),
+                    )
+            except Exception as _schema_outer:
+                logger.debug(f"Schema-audit invocation suppressed: {_schema_outer}")
 
             return result
 
