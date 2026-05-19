@@ -17,15 +17,38 @@ Scout Genius is a Flask-based web application designed to automate XML job feed 
 
 > **Resolved batches archived to `docs/archive-2026-05.md`**: 2026-05-14 ships (Canadian Clearance, Per-Recruiter Location-Review Toggle, Recruiter Transparency markers, Auditor stuck-row fix), Stuck Revet Rows Bug A + Bug B, and the 2026-05-15 PM ships (Task A shadow killswitch, Task B prompt-cache audit harness, Task #95 recruiter notification ledger, Task #98 L3 cache layout disproved). 2026-05-15 PM ships verified clean at 72h checkpoint (2026-05-18). Full L2 cutover playbook also lives in archive for June re-enable.
 
-### Active — June 2026 Action Items (proactively raise at first session of June)
+### Active — June 1, 2026 Cost Lab (PROACTIVELY RAISE AT FIRST SESSION OF JUNE)
 
-- **L2 cache cutover re-enable**: Set `SCREENING_PROMPT_CACHE_AUDIT_ENABLED=true` in deployment secrets and republish to resume shadow row accumulation against `cache_optimized` layout. Target: 200+ valid pairs within first 7 days of June, then execute the full 6-criterion cutover playbook in `docs/archive-2026-05.md`. If cutover criteria pass → flip `SCREENING_PROMPT_LAYOUT=cache_optimized` for estimated 15-25% reduction on `screening.scoring` (~$12-20/day, ~$360-600/mo).
-- **Billing-vs-telemetry reconciliation audit (1hr)**: Production telemetry currently undercounts actual OpenAI billing by ~6-7x ($668/30d telemetry vs ~$2,300/mo billing). Investigate: (a) outdated pricing in `models/openai_telemetry.py`, (b) un-instrumented call paths (background jobs, direct SDK calls bypassing the wrapper), (c) cached-input token mispricing. Closing this gap unlocks accurate unit-economics for the customer-sizing cost calculator.
-- **Task #99 output-token diet** — already on radar from May batch; revisit alongside L2.
+> **Context**: May 2026 OpenAI budget cap ($2,450) was hit on 2026-05-19. User disabled the screening module to ride out the rest of May on inbound-only skeleton mode. This consolidates three independent investigations into one clean June 1 turn-on event so they share a single diagnostic surface and a fresh billing baseline.
+
+**Pre-flight (already done in May, do NOT redo)**:
+- ✅ `SCREENING_SCHEMA_AUDIT_ENABLED=true` confirmed in **deployment secrets** (visual verification 2026-05-19).
+- ✅ `SCREENING_PROMPT_CACHE_AUDIT_ENABLED` already in deployment secrets (currently disabled — flip to `true` as step 3 below).
+- ✅ Schema audit code (T001-T003), strict schema, 10 tests, harness extension — all merged to `main`.
+- ✅ Diagnostic boot-check + promoted WARNING handler — deployed in commit `b120aadd` / publish `aeca434a`.
+
+**June 1 turn-on sequence (run in this order)**:
+
+1. **Re-enable screening module** (user-facing toggle).
+2. **Publish/restart** deployment.
+3. **Within 60 seconds**, grep deployment logs for: `🔎 schema-audit boot-check:`
+   - ✅ Expected: `SCREENING_SCHEMA_AUDIT_ENABLED='true' (enabled=True)` — gate is on, audit will fire on first scoring call.
+   - ❌ If `'<unset>'` or `enabled=False` → deployment secret got wiped during the freeze. Re-add and republish.
+   - ❌ If line missing entirely → publish didn't include latest code. Force fresh publish from main.
+4. **Within 30 min**, query `SELECT COUNT(*) FROM screening_ab_log WHERE created_at > '2026-06-01 00:00:00' AND shadow_model LIKE '%|strict'` — expect ≥1 row per ~4 scoring calls (25% sampler).
+5. **If still empty after 30 min**, grep deployment logs for `🔎 Schema-audit invocation suppressed` — the promoted WARNING + `exc_info=True` will show the exact traceback. **Strong prior**: this is the most likely failure mode based on May 19 diagnostic (deployment secret IS set, code IS deployed, scoring DID fire 70+ times, yet zero audit rows landed → call-site exception is the only remaining suspect).
+6. **Also flip L2 cache cutover audit ON**: set `SCREENING_PROMPT_CACHE_AUDIT_ENABLED=true` in deployment secrets, republish (can be same publish as step 1). Begin accumulating cache-layout shadow rows in parallel with schema audit — they tag rows differently in `screening_ab_log` (`|legacy` vs `|cache_optimized` for cache audit; `|loose` vs `|strict` for schema audit) so they don't collide.
+7. **48-72h after turn-on**: evaluate both audits against their respective 6-criterion cutover playbooks (schema audit in `.local/tasks/output-token-diet.md`; L2 cache in `docs/archive-2026-05.md`).
+8. **Billing-vs-telemetry reconciliation (1hr)**: with June 1 as a clean billing baseline, the gap between telemetry and OpenAI's actual bill is easier to attribute. May 19 deep-dive showed `screening.scoring` and `screening.scoring.shadow` haven't written to `openai_call_log` since 2026-05-11 — entire surfaces missing, NOT just the previously-suspected 6-7x mispricing. Investigate: (a) `log_call` thread/app-context handling in `services/openai_helper.py`, (b) any silent import failures in `models/openai_telemetry.py`, (c) which specific call sites are silently dropping vs successfully writing (compare against the working trio: `embedding_service.candidate`, `screening.requirements_extract`, `fuzzy_duplicate_matcher`).
+
+**Cost expectation for the audit window**: ~$5-10 total over 48-72h for the schema audit shadow calls at 25% sample × current ~750 daily scoring × extra same-model API round-trip. Disable via env flip if `/admin/ai-cost` shows `screening.scoring.shadow` exceeds $15/24h.
+
+**Watch-out**: If user disables the screening module a second time mid-June for any reason, the diagnostic boot-check log line is harmless to leave in place — it costs nothing and gives a one-line truth oracle on every restart.
 
 ### Active — Operational
 
-- **AI cost trend**: Last check **$37.40/24h** (2026-05-18, post-shadow-killswitch, GREEN band — 62% drop from prior $99.23). Top spenders: `screening.scoring` $25.92 (69%), `screening.scoring.shadow` $8.34 (decaying residual, should hit $0 within 24h). 30d run-rate (telemetry) ~$685; billing-true is currently capped at $2,300/mo. **Investigation threshold: $130/24h sustained** — at or above, drill into `screening.scoring`, `screening.scoring.shadow`, and any new top spenders. One-day blip → note and move on.
+- **🚨 MAY 2026 BUDGET FREEZE (active 2026-05-19 → 2026-06-01)**: OpenAI monthly cap of $2,450 hit on 2026-05-19. Screening module **disabled by user** until June 1; inbound email parsing module remains **active** so candidates continue to flow in for later screening. Do NOT attempt to re-enable screening or run any audit/cutover work until June 1 — all of it is consolidated into the June 1 Cost Lab playbook above. AI cost dashboard will show flat-zero for `screening.*` surfaces during this window; this is expected, not a regression.
+- **AI cost trend** (frozen as of 2026-05-19): Last pre-freeze check **$37.40/24h** (2026-05-18, post-shadow-killswitch, GREEN band — 62% drop from prior $99.23). Top spenders: `screening.scoring` $25.92 (69%), `screening.scoring.shadow` $8.34 (decaying residual). 30d run-rate (telemetry) ~$685; billing-true capped at $2,450/mo (hit). **Investigation threshold: $130/24h sustained** — only applies after June 1 turn-on. **MAJOR FINDING (2026-05-19)**: telemetry gap is far worse than the previously-noted 6-7x — `screening.scoring` and `screening.scoring.shadow` have been writing ZERO rows to `openai_call_log` since 2026-05-11. Entire call sites are missing, not just mispriced. Captured in step 8 of June 1 Cost Lab.
 - **Customer-sizing cost calculator (in progress)**: Unit-economics framework documented in `docs/cost-capacity-model-2026-05.md`. Per-event costs (billing-true with 7x buffer until reconciliation): vetted candidate ~$0.95, match evaluated ~$0.069, job monitored ~$1.90/mo, email parsed ~$0.006. Calculator wiring queued for next session.
 - **Bullhorn Search API stale-index pattern (2026-05-15)**: Bullhorn's Search API has a recurring lag vs. its Entity API on tearsheet membership. Two sub-patterns:
   - **Pattern A — short lag on closed jobs (~5-6 min)**: When a job goes `isOpen=False` or is removed via DELETE, Entity API updates immediately but Search API can serve the stale row briefly. Auto-removal handles this correctly when the row stays in Search.
