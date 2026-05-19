@@ -462,6 +462,18 @@ from screening.post_processing import (
 
 logger = logging.getLogger(__name__)
 
+# Boot-time diagnostic (2026-05-19): print the schema-audit gate value once
+# at module import so we can verify in deployment logs whether the prod env
+# var SCREENING_SCHEMA_AUDIT_ENABLED is being read as True.
+try:
+    _raw_schema_gate = os.environ.get('SCREENING_SCHEMA_AUDIT_ENABLED', '<unset>')
+    logger.info(
+        f"🔎 schema-audit boot-check: SCREENING_SCHEMA_AUDIT_ENABLED={_raw_schema_gate!r} "
+        f"(enabled={_schema_audit_enabled()})"
+    )
+except Exception as _boot_err:
+    logger.warning(f"🔎 schema-audit boot-check failed: {_boot_err}")
+
 
 class PromptBuilderMixin:
     """AI prompt construction and GPT response post-processing."""
@@ -1019,7 +1031,10 @@ GLOBAL SCREENING INSTRUCTIONS (apply to all jobs):
                         schema_audit_response_format=_build_strict_response_format(strict=False),
                     )
             except Exception as _schema_outer:
-                logger.debug(f"Schema-audit invocation suppressed: {_schema_outer}")
+                logger.warning(
+                    f"🔎 Schema-audit invocation suppressed: {_schema_outer}",
+                    exc_info=True,
+                )
 
             return result
 
