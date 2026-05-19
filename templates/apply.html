@@ -685,6 +685,18 @@
                 const result = await response.json();
 
                 if (result.success) {
+                    // PandoIQ conversion tracking pixel — fires ONLY on successful
+                    // application submission (2026-05-19). Appended to <body> so the
+                    // browser issues the GET request; hidden 0x0 so it never affects layout.
+                    try {
+                        const pandoPixel = document.createElement('img');
+                        pandoPixel.src = 'https://tracking.pandoiq.com/19230?noscript';
+                        pandoPixel.height = 0;
+                        pandoPixel.width = 0;
+                        pandoPixel.alt = '';
+                        pandoPixel.style.cssText = 'position:absolute;left:-9999px;border:0;';
+                        document.body.appendChild(pandoPixel);
+                    } catch (_pixelErr) { /* tracking failure must never block UX */ }
                     // Show success modal
                     const modal = new bootstrap.Modal(document.getElementById('successModal'));
                     modal.show();
