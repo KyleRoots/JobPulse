@@ -14,7 +14,7 @@ INBOUND_LANDED = 6176
 AVG_SEC = 57.9
 MEDIAN_SEC = 52.1
 P95_SEC = 111.8
-PLACEMENTS = 17
+PLACEMENTS = 7
 
 HUMAN_MIN_PER_RESUME = 15
 RECRUITER_HOURLY = 50
@@ -30,8 +30,8 @@ fig = plt.figure(figsize=(16, 11), facecolor='#0d1117')
 gs = GridSpec(3, 3, figure=fig, hspace=0.55, wspace=0.35,
               left=0.06, right=0.97, top=0.92, bottom=0.06)
 
-fig.suptitle('Scout Genius — Inbound & Screening Performance Report\nApril 1 – May 19, 2026',
-             fontsize=20, fontweight='bold', color='#f0f6fc', y=0.97)
+fig.suptitle('Scout Genius — Inbound & Screening Performance Report\nProduction Activity Since Module Launch · April 28 – May 19, 2026 (3 weeks)',
+             fontsize=18, fontweight='bold', color='#f0f6fc', y=0.97)
 
 TILE_BG = '#161b22'
 ACCENT = '#58a6ff'
@@ -57,7 +57,7 @@ ax3 = fig.add_subplot(gs[0, 2]); kpi_tile(ax3, f'{PLACEMENTS}', 'Confirmed Place
 
 ax4 = fig.add_subplot(gs[1, 0])
 ax4.set_facecolor(TILE_BG)
-months = ['April 2026', 'May 2026 (MTD)']
+months = ['April 2026\n(from Apr 28)', 'May 2026\n(through May 19)']
 screened = [1361, 6588]
 qualified = [255, 932]
 x = range(len(months))
