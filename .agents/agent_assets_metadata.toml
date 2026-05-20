@@ -119,3 +119,9 @@ id = "BVF3SQGj4yJx5iYKEqRsE"
 uri = "file://docs/cost-capacity-model-2026-05.md"
 type = "text"
 title = "Scout Genius — AI Cost Capacity Model (May 2026)"
+
+[[outputs]]
+id = "oeFcyEfmAwmxUy_4BN2cb"
+uri = "file://reports/scout_perf_report_2026-05-19.png"
+type = "image"
+title = "Scout Genius Performance Report — Apr 1 to May 19, 2026"

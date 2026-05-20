@@ -29,4 +29,5 @@ dependencies = [
     "pytz>=2025.2",
     "openai>=2.6.1",
     "pymupdf>=1.26.7",
+    "matplotlib>=3.10.9",
 ]
