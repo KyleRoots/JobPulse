@@ -200,11 +200,17 @@ def auto_propose_placements(period_start: date, period_end: date) -> tuple[int, 
         return 0, 'bullhorn_error'
 
 
+DEFAULT_RECIPIENT = 'kroots@myticas.com'
+
+
 def _admin_recipient_emails() -> list[str]:
-    """Default recipient list: all super-admin users with a valid email."""
-    from models import User
-    admins = User.query.filter(User.is_admin == True, User.email.isnot(None)).all()
-    return [u.email for u in admins if u.email and '@' in u.email]
+    """Default recipient list for the preview email.
+
+    Hardcoded to a single address by user preference (2026-05-20). The confirm
+    form still lets the admin add or remove recipients before the final send,
+    so this is just the seed list for the preview + the 48h auto-send fallback.
+    """
+    return [DEFAULT_RECIPIENT]
 
 
 def _send_email(to_emails: list[str], subject: str, html_body: str,
