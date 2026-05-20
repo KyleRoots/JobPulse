@@ -208,6 +208,9 @@ app.register_blueprint(vetting_sandbox_bp)
 from routes.activity_log import activity_log_bp
 app.register_blueprint(activity_log_bp)
 
+from routes.monthly_report import monthly_report_bp
+app.register_blueprint(monthly_report_bp)
+
 from utils.bullhorn_helpers import get_bullhorn_service, get_email_service
 
 _MODULE_MAP = {

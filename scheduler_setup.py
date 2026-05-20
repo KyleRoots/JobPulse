@@ -20,6 +20,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.triggers.cron import CronTrigger
 
 logger = logging.getLogger(__name__)
 
@@ -920,6 +921,49 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
             coalesce=False
         )
         app.logger.info("🔍 Screening quality audit job scheduled — runs every 15 minutes when enabled")
+
+    # ── Monthly Performance Report (1st of month @ 9 AM, hourly auto-send sweep) ─
+    if is_primary_worker:
+        def run_monthly_report_preview():
+            with app.app_context():
+                try:
+                    from reports.monthly_report_service import generate_and_send_preview
+                    run = generate_and_send_preview()
+                    if run:
+                        app.logger.info(
+                            f"📊 Monthly report preview generated: {run.period_label} "
+                            f"(id={run.id}, auto_placements={run.placements_auto_proposed})"
+                        )
+                except Exception as e:
+                    app.logger.error(f"monthly_report_preview error: {e}", exc_info=True)
+
+        def run_monthly_report_auto_send_sweep():
+            with app.app_context():
+                try:
+                    from reports.monthly_report_service import sweep_auto_send_overdue
+                    sweep_auto_send_overdue()
+                except Exception as e:
+                    app.logger.error(f"monthly_report_auto_send_sweep error: {e}", exc_info=True)
+
+        scheduler.add_job(
+            func=run_monthly_report_preview,
+            trigger=CronTrigger(day=1, hour=9, minute=0),
+            id='monthly_report_preview',
+            name='Monthly Performance Report — Preview Email (1st @ 9 AM)',
+            replace_existing=True,
+            misfire_grace_time=3600,
+            coalesce=True,
+        )
+        scheduler.add_job(
+            func=run_monthly_report_auto_send_sweep,
+            trigger=IntervalTrigger(hours=1),
+            id='monthly_report_auto_send_sweep',
+            name='Monthly Report Auto-Send Sweep (48h fallback)',
+            replace_existing=True,
+            misfire_grace_time=600,
+            coalesce=True,
+        )
+        app.logger.info("📊 Monthly performance report jobs scheduled (1st @ 9 AM preview + hourly 48h auto-send sweep)")
 
     # ── XML Change Monitor ────────────────────────────────────────────────────
     if is_primary_worker:

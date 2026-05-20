@@ -1,0 +1,137 @@
+{% extends "base_layout.html" %}
+
+{% block title %}Confirm Monthly Report — {{ run.period_label }}{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+  <div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+      <h2 class="mb-1">Confirm Monthly Report</h2>
+      <p class="text-muted mb-0">{{ run.period_label }} · run #{{ run.id }}</p>
+    </div>
+    <div>
+      <span class="badge bg-{{ {'preview_sent':'warning','confirmed':'info','sent':'success','auto_sent':'secondary','failed':'danger'}.get(run.status,'secondary') }}">
+        {{ run.status }}
+      </span>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for cat, msg in messages %}
+        <div class="alert alert-{{ cat }}">{{ msg }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  {% if already_sent %}
+    <div class="alert alert-info">
+      This report was already sent on
+      <strong>{{ (run.sent_at or run.auto_sent_at).strftime('%Y-%m-%d %H:%M UTC') }}</strong>
+      with <strong>{{ run.placements_final }}</strong> placements.
+    </div>
+  {% endif %}
+
+  <div class="card mb-4">
+    <div class="card-header">
+      <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Report Snapshot</h5>
+    </div>
+    <div class="card-body">
+      <div class="row text-center">
+        <div class="col-md-3">
+          <div class="text-muted small">Resumes Screened</div>
+          <div class="fs-3 fw-bold text-primary">{{ '{:,}'.format(metrics.get('resumes_completed', 0)) }}</div>
+        </div>
+        <div class="col-md-3">
+          <div class="text-muted small">Recommended</div>
+          <div class="fs-3 fw-bold text-success">{{ '{:,}'.format(metrics.get('recommended_unique', 0)) }}</div>
+        </div>
+        <div class="col-md-3">
+          <div class="text-muted small">Inbound Parsed</div>
+          <div class="fs-3 fw-bold">{{ '{:,}'.format(metrics.get('inbound_parsed', 0)) }}</div>
+        </div>
+        <div class="col-md-3">
+          <div class="text-muted small">Avg Time / Resume</div>
+          <div class="fs-3 fw-bold">{{ '%.1f' % metrics.get('avg_sec', 0) }}s</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <form method="POST" action="{{ url_for('monthly_report.send', token=run.confirmation_token) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="card mb-4">
+      <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-user-check me-2"></i>Confirmed Placements</h5>
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label">Placement count for {{ run.period_label }}</label>
+          <input type="number" min="0" name="placements" required
+                 value="{{ run.placements_auto_proposed or 0 }}"
+                 class="form-control form-control-lg" {% if already_sent %}disabled{% endif %}>
+          <div class="form-text">
+            <strong>Suggested:</strong> {{ run.placements_auto_proposed or 0 }}
+            — {{ placement_source_label }}
+            Override the number above if you have a more accurate count from Bullhorn.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-sliders-h me-2"></i>Savings-Tile Baselines (assumptions)</h5>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-6">
+            <label class="form-label">Human screening time per resume (minutes)</label>
+            <input type="number" min="1" name="human_min_per_resume"
+                   value="{{ metrics.get('human_min_per_resume', 15) }}"
+                   class="form-control" {% if already_sent %}disabled{% endif %}>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Blended recruiter hourly rate (USD)</label>
+            <input type="number" min="1" name="recruiter_hourly"
+                   value="{{ metrics.get('recruiter_hourly', 50) }}"
+                   class="form-control" {% if already_sent %}disabled{% endif %}>
+          </div>
+        </div>
+        <div class="form-text mt-2">
+          These drive the "hours saved" and "labor cost avoided" tiles on the report.
+          They're industry baselines, not measured values — adjust if you have better figures.
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-envelope me-2"></i>Recipients</h5>
+      </div>
+      <div class="card-body">
+        <label class="form-label">Send report to (comma-separated emails)</label>
+        <input type="text" name="recipients"
+               value="{{ run.recipient_emails }}"
+               class="form-control" {% if already_sent %}disabled{% endif %}>
+        <div class="form-text">Defaults to all super-admin users. Edit to add/remove anyone for this send only.</div>
+      </div>
+    </div>
+
+    <div class="d-flex gap-2">
+      <button type="submit" class="btn btn-primary btn-lg" {% if already_sent %}disabled{% endif %}>
+        <i class="fas fa-paper-plane me-2"></i>Generate &amp; Send Final Report
+      </button>
+      <a href="{{ url_for('dashboard.root') }}" class="btn btn-outline-secondary btn-lg">Back to Dashboard</a>
+    </div>
+
+    {% if not already_sent %}
+      <p class="text-muted small mt-3">
+        <i class="fas fa-clock me-1"></i>
+        Auto-send fallback active — if no action is taken within 48 hours, the report will
+        be sent automatically with the suggested placement count.
+      </p>
+    {% endif %}
+  </form>
+</div>
+{% endblock %}

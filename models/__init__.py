@@ -94,6 +94,7 @@ from models.prospector import (
 from models.openai_telemetry import OpenAICallLog
 from models.cost_forecast import CostForecastOverride, CostForecastScenario
 from models.placement_margin import PlacementMarginCalcLog
+from models.reporting import MonthlyReportRun
 
 __all__ = [
     # user
@@ -126,4 +127,6 @@ __all__ = [
     'OpenAICallLog',
     # placement margin
     'PlacementMarginCalcLog',
+    # reporting
+    'MonthlyReportRun',
 ]
