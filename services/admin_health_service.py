@@ -113,6 +113,7 @@ class AdminHealthService:
             self.tile_onedrive_token,
             self.tile_ai_cost_24h,
             self.tile_skip_gates,
+            self.tile_monthly_report,
         ]
         tiles: List[HealthTile] = []
         for collector in collectors:
@@ -721,6 +722,125 @@ class AdminHealthService:
                 value='Check failed',
                 subtext=str(exc)[:160],
                 remediation='Inspect screening.dedup / screening.note_builder module load.',
+                last_checked=self._now_iso,
+            )
+
+    def tile_monthly_report(self) -> HealthTile:
+        """Monthly Performance Report scheduler + delivery state.
+
+        Surfaces:
+          - Next scheduled preview (always 1st @ 09:00 UTC; computed locally).
+          - Most recent run status (preview_sent / sent / auto_sent / failed).
+          - Whether any preview is currently waiting on admin confirmation.
+
+        Status policy:
+          - red   = a preview is overdue (>48h since preview_sent, sweep failed)
+                    or the most recent run is in 'failed' state.
+          - amber = a preview is pending confirmation (preview_sent, not yet
+                    past the 48h auto-send window).
+          - green = no pending action; most recent run sent successfully or
+                    no runs yet (system idle waiting for next scheduled tick).
+        """
+        try:
+            from models.reporting import MonthlyReportRun
+
+            # Compute next 1st-of-month at 09:00 UTC (with Dec→Jan rollover
+            # and the pre-09:00-on-the-1st edge case).
+            now = self._now
+            if now.month == 12:
+                next_run = datetime(now.year + 1, 1, 1, 9, 0, 0)
+            else:
+                next_run = datetime(now.year, now.month + 1, 1, 9, 0, 0)
+            this_month_first = datetime(now.year, now.month, 1, 9, 0, 0)
+            if now < this_month_first:
+                next_run = this_month_first
+            next_run_str = next_run.strftime('%Y-%m-%d %H:%M UTC')
+
+            # Prioritize ANY pending preview_sent row over the latest-by-created_at,
+            # so a stale preview that was later "shadowed" by a newer manually-
+            # triggered run that already sent doesn't hide an overdue auto-send.
+            oldest_pending = (
+                MonthlyReportRun.query
+                .filter(MonthlyReportRun.status == 'preview_sent')
+                .order_by(MonthlyReportRun.created_at.asc())
+                .first()
+            )
+            latest = MonthlyReportRun.query.order_by(MonthlyReportRun.created_at.desc()).first()
+
+            if not latest:
+                return HealthTile(
+                    key='monthly_report',
+                    label='Monthly Report',
+                    icon='fa-file-invoice',
+                    status='green',
+                    value='Idle',
+                    subtext=f'No runs yet · next scheduled {next_run_str}',
+                    last_checked=self._now_iso,
+                )
+
+            if oldest_pending:
+                period = oldest_pending.period_label or '?'
+                preview_dt = oldest_pending.preview_sent_at or oldest_pending.created_at
+                age = _format_age(preview_dt, now)
+                hours_since = (now - preview_dt).total_seconds() / 3600 if preview_dt else 0
+                if hours_since > 48:
+                    return HealthTile(
+                        key='monthly_report',
+                        label='Monthly Report',
+                        icon='fa-file-invoice',
+                        status='red',
+                        value='Auto-send overdue',
+                        subtext=f'{period} · preview {age} · sweep should have fired',
+                        remediation='Hourly auto-send sweep has not finalized this run — check scheduler logs for monthly_report_auto_send_sweep errors.',
+                        last_checked=self._now_iso,
+                    )
+                hours_remaining = max(0, int(48 - hours_since))
+                return HealthTile(
+                    key='monthly_report',
+                    label='Monthly Report',
+                    icon='fa-file-invoice',
+                    status='amber',
+                    value='Preview pending',
+                    subtext=f'{period} · sent {age} · auto-send in ~{hours_remaining}h',
+                    remediation='Open Monthly Reports to confirm placements and recipients, or let auto-send fire.',
+                    last_checked=self._now_iso,
+                )
+
+            period = latest.period_label or '?'
+            if latest.status == 'failed':
+                fail_age = _format_age(latest.created_at, now)
+                return HealthTile(
+                    key='monthly_report',
+                    label='Monthly Report',
+                    icon='fa-file-invoice',
+                    status='red',
+                    value='Failed',
+                    subtext=f'{period} · created {fail_age} · next {next_run_str}',
+                    remediation=(latest.error_message or 'Inspect routes/monthly_report.py logs.')[:160],
+                    last_checked=self._now_iso,
+                )
+
+            # sent / auto_sent / confirmed — all green (no pending work)
+            sent_dt = latest.sent_at or latest.auto_sent_at or latest.created_at
+            sent_age = _format_age(sent_dt, now)
+            return HealthTile(
+                key='monthly_report',
+                label='Monthly Report',
+                icon='fa-file-invoice',
+                status='green',
+                value=latest.status.replace('_', ' ').title(),
+                subtext=f'{period} · {sent_age} · next {next_run_str}',
+                last_checked=self._now_iso,
+            )
+        except Exception as exc:
+            return HealthTile(
+                key='monthly_report',
+                label='Monthly Report',
+                icon='fa-file-invoice',
+                status='unknown',
+                value='Check failed',
+                subtext=str(exc)[:160],
+                remediation='Inspect monthly_report_run table and models/reporting.py.',
                 last_checked=self._now_iso,
             )
 

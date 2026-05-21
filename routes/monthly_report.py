@@ -21,6 +21,20 @@ logger = logging.getLogger(__name__)
 monthly_report_bp = Blueprint('monthly_report', __name__, url_prefix='/admin/monthly-report')
 
 
+@monthly_report_bp.route('/', methods=['GET'])
+@login_required
+def index():
+    """Super-admin index: list every past/pending run + manual trigger button."""
+    _admin_only()
+    runs = (
+        MonthlyReportRun.query
+        .order_by(MonthlyReportRun.created_at.desc())
+        .limit(50)
+        .all()
+    )
+    return render_template('monthly_report_index.html', runs=runs)
+
+
 def _admin_only():
     if not current_user.is_authenticated or not getattr(current_user, 'is_admin', False):
         abort(403)

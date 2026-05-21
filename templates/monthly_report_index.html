@@ -1,0 +1,134 @@
+{% extends "base_layout.html" %}
+
+{% block title %}Monthly Reports — Scout Genius™{% endblock %}
+
+{% block page_title %}Monthly Reports{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Scheduled monthly performance reports — preview history and manual trigger</p>{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for cat, msg in messages %}
+        <div class="alert alert-{{ cat }}">{{ msg }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <div class="card mb-4">
+    <div class="card-body d-flex align-items-center justify-content-between flex-wrap gap-3">
+      <div>
+        <h5 class="mb-1"><i class="fas fa-info-circle me-2"></i>How this works</h5>
+        <div class="text-muted small mb-0">
+          On the 1st of each month at 09:00 UTC, a preview email is sent to the default recipient.
+          You can confirm it (with overrides), or it auto-sends 48 hours later with the suggested values.
+          Use the button to generate a preview right now against last month's data — handy for testing
+          or for catching up if a scheduled run was missed.
+        </div>
+      </div>
+      <form method="POST" action="{{ url_for('monthly_report.trigger_now') }}" class="m-0">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-primary">
+          <i class="fas fa-bolt me-2"></i>Generate preview now
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h5 class="mb-0"><i class="fas fa-history me-2"></i>Run history</h5>
+      <span class="text-muted small">{{ runs|length }} run(s) shown · most recent first</span>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 align-middle">
+        <thead>
+          <tr>
+            <th>Period</th>
+            <th>Status</th>
+            <th>Placements</th>
+            <th>Recipients</th>
+            <th>Generated</th>
+            <th>Sent</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for run in runs %}
+            {% set badge = {'preview_sent':'warning','confirmed':'info','sent':'success','auto_sent':'secondary','failed':'danger'}.get(run.status,'secondary') %}
+            <tr>
+              <td>
+                <strong>{{ run.period_label }}</strong>
+                <div class="text-muted small">run #{{ run.id }}</div>
+              </td>
+              <td><span class="badge bg-{{ badge }}">{{ run.status.replace('_', ' ') }}</span></td>
+              <td>
+                {% if run.placements_final is not none %}
+                  <strong>{{ run.placements_final }}</strong>
+                  {% if run.placements_auto_proposed is not none and run.placements_final != run.placements_auto_proposed %}
+                    <div class="text-muted small">(auto-proposed: {{ run.placements_auto_proposed }})</div>
+                  {% endif %}
+                {% else %}
+                  <span class="text-muted">{{ run.placements_auto_proposed or 0 }} (proposed)</span>
+                {% endif %}
+              </td>
+              <td>
+                <span class="text-muted small">{{ run.recipient_emails or '—' }}</span>
+              </td>
+              <td>
+                <span class="text-muted small">
+                  {{ run.created_at.strftime('%Y-%m-%d %H:%M UTC') if run.created_at else '—' }}
+                </span>
+              </td>
+              <td>
+                {% set final_dt = run.sent_at or run.auto_sent_at %}
+                {% if final_dt %}
+                  <span class="text-muted small">{{ final_dt.strftime('%Y-%m-%d %H:%M UTC') }}</span>
+                {% else %}
+                  <span class="text-muted small">—</span>
+                {% endif %}
+              </td>
+              <td class="text-end">
+                {% if run.status == 'preview_sent' %}
+                  <a href="{{ url_for('monthly_report.preview', token=run.confirmation_token) }}"
+                     class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-edit me-1"></i>Confirm
+                  </a>
+                {% elif run.status in ('sent', 'auto_sent') %}
+                  <a href="{{ url_for('monthly_report.preview', token=run.confirmation_token) }}"
+                     class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-eye me-1"></i>View
+                  </a>
+                {% elif run.status == 'failed' %}
+                  <span class="text-danger small" title="{{ run.error_message or '' }}">
+                    <i class="fas fa-exclamation-triangle me-1"></i>See logs
+                  </span>
+                {% else %}
+                  <a href="{{ url_for('monthly_report.preview', token=run.confirmation_token) }}"
+                     class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-eye me-1"></i>View
+                  </a>
+                {% endif %}
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="7" class="text-center text-muted py-4">
+                <i class="fas fa-inbox me-2"></i>No runs yet — the first will fire on the 1st of next month at 09:00 UTC.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="mt-3">
+    <a href="{{ url_for('admin_health.health_dashboard') }}" class="btn btn-link">
+      <i class="fas fa-arrow-left me-1"></i>Back to System Health
+    </a>
+  </div>
+
+</div>
+{% endblock %}
