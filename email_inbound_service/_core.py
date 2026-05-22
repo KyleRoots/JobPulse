@@ -38,7 +38,15 @@ class _InboundCore:
         'Dice': 'Dice',
         'LinkedIn Job Board': 'LinkedIn Job Board',
         'Indeed Job Board': 'Indeed Job Board',
-        'ZipRecruiter Job Board': 'ZipRecruiter Job Board'
+        'ZipRecruiter Job Board': 'ZipRecruiter Job Board',
+        # Additional Bullhorn-instance source values honored when the apply
+        # form passes the value through via the URL `?source=` param (e.g. when
+        # PandoLogic rewrites the param per channel before redirecting).
+        'CareerBuilder': 'CareerBuilder',
+        'Facebook': 'Facebook',
+        'Glassdoor': 'Glassdoor',
+        'Monster': 'Monster',
+        'Twitter': 'Twitter',
     }
 
     WORK_AUTH_TO_VISA_TYPE = {

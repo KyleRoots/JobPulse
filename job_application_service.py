@@ -79,12 +79,20 @@ class JobApplicationService:
             import urllib.parse
             clean_job_title = urllib.parse.unquote(application_data['jobTitle']).replace('+', ' ')
             source = application_data.get('source', 'Website')
+            # Internal feed discriminator (e.g. 'pando') passed through the apply
+            # form. Included in the email body so the inbound parser can route
+            # Bullhorn candidate ownership to the Pandologic API user.
+            feed = application_data.get('feed', '') or ''
             
             subject = f"{clean_job_title} ({application_data['jobId']}) - {application_data['firstName']} {application_data['lastName']} has applied on {source}"
             
             # Detect if this is an STSI application based on domain
             is_stsi = request_host and 'stsigroup' in request_host.lower()
-            
+
+            # Ensure the feed value reaches the body builders even when callers
+            # construct application_data without the key.
+            application_data.setdefault('feed', feed)
+
             html_content = self._build_application_email_html(application_data, is_stsi)
             text_content = self._build_application_email_text(application_data, is_stsi)
             
@@ -267,6 +275,10 @@ class JobApplicationService:
                             <td style="padding: 8px 0; color: #666; font-weight: bold;">Source:</td>
                             <td style="padding: 8px 0; color: #333;">{data.get('source', 'Direct')}</td>
                         </tr>
+                        <tr>
+                            <td style="padding: 8px 0; color: #666; font-weight: bold;">Feed:</td>
+                            <td style="padding: 8px 0; color: #333;">{data.get('feed', '') or '-'}</td>
+                        </tr>
                     </table>
                 </div>
                 
@@ -328,6 +340,7 @@ POSITION DETAILS:
 Job Title: {clean_job_title}
 Bullhorn ID: {data['jobId']}
 Source: {data.get('source', 'Direct')}
+Feed: {data.get('feed', '') or '-'}
 
 CANDIDATE INFORMATION:
 Name: {data['firstName']} {data['lastName']}

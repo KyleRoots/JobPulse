@@ -98,7 +98,13 @@ class SimplifiedXMLGenerator:
             if not all_jobs_with_context:
                 raise Exception("No jobs found in any tearsheets")
             
-            xml_content, updated_references = self._build_clean_xml(all_jobs_with_context, existing_references)
+            # Derive feed_name from the STSI tag-routing mode so the apply URLs
+            # generated for Pando-fed jobs include the &feed=pando discriminator
+            # used by the inbound-form pipeline for Bullhorn ownership routing.
+            feed_name = 'pando' if stsi_tag_mode == 'only_tags' else None
+            xml_content, updated_references = self._build_clean_xml(
+                all_jobs_with_context, existing_references, feed_name=feed_name
+            )
             
             self._save_references_to_database(xml_content)
             
@@ -315,7 +321,7 @@ class SimplifiedXMLGenerator:
             self.logger.info(f"Total unique jobs found: {len(all_jobs)}")
         return all_jobs
     
-    def _build_clean_xml(self, jobs: List[Dict], existing_references: Dict) -> tuple[str, Dict]:
+    def _build_clean_xml(self, jobs: List[Dict], existing_references: Dict, feed_name: Optional[str] = None) -> tuple[str, Dict]:
         """
         Build clean XML from job data with proper CDATA wrapping
         
@@ -360,7 +366,8 @@ class SimplifiedXMLGenerator:
                 jobs_data=jobs,
                 existing_references=existing_ref_map,
                 enable_ai_classification=False,  # Keyword-only classification
-                monitor_names=monitor_name_map
+                monitor_names=monitor_name_map,
+                feed_name=feed_name
             )
             
             # Add XML jobs to the root element
@@ -398,7 +405,8 @@ class SimplifiedXMLGenerator:
                         job_data, 
                         existing_reference_number=existing_ref,
                         skip_ai_classification=True,  # Fallback without AI
-                        monitor_name=monitor_name
+                        monitor_name=monitor_name,
+                        feed_name=feed_name
                     )
                     
                     if not xml_job:

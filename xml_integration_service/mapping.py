@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 class MappingMixin:
     """Mixin providing mapping-related XMLIntegrationService methods."""
 
-    def map_bullhorn_jobs_to_xml_batch(self, jobs_data: List[Dict], existing_references: Dict = None, enable_ai_classification: bool = False, monitor_names: Dict = None) -> List[Dict]:
+    def map_bullhorn_jobs_to_xml_batch(self, jobs_data: List[Dict], existing_references: Dict = None, enable_ai_classification: bool = False, monitor_names: Dict = None, feed_name: str = None) -> List[Dict]:
         """
         Map multiple Bullhorn jobs to XML format with fast keyword-based classification
         
@@ -82,7 +82,8 @@ class MappingMixin:
                 job_data,
                 existing_reference_number=existing_ref,
                 monitor_name=monitor_name,
-                classification_result=classification
+                classification_result=classification,
+                feed_name=feed_name
             )
             
             if xml_job:
@@ -90,7 +91,7 @@ class MappingMixin:
         
         self.logger.info(f"Mapped {len(xml_jobs)} jobs to XML format with keyword classification")
         return xml_jobs
-    def _map_single_job_with_classification_result(self, bullhorn_job: Dict, existing_reference_number: str = '', monitor_name: str = '', classification_result: Dict = None) -> Dict:
+    def _map_single_job_with_classification_result(self, bullhorn_job: Dict, existing_reference_number: str = '', monitor_name: str = '', classification_result: Dict = None, feed_name: Optional[str] = None) -> Dict:
         """
         Map a single job with a pre-computed keyword classification result
         This is used by the batch processing method to avoid individual classification calls
@@ -111,9 +112,10 @@ class MappingMixin:
             existing_reference_number=existing_reference_number,
             monitor_name=monitor_name,
             skip_ai_classification=True,  # Always skip AI (we use keywords only)
-            existing_ai_fields=existing_classification_fields
+            existing_ai_fields=existing_classification_fields,
+            feed_name=feed_name
         )
-    def map_bullhorn_job_to_xml(self, bullhorn_job: Dict, existing_reference_number: Optional[str] = None, monitor_name: Optional[str] = None, skip_ai_classification: bool = False, existing_ai_fields: Optional[Dict] = None) -> Dict:
+    def map_bullhorn_job_to_xml(self, bullhorn_job: Dict, existing_reference_number: Optional[str] = None, monitor_name: Optional[str] = None, skip_ai_classification: bool = False, existing_ai_fields: Optional[Dict] = None, feed_name: Optional[str] = None) -> Dict:
         """
         Map Bullhorn job data to XML job structure
         
@@ -213,8 +215,13 @@ class MappingMixin:
             # Use the actual Bullhorn job ID for bhatsid (critical for matching/updating)
             bhatsid = str(job_id)
             
-            # Generate unique job application URL with proper domain based on company
-            job_url = self._generate_job_application_url(bhatsid, clean_title, company_name)
+            # Generate unique job application URL with proper domain based on company.
+            # feed_name (e.g. 'pando') comes from the caller and appends an internal
+            # routing flag (&feed=pando) so inbound-form submissions can be tagged
+            # back to the originating feed for Bullhorn ownership routing.
+            job_url = self._generate_job_application_url(
+                bhatsid, clean_title, company_name, feed_name=feed_name
+            )
             
             # Handle keyword classification - preserve existing values if provided, otherwise classify
             if existing_ai_fields and existing_ai_fields.get('jobfunction') and existing_ai_fields.get('jobindustries') and existing_ai_fields.get('senioritylevel'):
@@ -267,7 +274,7 @@ class MappingMixin:
         except Exception as e:
             self.logger.error(f"Error mapping Bullhorn job to XML: {str(e)}")
             return {}
-    def _generate_job_application_url(self, bhatsid: str, clean_title: str, company_name: str = None) -> str:
+    def _generate_job_application_url(self, bhatsid: str, clean_title: str, company_name: str = None, feed_name: str = None) -> str:
         """
         Generate unique job application URL for each job
         
@@ -305,7 +312,15 @@ class MappingMixin:
             
             # Generate the unique URL  
             job_url = f"{base_url}/{str(bhatsid).strip()}/{encoded_title}/?source=LinkedIn"
-            
+
+            # Append internal feed discriminator for Pando-routed jobs so the
+            # apply-form -> inbound-parser pipeline can route ownership to the
+            # Pandologic API user in Bullhorn (mirrors direct-push Pando flow).
+            # Source rewriting per channel is still handled by PandoLogic; this
+            # param rides along untouched through their redirect.
+            if feed_name == 'pando':
+                job_url = f"{job_url}&feed=pando"
+
             self.logger.debug(f"Generated unique URL for job {bhatsid}: {job_url}")
             return job_url
             
@@ -321,6 +336,8 @@ class MappingMixin:
                     else:
                         base_url = 'https://apply.myticas.com'
                     fallback_url = f"{base_url}/{str(bhatsid).strip()}/position/?source=LinkedIn"
+                    if feed_name == 'pando':
+                        fallback_url = f"{fallback_url}&feed=pando"
                     self.logger.warning(f"Using fallback URL with job ID: {fallback_url}")
                     return fallback_url
             except Exception:

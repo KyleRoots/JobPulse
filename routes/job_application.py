@@ -22,6 +22,11 @@ def job_application_form(job_id, job_title):
             abort(404)
 
         source = request.args.get('source', '')
+        # Internal feed discriminator appended to apply URLs by the Pando-fed
+        # XML generator (see simplified_xml_generator._build_clean_xml).
+        # Rides through the form -> inbound-parser pipeline so candidates from
+        # the Pando feed can be tagged with Pandologic API ownership in Bullhorn.
+        feed = request.args.get('feed', '')
 
         import urllib.parse
         decoded_title = urllib.parse.unquote(job_title)
@@ -37,7 +42,8 @@ def job_application_form(job_id, job_title):
         response = make_response(render_template(template,
                              job_id=job_id,
                              job_title=decoded_title,
-                             source=source))
+                             source=source,
+                             feed=feed))
 
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         response.headers['Pragma'] = 'no-cache'
@@ -125,7 +131,10 @@ def submit_application():
             'phone': request.form.get('phone'),
             'jobId': request.form.get('jobId'),
             'jobTitle': request.form.get('jobTitle'),
-            'source': request.form.get('source', '')
+            'source': request.form.get('source', ''),
+            # Internal feed discriminator (e.g. 'pando') used by inbound parser
+            # to route Bullhorn candidate ownership to the Pandologic API user.
+            'feed': request.form.get('feed', '')
         }
 
         required_fields = ['firstName', 'lastName', 'email', 'phone', 'jobId', 'jobTitle']

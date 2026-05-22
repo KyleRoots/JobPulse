@@ -20,6 +20,18 @@ class ExtractionMixin:
         subject_lower = subject.lower()
         body_lower = body.lower()[:2000]
 
+        # Apply-form direct override: when our own apply form forwards an
+        # application to apply@myticas.com it emits subject "... has applied on
+        # {source}" AND a "Source: {source}" line in the body. Honor that value
+        # before falling through to sender/subject/body pattern matching, which
+        # would otherwise misattribute every apply-form email to LinkedIn (the
+        # @myticas.com sender pattern). This is the path that lets PandoLogic's
+        # per-channel `?source=` rewrite land correctly in Bullhorn.
+        apply_source = self._detect_apply_form_source(subject, body)
+        if apply_source:
+            self.logger.info(f"Source detected from apply form override: {apply_source}")
+            return apply_source
+
         for source, patterns in self.SOURCE_PATTERNS.items():
             for pattern in patterns['sender_patterns']:
                 if pattern.lower() in sender_lower:
@@ -39,6 +51,61 @@ class ExtractionMixin:
 
         self.logger.warning("Could not detect source, defaulting to 'Other'")
         return 'Other'
+
+    def _detect_apply_form_source(self, subject: str, body: str) -> Optional[str]:
+        """
+        Extract the source string our own apply form embeds when it forwards
+        a candidate application email. Returns a SOURCE_TO_BULLHORN key on a
+        confirmed match, or None to defer to the legacy pattern logic.
+
+        Match order (first hit wins):
+          1. "Source: {value}" line in the body (HTML or plain-text)
+          2. Subject suffix "has applied on {value}"
+
+        The captured value is case-insensitively matched against
+        SOURCE_TO_BULLHORN keys; only exact matches return a value (so a stray
+        "Source: Website" or empty default doesn't override real detection).
+        """
+        candidates = []
+
+        body_match = re.search(
+            r'(?i)Source:\s*([A-Za-z][A-Za-z0-9 ._-]{0,60})',
+            body or '',
+        )
+        if body_match:
+            candidates.append(body_match.group(1).strip())
+
+        subject_match = re.search(
+            r'(?i)has\s+applied\s+on\s+([A-Za-z][A-Za-z0-9 ._-]{0,60})$',
+            (subject or '').strip(),
+        )
+        if subject_match:
+            candidates.append(subject_match.group(1).strip())
+
+        for candidate in candidates:
+            for known in self.SOURCE_TO_BULLHORN.keys():
+                if candidate.lower() == known.lower():
+                    return known
+
+        return None
+
+    def detect_feed(self, body: str) -> str:
+        """
+        Extract the internal feed discriminator (e.g. 'pando') from an apply-form
+        email body. The apply-form email emits a "Feed: {value}" line populated
+        from the URL `?feed=` query param. Returns the lowercased value when
+        present and non-empty, else an empty string.
+        """
+        if not body:
+            return ''
+        match = re.search(r'(?i)Feed:\s*([A-Za-z0-9_-]{1,40})', body)
+        if not match:
+            return ''
+        value = match.group(1).strip().lower()
+        # Sentinel emitted when the form had no feed value
+        if value in ('', '-', 'none', 'null'):
+            return ''
+        return value
 
     def extract_bullhorn_job_id(self, subject: str, body: str, source: str = None) -> Optional[int]:
         """
