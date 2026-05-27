@@ -6,9 +6,9 @@ Scout Genius is a Flask-based web application designed to automate XML job feed 
 ## User Preferences
 - **Communication style**: Simple, everyday language.
 - **Deployment workflow**: Always confirm deployment requirements at the end of any changes or updates.
-- **Development Approval Process**: Before executing any development task, always provide a "stack recommendation" with (a) Autonomy level (Economy/Power), (b) brief rationale. Wait for user approval before proceeding.
-- **Task Plans**: Every project task plan must include the recommended autonomy level (Economy/Power) and a one-line rationale at the top.
-- **TL;DR Required**: Lead substantial outputs (analysis, recommendations, multi-step plans, build summaries, post-deploy reports) with a TL;DR using the **Problem → Fix → Benefit** pattern (or compact summary equivalent for non-build outputs). TL;DR comes BEFORE the deep-dive.
+- **Development Approval Process**: Before executing any development task, always provide a "stack recommendation" with (a) Autonomy level (Light/Economy/Power), (b) brief rationale. Wait for user approval before proceeding. Light tier: single-file, low-blast-radius work (doc edits, config flips, one-line fixes with no logic change).
+- **Task Plans**: Every project task plan must include the recommended autonomy level (Light/Economy/Power) and a one-line rationale at the top.
+- **TL;DR Required**: Lead all work, minor or major, with a TL;DR using the **Problem → Fix → Benefit** pattern (or compact summary equivalent for non-build outputs). TL;DR comes BEFORE the deep-dive.
 - **Source of Truth**: GitHub repository (KyleRoots/Scout Genius) — main branch.
 - **Dev Admin Credentials**: username=`admin`, password=`MyticasXML2025!`
 - **Post-Deploy Checkpoints**: After every production deploy, schedule a 24–48h follow-up health check covering: (1) workflow logs for new errors, (2) AI cost telemetry vs daily threshold, (3) pipeline throughput (vetting logs, matches, parsed_emails), (4) feature-specific success metrics, and (5) any "watch-items" called out in the original deploy summary. Agent must proactively bring this up at the next session.
