@@ -203,7 +203,44 @@ def dashboard():
 
     groups_list = list(candidate_groups.values())[:200]
 
+    # --- Fraud risk badges (advisory only) ---------------------------------
+    # Load the latest fraud assessment per candidate shown, mapping
+    # {candidate_id: {'band','score'}}. Fail-soft: a query error just means no
+    # badges render — it never breaks the dashboard.
+    fraud_map = {}
+    try:
+        from models import CandidateFraudAssessment
+        cand_ids = [g['candidate_id'] for g in groups_list if g.get('candidate_id')]
+        if cand_ids:
+            # Fetch ALL bands ordered newest-first, then keep only the LATEST
+            # assessment per candidate. A later 'clear' must supersede an older
+            # 'high_risk'/'review' — so banding is filtered AFTER picking latest.
+            rows = (
+                CandidateFraudAssessment.query
+                .filter(CandidateFraudAssessment.bullhorn_candidate_id.in_(cand_ids))
+                .order_by(
+                    CandidateFraudAssessment.created_at.desc(),
+                    CandidateFraudAssessment.id.desc(),
+                )
+                .all()
+            )
+            seen = set()
+            for r in rows:
+                # First row per candidate wins (newest, since desc-ordered).
+                if r.bullhorn_candidate_id in seen:
+                    continue
+                seen.add(r.bullhorn_candidate_id)
+                # Only surface a badge for non-clear latest assessments.
+                if r.risk_band and r.risk_band != 'clear':
+                    fraud_map[r.bullhorn_candidate_id] = {
+                        'band': r.risk_band,
+                        'score': r.risk_score,
+                    }
+    except Exception as e:
+        logger.warning(f"Could not load fraud assessments: {e}")
+
     for g in groups_list:
+        g['fraud'] = fraud_map.get(g.get('candidate_id'))
         if g['has_qualified']:
             g['overall_status'] = 'qualified'
         elif g['has_loc_barrier']:

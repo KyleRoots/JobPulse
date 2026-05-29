@@ -107,6 +107,9 @@
     .st-not-rec      { background: rgba(220,53,69,0.12);  color: #e87c7c; border: 1px solid rgba(220,53,69,0.18);  font-size: 0.71rem; }
     .st-pending      { background: rgba(255,193,7,0.12);  color: #ffd966; border: 1px solid rgba(255,193,7,0.18);  font-size: 0.71rem; }
     .st-loc-barrier  { background: rgba(251,146,60,0.12); color: #fb923c; border: 1px solid rgba(251,146,60,0.22); font-size: 0.71rem; }
+    /* ── Fraud risk badges (advisory only) ── */
+    .st-fraud-high   { background: rgba(220,53,69,0.18); color: #ff8a8a; border: 1px solid rgba(220,53,69,0.35); font-size: 0.71rem; font-weight: 600; }
+    .st-fraud-review { background: rgba(251,146,60,0.14); color: #fbbf24; border: 1px solid rgba(251,146,60,0.28); font-size: 0.71rem; }
 
     /* ── AI notes snippet ── */
     .notes-snippet {
@@ -454,6 +457,13 @@
                         <span class="badge rounded-pill st-loc-barrier">📍 Location Barrier</span>
                         {% else %}
                         <span class="badge rounded-pill st-not-rec">Not Recommended</span>
+                        {% endif %}
+                        {% if g.fraud %}
+                            {% if g.fraud.band == 'high_risk' %}
+                            <span class="badge rounded-pill st-fraud-high ms-1" title="Advisory fraud-risk flag (score {{ g.fraud.score }}/100). Does not block screening."><i class="fas fa-user-shield me-1"></i>High Risk</span>
+                            {% elif g.fraud.band == 'review' %}
+                            <span class="badge rounded-pill st-fraud-review ms-1" title="Advisory fraud-risk flag (score {{ g.fraud.score }}/100). Does not block screening."><i class="fas fa-user-shield me-1"></i>Risk Review</span>
+                            {% endif %}
                         {% endif %}
                     </td>
                     <td onclick="event.stopPropagation()">

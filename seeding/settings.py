@@ -419,6 +419,18 @@ def seed_vetting_config(db, VettingConfig):
             # Global screening instructions — loaded from version-controlled config file
             # so a DB reset restores the full prompt instead of wiping it.
             'global_custom_requirements': _load_global_screening_prompt(),
+            # Fraud / fake-candidate detection (Phase 1 — advisory only).
+            # Master killswitch (default OFF — operator enables via UI). When
+            # off, the screening pipeline hook is a no-op and costs nothing.
+            'fraud_detection_enabled': 'false',
+            # Whether a vendor-neutral Bullhorn note is written on High-Risk.
+            # Independent toggle so the note can be muted without disabling the
+            # whole engine. Default OFF.
+            'fraud_bullhorn_note_enabled': 'false',
+            # Banding thresholds (risk score 0-100). High-Risk >= high; Review
+            # in [review, high); Clear < review.
+            'fraud_review_threshold': '40',
+            'fraud_high_risk_threshold': '75',
         }
 
         settings_created = []

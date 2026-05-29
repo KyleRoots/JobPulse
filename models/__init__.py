@@ -95,6 +95,7 @@ from models.openai_telemetry import OpenAICallLog
 from models.cost_forecast import CostForecastOverride, CostForecastScenario
 from models.placement_margin import PlacementMarginCalcLog
 from models.reporting import MonthlyReportRun
+from models.fraud import CandidateFraudAssessment
 
 __all__ = [
     # user
@@ -129,4 +130,6 @@ __all__ = [
     'PlacementMarginCalcLog',
     # reporting
     'MonthlyReportRun',
+    # fraud detection
+    'CandidateFraudAssessment',
 ]

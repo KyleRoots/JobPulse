@@ -41,6 +41,11 @@ def vetting_settings():
         'quality_auditor_model': 'gpt-5.4',
         'platform_age_ceilings': '',
         'qualified_audit_sample_rate': 10,
+        # Fraud / fake-candidate detection (Phase 1 — advisory only)
+        'fraud_detection_enabled': False,
+        'fraud_bullhorn_note_enabled': False,
+        'fraud_review_threshold': 40,
+        'fraud_high_risk_threshold': 75,
     }
 
     all_configs = VettingConfig.query.filter(
@@ -53,12 +58,14 @@ def vetting_settings():
         if value is not None:
             if key in ('vetting_enabled', 'send_recruiter_emails',
                        'screening_audit_enabled', 'recruiter_activity_check_enabled',
-                       'scout_vetting_enabled', 'recruiter_decision_skip_enabled'):
+                       'scout_vetting_enabled', 'recruiter_decision_skip_enabled',
+                       'fraud_detection_enabled', 'fraud_bullhorn_note_enabled'):
                 settings[key] = value.lower() == 'true'
             elif key in ('match_threshold', 'batch_size',
                          'recruiter_activity_lookback_minutes',
                          'self_screen_cooldown_minutes',
-                         'qualified_audit_sample_rate'):
+                         'qualified_audit_sample_rate',
+                         'fraud_review_threshold', 'fraud_high_risk_threshold'):
                 try:
                     settings[key] = int(value)
                 except (ValueError, TypeError):
@@ -67,6 +74,8 @@ def vetting_settings():
                         else 25 if key == 'batch_size'
                         else 1440 if key == 'recruiter_activity_lookback_minutes'
                         else 60 if key == 'self_screen_cooldown_minutes'
+                        else 40 if key == 'fraud_review_threshold'
+                        else 75 if key == 'fraud_high_risk_threshold'
                         else 10
                     )
             elif key == 'embedding_similarity_threshold':
@@ -176,6 +185,11 @@ def save_vetting_settings():
         # Self-screen cooldown + recruiter-decisioned skip (May 2026)
         self_screen_cooldown_raw = request.form.get('self_screen_cooldown_minutes', '60')
         recruiter_decision_skip_enabled = 'recruiter_decision_skip_enabled' in request.form
+        # Fraud / fake-candidate detection (Phase 1 — advisory only)
+        fraud_detection_enabled = 'fraud_detection_enabled' in request.form
+        fraud_bullhorn_note_enabled = 'fraud_bullhorn_note_enabled' in request.form
+        fraud_review_raw = request.form.get('fraud_review_threshold', '40')
+        fraud_high_risk_raw = request.form.get('fraud_high_risk_threshold', '75')
         # Quality auditor controls (Task #11 rescope)
         # When the audit toggle is OFF the three fields below are disabled
         # in the UI and won't be submitted. Detect that case so we preserve
@@ -234,6 +248,24 @@ def save_vetting_settings():
                 self_screen_cooldown = 60
         except (ValueError, TypeError):
             self_screen_cooldown = 60
+
+        # Validate fraud banding thresholds (each clamped 0-100; ensure
+        # review < high_risk so the bands don't invert — fall back to
+        # defaults if the operator submits an inverted pair).
+        try:
+            fraud_review = int(str(fraud_review_raw).strip())
+            if fraud_review < 0 or fraud_review > 100:
+                fraud_review = 40
+        except (ValueError, TypeError):
+            fraud_review = 40
+        try:
+            fraud_high_risk = int(str(fraud_high_risk_raw).strip())
+            if fraud_high_risk < 0 or fraud_high_risk > 100:
+                fraud_high_risk = 75
+        except (ValueError, TypeError):
+            fraud_high_risk = 75
+        if fraud_review >= fraud_high_risk:
+            fraud_review, fraud_high_risk = 40, 75
 
         # Validate qualified_audit_sample_rate (0-100; 0 disables Phase 2).
         # Skipped entirely when fields weren't submitted (audit toggle off).
@@ -304,6 +336,12 @@ def save_vetting_settings():
             ('self_screen_cooldown_minutes', str(self_screen_cooldown)),
             ('recruiter_decision_skip_enabled',
              'true' if recruiter_decision_skip_enabled else 'false'),
+            ('fraud_detection_enabled',
+             'true' if fraud_detection_enabled else 'false'),
+            ('fraud_bullhorn_note_enabled',
+             'true' if fraud_bullhorn_note_enabled else 'false'),
+            ('fraud_review_threshold', str(fraud_review)),
+            ('fraud_high_risk_threshold', str(fraud_high_risk)),
         ])
         if auditor_fields_submitted:
             settings_to_save.extend([

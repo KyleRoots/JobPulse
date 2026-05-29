@@ -23,6 +23,42 @@ logger = logging.getLogger('candidate_vetting_service')
 class CandidateProcessingMixin:
     """Mixin implementing the single-candidate vetting pipeline."""
 
+    def _run_fraud_assessment(self, candidate: Dict, vetting_log: CandidateVettingLog) -> None:
+        """Run the advisory fraud assessment for a candidate (fail-soft).
+
+        Gated by the ``fraud_detection_enabled`` config flag. Wrapped so that
+        ANY failure (config read, DB, Bullhorn) is swallowed — fraud detection
+        must NEVER break or delay the screening pipeline. No-op when disabled.
+        """
+        try:
+            from models import VettingConfig
+            enabled = str(
+                VettingConfig.get_value('fraud_detection_enabled', 'false')
+            ).strip().lower() == 'true'
+            if not enabled:
+                return
+
+            from fraud_detection.engine import FraudSignalEngine
+            bullhorn_service = None
+            try:
+                bullhorn_service = self._get_bullhorn_service()
+            except Exception:
+                bullhorn_service = None
+
+            engine = FraudSignalEngine(bullhorn_service=bullhorn_service)
+            assessment = engine.assess(candidate, vetting_log, trigger='screening')
+            if assessment is not None:
+                logger.info(
+                    f"🛡️ Fraud assessment for candidate {candidate.get('id')}: "
+                    f"{assessment.risk_band} (score {assessment.risk_score})"
+                )
+        except Exception as e:
+            logger.warning(
+                f"Fraud assessment skipped for candidate "
+                f"{candidate.get('id') if candidate else '?'}: {e}",
+                exc_info=True,
+            )
+
     def process_candidate(self, candidate: Dict, cached_jobs: Optional[List[Dict]] = None) -> Optional[CandidateVettingLog]:
         """
         Process a single candidate through the full vetting pipeline.
@@ -133,6 +169,12 @@ class CandidateProcessingMixin:
 
             if resume_text:
                 vetting_log.resume_text = resume_text[:50000]
+
+            # --- Fraud / fake-candidate detection (advisory, non-blocking) ---
+            # Runs BEFORE screening so recruiters see the risk badge alongside
+            # match results. Fully gated + fail-soft: it can NEVER break the
+            # screening pipeline. Deterministic signals only — zero AI cost.
+            self._run_fraud_assessment(candidate, vetting_log)
 
             if cached_jobs is not None:
                 jobs = list(cached_jobs)
