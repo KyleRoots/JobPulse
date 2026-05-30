@@ -1,1 +1,1 @@
-- [Recruiter email surfaces](recruiter-email-surfaces.md) — screening/notification.py has 3 independent recruiter-email HTML builders (qualified/prestige/location); edits must hit all 3.
+- [Schema rollout convention](schema-rollout.md) — Alembic is NOT the live boot path; column/index adds must go in the model + seeding/migrations.py idempotent ALTERs + an Alembic migration for parity.

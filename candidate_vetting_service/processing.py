@@ -73,6 +73,15 @@ class CandidateProcessingMixin:
         candidate_id = candidate.get('id')
         candidate_name = sanitize_text(f"{candidate.get('firstName', '')} {candidate.get('lastName', '')}".strip())
         candidate_email = sanitize_text(candidate.get('email', ''))
+        # Normalized (digits-only) phone for the fraud identity-reuse-by-phone
+        # signal. Stored pre-normalized so the cross-candidate lookup is a
+        # plain indexed equality. First non-empty of the common Bullhorn keys.
+        _raw_phone = ''
+        for _pk in ('phone', 'mobile', 'phone2', 'phone3', 'workPhone'):
+            if candidate.get(_pk):
+                _raw_phone = str(candidate.get(_pk))
+                break
+        candidate_phone = ''.join(ch for ch in _raw_phone if ch.isdigit())[:32]
 
         logger.info(f"🔍 Processing candidate: {candidate_name} (ID: {candidate_id})")
 
@@ -84,6 +93,7 @@ class CandidateProcessingMixin:
                 bullhorn_candidate_id=candidate_id,
                 candidate_name=candidate_name,
                 candidate_email=candidate_email,
+                candidate_phone=candidate_phone,
                 status='processing',
                 applied_job_id=applied_job_id,
                 parsed_email_id=parsed_email_id

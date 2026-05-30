@@ -10,6 +10,10 @@ class CandidateVettingLog(db.Model):
     bullhorn_candidate_id = db.Column(db.Integer, nullable=False, index=True)  # Not unique: multiple logs per candidate (one per application)
     candidate_name = db.Column(SafeString(255), nullable=True)
     candidate_email = db.Column(SafeString(255), nullable=True, index=True)
+    # Digits-only normalized phone (e.g. "15551234567"). Powers the fraud
+    # identity-reuse-by-phone signal (one number across many names). Stored
+    # pre-normalized so the lookup is a plain indexed equality.
+    candidate_phone = db.Column(SafeString(32), nullable=True, index=True)
     applied_job_id = db.Column(db.Integer, nullable=True)  # Job they originally applied to
     applied_job_title = db.Column(SafeString(500), nullable=True)
     parsed_email_id = db.Column(db.Integer, nullable=True, index=True)  # Links to specific ParsedEmail that triggered vetting

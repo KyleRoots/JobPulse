@@ -319,6 +319,66 @@ def test_engine_resume_reuse_across_identities(_fraud_db):
     assert 'resume_reuse' in codes
 
 
+def test_engine_phone_reuse_across_identities(_fraud_db):
+    db, Assessment, VettingLog, VettingConfig = _fraud_db
+    from fraud_detection.engine import FraudSignalEngine
+
+    _set_config(db, VettingConfig, fraud_detection_enabled='true')
+
+    # Same normalized phone (digits-only) across several distinct names.
+    shared_phone = "15551112222"
+    for cid, nm in ((9101, "Alice One"), (9102, "Bob Two"),
+                    (9103, "Carol Three")):
+        db.session.add(VettingLog(
+            bullhorn_candidate_id=cid, candidate_name=nm,
+            candidate_email=f"u{cid}@x.com", candidate_phone=shared_phone,
+            status="completed"))
+    db.session.commit()
+
+    log = VettingLog(bullhorn_candidate_id=9104, candidate_name="Dan Four",
+                     candidate_email="dan@x.com", candidate_phone=shared_phone,
+                     status="processing")
+    db.session.add(log)
+    db.session.commit()
+
+    # Candidate dict carries the raw (formatted) phone; engine normalizes it.
+    candidate = {"id": 9104, "firstName": "Dan", "lastName": "Four",
+                 "email": "dan@x.com", "phone": "+1 (555) 111-2222"}
+    engine = FraudSignalEngine()
+    result = engine.assess(candidate, log)
+    codes = {s['code'] for s in json.loads(result.signals_json)}
+    assert 'identity_reuse_phone' in codes
+
+
+def test_engine_short_phone_does_not_trigger_reuse(_fraud_db):
+    db, Assessment, VettingLog, VettingConfig = _fraud_db
+    from fraud_detection.engine import FraudSignalEngine
+
+    _set_config(db, VettingConfig, fraud_detection_enabled='true')
+
+    # Sub-10-digit numbers are ignored to avoid junk over-matching.
+    short_phone = "12345"
+    for cid, nm in ((9201, "Eve A"), (9202, "Frank B"), (9203, "Gina C")):
+        db.session.add(VettingLog(
+            bullhorn_candidate_id=cid, candidate_name=nm,
+            candidate_email=f"u{cid}@x.com", candidate_phone=short_phone,
+            status="completed"))
+    db.session.commit()
+
+    log = VettingLog(bullhorn_candidate_id=9204, candidate_name="Hank D",
+                     candidate_email="hank@x.com", candidate_phone=short_phone,
+                     status="processing")
+    db.session.add(log)
+    db.session.commit()
+
+    candidate = {"id": 9204, "firstName": "Hank", "lastName": "D",
+                 "email": "hank@x.com", "phone": "12345"}
+    engine = FraudSignalEngine()
+    result = engine.assess(candidate, log)
+    codes = {s['code'] for s in json.loads(result.signals_json)}
+    assert 'identity_reuse_phone' not in codes
+
+
 def test_engine_clean_candidate_is_clear(_fraud_db):
     db, Assessment, VettingLog, VettingConfig = _fraud_db
     from fraud_detection.engine import FraudSignalEngine

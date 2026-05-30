@@ -107,6 +107,7 @@ class FraudSignalEngine:
                 self._count_resume_reuse(candidate_id, vetting_log)))
             gathered.extend(fsig.evaluate_identity_reuse(
                 distinct_names_for_email=self._count_distinct_names_for_email(email, candidate_id),
+                distinct_names_for_phone=self._count_distinct_names_for_phone(phone, candidate_id),
             ))
             gathered.append(fsig.evaluate_profile_near_duplicate(
                 *self._top_profile_similarity(candidate_id)))
@@ -265,6 +266,35 @@ class FraudSignalEngine:
             return len(names)
         except Exception as exc:  # pragma: no cover
             logger.debug("identity-reuse query failed: %s", exc)
+            return 0
+
+    def _count_distinct_names_for_phone(self, phone, candidate_id) -> int:
+        """Count distinct normalized names that have used this phone number.
+
+        Reads the pre-normalized `candidate_phone` column on
+        `candidate_vetting_log` so the lookup is a plain indexed equality.
+        Phone reuse across identities is a stronger fraud signal than email
+        (harder to share by accident), but short/garbage numbers over-match,
+        so anything under 10 digits is ignored.
+        """
+        normalized = fsig.normalize_phone(phone)
+        if len(normalized) < 10:
+            return 0
+        try:
+            with Session(db.engine) as session:
+                rows = (
+                    session.query(CandidateVettingLog.candidate_name)
+                    .filter(CandidateVettingLog.candidate_phone == normalized)
+                    .filter(CandidateVettingLog.is_sandbox.is_(False))
+                    .distinct()
+                    .limit(200)
+                    .all()
+                )
+            names = {fsig.normalize_name(r[0]) for r in rows if r[0]}
+            names.discard("")
+            return len(names)
+        except Exception as exc:  # pragma: no cover
+            logger.debug("identity-reuse (phone) query failed: %s", exc)
             return 0
 
     def _count_recent_applications(self, candidate_id, email) -> int:

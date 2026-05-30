@@ -41,6 +41,8 @@ def run_schema_migrations(db):
         # Scout Vetting stagger + mid-session flag (added Apr 2026)
         ("scout_vetting_session", "scheduled_outreach_at", "TIMESTAMP"),
         ("scout_vetting_session", "requirements_changed_mid_session", "BOOLEAN"),
+        # Normalized phone for fraud identity-reuse-by-phone signal (added May 2026)
+        ("candidate_vetting_log", "candidate_phone", "VARCHAR(32)"),
     ]
 
     _SAFE_IDENTIFIER = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
@@ -64,6 +66,20 @@ def run_schema_migrations(db):
         except Exception as e:
             db.session.rollback()
             logger.warning(f"⚠️ Migration skipped for {table}.{column}: {str(e)}")
+
+    # Index the normalized phone column for the fraud identity-reuse lookup
+    # (added May 2026). Mirrors the name SQLAlchemy would auto-generate so
+    # create_all() on a fresh DB and this ALTER path converge on one index.
+    try:
+        db.session.execute(text(
+            'CREATE INDEX IF NOT EXISTS ix_candidate_vetting_log_candidate_phone '
+            'ON candidate_vetting_log (candidate_phone)'
+        ))
+        db.session.commit()
+        logger.info("✅ Ensured index ix_candidate_vetting_log_candidate_phone")
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ Index ensure skipped for candidate_phone: {str(e)}")
 
     # Add is_company_admin to user table (added Feb 2026)
     # Handled separately because 'user' is a PostgreSQL reserved word requiring quoting
