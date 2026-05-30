@@ -344,6 +344,29 @@ def run_schema_migrations(db):
         except Exception as e:
             logger.warning(f"⚠️ Prospector table check failed for '{table_name}': {str(e)}")
 
+    # Autovacuum tuning for candidate_profile_embedding (added May 2026).
+    # This table holds large embedding vectors in a TOASTed TEXT column that is
+    # re-upserted whenever a candidate profile changes. With default autovacuum
+    # thresholds the TOAST table accumulates dead chunks and bloats badly
+    # (observed 175MB TOAST for ~8MB of live data). Tighten both the heap and
+    # the TOAST autovacuum/analyze triggers so dead space is reclaimed promptly.
+    # ALTER ... SET is idempotent, so it is safe to run on every boot. Note:
+    # this only PREVENTS future bloat — reclaiming already-bloated space to the
+    # OS needs a one-time VACUUM FULL run during a maintenance window.
+    try:
+        db.session.execute(text(
+            "ALTER TABLE candidate_profile_embedding SET ("
+            "autovacuum_vacuum_scale_factor=0.05, autovacuum_vacuum_threshold=50, "
+            "autovacuum_analyze_scale_factor=0.05, autovacuum_analyze_threshold=50, "
+            "toast.autovacuum_vacuum_scale_factor=0.05, "
+            "toast.autovacuum_vacuum_threshold=50)"
+        ))
+        db.session.commit()
+        logger.info("✅ Tuned autovacuum for candidate_profile_embedding (heap + toast)")
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ Autovacuum tuning skipped for candidate_profile_embedding: {str(e)}")
+
 
 def log_critical_settings_state(db):
     """

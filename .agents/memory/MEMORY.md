@@ -1,1 +1,2 @@
 - [Schema rollout convention](schema-rollout.md) — Alembic is NOT the live boot path; column/index adds must go in the model + seeding/migrations.py idempotent ALTERs + an Alembic migration for parity.
+- [candidate_profile_embedding size](embedding-table-size.md) — its ~180MB is real live data (~6.7k rows of TEXT embeddings in TOAST), not bloat; the "150 rows" was never-analyzed stale stats.
