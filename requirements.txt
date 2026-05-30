@@ -85,3 +85,4 @@ defusedcsv
 defusedxml
 reportlab
 jsonschema
+olefile

@@ -1,3 +1,4 @@
 - [Schema rollout convention](schema-rollout.md) — Alembic is NOT the live boot path; column/index adds must go in the model + seeding/migrations.py idempotent ALTERs + an Alembic migration for parity.
 - [candidate_profile_embedding size](embedding-table-size.md) — its ~180MB is real live data (~6.7k rows of TEXT embeddings in TOAST), not bloat; the "150 rows" was never-analyzed stale stats.
 - [Prod read-replica verification](prod-readonly-verification.md) — catalog facts (columns/indexes/reloptions) + row data replicate; pg_stat_user_tables counters are replica-local and read never/0, don't alarm on them.
+- [Legacy .doc extraction in prod](doc-extraction-prod.md) — antiword EIOs in prod; .doc must use the pure-Python olefile parser (runs first), antiword only a fallback. Don't reintroduce it as primary.

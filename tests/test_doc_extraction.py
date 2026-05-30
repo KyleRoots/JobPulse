@@ -192,6 +192,122 @@ def test_antiword_timeout_returns_none():
 # Defence-in-depth: antiword must stay out of the codebase
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Pure-Python olefile .doc extraction (real fixtures)
+#
+# Fixtures under tests/fixtures/ are genuine OLE2 .doc files sourced from the
+# Apache POI test-data set (Apache License 2.0). They exercise the FIB +
+# piece-table parser added so legacy .doc extraction no longer depends on the
+# antiword system binary (which works in dev but EIOs in production).
+# ---------------------------------------------------------------------------
+
+from pathlib import Path
+
+from utils.doc_extraction import (
+    _clean_doc_text,
+    _printable_ratio,
+    _try_olefile_doc,
+)
+
+_FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def _load(name: str) -> bytes:
+    return (_FIXTURES / name).read_bytes()
+
+
+def test_olefile_extracts_word97_simple_doc():
+    text = _try_olefile_doc(_load("sample_word97.doc"), "sample_word97.doc")
+    assert text is not None
+    assert "simple file created with Word 97" in text
+
+
+def test_olefile_extracts_modern_doc():
+    text = _try_olefile_doc(_load("sample_calibri.doc"), "sample_calibri.doc")
+    assert text is not None
+    low = text.lower()
+    assert "test document" in low
+    assert "page 1" in low
+    assert "calibri" in low
+
+
+def test_olefile_extracts_large_doc_main_body():
+    text = _try_olefile_doc(_load("sample_large.doc"), "sample_large.doc")
+    assert text is not None
+    assert len(text) > 1000
+    assert "Manufacturer" in text
+
+
+def test_olefile_extracts_table_doc_cell_content():
+    text = _try_olefile_doc(_load("sample_table.doc"), "sample_table.doc")
+    assert text is not None
+    # All cell labels from the table must be present.
+    for cell in ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]:
+        assert cell in text
+
+
+def test_olefile_output_is_clean_text():
+    """Extracted text must be overwhelmingly printable — never binary garbage."""
+    for name in ("sample_word97.doc", "sample_calibri.doc", "sample_large.doc"):
+        text = _try_olefile_doc(_load(name), name)
+        assert text is not None
+        assert _printable_ratio(text) >= 0.95
+
+
+def test_extract_doc_text_works_without_antiword():
+    """The production scenario: antiword is broken (EIO) yet a genuine .doc
+    still extracts via the pure-Python olefile path."""
+    from unittest.mock import patch
+
+    with patch("utils.doc_extraction._try_antiword", return_value=None):
+        text = extract_doc_text(_load("sample_word97.doc"), "resume.doc")
+    assert text is not None
+    assert "simple file created with Word 97" in text
+
+
+def test_extract_doc_text_prefers_olefile_over_antiword():
+    """olefile runs first; antiword must not be consulted when olefile succeeds."""
+    from unittest.mock import patch
+
+    with patch("utils.doc_extraction._try_antiword") as mock_aw:
+        text = extract_doc_text(_load("sample_calibri.doc"), "resume.doc")
+    assert text is not None
+    mock_aw.assert_not_called()
+
+
+def test_olefile_returns_none_on_non_ole_bytes():
+    """Garbage / non-OLE bytes must return None, never raise or emit junk."""
+    assert _try_olefile_doc(b"\x00\x01\x02\x03" + b"\xff" * 300, "x.doc") is None
+    assert _try_olefile_doc(b"not an ole file at all", "x.doc") is None
+
+
+def test_clean_doc_text_strips_field_codes():
+    """Field instruction codes (0x13..0x14) are dropped; the visible field
+    result (0x14..0x15) is kept."""
+    raw = "Email: \x13HYPERLINK \"mailto:a@b.com\"\x14a@b.com\x15 end"
+    cleaned = _clean_doc_text(raw)
+    assert "HYPERLINK" not in cleaned
+    assert "a@b.com" in cleaned
+    assert "end" in cleaned
+
+
+def test_clean_doc_text_translates_control_chars():
+    raw = "Line one\rLine two\x0bbreak\x07cell\x1fsofthyphen"
+    cleaned = _clean_doc_text(raw)
+    assert "Line one" in cleaned
+    assert "Line two" in cleaned
+    assert "\x0b" not in cleaned
+    assert "\x07" not in cleaned
+    assert "\x1f" not in cleaned
+    assert "softhyphen" in cleaned  # optional hyphen removed, text retained
+
+
+def test_printable_ratio_guard():
+    assert _printable_ratio("Hello world\nclean text") == 1.0
+    assert _printable_ratio("\x00\x01\x02\x03\x04") < 0.5
+    assert _printable_ratio("") == 0.0
+
+
 def test_no_antiword_calls_in_resume_extraction_paths():
     """Regression guard: the four call sites we cleaned must not reinvoke antiword.
 
