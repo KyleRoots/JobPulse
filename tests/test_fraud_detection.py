@@ -432,3 +432,126 @@ def test_badge_latest_clear_supersedes_old_high_risk(_fraud_db):
 
     # Latest is 'clear' → no badge should surface.
     assert 9200 not in fraud_map
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Recruiter-email fraud banner (NotificationMixin._build_fraud_banner_html)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _make_assessment(db, Assessment, candidate_id, band, score, signals):
+    row = Assessment(
+        bullhorn_candidate_id=candidate_id,
+        candidate_name="Test Cand",
+        risk_band=band,
+        risk_score=score,
+        signals_json=json.dumps(signals),
+        trigger="screening",
+    )
+    db.session.add(row)
+    db.session.commit()
+    return row
+
+
+def _banner_service():
+    from screening.notification import NotificationMixin
+    return NotificationMixin()
+
+
+def test_fraud_banner_high_risk_renders_band_score_reasons(_fraud_db):
+    db, Assessment, VettingLog, VettingConfig = _fraud_db
+    _set_config(db, VettingConfig, fraud_detection_enabled='true')
+    _make_assessment(db, Assessment, 9301, 'high_risk', 82, [
+        {"code": "disposable_email", "label": "Disposable email domain",
+         "points": 25, "evidence": "mailinator.com"},
+        {"code": "identity_reuse", "label": "Email reused across identities",
+         "points": 30, "evidence": "2 other names"},
+        {"code": "noise", "label": "Zero-point signal", "points": 0},
+    ])
+
+    html = _banner_service()._build_fraud_banner_html(9301)
+
+    assert 'High Fraud Risk' in html
+    assert '82/100' in html
+    # Reasons present, ordered highest-impact first (identity 30 before disposable 25).
+    assert html.index('Email reused across identities') < html.index('Disposable email domain')
+    # Zero-point signal suppressed.
+    assert 'Zero-point signal' not in html
+    # Advisory disclaimer present.
+    assert 'Advisory only' in html
+
+
+def test_fraud_banner_review_renders(_fraud_db):
+    db, Assessment, VettingLog, VettingConfig = _fraud_db
+    _set_config(db, VettingConfig, fraud_detection_enabled='true')
+    _make_assessment(db, Assessment, 9302, 'review', 55, [
+        {"code": "phone_anomaly", "label": "Suspicious phone", "points": 15,
+         "evidence": "1111111111"},
+    ])
+    html = _banner_service()._build_fraud_banner_html(9302)
+    assert 'Review Recommended' in html
+    assert '55/100' in html
+    assert 'Suspicious phone' in html
+
+
+def test_fraud_banner_clear_band_empty(_fraud_db):
+    db, Assessment, VettingLog, VettingConfig = _fraud_db
+    _set_config(db, VettingConfig, fraud_detection_enabled='true')
+    _make_assessment(db, Assessment, 9303, 'clear', 10, [])
+    assert _banner_service()._build_fraud_banner_html(9303) == ''
+
+
+def test_fraud_banner_feature_disabled_empty(_fraud_db):
+    db, Assessment, VettingLog, VettingConfig = _fraud_db
+    _set_config(db, VettingConfig, fraud_detection_enabled='false')
+    _make_assessment(db, Assessment, 9304, 'high_risk', 90, [
+        {"code": "x", "label": "y", "points": 10}])
+    assert _banner_service()._build_fraud_banner_html(9304) == ''
+
+
+def test_fraud_banner_no_assessment_empty(_fraud_db):
+    db, Assessment, VettingLog, VettingConfig = _fraud_db
+    _set_config(db, VettingConfig, fraud_detection_enabled='true')
+    assert _banner_service()._build_fraud_banner_html(9999) == ''
+
+
+def test_fraud_banner_latest_wins(_fraud_db):
+    db, Assessment, VettingLog, VettingConfig = _fraud_db
+    _set_config(db, VettingConfig, fraud_detection_enabled='true')
+    # Older high-risk, newer clear → latest (clear) wins → no banner.
+    old = _make_assessment(db, Assessment, 9305, 'high_risk', 90, [
+        {"code": "x", "label": "y", "points": 10}])
+    old.created_at = datetime(2026, 1, 1)
+    db.session.commit()
+    _make_assessment(db, Assessment, 9305, 'clear', 5, [])
+    assert _banner_service()._build_fraud_banner_html(9305) == ''
+
+
+def test_fraud_banner_escapes_evidence(_fraud_db):
+    db, Assessment, VettingLog, VettingConfig = _fraud_db
+    _set_config(db, VettingConfig, fraud_detection_enabled='true')
+    _make_assessment(db, Assessment, 9306, 'review', 50, [
+        {"code": "x", "label": "Resume reuse",
+         "points": 20, "evidence": "<script>alert(1)</script>"}])
+    html = _banner_service()._build_fraud_banner_html(9306)
+    assert '<script>' not in html
+    assert '&lt;script&gt;' in html
+
+
+def test_fraud_banner_tiebreak_by_id_when_same_created_at(_fraud_db):
+    """Equal created_at → highest id wins (matches dashboard ordering)."""
+    db, Assessment, VettingLog, VettingConfig = _fraud_db
+    _set_config(db, VettingConfig, fraud_detection_enabled='true')
+    ts = datetime(2026, 5, 30, 12, 0, 0)
+    a = _make_assessment(db, Assessment, 9307, 'high_risk', 90, [
+        {"code": "x", "label": "Older signal", "points": 10}])
+    b = _make_assessment(db, Assessment, 9307, 'review', 50, [
+        {"code": "y", "label": "Newer signal", "points": 20}])
+    a.created_at = ts
+    b.created_at = ts
+    db.session.commit()
+    assert b.id > a.id
+    html = _banner_service()._build_fraud_banner_html(9307)
+    # Higher id (b, review) wins the tie.
+    assert 'Review Recommended' in html
+    assert 'Newer signal' in html
+    assert 'High Fraud Risk' not in html

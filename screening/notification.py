@@ -590,6 +590,109 @@ class NotificationMixin:
         )
         return [attachment]
 
+    def _build_fraud_banner_html(self, candidate_id: Optional[int]) -> str:
+        """Advisory fraud-risk banner for recruiter notification emails.
+
+        Mirrors the on-screen recruiter-portal badge: renders the candidate's
+        latest fraud assessment ONLY when it landed in the 'review' or
+        'high_risk' band, showing the band, the 0-100 score, and the specific
+        contributing signals. Gated by the same `fraud_detection_enabled`
+        flag that controls the whole feature (no separate toggle, per spec).
+
+        Fail-soft by contract: any problem (feature off, no assessment, bad
+        JSON, lookup error) returns '' so the notification email always sends.
+        A fraud-lookup hiccup must NEVER block a recruiter alert.
+        """
+        try:
+            if not candidate_id:
+                return ''
+
+            enabled = VettingConfig.query.filter_by(
+                setting_key='fraud_detection_enabled'
+            ).first()
+            if not (enabled and (enabled.setting_value or '').lower() == 'true'):
+                return ''
+
+            from models import CandidateFraudAssessment
+            assessment = (
+                CandidateFraudAssessment.query
+                .filter_by(bullhorn_candidate_id=candidate_id)
+                .order_by(
+                    CandidateFraudAssessment.created_at.desc(),
+                    CandidateFraudAssessment.id.desc(),
+                )
+                .first()
+            )
+            if assessment is None:
+                return ''
+
+            band = (assessment.risk_band or '').lower()
+            if band not in ('high_risk', 'review'):
+                return ''
+
+            import html as _html
+            import json as _json
+
+            if band == 'high_risk':
+                accent, bg, border = '#dc3545', '#fdecec', '#f5c2c7'
+                label = '🚩 High Fraud Risk'
+            else:
+                accent, bg, border = '#b7791f', '#fff8e1', '#f1d592'
+                label = '⚠️ Fraud Risk — Review Recommended'
+
+            score = assessment.risk_score or 0
+
+            # Contributing-signal list (band + score + reasons, per spec).
+            # Only signals that actually scored points are shown, ordered
+            # highest-impact first and capped to keep the email scannable.
+            # Every string is HTML-escaped — signal evidence can echo
+            # candidate-supplied data.
+            try:
+                signals = _json.loads(assessment.signals_json or '[]')
+            except (ValueError, TypeError):
+                signals = []
+            contributing = [
+                s for s in signals
+                if isinstance(s, dict) and (s.get('points') or 0) > 0
+            ]
+            contributing.sort(key=lambda s: s.get('points') or 0, reverse=True)
+
+            reasons_html = ''
+            if contributing:
+                items = ''
+                for s in contributing[:5]:
+                    lbl = _html.escape(str(s.get('label') or s.get('code') or 'Risk signal'))
+                    ev = s.get('evidence')
+                    ev_html = (
+                        f' — <span style="color:#6c757d;">{_html.escape(str(ev))}</span>'
+                        if ev else ''
+                    )
+                    items += f'<li style="margin:2px 0;">{lbl}{ev_html}</li>'
+                reasons_html = (
+                    '<ul style="margin:8px 0 0 0; padding-left:18px; '
+                    f'font-size:13px; color:#495057;">{items}</ul>'
+                )
+
+            return f"""
+                <div style="background: {bg}; border: 1px solid {border};
+                            border-left: 4px solid {accent}; border-radius: 6px;
+                            padding: 12px 14px; margin: 0 0 15px 0;">
+                    <p style="margin: 0; color: {accent}; font-weight: bold; font-size: 14px;">
+                        {label} &nbsp;·&nbsp; Risk Score {score}/100
+                    </p>
+                    <p style="margin: 6px 0 0 0; color: #6c757d; font-size: 12px;">
+                        Advisory only — automated integrity check. This does not block
+                        screening; please apply your own judgement.
+                    </p>
+                    {reasons_html}
+                </div>
+            """
+        except Exception as e:
+            logger.warning(
+                f"Fraud banner skipped for candidate {candidate_id}: {e}"
+            )
+            return ''
+
     def _send_recruiter_email(self, recruiter_email: str, recruiter_name: str,
                                candidate_name: str, candidate_id: int,
                                matches: List[CandidateJobMatch],
@@ -650,6 +753,8 @@ class NotificationMixin:
                     </a>
                 </div>
                 
+                {self._build_fraud_banner_html(candidate_id)}
+
                 <h3 style="color: #495057; margin: 20px 0 10px 0;">Matched Positions:</h3>
         """
         
@@ -940,6 +1045,8 @@ class NotificationMixin:
                         View Candidate Profile →
                     </a>
                 </div>
+
+                {self._build_fraud_banner_html(candidate_id)}
 
                 <h3 style="color: #495057; margin: 20px 0 10px 0;">Screening Results:</h3>
         """
@@ -1303,6 +1410,8 @@ class NotificationMixin:
                         View Candidate Profile →
                     </a>
                 </div>
+
+                {self._build_fraud_banner_html(candidate_id)}
 
                 <h3 style="color: #495057; margin: 20px 0 10px 0;">Position(s) Affected:</h3>
         """

@@ -1,0 +1,1 @@
+- [Recruiter email surfaces](recruiter-email-surfaces.md) — screening/notification.py has 3 independent recruiter-email HTML builders (qualified/prestige/location); edits must hit all 3.
