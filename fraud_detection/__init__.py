@@ -23,6 +23,14 @@ from fraud_detection.signals import (
     evaluate_identity_reuse,
     evaluate_profile_near_duplicate,
     evaluate_velocity,
+    evaluate_linkedin,
+    evaluate_name_completeness,
+    evaluate_third_party_submission,
+    evaluate_jd_mirror,
+    evaluate_ai_style_markers,
+    extract_linkedin_url,
+    is_incomplete_name,
+    is_personal_email,
 )
 
 __all__ = [
@@ -37,4 +45,12 @@ __all__ = [
     "evaluate_identity_reuse",
     "evaluate_profile_near_duplicate",
     "evaluate_velocity",
+    "evaluate_linkedin",
+    "evaluate_name_completeness",
+    "evaluate_third_party_submission",
+    "evaluate_jd_mirror",
+    "evaluate_ai_style_markers",
+    "extract_linkedin_url",
+    "is_incomplete_name",
+    "is_personal_email",
 ]

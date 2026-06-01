@@ -667,6 +667,13 @@ class NotificationMixin:
                 if isinstance(s, dict) and (s.get('points') or 0) > 0
             ]
             contributing.sort(key=lambda s: s.get('points') or 0, reverse=True)
+            # Informational (0-point) signals — never accusations, never scored
+            # (e.g. AI-writing-style markers). Shown separately so a recruiter
+            # never reads them as a risk indicator. Surfaced on ALL bands.
+            informational = [
+                s for s in signals
+                if isinstance(s, dict) and (s.get('points') or 0) == 0
+            ]
 
             reasons_html = ''
             if contributing:
@@ -695,6 +702,10 @@ class NotificationMixin:
                     'Identity consistency',
                     'Profile near-duplicate check',
                     'Application velocity',
+                    'LinkedIn profile reuse',
+                    'Name completeness',
+                    'Third-party-submission pattern',
+                    'Job-description verbatim match',
                 ]
                 _items = ''.join(
                     f'<li style="margin:2px 0;">&#10003; {_html.escape(c)}</li>'
@@ -703,6 +714,22 @@ class NotificationMixin:
                 reasons_html = (
                     '<ul style="margin:8px 0 0 0; padding-left:18px; list-style:none;'
                     f' font-size:13px; color:#495057;">{_items}</ul>'
+                )
+
+            # Muted informational note (all bands) — explicitly not a risk score.
+            informational_html = ''
+            if informational:
+                _info_items = ''
+                for s in informational[:3]:
+                    lbl = _html.escape(str(s.get('label') or s.get('code') or 'Note'))
+                    ev = s.get('evidence')
+                    ev_html = f' — {_html.escape(str(ev))}' if ev else ''
+                    _info_items += f'<li style="margin:2px 0;">{lbl}{ev_html}</li>'
+                informational_html = (
+                    '<p style="margin:8px 0 0 0; font-size:12px; color:#6c757d;'
+                    ' font-style:italic;">Informational (not scored):</p>'
+                    '<ul style="margin:2px 0 0 0; padding-left:18px; font-size:12px;'
+                    f' color:#6c757d; font-style:italic;">{_info_items}</ul>'
                 )
 
             return f"""
@@ -716,6 +743,7 @@ class NotificationMixin:
                         {disclaimer}
                     </p>
                     {reasons_html}
+                    {informational_html}
                 </div>
             """
         except Exception as e:

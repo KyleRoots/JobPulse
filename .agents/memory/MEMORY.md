@@ -4,3 +4,5 @@
 - [Legacy .doc extraction in prod](doc-extraction-prod.md) — antiword EIOs in prod; .doc must use the pure-Python olefile parser (runs first), antiword only a fallback. Don't reintroduce it as primary.
 - [Screening audit feature flags](screening-audit-flags.md) — audit/cutover flags live in the SECRET store (not env vars); agent can't read/set values, user must flip + republish for prod to pick up.
 - [Telemetry gap on module disable](telemetry-gap-on-module-disable.md) — a known-active call site writing zero openai_call_log rows points to the write path/stale deploy, not pricing; re-enable+republish restored it.
+- [Phase-2 AI-detection pilot](phase2-ai-detection-pilot.md) — external AI-resume-detection deferred; detectors are weak on short resume/bullet text, so pilot (GPTZero preferred) before any scoring weight.
+- [Fraud third-party composite gating](fraud-third-party-composite.md) — the "third-party submission" composite needs a PRESENT, valid, non-personal, non-disposable email; never treat missing/personal/disposable as qualifying.

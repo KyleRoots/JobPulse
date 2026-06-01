@@ -167,6 +167,178 @@ def test_aggregate_ignores_none():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# LinkedIn capture + reuse
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_extract_linkedin_url_variants():
+    assert fsig.extract_linkedin_url(
+        "Reach me at https://www.linkedin.com/in/Jane-Doe-123/"
+    ) == "linkedin.com/in/jane-doe-123"
+    assert fsig.extract_linkedin_url(
+        "profile: linkedin.com/in/john_smith?utm=foo"
+    ) == "linkedin.com/in/john_smith"
+    # Country-subdomain + scheme variations normalize to the same key.
+    assert fsig.extract_linkedin_url("http://uk.linkedin.com/in/abc") == \
+        "linkedin.com/in/abc"
+
+
+def test_extract_linkedin_url_none_and_company():
+    assert fsig.extract_linkedin_url(None, "") == ""
+    # Company pages (/company/) are NOT personal /in/ profiles.
+    assert fsig.extract_linkedin_url("linkedin.com/company/acme") == ""
+    # First match across multiple sources wins.
+    assert fsig.extract_linkedin_url(None, "linkedin.com/in/second") == \
+        "linkedin.com/in/second"
+
+
+def test_evaluate_linkedin_reuse():
+    sig = fsig.evaluate_linkedin("linkedin.com/in/x", 2)
+    assert sig is not None
+    assert sig.code == "linkedin_reuse"
+    assert sig.points == fsig.POINTS_LINKEDIN_REUSE
+    # No URL or no other identities → no signal.
+    assert fsig.evaluate_linkedin("", 5) is None
+    assert fsig.evaluate_linkedin("linkedin.com/in/x", 0) is None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Name completeness + third-party submission composite
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_is_incomplete_name():
+    assert fsig.is_incomplete_name("Jane", "") is True          # first only
+    assert fsig.is_incomplete_name("Jane", "D") is True         # first + initial
+    assert fsig.is_incomplete_name("Jane", "D.") is True
+    assert fsig.is_incomplete_name("Jane", "Doe") is False      # complete
+    assert fsig.is_incomplete_name("", "Doe") is False          # no usable first
+    assert fsig.is_incomplete_name("J", "") is False            # junk first
+
+
+def test_evaluate_name_completeness():
+    assert fsig.evaluate_name_completeness("Jane", "Doe") is None
+    sig = fsig.evaluate_name_completeness("Jane", "D")
+    assert sig is not None
+    assert sig.code == "name_incomplete"
+    assert sig.points == fsig.POINTS_NAME_INCOMPLETE
+
+
+def test_is_personal_email():
+    assert fsig.is_personal_email("a@gmail.com") is True
+    assert fsig.is_personal_email("a@outlook.com") is True
+    assert fsig.is_personal_email("a@acme-corp.com") is False
+    assert fsig.is_personal_email(None) is False
+
+
+def test_third_party_submission_composite():
+    # Incomplete name + non-personal email → fires (base only).
+    sig = fsig.evaluate_third_party_submission(
+        name_incomplete=True, email_personal=False, foreign_location=False)
+    assert sig is not None
+    assert sig.code == "third_party_submission"
+    assert sig.points == fsig.POINTS_THIRD_PARTY_BASE
+    # Foreign-location amplifier adds points.
+    sig2 = fsig.evaluate_third_party_submission(
+        name_incomplete=True, email_personal=False, foreign_location=True)
+    assert sig2.points == fsig.POINTS_THIRD_PARTY_BASE + fsig.POINTS_THIRD_PARTY_FOREIGN
+
+
+def test_third_party_submission_requires_both_halves():
+    # Personal email → no third-party flag even with incomplete name.
+    assert fsig.evaluate_third_party_submission(
+        name_incomplete=True, email_personal=True) is None
+    # Complete name → no flag even with a corporate email.
+    assert fsig.evaluate_third_party_submission(
+        name_incomplete=False, email_personal=False) is None
+    # Foreign location alone is NEVER a standalone trigger.
+    assert fsig.evaluate_third_party_submission(
+        name_incomplete=False, email_personal=False, foreign_location=True) is None
+
+
+def test_third_party_composite_bands_review():
+    # incomplete-name (8) + third-party base (32) = 40 → Review.
+    sigs = [
+        fsig.evaluate_name_completeness("Jane", "D"),
+        fsig.evaluate_third_party_submission(
+            name_incomplete=True, email_personal=False),
+    ]
+    res = fsig.aggregate(sigs)
+    assert res.risk_score == 40
+    assert res.risk_band == fsig.FraudRiskBand.REVIEW
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Verbatim JD-mirror
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _jd(n_words: int) -> str:
+    return " ".join(f"word{i}" for i in range(n_words))
+
+
+def test_jd_mirror_no_signal_for_short_jd():
+    assert fsig.evaluate_jd_mirror("anything", "too short jd") is None
+
+
+def test_jd_mirror_keyword_overlap_does_not_fire():
+    jd = _jd(60)
+    # Resume shares scattered individual keywords but no long contiguous run.
+    resume = "word3 banana word17 apple word40 orange word55 grape " * 2
+    assert fsig.evaluate_jd_mirror(resume, jd) is None
+
+
+def test_jd_mirror_graduated_weight():
+    jd = _jd(60)
+    light = " ".join(f"word{i}" for i in range(10))    # 10-word run → light
+    moderate = " ".join(f"word{i}" for i in range(20))  # 20 → moderate
+    heavy = " ".join(f"word{i}" for i in range(35))     # 35 → heavy
+    s_light = fsig.evaluate_jd_mirror(light, jd)
+    s_mod = fsig.evaluate_jd_mirror(moderate, jd)
+    s_heavy = fsig.evaluate_jd_mirror(heavy, jd)
+    assert s_light.points == fsig.POINTS_JD_MIRROR_LIGHT
+    assert s_mod.points == fsig.POINTS_JD_MIRROR_MODERATE
+    assert s_heavy.points == fsig.POINTS_JD_MIRROR_HEAVY
+    assert s_heavy.code == "jd_mirror"
+
+
+def test_jd_mirror_below_min_run_no_signal():
+    jd = _jd(60)
+    # Only a 5-word contiguous run (< 8 minimum).
+    resume = "word0 word1 word2 word3 word4 zzz qqq"
+    assert fsig.evaluate_jd_mirror(resume, jd) is None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# AI-style markers (informational only, 0 points)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_ai_style_markers_informational_zero_points():
+    text = "I led teams \u2014 grew revenue \u2014 shipped products \u2014 fast."
+    sig = fsig.evaluate_ai_style_markers(text)
+    assert sig is not None
+    assert sig.code == "ai_style_markers"
+    assert sig.points == 0
+    assert sig.details.get("informational") is True
+
+
+def test_ai_style_markers_below_threshold():
+    assert fsig.evaluate_ai_style_markers("one \u2014 dash only") is None
+    assert fsig.evaluate_ai_style_markers(None) is None
+
+
+def test_ai_style_never_affects_band():
+    # Even alongside a real signal, the 0-point informational marker adds nothing.
+    sigs = [
+        fsig.evaluate_velocity(10),  # 15
+        fsig.evaluate_ai_style_markers(
+            "a \u2014 b \u2014 c \u2014 d \u2014 e"),  # 0
+    ]
+    res = fsig.aggregate(sigs)
+    assert res.risk_score == 15
+    assert res.risk_band == fsig.FraudRiskBand.CLEAR
+    # But the informational signal is retained for surfacing.
+    assert any(s.code == "ai_style_markers" for s in res.signals)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Engine tests (use shared SQLite test DB via `app` fixture)
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -222,6 +394,57 @@ def test_engine_persists_assessment(_fraud_db):
     assert 'disposable_email' in codes
     assert 'name_anomaly' in codes
     assert 'phone_anomaly' in codes
+    # Disposable email must NOT also fire the third-party composite (distinct
+    # pattern — avoids double-counting the same address).
+    assert 'third_party_submission' not in codes
+
+
+def test_engine_third_party_requires_valid_nonpersonal_email(_fraud_db):
+    """Incomplete name alone (missing/personal email) must NOT band via the
+    third-party composite — it requires a present, valid, non-personal,
+    non-disposable email."""
+    db, Assessment, VettingLog, VettingConfig = _fraud_db
+    from fraud_detection.engine import FraudSignalEngine
+    _set_config(db, VettingConfig,
+                fraud_detection_enabled='true',
+                fraud_bullhorn_note_enabled='false',
+                fraud_review_threshold='40',
+                fraud_high_risk_threshold='75')
+    engine = FraudSignalEngine(bullhorn_service=None)
+
+    # (a) Missing email + incomplete name → composite must NOT fire.
+    log_a = VettingLog(bullhorn_candidate_id=9101, candidate_name="Jane",
+                       candidate_email="", status="processing")
+    db.session.add(log_a)
+    db.session.commit()
+    res_a = engine.assess(
+        {"id": 9101, "firstName": "Jane", "lastName": "", "email": ""}, log_a)
+    codes_a = {s['code'] for s in json.loads(res_a.signals_json)}
+    assert 'third_party_submission' not in codes_a
+    assert res_a.risk_band == 'clear'
+
+    # (b) Personal email + incomplete name → composite must NOT fire.
+    log_b = VettingLog(bullhorn_candidate_id=9102, candidate_name="Jane",
+                       candidate_email="jane@gmail.com", status="processing")
+    db.session.add(log_b)
+    db.session.commit()
+    res_b = engine.assess(
+        {"id": 9102, "firstName": "Jane", "lastName": "",
+         "email": "jane@gmail.com"}, log_b)
+    codes_b = {s['code'] for s in json.loads(res_b.signals_json)}
+    assert 'third_party_submission' not in codes_b
+
+    # (c) Valid corporate (non-personal) email + incomplete name → fires.
+    log_c = VettingLog(bullhorn_candidate_id=9103, candidate_name="Jane",
+                       candidate_email="jane@acme-corp.com", status="processing")
+    db.session.add(log_c)
+    db.session.commit()
+    res_c = engine.assess(
+        {"id": 9103, "firstName": "Jane", "lastName": "",
+         "email": "jane@acme-corp.com"}, log_c)
+    codes_c = {s['code'] for s in json.loads(res_c.signals_json)}
+    assert 'third_party_submission' in codes_c
+    assert res_c.risk_band == 'review'
 
 
 def test_engine_high_risk_writes_note_when_enabled(_fraud_db):
@@ -668,8 +891,11 @@ def test_fraud_banner_high_risk_renders_band_score_reasons(_fraud_db):
     assert '82/100' in html
     # Reasons present, ordered highest-impact first (identity 30 before disposable 25).
     assert html.index('Email reused across identities') < html.index('Disposable email domain')
-    # Zero-point signal suppressed.
-    assert 'Zero-point signal' not in html
+    # Zero-point signal is surfaced separately as informational — never scored.
+    assert 'Informational (not scored)' in html
+    assert 'Zero-point signal' in html
+    # ...and it renders AFTER the scored reasons block.
+    assert html.index('Disposable email domain') < html.index('Zero-point signal')
     # Advisory disclaimer present.
     assert 'Advisory only' in html
 

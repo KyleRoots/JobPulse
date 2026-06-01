@@ -14,6 +14,11 @@ class CandidateVettingLog(db.Model):
     # identity-reuse-by-phone signal (one number across many names). Stored
     # pre-normalized so the lookup is a plain indexed equality.
     candidate_phone = db.Column(SafeString(32), nullable=True, index=True)
+    # Canonical LinkedIn profile URL (lowercased linkedin.com/in/<slug>), captured
+    # universally from resume text. Powers the fraud LinkedIn-reuse signal (one
+    # profile URL claimed across many candidate identities). Indexed for the
+    # cross-identity equality lookup.
+    candidate_linkedin_url = db.Column(SafeString(255), nullable=True, index=True)
     applied_job_id = db.Column(db.Integer, nullable=True)  # Job they originally applied to
     applied_job_title = db.Column(SafeString(500), nullable=True)
     parsed_email_id = db.Column(db.Integer, nullable=True, index=True)  # Links to specific ParsedEmail that triggered vetting

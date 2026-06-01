@@ -43,6 +43,38 @@ POINTS_IDENTITY_REUSE_PHONE = 35
 POINTS_IDENTITY_REUSE_EMAIL = 35
 POINTS_PROFILE_NEAR_DUPLICATE = 25
 POINTS_VELOCITY = 15
+# LinkedIn profile URL reused across distinct candidate identities — strong, on
+# par with phone/email identity reuse (a profile URL is hard to share by accident).
+POINTS_LINKEDIN_REUSE = 35
+# Truncated/incomplete name on its own — a small nudge, never enough to band by
+# itself (a real person can have a short name). The weight lives in the composite.
+POINTS_NAME_INCOMPLETE = 8
+# "Third-party submission" composite: incomplete name + non-personal email. This
+# is the agency-submitted-shell-profile pattern. Base + foreign-location amplifier
+# tops out in the Review band (compliance flag), never High-Risk on its own.
+POINTS_THIRD_PARTY_BASE = 32
+POINTS_THIRD_PARTY_FOREIGN = 10
+# Verbatim JD-mirror: graduated by the longest contiguous verbatim word-run lifted
+# from the job description into the resume. NOT keyword overlap (which would punish
+# genuinely qualified candidates) — only long, exact, copy-pasted passages.
+POINTS_JD_MIRROR_LIGHT = 22
+POINTS_JD_MIRROR_MODERATE = 40
+POINTS_JD_MIRROR_HEAVY = 55
+# AI-style writing markers are INFORMATIONAL ONLY (0 points): surfaced for context,
+# never scored, never an accusation. Detectors are unreliable on resume/bullet text.
+POINTS_AI_STYLE_MARKERS = 0
+
+# JD-mirror tuning: minimum contiguous word-run length to count as a verbatim lift
+# (8 identical consecutive words is strongly copy-paste, not coincidental overlap),
+# the run lengths that escalate the band, and the minimum JD size worth checking.
+JD_MIRROR_MIN_RUN_WORDS = 8
+JD_MIRROR_MODERATE_RUN_WORDS = 18
+JD_MIRROR_HEAVY_RUN_WORDS = 30
+JD_MIRROR_MIN_JD_WORDS = 40
+
+# AI-style marker tuning: require a few em dashes (Word auto-converts the odd one)
+# before surfacing the informational note, to keep it conservative.
+AI_STYLE_MIN_EM_DASHES = 3
 
 # Default banding thresholds (overridable via VettingConfig).
 DEFAULT_REVIEW_THRESHOLD = 40
@@ -107,6 +139,68 @@ def normalize_name(name: Optional[str]) -> str:
     if not name:
         return ""
     return re.sub(r"[^a-z]", "", str(name).lower())
+
+
+def is_personal_email(email: Optional[str]) -> bool:
+    """True when the address is a known free / personal webmail provider.
+
+    Thin re-export of `email_providers.is_personal_email` so callers (and tests)
+    have a single import surface. Lazy import keeps this module dependency-free.
+    """
+    if not email:
+        return False
+    from fraud_detection.email_providers import is_personal_email as _ipe
+    return _ipe(email)
+
+
+_LINKEDIN_RE = re.compile(
+    r"(?:https?://)?(?:[a-z]{2,3}\.)?linkedin\.com/in/([A-Za-z0-9\-_%]+)",
+    re.IGNORECASE,
+)
+
+
+def extract_linkedin_url(*sources: Optional[str]) -> str:
+    """Return a canonical ``linkedin.com/in/<slug>`` URL from any source text.
+
+    Scans each source (resume text, a stored profile field, etc.) in order and
+    returns the first ``/in/`` profile it finds, normalized to a stable
+    comparison key: lowercased, scheme/subdomain/query stripped, trailing slash
+    removed. Returns '' when none is found. This is the *capture + format
+    validation* step — only well-formed ``/in/`` profiles are captured, so the
+    downstream reuse check never sees garbage.
+    """
+    for src in sources:
+        if not src:
+            continue
+        m = _LINKEDIN_RE.search(str(src))
+        if m:
+            slug = m.group(1).rstrip("/").lower()
+            if slug:
+                return f"linkedin.com/in/{slug}"
+    return ""
+
+
+# A "name part" that is really just an initial: a single letter, optionally with
+# a trailing period (e.g. "J", "J.", "B").
+_INITIAL_RE = re.compile(r"^[A-Za-z]\.?$")
+
+
+def is_incomplete_name(first: Optional[str], last: Optional[str]) -> bool:
+    """True when the candidate's name is truncated to first-only or first+initial.
+
+    Fires when a real first name is present but the surname is missing entirely
+    (first-only) or is just a single initial. This is a weak, benign-on-its-own
+    pattern (some people genuinely have short names) — its value is as one half
+    of the third-party-submission composite. Requires the first name to look
+    like a real word (≥2 letters) so single-token junk doesn't over-fire.
+    """
+    f = (first or "").strip()
+    l = (last or "").strip()
+    if len(re.sub(r"[^A-Za-z]", "", f)) < 2:
+        return False
+    if not l:
+        return True
+    return bool(_INITIAL_RE.match(l))
 
 
 def _parse_date(value: Any) -> Optional[date]:
@@ -374,6 +468,188 @@ def evaluate_velocity(
             details={"count": int(application_count), "window_hours": int(window_hours)},
         )
     return None
+
+
+def evaluate_linkedin(
+    linkedin_url: Optional[str],
+    distinct_other_identities: int,
+) -> Optional[FraudSignal]:
+    """Flag a LinkedIn profile URL claimed across multiple candidate identities.
+
+    ``distinct_other_identities`` is the count of OTHER candidate records that
+    present the same canonical profile URL. One profile URL is hard to share by
+    accident, so reuse across identities is a strong signal — on par with phone
+    or email reuse. A profile present on a single identity is the normal case and
+    produces no signal.
+    """
+    if not linkedin_url or distinct_other_identities < 1:
+        return None
+    others = int(distinct_other_identities)
+    return FraudSignal(
+        code="linkedin_reuse",
+        label="LinkedIn profile reused across identities",
+        points=POINTS_LINKEDIN_REUSE,
+        evidence=(
+            f"Same LinkedIn profile appears on {others} other candidate "
+            f"{'identity' if others == 1 else 'identities'}"
+        ),
+        details={"linkedin_url": linkedin_url, "other_identities": others},
+    )
+
+
+def evaluate_name_completeness(
+    first: Optional[str], last: Optional[str],
+) -> Optional[FraudSignal]:
+    """Small nudge for a truncated name (first-only or first + single initial).
+
+    Benign on its own — never enough to band a candidate. The real weight comes
+    from the third-party-submission composite. Returns None for complete names.
+    """
+    if not is_incomplete_name(first, last):
+        return None
+    f = (first or "").strip()
+    l = (last or "").strip()
+    shown = f"{f} {l}".strip()
+    return FraudSignal(
+        code="name_incomplete",
+        label="Incomplete candidate name",
+        points=POINTS_NAME_INCOMPLETE,
+        evidence=(f"Name captured as '{shown}'" if shown else "Surname missing")
+                 + (" (surname is a single initial)" if l else " (no surname)"),
+        details={"first": f, "last": l},
+    )
+
+
+def evaluate_third_party_submission(
+    name_incomplete: bool,
+    email_personal: bool,
+    foreign_location: bool = False,
+) -> Optional[FraudSignal]:
+    """Composite flag for the agency-submitted-shell-profile pattern.
+
+    Fires only when a truncated name is paired with a NON-personal email domain
+    (corporate / agency / custom) — the classic third-party submission shape.
+    A foreign-location mismatch is a soft amplifier (NOT a standalone trigger;
+    cross-country relocation is already handled by screening's Location Review
+    tier). Tops out in the Review band — this is a compliance/verification nudge,
+    never a High-Risk fraud accusation on its own.
+    """
+    if not (name_incomplete and not email_personal):
+        return None
+    points = POINTS_THIRD_PARTY_BASE
+    reasons = ["truncated name with a non-personal email domain"]
+    if foreign_location:
+        points += POINTS_THIRD_PARTY_FOREIGN
+        reasons.append("candidate location differs from the role's country")
+    return FraudSignal(
+        code="third_party_submission",
+        label="Possible third-party submission",
+        points=points,
+        evidence="; ".join(reasons).capitalize(),
+        details={"foreign_location": bool(foreign_location)},
+    )
+
+
+def _word_tokens(text: Optional[str]) -> List[str]:
+    """Lowercase alphanumeric word tokens (drops punctuation/whitespace)."""
+    if not text:
+        return []
+    return re.findall(r"[a-z0-9]+", str(text).lower())
+
+
+def evaluate_jd_mirror(
+    resume_text: Optional[str],
+    job_description: Optional[str],
+) -> Optional[FraudSignal]:
+    """Flag a resume that lifts long verbatim passages from the job description.
+
+    Measures the LONGEST contiguous run of identical consecutive words shared
+    between the resume and the JD — i.e. copy-paste, not keyword overlap. A
+    genuinely qualified candidate naturally shares individual skill keywords with
+    a JD; they do NOT reproduce 8/18/30-word stretches of the posting verbatim.
+    Graduated weight by run length. Requires a JD of meaningful length to bother.
+    """
+    r_tokens = _word_tokens(resume_text)
+    j_tokens = _word_tokens(job_description)
+    if len(j_tokens) < JD_MIRROR_MIN_JD_WORDS or len(r_tokens) < JD_MIRROR_MIN_RUN_WORDS:
+        return None
+
+    n = JD_MIRROR_MIN_RUN_WORDS
+    # Index every n-gram position in the JD by its tuple, then walk the resume
+    # extending each match as far as it stays verbatim. Bounded and linear-ish
+    # for the text sizes involved (resume capped at 50k chars upstream).
+    jd_ngram_starts: Dict[tuple, List[int]] = {}
+    for i in range(len(j_tokens) - n + 1):
+        jd_ngram_starts.setdefault(tuple(j_tokens[i:i + n]), []).append(i)
+
+    longest_run = 0
+    ri = 0
+    r_len = len(r_tokens)
+    while ri <= r_len - n:
+        key = tuple(r_tokens[ri:ri + n])
+        starts = jd_ngram_starts.get(key)
+        if not starts:
+            ri += 1
+            continue
+        best_here = n
+        for js in starts:
+            run = n
+            while (ri + run < r_len and js + run < len(j_tokens)
+                   and r_tokens[ri + run] == j_tokens[js + run]):
+                run += 1
+            if run > best_here:
+                best_here = run
+        if best_here > longest_run:
+            longest_run = best_here
+        # Skip past this matched run to keep the scan bounded.
+        ri += max(best_here - n + 1, 1)
+
+    if longest_run < JD_MIRROR_MIN_RUN_WORDS:
+        return None
+
+    if longest_run >= JD_MIRROR_HEAVY_RUN_WORDS:
+        points = POINTS_JD_MIRROR_HEAVY
+    elif longest_run >= JD_MIRROR_MODERATE_RUN_WORDS:
+        points = POINTS_JD_MIRROR_MODERATE
+    else:
+        points = POINTS_JD_MIRROR_LIGHT
+
+    return FraudSignal(
+        code="jd_mirror",
+        label="Resume mirrors the job description verbatim",
+        points=points,
+        evidence=(f"Longest verbatim passage copied from the posting: "
+                  f"{longest_run} consecutive words"),
+        details={"longest_run_words": longest_run},
+    )
+
+
+def evaluate_ai_style_markers(
+    resume_text: Optional[str],
+) -> Optional[FraudSignal]:
+    """INFORMATIONAL ONLY (0 points): note stylistic markers common in AI text.
+
+    Surfaces, without accusing or scoring, when a resume shows writing markers
+    frequently produced by AI assistants (notably em dashes). AI-detection on
+    short resume/bullet text is unreliable, so this NEVER contributes points and
+    NEVER bands a candidate — it is context for a recruiter's own judgement only.
+    Conservative: requires several em dashes before surfacing.
+    """
+    if not resume_text:
+        return None
+    text_s = str(resume_text)
+    em_dashes = text_s.count("\u2014")  # —
+    if em_dashes < AI_STYLE_MIN_EM_DASHES:
+        return None
+    markers = [f"{em_dashes} em dashes"]
+    return FraudSignal(
+        code="ai_style_markers",
+        label="Writing-style markers common in AI-assisted text",
+        points=POINTS_AI_STYLE_MARKERS,
+        evidence="Informational only — " + ", ".join(markers)
+                 + ". Not an accusation; AI-style detection is unreliable.",
+        details={"em_dashes": em_dashes, "informational": True},
+    )
 
 
 def aggregate(

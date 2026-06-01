@@ -43,6 +43,8 @@ def run_schema_migrations(db):
         ("scout_vetting_session", "requirements_changed_mid_session", "BOOLEAN"),
         # Normalized phone for fraud identity-reuse-by-phone signal (added May 2026)
         ("candidate_vetting_log", "candidate_phone", "VARCHAR(32)"),
+        # Canonical LinkedIn URL for fraud linkedin-reuse signal (added June 2026)
+        ("candidate_vetting_log", "candidate_linkedin_url", "VARCHAR(255)"),
     ]
 
     _SAFE_IDENTIFIER = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
@@ -80,6 +82,20 @@ def run_schema_migrations(db):
     except Exception as e:
         db.session.rollback()
         logger.warning(f"⚠️ Index ensure skipped for candidate_phone: {str(e)}")
+
+    # Index the canonical LinkedIn URL column for the fraud linkedin-reuse lookup
+    # (added June 2026). Mirrors the name SQLAlchemy auto-generates so a fresh-DB
+    # create_all() and this ALTER path converge on one index.
+    try:
+        db.session.execute(text(
+            'CREATE INDEX IF NOT EXISTS ix_candidate_vetting_log_candidate_linkedin_url '
+            'ON candidate_vetting_log (candidate_linkedin_url)'
+        ))
+        db.session.commit()
+        logger.info("✅ Ensured index ix_candidate_vetting_log_candidate_linkedin_url")
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ Index ensure skipped for candidate_linkedin_url: {str(e)}")
 
     # Add is_company_admin to user table (added Feb 2026)
     # Handled separately because 'user' is a PostgreSQL reserved word requiring quoting

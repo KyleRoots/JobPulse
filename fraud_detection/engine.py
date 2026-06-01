@@ -20,6 +20,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
@@ -81,8 +82,17 @@ class FraudSignalEngine:
         candidate: Dict[str, Any],
         vetting_log: Optional[CandidateVettingLog] = None,
         trigger: str = "screening",
+        applied_job_description: Optional[str] = None,
+        candidate_country: Optional[str] = None,
+        job_country: Optional[str] = None,
     ) -> Optional[CandidateFraudAssessment]:
         """Score a candidate and persist an assessment row.
+
+        The optional ``applied_job_description`` / ``candidate_country`` /
+        ``job_country`` enable the job-relative signals (verbatim JD-mirror and
+        the foreign-location amplifier). They are passed by the screening hook
+        when the applied job is resolvable; absent, those signals simply don't
+        fire (everything stays fail-soft and advisory).
 
         Returns the persisted `CandidateFraudAssessment` (or None if it could
         not be persisted). NEVER raises — callers treat the result as advisory.
@@ -90,8 +100,11 @@ class FraudSignalEngine:
         config = self._load_config()
         candidate_id = candidate.get("id") if candidate else None
         name = self._candidate_name(candidate, vetting_log)
+        first, last = self._candidate_first_last(candidate, vetting_log)
         email = self._candidate_email(candidate, vetting_log)
         phone = self._candidate_phone(candidate)
+        resume_text = getattr(vetting_log, "resume_text", None)
+        linkedin_url = self._candidate_linkedin(candidate, vetting_log)
         vetting_log_id = getattr(vetting_log, "id", None)
 
         evaluation_error: Optional[str] = None
@@ -114,6 +127,40 @@ class FraudSignalEngine:
                 *self._top_profile_similarity(candidate_id)))
             gathered.append(fsig.evaluate_velocity(
                 self._count_recent_applications(candidate_id, email)))
+
+            # --- LinkedIn profile reuse across identities (DB, $0) ------
+            gathered.append(fsig.evaluate_linkedin(
+                linkedin_url,
+                self._count_distinct_identities_for_linkedin(linkedin_url, candidate_id),
+            ))
+
+            # --- name completeness + third-party-submission composite --
+            name_incomplete = fsig.is_incomplete_name(first, last)
+            # Third-party submission is specifically the legit-looking
+            # corporate/agency-domain pattern, so it requires a PRESENT, valid,
+            # non-personal, non-disposable email. A missing/malformed address is
+            # NOT evidence of a third-party submission, and a disposable address
+            # is a distinct (separately scored) signal — both are excluded so the
+            # composite never fires on an unknown email or double-counts.
+            from fraud_detection.disposable_domains import is_disposable_domain
+            email_qualifies = bool(
+                email and "@" in email and "." in email.split("@")[-1]
+                and not fsig.is_personal_email(email)
+                and not is_disposable_domain(email)
+            )
+            foreign_location = self._is_foreign_location(candidate_country, job_country)
+            gathered.append(fsig.evaluate_name_completeness(first, last))
+            gathered.append(fsig.evaluate_third_party_submission(
+                name_incomplete=name_incomplete,
+                email_personal=not email_qualifies,
+                foreign_location=foreign_location,
+            ))
+
+            # --- verbatim JD-mirror (resume vs applied job description) -
+            gathered.append(fsig.evaluate_jd_mirror(resume_text, applied_job_description))
+
+            # --- informational only (0 points, never accuses) ----------
+            gathered.append(fsig.evaluate_ai_style_markers(resume_text))
         except Exception as exc:  # pragma: no cover - defensive umbrella
             evaluation_error = f"signal gathering failed: {exc}"
             logger.warning("Fraud signal gathering error for candidate %s: %s",
@@ -186,6 +233,96 @@ class FraudSignalEngine:
             if val:
                 return str(val).strip()
         return ""
+
+    @staticmethod
+    def _candidate_first_last(candidate, vetting_log):
+        """Return (first, last) name parts for the name-completeness check.
+
+        Prefers the structured Bullhorn firstName/lastName fields; falls back to
+        splitting the stored display name when only that is available.
+        """
+        if candidate:
+            first = (candidate.get("firstName") or "").strip()
+            last = (candidate.get("lastName") or "").strip()
+            if first or last:
+                return first, last
+        display = (getattr(vetting_log, "candidate_name", None) or "").strip()
+        if display:
+            parts = display.split()
+            if len(parts) == 1:
+                return parts[0], ""
+            return parts[0], " ".join(parts[1:])
+        return "", ""
+
+    @staticmethod
+    def _candidate_linkedin(candidate, vetting_log) -> str:
+        """Canonical LinkedIn URL for the reuse check.
+
+        Prefers the value captured on the vetting log (extracted universally from
+        resume text upstream); falls back to scanning a couple of common Bullhorn
+        custom fields if present. Returns '' when none is found.
+        """
+        stored = (getattr(vetting_log, "candidate_linkedin_url", None) or "").strip()
+        if stored:
+            return stored
+        if candidate:
+            return fsig.extract_linkedin_url(
+                candidate.get("customText9"),
+                candidate.get("description"),
+            )
+        return ""
+
+    @staticmethod
+    def _is_foreign_location(candidate_country, job_country) -> bool:
+        """True when both countries are known and differ (soft amplifier only).
+
+        Conservative: returns False whenever either side is missing, so the
+        third-party composite never relies on an unknown location.
+        """
+        def _norm(c):
+            return re.sub(r"[^a-z]", "", str(c or "").lower())
+        cc, jc = _norm(candidate_country), _norm(job_country)
+        if not cc or not jc:
+            return False
+        # Treat common US/UK aliases as equal to avoid false mismatches.
+        aliases = {
+            "unitedstates": "us", "usa": "us", "us": "us",
+            "unitedstatesofamerica": "us",
+            "unitedkingdom": "uk", "uk": "uk", "greatbritain": "uk",
+        }
+        cc = aliases.get(cc, cc)
+        jc = aliases.get(jc, jc)
+        return cc != jc
+
+    def _count_distinct_identities_for_linkedin(self, linkedin_url, candidate_id) -> int:
+        """Count OTHER candidate identities presenting the same LinkedIn URL.
+
+        Reads the canonical `candidate_linkedin_url` column on
+        `candidate_vetting_log` so the lookup is a plain indexed equality.
+        Returns the number of DISTINCT other Bullhorn candidate IDs sharing the
+        URL (the current candidate is excluded).
+        """
+        if not linkedin_url:
+            return 0
+        try:
+            with Session(db.engine) as session:
+                rows = (
+                    session.query(CandidateVettingLog.bullhorn_candidate_id)
+                    .filter(CandidateVettingLog.candidate_linkedin_url == linkedin_url)
+                    .filter(CandidateVettingLog.bullhorn_candidate_id.isnot(None))
+                    .filter(CandidateVettingLog.is_sandbox.is_(False))
+                    .distinct()
+                    .limit(200)
+                    .all()
+                )
+            others = {
+                r[0] for r in rows
+                if r[0] is not None and (candidate_id is None or r[0] != candidate_id)
+            }
+            return len(others)
+        except Exception as exc:  # pragma: no cover
+            logger.debug("linkedin-reuse query failed: %s", exc)
+            return 0
 
     @staticmethod
     def _extract_work_history(candidate) -> List[Dict[str, Any]]:
@@ -470,14 +607,26 @@ class FraudSignalEngine:
             header = ("Automated candidate-integrity review found no risk indicators "
                       f"for this profile (risk score {score}/100 — Clear).")
 
+        # Separate scored indicators from purely informational (0-point) notes
+        # so an informational item (e.g. AI-style markers) is never presented as
+        # a risk "indicator".
+        scored = [s for s in result.signals if (s.points or 0) > 0]
+        informational = [s for s in result.signals if (s.points or 0) == 0]
+
         lines = [header, ""]
-        if result.signals:
+        if scored:
             lines.append("Indicators detected:")
-            for s in result.signals:
+            for s in scored:
                 evidence = f" — {s.evidence}" if s.evidence else ""
                 lines.append(f"  • {s.label}{evidence}")
         else:
             lines.append("No risk indicators were detected across the integrity checks.")
+        if informational:
+            lines.append("")
+            lines.append("Informational (not scored):")
+            for s in informational:
+                evidence = f" — {s.evidence}" if s.evidence else ""
+                lines.append(f"  • {s.label}{evidence}")
         lines.append("")
         lines.append(
             "This is an advisory flag for recruiter judgement only; it does not "

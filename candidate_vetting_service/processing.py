@@ -45,8 +45,40 @@ class CandidateProcessingMixin:
             except Exception:
                 bullhorn_service = None
 
+            # Resolve the applied job (fail-soft) so the job-relative signals
+            # (verbatim JD-mirror + foreign-location amplifier) can fire. Any
+            # failure here leaves these as None and the signals simply skip.
+            applied_job_description = None
+            candidate_country = None
+            job_country = None
+            try:
+                if candidate and isinstance(candidate.get('address'), dict):
+                    candidate_country = (
+                        candidate['address'].get('countryName')
+                        or candidate['address'].get('country')
+                    )
+                applied_job_id = getattr(vetting_log, 'applied_job_id', None)
+                if applied_job_id and bullhorn_service is not None:
+                    job_data = self._fetch_applied_job(bullhorn_service, applied_job_id)
+                    if job_data:
+                        applied_job_description = (
+                            job_data.get('description')
+                            or job_data.get('publicDescription')
+                        )
+                        addr = job_data.get('address')
+                        if isinstance(addr, dict):
+                            job_country = addr.get('countryName') or addr.get('country')
+            except Exception:
+                logger.debug("Fraud: applied-job resolution failed (advisory skip)",
+                             exc_info=True)
+
             engine = FraudSignalEngine(bullhorn_service=bullhorn_service)
-            assessment = engine.assess(candidate, vetting_log, trigger='screening')
+            assessment = engine.assess(
+                candidate, vetting_log, trigger='screening',
+                applied_job_description=applied_job_description,
+                candidate_country=candidate_country,
+                job_country=job_country,
+            )
             if assessment is not None:
                 logger.info(
                     f"🛡️ Fraud assessment for candidate {candidate.get('id')}: "
@@ -179,6 +211,21 @@ class CandidateProcessingMixin:
 
             if resume_text:
                 vetting_log.resume_text = resume_text[:50000]
+
+            # Capture a canonical LinkedIn profile URL (universal — every
+            # candidate). Scanned from resume text first, then a common Bullhorn
+            # custom field. Persisted so the cross-identity reuse signal can find
+            # it later; fail-soft (capture must never break the pipeline).
+            try:
+                from fraud_detection.signals import extract_linkedin_url
+                linkedin_url = extract_linkedin_url(
+                    resume_text,
+                    candidate.get('customText9') if candidate else None,
+                )
+                if linkedin_url:
+                    vetting_log.candidate_linkedin_url = linkedin_url[:255]
+            except Exception:
+                logger.debug("LinkedIn capture skipped (advisory)", exc_info=True)
 
             # --- Fraud / fake-candidate detection (advisory, non-blocking) ---
             # Runs BEFORE screening so recruiters see the risk badge alongside
