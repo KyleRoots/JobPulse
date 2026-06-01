@@ -3,3 +3,4 @@
 - [Prod read-replica verification](prod-readonly-verification.md) — catalog facts (columns/indexes/reloptions) + row data replicate; pg_stat_user_tables counters are replica-local and read never/0, don't alarm on them.
 - [Legacy .doc extraction in prod](doc-extraction-prod.md) — antiword EIOs in prod; .doc must use the pure-Python olefile parser (runs first), antiword only a fallback. Don't reintroduce it as primary.
 - [Screening audit feature flags](screening-audit-flags.md) — audit/cutover flags live in the SECRET store (not env vars); agent can't read/set values, user must flip + republish for prod to pick up.
+- [Telemetry gap on module disable](telemetry-gap-on-module-disable.md) — a known-active call site writing zero openai_call_log rows points to the write path/stale deploy, not pricing; re-enable+republish restored it.

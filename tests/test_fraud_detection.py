@@ -290,6 +290,140 @@ def test_engine_no_note_when_note_disabled(_fraud_db):
     bh.create_candidate_note.assert_not_called()
 
 
+def test_engine_no_note_for_review_when_all_bands_off(_fraud_db):
+    """Review band must NOT write a note while the all-bands toggle is OFF."""
+    db, Assessment, VettingLog, VettingConfig = _fraud_db
+    from fraud_detection.engine import FraudSignalEngine
+
+    _set_config(db, VettingConfig,
+                fraud_detection_enabled='true',
+                fraud_bullhorn_note_enabled='true',
+                fraud_note_all_bands_enabled='false')
+
+    log = VettingLog(bullhorn_candidate_id=9401, candidate_name="Review Only",
+                     candidate_email="r@mailinator.com", status="processing")
+    db.session.add(log)
+    db.session.commit()
+
+    # disposable(25) + placeholder phone(15) = 40 → review (not high-risk)
+    candidate = {"id": 9401, "firstName": "Jane", "lastName": "Roe",
+                 "email": "r@mailinator.com", "phone": "1111111111"}
+    bh = MagicMock()
+    result = FraudSignalEngine(bullhorn_service=bh).assess(candidate, log)
+
+    assert result.risk_band == 'review'
+    assert result.note_created is False
+    bh.create_candidate_note.assert_not_called()
+
+
+def test_engine_writes_review_note_when_all_bands_on(_fraud_db):
+    """With the all-bands toggle ON, a Review candidate gets a vendor-neutral note."""
+    db, Assessment, VettingLog, VettingConfig = _fraud_db
+    from fraud_detection.engine import FraudSignalEngine
+
+    _set_config(db, VettingConfig,
+                fraud_detection_enabled='true',
+                fraud_bullhorn_note_enabled='true',
+                fraud_note_all_bands_enabled='true')
+
+    log = VettingLog(bullhorn_candidate_id=9402, candidate_name="Review Note",
+                     candidate_email="r2@mailinator.com", status="processing")
+    db.session.add(log)
+    db.session.commit()
+
+    candidate = {"id": 9402, "firstName": "Jane", "lastName": "Roe",
+                 "email": "r2@mailinator.com", "phone": "1111111111"}
+    bh = MagicMock()
+    bh.create_candidate_note.return_value = 66602
+    result = FraudSignalEngine(bullhorn_service=bh).assess(candidate, log)
+
+    assert result.risk_band == 'review'
+    assert result.note_created is True
+    assert result.bullhorn_note_id == 66602
+    bh.create_candidate_note.assert_called_once()
+    _, kwargs = bh.create_candidate_note.call_args
+    assert kwargs.get('action') == 'Candidate Risk Review'
+
+
+def test_engine_writes_clear_note_when_all_bands_on(_fraud_db):
+    """With the all-bands toggle ON, even a Clear candidate gets a note."""
+    db, Assessment, VettingLog, VettingConfig = _fraud_db
+    from fraud_detection.engine import FraudSignalEngine
+
+    _set_config(db, VettingConfig,
+                fraud_detection_enabled='true',
+                fraud_bullhorn_note_enabled='true',
+                fraud_note_all_bands_enabled='true')
+
+    log = VettingLog(bullhorn_candidate_id=9403, candidate_name="Clean Person",
+                     candidate_email="clean@company.com", status="processing")
+    db.session.add(log)
+    db.session.commit()
+
+    candidate = {"id": 9403, "firstName": "Clean", "lastName": "Person",
+                 "email": "clean@company.com", "phone": "4165551234"}
+    bh = MagicMock()
+    bh.create_candidate_note.return_value = 66603
+    result = FraudSignalEngine(bullhorn_service=bh).assess(candidate, log)
+
+    assert result.risk_band == 'clear'
+    assert result.note_created is True
+    bh.create_candidate_note.assert_called_once()
+
+
+def test_engine_all_bands_requires_note_enabled(_fraud_db):
+    """all-bands ON but the master note toggle OFF → still no note."""
+    db, Assessment, VettingLog, VettingConfig = _fraud_db
+    from fraud_detection.engine import FraudSignalEngine
+
+    _set_config(db, VettingConfig,
+                fraud_detection_enabled='true',
+                fraud_bullhorn_note_enabled='false',
+                fraud_note_all_bands_enabled='true')
+
+    log = VettingLog(bullhorn_candidate_id=9404, candidate_name="No Note",
+                     candidate_email="n@mailinator.com", status="processing")
+    db.session.add(log)
+    db.session.commit()
+
+    candidate = {"id": 9404, "firstName": "Jane", "lastName": "Roe",
+                 "email": "n@mailinator.com", "phone": "1111111111"}
+    bh = MagicMock()
+    result = FraudSignalEngine(bullhorn_service=bh).assess(candidate, log)
+
+    assert result.note_created is False
+    bh.create_candidate_note.assert_not_called()
+
+
+def test_build_note_text_is_band_aware(_fraud_db):
+    """Note body wording reflects the band; Clear states no indicators."""
+    from fraud_detection.engine import FraudSignalEngine
+    from fraud_detection import signals as fsig
+
+    sig = fsig.FraudSignal(code="disposable_email",
+                           label="Disposable email domain",
+                           points=25, evidence="mailinator.com")
+
+    clear = fsig.FraudAssessmentResult(
+        risk_score=0, risk_band=fsig.FraudRiskBand.CLEAR, signals=[])
+    ctxt = FraudSignalEngine._build_note_text(clear)
+    assert 'Clear' in ctxt
+    assert 'No risk indicators were detected' in ctxt
+    assert 'advisory' in ctxt.lower()
+
+    review = fsig.FraudAssessmentResult(
+        risk_score=55, risk_band=fsig.FraudRiskBand.REVIEW, signals=[sig])
+    rtxt = FraudSignalEngine._build_note_text(review)
+    assert 'REVIEW' in rtxt
+    assert 'Disposable email domain' in rtxt
+
+    high = fsig.FraudAssessmentResult(
+        risk_score=85, risk_band=fsig.FraudRiskBand.HIGH_RISK, signals=[sig])
+    htxt = FraudSignalEngine._build_note_text(high)
+    assert 'HIGH RISK' in htxt
+    assert 'Disposable email domain' in htxt
+
+
 def test_engine_resume_reuse_across_identities(_fraud_db):
     db, Assessment, VettingLog, VettingConfig = _fraud_db
     from fraud_detection.engine import FraudSignalEngine
@@ -553,11 +687,17 @@ def test_fraud_banner_review_renders(_fraud_db):
     assert 'Suspicious phone' in html
 
 
-def test_fraud_banner_clear_band_empty(_fraud_db):
+def test_fraud_banner_clear_band_renders_checklist(_fraud_db):
     db, Assessment, VettingLog, VettingConfig = _fraud_db
     _set_config(db, VettingConfig, fraud_detection_enabled='true')
     _make_assessment(db, Assessment, 9303, 'clear', 10, [])
-    assert _banner_service()._build_fraud_banner_html(9303) == ''
+    html = _banner_service()._build_fraud_banner_html(9303)
+    # Green "passed" banner now renders for clear candidates.
+    assert 'Integrity Check Passed' in html
+    assert '10/100' in html
+    # Clear candidates have no fired signals → static checks checklist instead.
+    assert 'Work-history timeline' in html
+    assert 'no risk indicators detected' in html.lower()
 
 
 def test_fraud_banner_feature_disabled_empty(_fraud_db):
@@ -577,13 +717,15 @@ def test_fraud_banner_no_assessment_empty(_fraud_db):
 def test_fraud_banner_latest_wins(_fraud_db):
     db, Assessment, VettingLog, VettingConfig = _fraud_db
     _set_config(db, VettingConfig, fraud_detection_enabled='true')
-    # Older high-risk, newer clear → latest (clear) wins → no banner.
+    # Older high-risk, newer clear → latest (clear) wins → green banner, not red.
     old = _make_assessment(db, Assessment, 9305, 'high_risk', 90, [
         {"code": "x", "label": "y", "points": 10}])
     old.created_at = datetime(2026, 1, 1)
     db.session.commit()
     _make_assessment(db, Assessment, 9305, 'clear', 5, [])
-    assert _banner_service()._build_fraud_banner_html(9305) == ''
+    html = _banner_service()._build_fraud_banner_html(9305)
+    assert 'Integrity Check Passed' in html
+    assert 'High Fraud Risk' not in html
 
 
 def test_fraud_banner_escapes_evidence(_fraud_db):

@@ -544,6 +544,21 @@
                                 <span class="toggle-slider"></span>
                             </label>
                         </div>
+                        <div class="d-flex justify-content-between align-items-center gap-3 mt-3 pt-3 border-top" style="border-color: rgba(255,255,255,0.08) !important;">
+                            <div>
+                                <strong class="d-block mb-1">Write Bullhorn notes for all bands</strong>
+                                <small class="text-muted">
+                                    Extends the note above to <strong>Review</strong> and <strong>Clear</strong>
+                                    candidates too, not just High-Risk. Requires the note toggle above to be on.
+                                    Leave OFF until thresholds are calibrated.
+                                </small>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="fraud_note_all_bands_enabled"
+                                       {% if settings.fraud_note_all_bands_enabled %}checked{% endif %}>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
                         <div class="row mt-3">
                             <div class="col-md-6">
                                 <label class="form-label mb-1">Review threshold</label>

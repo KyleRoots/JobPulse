@@ -594,9 +594,11 @@ class NotificationMixin:
         """Advisory fraud-risk banner for recruiter notification emails.
 
         Mirrors the on-screen recruiter-portal badge: renders the candidate's
-        latest fraud assessment ONLY when it landed in the 'review' or
-        'high_risk' band, showing the band, the 0-100 score, and the specific
-        contributing signals. Gated by the same `fraud_detection_enabled`
+        latest fraud assessment for ALL bands — a green "Integrity Check Passed"
+        summary for 'clear', amber for 'review', red for 'high_risk' — showing the
+        band, the 0-100 score, and (for review/high_risk) the specific contributing
+        signals. Clear candidates have no fired signals, so they show the static
+        list of checks performed instead. Gated by the same `fraud_detection_enabled`
         flag that controls the whole feature (no separate toggle, per spec).
 
         Fail-soft by contract: any problem (feature off, no assessment, bad
@@ -627,7 +629,7 @@ class NotificationMixin:
                 return ''
 
             band = (assessment.risk_band or '').lower()
-            if band not in ('high_risk', 'review'):
+            if band not in ('high_risk', 'review', 'clear'):
                 return ''
 
             import html as _html
@@ -636,9 +638,18 @@ class NotificationMixin:
             if band == 'high_risk':
                 accent, bg, border = '#dc3545', '#fdecec', '#f5c2c7'
                 label = '🚩 High Fraud Risk'
-            else:
+                disclaimer = ('Advisory only — automated integrity check. This does '
+                              'not block screening; please apply your own judgement.')
+            elif band == 'review':
                 accent, bg, border = '#b7791f', '#fff8e1', '#f1d592'
                 label = '⚠️ Fraud Risk — Review Recommended'
+                disclaimer = ('Advisory only — automated integrity check. This does '
+                              'not block screening; please apply your own judgement.')
+            else:  # clear
+                accent, bg, border = '#198754', '#e8f6ec', '#badbcc'
+                label = '✅ Integrity Check Passed'
+                disclaimer = ('Automated integrity check — no risk indicators detected '
+                              'across the checks below. Advisory only.')
 
             score = assessment.risk_score or 0
 
@@ -673,6 +684,27 @@ class NotificationMixin:
                     f'font-size:13px; color:#495057;">{items}</ul>'
                 )
 
+            # Clear candidates have no fired signals — show the static list of
+            # checks performed so the green banner still demonstrates coverage.
+            if band == 'clear' and not reasons_html:
+                _checks = [
+                    'Email domain & address format',
+                    'Contact-detail consistency',
+                    'Work-history timeline',
+                    'Resume-content uniqueness',
+                    'Identity consistency',
+                    'Profile near-duplicate check',
+                    'Application velocity',
+                ]
+                _items = ''.join(
+                    f'<li style="margin:2px 0;">&#10003; {_html.escape(c)}</li>'
+                    for c in _checks
+                )
+                reasons_html = (
+                    '<ul style="margin:8px 0 0 0; padding-left:18px; list-style:none;'
+                    f' font-size:13px; color:#495057;">{_items}</ul>'
+                )
+
             return f"""
                 <div style="background: {bg}; border: 1px solid {border};
                             border-left: 4px solid {accent}; border-radius: 6px;
@@ -681,8 +713,7 @@ class NotificationMixin:
                         {label} &nbsp;·&nbsp; Risk Score {score}/100
                     </p>
                     <p style="margin: 6px 0 0 0; color: #6c757d; font-size: 12px;">
-                        Advisory only — automated integrity check. This does not block
-                        screening; please apply your own judgement.
+                        {disclaimer}
                     </p>
                     {reasons_html}
                 </div>

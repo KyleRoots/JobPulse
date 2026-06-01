@@ -70,6 +70,7 @@ class FraudSignalEngine:
         return {
             "enabled": _flag("fraud_detection_enabled"),
             "note_enabled": _flag("fraud_bullhorn_note_enabled"),
+            "note_all_bands": _flag("fraud_note_all_bands_enabled"),
             "review_threshold": review,
             "high_risk_threshold": high,
         }
@@ -134,12 +135,23 @@ class FraudSignalEngine:
             evaluation_error=evaluation_error,
         )
 
-        # Vendor-neutral Bullhorn note on High-Risk only, when both the engine
-        # and the note toggle are enabled.
+        # Vendor-neutral Bullhorn note policy (all gated by note_enabled):
+        #   * High-Risk always qualifies.
+        #   * Review/Clear qualify only when the separate all-bands toggle is on.
+        # With the all-bands toggle OFF (its default), this is identical to the
+        # historical High-Risk-only behavior.
+        band = result.risk_band
+        note_band_ok = (
+            band == fsig.FraudRiskBand.HIGH_RISK
+            or (
+                config["note_all_bands"]
+                and band in (fsig.FraudRiskBand.REVIEW, fsig.FraudRiskBand.CLEAR)
+            )
+        )
         if (
             assessment is not None
             and config["note_enabled"]
-            and result.risk_band == fsig.FraudRiskBand.HIGH_RISK
+            and note_band_ok
             and candidate_id
         ):
             self._maybe_write_note(candidate_id, result, assessment)
@@ -407,7 +419,12 @@ class FraudSignalEngine:
 
     # --------------------------------------------------------------- bullhorn
     def _maybe_write_note(self, candidate_id, result, assessment) -> None:
-        """Write a vendor-neutral High-Risk note to Bullhorn (fail-soft)."""
+        """Write a vendor-neutral, band-aware risk note to Bullhorn (fail-soft).
+
+        Band gating is decided by the caller (`assess`); by default only
+        High-Risk reaches here, but the all-bands toggle can extend it to
+        Review/Clear. The note body adapts to the band via `_build_note_text`.
+        """
         try:
             service = self.bullhorn_service
             if service is None:
@@ -436,16 +453,31 @@ class FraudSignalEngine:
 
     @staticmethod
     def _build_note_text(result) -> str:
-        """Compose a concise, vendor-neutral note body for High-Risk flags."""
-        lines = [
-            "Automated candidate-integrity review flagged this profile as "
-            f"HIGH RISK (risk score {result.risk_score}/100).",
-            "",
-            "Indicators detected:",
-        ]
-        for s in result.signals:
-            evidence = f" — {s.evidence}" if s.evidence else ""
-            lines.append(f"  • {s.label}{evidence}")
+        """Compose a concise, vendor-neutral note body, band-aware.
+
+        High-Risk and Review list the contributing indicators; Clear states that
+        no indicators were detected (clear candidates have no fired signals).
+        """
+        band = result.risk_band
+        score = result.risk_score
+        if band == fsig.FraudRiskBand.HIGH_RISK:
+            header = ("Automated candidate-integrity review flagged this profile as "
+                      f"HIGH RISK (risk score {score}/100).")
+        elif band == fsig.FraudRiskBand.REVIEW:
+            header = ("Automated candidate-integrity review flagged this profile for "
+                      f"REVIEW (risk score {score}/100).")
+        else:  # clear
+            header = ("Automated candidate-integrity review found no risk indicators "
+                      f"for this profile (risk score {score}/100 — Clear).")
+
+        lines = [header, ""]
+        if result.signals:
+            lines.append("Indicators detected:")
+            for s in result.signals:
+                evidence = f" — {s.evidence}" if s.evidence else ""
+                lines.append(f"  • {s.label}{evidence}")
+        else:
+            lines.append("No risk indicators were detected across the integrity checks.")
         lines.append("")
         lines.append(
             "This is an advisory flag for recruiter judgement only; it does not "

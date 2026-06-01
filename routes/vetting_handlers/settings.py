@@ -44,6 +44,7 @@ def vetting_settings():
         # Fraud / fake-candidate detection (Phase 1 — advisory only)
         'fraud_detection_enabled': False,
         'fraud_bullhorn_note_enabled': False,
+        'fraud_note_all_bands_enabled': False,
         'fraud_review_threshold': 40,
         'fraud_high_risk_threshold': 75,
     }
@@ -59,7 +60,8 @@ def vetting_settings():
             if key in ('vetting_enabled', 'send_recruiter_emails',
                        'screening_audit_enabled', 'recruiter_activity_check_enabled',
                        'scout_vetting_enabled', 'recruiter_decision_skip_enabled',
-                       'fraud_detection_enabled', 'fraud_bullhorn_note_enabled'):
+                       'fraud_detection_enabled', 'fraud_bullhorn_note_enabled',
+                       'fraud_note_all_bands_enabled'):
                 settings[key] = value.lower() == 'true'
             elif key in ('match_threshold', 'batch_size',
                          'recruiter_activity_lookback_minutes',
@@ -188,6 +190,7 @@ def save_vetting_settings():
         # Fraud / fake-candidate detection (Phase 1 — advisory only)
         fraud_detection_enabled = 'fraud_detection_enabled' in request.form
         fraud_bullhorn_note_enabled = 'fraud_bullhorn_note_enabled' in request.form
+        fraud_note_all_bands_enabled = 'fraud_note_all_bands_enabled' in request.form
         fraud_review_raw = request.form.get('fraud_review_threshold', '40')
         fraud_high_risk_raw = request.form.get('fraud_high_risk_threshold', '75')
         # Quality auditor controls (Task #11 rescope)
@@ -340,6 +343,8 @@ def save_vetting_settings():
              'true' if fraud_detection_enabled else 'false'),
             ('fraud_bullhorn_note_enabled',
              'true' if fraud_bullhorn_note_enabled else 'false'),
+            ('fraud_note_all_bands_enabled',
+             'true' if fraud_note_all_bands_enabled else 'false'),
             ('fraud_review_threshold', str(fraud_review)),
             ('fraud_high_risk_threshold', str(fraud_high_risk)),
         ])

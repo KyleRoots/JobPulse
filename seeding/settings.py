@@ -427,6 +427,10 @@ def seed_vetting_config(db, VettingConfig):
             # Independent toggle so the note can be muted without disabling the
             # whole engine. Default OFF.
             'fraud_bullhorn_note_enabled': 'false',
+            # Extend Bullhorn notes to ALL bands (Review + Clear), not just
+            # High-Risk. Requires fraud_bullhorn_note_enabled to also be on.
+            # Default OFF so the historical High-Risk-only behavior is preserved.
+            'fraud_note_all_bands_enabled': 'false',
             # Banding thresholds (risk score 0-100). High-Risk >= high; Review
             # in [review, high); Clear < review.
             'fraud_review_threshold': '40',
