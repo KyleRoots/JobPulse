@@ -35,7 +35,8 @@ class ProcessingMixin:
             'candidate_id': None,
             'submission_id': None,
             'is_duplicate': False,
-            'parsed_email_id': None
+            'parsed_email_id': None,
+            'ignored': False
         }
 
         try:
@@ -243,6 +244,33 @@ class ProcessingMixin:
                     self.logger.info(f"AI timed out but using fallback-extracted candidate info: {first_name} {last_name}")
 
             if not has_name and not has_contact:
+                sender_blank = not (parsed_email.sender_email or '').strip()
+                subject_blank = not (parsed_email.subject or '').strip()
+                if not attachments and (sender_blank or subject_blank):
+                    # Non-candidate noise gate: an inbound message with no
+                    # attachment, no extractable name/contact, AND a blank
+                    # sender or subject was never a real candidate submission
+                    # (bounces, auto-replies, delivery receipts, malformed
+                    # webhook traffic). Record it for audit but DO NOT fire an
+                    # admin parse-failure alert — these otherwise flood
+                    # recruiter inboxes with "None None" notifications.
+                    self.logger.debug(
+                        f"Ignoring non-candidate inbound email (no attachment, "
+                        f"no name/contact, blank sender/subject) from "
+                        f"'{parsed_email.sender_email}' subject='{parsed_email.subject}'"
+                    )
+                    parsed_email.status = 'ignored'
+                    parsed_email.processed_at = datetime.utcnow()
+                    parsed_email.processing_notes = (
+                        "Ignored non-candidate email: no attachment, no extractable "
+                        "candidate info, blank sender/subject (not a submission)"
+                    )
+                    db.session.commit()
+                    result['success'] = False
+                    result['message'] = 'Ignored non-candidate email (not a submission)'
+                    result['ignored'] = True
+                    return result
+
                 if not attachments:
                     error_msg = "No resume attachment found in email and could not extract candidate info from email body"
                 elif not resume_file:

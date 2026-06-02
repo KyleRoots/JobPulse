@@ -406,7 +406,7 @@ OUTPUT: Return ONLY the formatted HTML, nothing else. No explanation, no markdow
                 raw_lines.append(text)
                 escaped_text = html.escape(text)
 
-                style_name = para.style.name.lower() if para.style else ''
+                style_name = para.style.name.lower() if para.style and para.style.name else ''
                 is_heading = (
                     'heading' in style_name or
                     'title' in style_name or
