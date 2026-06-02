@@ -38,3 +38,27 @@ auditor/scheduled re-vet paths, so those bypass cooldown.
 broaden the dedup/cooldown to key on (candidate, job, last-score recency) across the inbound
 + auditor + scheduled paths, while still allowing a genuine re-application (materially changed
 resume / new parsed_email) through. Don't suppress legitimate re-applies.
+
+## CORRECTION (2026-06-02) — do NOT add the candidate cooldown to the ParsedEmail detector
+Attempted the "obvious" fix: wire `_self_screen_cooldown_active` (candidate-level) into
+`detect_unvetted_applications` (the one detector of five that omits it). REVERTED — it is
+wrong, and the omission is **by design**, not a bug:
+- `tests/test_returning_applicant.py` explicitly asserts the ParsedEmail path MUST re-queue
+  (a) a returning applicant with a NEW `parsed_email_id` (even same job) and (b) a different
+  job for the same candidate — even when a vetting_log was created ~30 min ago. A candidate
+  cooldown (60–120 min) blocks both → breaks intended behavior. The path dedups by
+  `parsed_email_id`, NOT by candidate recency.
+- The asymmetry is intentional: the 4 Bullhorn-sourced detectors carry the cooldown because
+  they re-fire on *spurious* Bullhorn activity (status/owner/note changes) with no new
+  application. The ParsedEmail path fires on a *real inbound application email* — each
+  distinct email is a genuine candidate action worth screening.
+- Re-measured: of the ~509 within-cooldown June re-scores, only ~51 share the same/null
+  `parsed_email_id`; ~458 are genuinely distinct applications (intended). The truly-blockable
+  waste here is ~$1/day — not worth suppressing real candidate screening.
+- Auditor re-vet path is HEALTHY (verified prod replica: guards firing, max ~2/pair in 7d).
+**Bottom line:** there is no safe candidate-cooldown fix in the inbound ParsedEmail path. Any
+future dedup must be CONTENT/duplicate-email based (same candidate+job+near-identical email
+within minutes), not a candidate-recency cooldown. Real cost levers stay the output-token
+diet + audit/shadow-off (June cutover), not re-vet suppression.
+**Why:** the platform's core value is screening real applicants; a false skip (dropping a
+genuine re-application or new-job application) is far costlier than the tiny AI spend saved.
