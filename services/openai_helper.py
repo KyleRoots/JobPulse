@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 # USD per 1,000,000 tokens. (input, cached_input, output)
 PRICING: dict[str, tuple[float, float, float]] = {
     'gpt-5':            (1.25, 0.125, 10.00),
-    'gpt-5.4':          (1.25, 0.125, 10.00),
+    'gpt-5.4':          (2.50, 0.25,  15.00),  # reconciled vs OpenAI bill 2026-06-02 (was 1.25/0.125/10.00, ~1.6x undercount)
     'gpt-5-mini':       (0.25, 0.025,  2.00),
     'gpt-4.1':          (2.00, 0.50,   8.00),
     'gpt-4.1-mini':     (0.40, 0.10,   1.60),
