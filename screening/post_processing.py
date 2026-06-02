@@ -562,3 +562,353 @@ def apply_location_barrier(result, job_id, work_type):
             f"📍 Location barrier detected for job {job_id}: "
             f"work_type={work_type}, score={result['match_score']}"
         )
+
+
+# ── Security-clearance / work-authorization documentation enforcer ──
+# Trigger phrases that indicate a job requires a security clearance (US or
+# Canadian). Kept deliberately specific to avoid false positives on unrelated
+# uses of the word "secret"/"reliability".
+_CLEARANCE_TRIGGER_PHRASES = (
+    'security clearance',
+    'security clearances',
+    'secret clearance',
+    'secret-level',
+    'active secret',
+    'top secret',
+    'ts/sci',
+    'sci clearance',
+    'sci eligibility',
+    'reliability status',
+    'enhanced reliability',
+    'controlled goods',
+    'pwgsc',
+    'clearance eligible',
+    'clearance-eligible',
+    'clearance required',
+    'dod secret',
+    'nato secret',
+    'government clearance',
+    'security-clearance',
+)
+
+
+def _detect_clearance_level(requirements_text):
+    """Best-effort clearance level name for the generic fallback message."""
+    t = requirements_text.lower()
+    if 'top secret' in t or 'ts/sci' in t:
+        return 'Top Secret clearance'
+    if 'secret' in t:
+        return 'Secret clearance'
+    if 'enhanced reliability' in t:
+        return 'Enhanced Reliability clearance'
+    if 'reliability' in t:
+        return 'Reliability Status clearance'
+    return 'a security clearance'
+
+
+# Topic tokens that mark a field as *about* a security clearance. Includes
+# Canadian clearance names so a verdict that omits the literal word "clearance"
+# (e.g. "eligible for Reliability Status") is still recognized as documented.
+_CLEARANCE_TOPIC_TOKENS = (
+    'clearance',
+    'reliability status',
+    'enhanced reliability',
+    'security clearance',
+    'ts/sci',
+    'top secret',
+)
+
+# Candidate-status cues that *might* signal a verdict about the candidate
+# (holds / eligible / not evidenced / recruiter verification, etc.). On their own
+# these are insufficient — some (e.g. "eligible", "authorized to work") also
+# appear inside requirement-echo language ("candidate must be clearance
+# eligible"). The requirement-echo guard below filters those out.
+_CLEARANCE_VERDICT_CUES = (
+    'holds', 'held', 'maintains', 'possess', 'does not hold',
+    'no active', 'no clearance', 'without a clearance', 'lacks', 'lack of',
+    'not evidenced', 'evidenced', 'no evidence', 'eligible', 'eligibility',
+    'inferable', 'clearable', 'interim', 'obtainable', 'appears', 'inferred',
+    'infers', 'likely', 'uncertain', 'unconfirmed', 'could not', 'cannot',
+    'unable', 'recruiter verification', 'verification recommended',
+    'self-identifies', 'self-reports', 'demonstrates', 'confirmed',
+)
+
+_WORK_AUTH_VERDICT_CUES = (
+    'authorized to work', 'work-authorized', 'us-authorized', 'u.s.-authorized',
+    'is authorized', 'not authorized', 'eligible to work', 'eligibility to work',
+    'eligible', 'green card holder', 'permanent resident',
+    'requires sponsorship', 'needs sponsorship', 'requires no sponsorship',
+    'does not require sponsorship', 'no sponsorship needed',
+    'does not need sponsorship', 'appears', 'inferred', 'infers', 'likely',
+    'uncertain', 'unconfirmed', 'evidenced', 'could not', 'cannot', 'unable',
+    'recruiter verification', 'verification recommended', 'self-identifies',
+    'self-reports', 'confirmed', 'is a us citizen', 'is a u.s. citizen',
+    'authorization status', 'work-authorization status',
+)
+
+# Requirement-echo markers: phrasing that states what the JOB demands rather than
+# what the candidate IS. (Uses 'requires'/'required' but NOT bare 'require', so
+# candidate verdicts like "does not require sponsorship" are not misflagged.)
+_REQUIREMENT_MARKERS = (
+    'requires', 'required', 'requirement', 'role requires',
+    'must be', 'must have', 'must hold', 'must possess', 'must obtain',
+    'needs to', 'need to', 'mandatory', 'should have', 'should be', 'should hold',
+)
+
+# Strong candidate-evidence markers: unambiguously about the candidate's actual
+# status. When present they OVERRIDE the requirement-echo guard (a sentence may
+# legitimately contain both the requirement and the candidate's status).
+_STRONG_EVIDENCE_MARKERS = (
+    'holds', 'held', 'currently hold', 'maintains', 'possesses',
+    'does not hold', "doesn't hold", 'no active', 'not evidenced', 'evidenced',
+    'no evidence', 'appears', 'inferred', 'infers', 'inferable',
+    'self-identifies', 'self-reports', 'per resume', 'per the resume',
+    'on the résumé', 'on the resume', 'on resume', 'demonstrates',
+    'candidate is', 'candidate has', 'candidate holds', 'candidate appears',
+    'recruiter verification', 'verification recommended', 'could not',
+    'cannot', 'unable', 'not confirmed', 'unconfirmed', 'likely',
+    'is authorized', 'is not authorized', 'not authorized',
+    'is a us citizen', 'is a u.s. citizen', 'green card holder',
+    'permanent resident', 'lacks', 'no clearance', 'without a clearance',
+    'requires sponsorship', 'requires no sponsorship', 'needs sponsorship',
+    'no sponsorship needed', 'does not require sponsorship',
+    'does not need sponsorship',
+)
+
+
+def _is_verdict_text(text_lower, topic_tokens, verdict_cues):
+    """True only if ``text_lower`` states a candidate *verdict* about the topic.
+
+    A verdict requires a topic token AND a candidate-status cue. Requirement-echo
+    text ("this role requires Secret clearance"; "candidate must be clearance
+    eligible") carries the topic word and sometimes a cue word, but states what
+    the job demands — not the candidate's status — so it is rejected UNLESS a
+    strong candidate-evidence marker is also present.
+    """
+    if not any(t in text_lower for t in topic_tokens):
+        return False
+    if not any(c in text_lower for c in verdict_cues):
+        return False
+    if (any(m in text_lower for m in _REQUIREMENT_MARKERS)
+            and not any(e in text_lower for e in _STRONG_EVIDENCE_MARKERS)):
+        return False  # requirement echo, not a candidate verdict
+    return True
+
+
+def _field_documents_verdict(field, topic_tokens, verdict_cues):
+    """True if ``field`` already states a candidate verdict about the topic."""
+    if not field:
+        return False
+    return _is_verdict_text(field.lower(), topic_tokens, verdict_cues)
+
+
+def _extract_verdict_sentence(text, topic_tokens, verdict_cues):
+    """Pull the first sentence that states a candidate verdict.
+
+    Applies the same per-sentence verdict test, so requirement-echo sentences are
+    never copied across surfaces.
+    """
+    if not text:
+        return None
+    fragments = re.split(r'(?<=[.!?])\s+|\s*\|\s*', text)
+    for frag in fragments:
+        if _is_verdict_text(frag.lower(), topic_tokens, verdict_cues):
+            frag = frag.strip()
+            if len(frag) > 320:
+                frag = frag[:317].rsplit(' ', 1)[0] + '…'
+            return frag
+    return None
+
+
+def enforce_clearance_documentation(result, job_id, custom_requirements, job_description):
+    """Guarantee a security-clearance verdict is documented in BOTH surfaces.
+
+    The recruiter email renders only ``match_summary`` while the Bullhorn note
+    renders both ``match_summary`` and ``gaps_identified``. The scoring prompt
+    instructs the model to state the clearance/work-authorization verdict in
+    both fields, but model compliance varies (observed in production: a
+    clearance gap surfaced in gaps with no eligibility verdict, and nothing in
+    the summary). This safety net ensures that for any clearance-triggered job,
+    an explicit clearance statement is present in both fields.
+
+    Documentation-only: NEVER changes ``match_score`` / ``technical_score`` /
+    banding. Fully fail-soft.
+    """
+    try:
+        # Trigger detection uses the authoritative requirement sources only
+        # (recruiter-entered custom requirements + the JD). The model-generated
+        # key_requirements is intentionally EXCLUDED so a hallucinated clearance
+        # mention cannot make the enforcer inject a clearance line on a job that
+        # does not actually require one. This also matches the prompt rules,
+        # which name the job description as the primary clearance trigger.
+        requirements_text = ' '.join(filter(None, [
+            custom_requirements or '',
+            job_description or '',
+        ])).lower()
+        if not requirements_text:
+            return
+        if not any(p in requirements_text for p in _CLEARANCE_TRIGGER_PHRASES):
+            return
+
+        summary = result.get('match_summary', '') or ''
+        gaps = result.get('gaps_identified', '') or ''
+        topic = _CLEARANCE_TOPIC_TOKENS
+        in_summary = _field_documents_verdict(summary, topic, _CLEARANCE_VERDICT_CUES)
+        in_gaps = _field_documents_verdict(gaps, topic, _CLEARANCE_VERDICT_CUES)
+
+        if in_summary and in_gaps:
+            return  # model already documented a verdict on both surfaces
+
+        # Prefer the model's own verdict wording (avoids contradicting it); only
+        # copy a sentence that actually states a candidate verdict, never a bare
+        # requirement echo. Fall back to a transparent generic line otherwise.
+        canonical = (
+            _extract_verdict_sentence(summary, topic, _CLEARANCE_VERDICT_CUES)
+            or _extract_verdict_sentence(gaps, topic, _CLEARANCE_VERDICT_CUES)
+        )
+        if not canonical:
+            level = _detect_clearance_level(requirements_text)
+            canonical = (
+                f"Scout Screening notes this role requires {level}; no active "
+                f"clearance is evidenced on the résumé and clearance eligibility "
+                f"could not be automatically determined — recruiter verification "
+                f"recommended."
+            )
+
+        if not in_summary:
+            if summary.strip():
+                result['match_summary'] = f"{summary.rstrip().rstrip('.')}. {canonical}"
+            else:
+                result['match_summary'] = canonical
+        if not in_gaps:
+            if gaps.strip():
+                result['gaps_identified'] = (
+                    f"{gaps.rstrip().rstrip('|').rstrip()} | {canonical}"
+                )
+            else:
+                result['gaps_identified'] = canonical
+
+        logger.info(
+            f"🛡️ Clearance documentation enforcer: ensured clearance verdict in "
+            f"both fields for job {job_id} (was in_summary={in_summary}, "
+            f"in_gaps={in_gaps})"
+        )
+    except Exception as _clearance_doc_err:
+        logger.debug(
+            f"Clearance documentation enforcer skipped (non-fatal) for "
+            f"job {job_id}: {_clearance_doc_err}"
+        )
+
+
+# ── US work-authorization documentation enforcer ──
+# Trigger phrases that indicate a job requires US work authorization (Rule 1).
+# Detected from the recruiter-entered requirements + JD only (NOT the
+# model-generated key_requirements). Kept specific to avoid false positives.
+_WORK_AUTH_TRIGGER_PHRASES = (
+    'us citizen',
+    'u.s. citizen',
+    'us citizenship',
+    'u.s. citizenship',
+    'citizenship required',
+    'must be a us citizen',
+    'must be a u.s. citizen',
+    'authorized to work in the us',
+    'authorized to work in the u.s',
+    'us work authorization',
+    'u.s. work authorization',
+    'work authorization required',
+    'no sponsorship',
+    'will not sponsor',
+    'unable to sponsor',
+    'cannot sponsor',
+    'w2 only',
+    'w-2 only',
+    'no c2c',
+    'no corp to corp',
+    'no corp-to-corp',
+    'green card',
+    'permanent resident',
+)
+
+# Topic tokens that mark a field as *about* US work authorization. Pairing these
+# with _WORK_AUTH_VERDICT_CUES is what separates a candidate verdict from a bare
+# requirement echo (see _field_documents_verdict).
+_WORK_AUTH_TOPIC_TOKENS = (
+    'authoriz',
+    'citizen',
+    'sponsor',
+    'green card',
+    'permanent resident',
+    'work auth',
+)
+
+
+def enforce_work_authorization_documentation(result, job_id, custom_requirements, job_description):
+    """Guarantee a US work-authorization verdict is documented in BOTH surfaces.
+
+    Mirror of ``enforce_clearance_documentation`` for Rule 1 (US work
+    authorization) jobs. The recruiter email renders only ``match_summary``
+    while the Bullhorn note renders both fields, so a verdict in only one field
+    is invisible on one surface. This safety net guarantees an explicit
+    work-authorization statement in both fields for any auth-triggered job.
+
+    Documentation-only: NEVER changes ``match_score`` / ``technical_score`` /
+    banding. Fully fail-soft.
+    """
+    try:
+        requirements_text = ' '.join(filter(None, [
+            custom_requirements or '',
+            job_description or '',
+        ])).lower()
+        if not requirements_text:
+            return
+        if not any(p in requirements_text for p in _WORK_AUTH_TRIGGER_PHRASES):
+            return
+
+        summary = result.get('match_summary', '') or ''
+        gaps = result.get('gaps_identified', '') or ''
+        in_summary = _field_documents_verdict(
+            summary, _WORK_AUTH_TOPIC_TOKENS, _WORK_AUTH_VERDICT_CUES)
+        in_gaps = _field_documents_verdict(
+            gaps, _WORK_AUTH_TOPIC_TOKENS, _WORK_AUTH_VERDICT_CUES)
+
+        if in_summary and in_gaps:
+            return  # model already documented a verdict on both surfaces
+
+        canonical = (
+            _extract_verdict_sentence(
+                summary, _WORK_AUTH_TOPIC_TOKENS, _WORK_AUTH_VERDICT_CUES)
+            or _extract_verdict_sentence(
+                gaps, _WORK_AUTH_TOPIC_TOKENS, _WORK_AUTH_VERDICT_CUES)
+        )
+        if not canonical:
+            canonical = (
+                "Scout Screening notes this role requires US work authorization; "
+                "the résumé does not explicitly confirm work-authorization status "
+                "and it could not be automatically inferred — recruiter "
+                "verification recommended."
+            )
+
+        if not in_summary:
+            if summary.strip():
+                result['match_summary'] = f"{summary.rstrip().rstrip('.')}. {canonical}"
+            else:
+                result['match_summary'] = canonical
+        if not in_gaps:
+            if gaps.strip():
+                result['gaps_identified'] = (
+                    f"{gaps.rstrip().rstrip('|').rstrip()} | {canonical}"
+                )
+            else:
+                result['gaps_identified'] = canonical
+
+        logger.info(
+            f"🛡️ Work-authorization documentation enforcer: ensured verdict in "
+            f"both fields for job {job_id} (was in_summary={in_summary}, "
+            f"in_gaps={in_gaps})"
+        )
+    except Exception as _wa_doc_err:
+        logger.debug(
+            f"Work-authorization documentation enforcer skipped (non-fatal) for "
+            f"job {job_id}: {_wa_doc_err}"
+        )

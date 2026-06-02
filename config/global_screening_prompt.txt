@@ -37,6 +37,8 @@ Inference tiers (based on TOTAL US work experience calculated above):
 • 3–4 years US work experience → Treat as a soft gap. Apply a minor score reduction (3-5 points). Add note: "Scout Screening notes moderate US work history ([X] years); work authorization unconfirmed — minor uncertainty applied."
 • Under 3 years US work experience → Flag as a gap. Apply standard gap scoring. Add note: "Scout Screening flags limited US work history ([X] years); work authorization cannot be inferred."
 
+DOCUMENTATION MANDATE (Rule 1): Whatever work-authorization verdict you reach (likely authorized / uncertain / cannot be inferred), you MUST state it explicitly in BOTH the match_summary AND the gaps_identified fields — in every case, including when no score penalty applies. The recruiter email shows ONLY match_summary, while the Bullhorn note shows BOTH fields; a verdict placed in only one field is invisible on one surface. Never leave a work-authorization-triggered job without an explicit authorization verdict in both fields. This is a documentation requirement only — it does NOT change the scoring tiers above.
+
 === RULE 2: CANADIAN SECURITY CLEARANCE ===
 Trigger: The job description references security clearance requirements (e.g., "Reliability Status", "Enhanced Reliability", "Secret clearance", "Top Secret"). The job description language is the primary trigger; job location metadata (if Canada) is a confirming signal but is NOT required. If the trigger phrase is present, apply this rule regardless of whether the Bullhorn job location field is blank or ambiguous.
 Do NOT apply this rule to jobs that make no mention of security clearance.
@@ -70,8 +72,20 @@ Default inference tiers (use ONLY when the JD is silent on clearance eligibility
 • Top Secret clearance required + candidate has 15+ years Canadian work experience → Eligible to obtain. No score penalty. Add note: "Scout Screening notes candidate is likely eligible to obtain Top Secret clearance based on [X] years of Canadian professional work experience (no JD-specified threshold; default 15-year bar applied)."
 • Candidate falls below the applicable threshold for the required clearance level → Treat as a soft gap. Apply a minor score reduction (3-5 points). Add note: "Scout Screening notes candidate has [X] years of Canadian work experience; clearance eligibility is uncertain for [clearance level]."
 
+DOCUMENTATION MANDATE (Rule 2): The clearance eligibility verdict you reach — whether the candidate (a) already holds the clearance, (b) is likely eligible to obtain it based on Canadian tenure, or (c) is NOT eligible / eligibility is uncertain — MUST be stated explicitly in BOTH the match_summary AND the gaps_identified fields, in EVERY case, including when no score penalty applies. When the candidate is below the applicable threshold (case c), the gaps_identified entry MUST clearly document this as a reason the candidate may not qualify (e.g., "Does not hold and is not inferable as eligible for [clearance level] — [X] years Canadian experience vs the [N]-year bar"). The recruiter email shows ONLY match_summary, while the Bullhorn note shows BOTH fields; a verdict in only one field is invisible on one surface. This is a documentation requirement only — it does NOT change the scoring tiers above.
+
+=== RULE 2B: US SECURITY CLEARANCE (INTERIM — DOCUMENTATION ONLY) ===
+Trigger: a US-based job (or a job whose clearance language is US-oriented, e.g., "US Secret clearance", "DoD Secret", "must be able to obtain a US government security clearance", "TS/SCI", "SCI eligibility") references a security clearance requirement.
+
+We do NOT yet have standardized US clearance-eligibility tenure tiers (unlike the Canadian tiers in Rule 2). Therefore:
+• Do NOT invent a US tenure→clearance eligibility inference. Evaluate the clearance requirement using standard gap scoring — the same scoring you would apply to any unmet requirement. Do NOT add or remove penalties beyond standard gap scoring on account of this rule.
+• If the candidate explicitly states an active or prior US clearance, accept it at face value (Rule 0 applies) and document it.
+• If Rule 1 (US work authorization) also applies and indicates likely US authorization, you MAY note that as supporting CONTEXT (a cleared candidate must first be US-authorized), but you MUST NOT convert it into a clearance-eligibility inference.
+
+DOCUMENTATION MANDATE (Rule 2B): You MUST document the US clearance status explicitly in BOTH match_summary AND gaps_identified — state that the role requires [clearance level], whether the résumé evidences it, and (where known) the candidate's US work-authorization context. Example gap: "Role requires an active US [clearance level]; no clearance evidenced on résumé — recruiter verification required." When standardized US eligibility rules are introduced later, this rule will be upgraded to a tenure-based inference like Rule 2.
+
 === RULE 3: CROSS-BORDER & INTERNATIONAL ===
 • US work authorization rules activate ONLY when the job description contains US authorization trigger language.
-• Canadian clearance rules activate ONLY when the job description contains clearance trigger language AND the job is Canadian-based (not US-based — see geographic guard above).
-• NEVER cross-apply rules (e.g., do not apply US authorization logic when clearance language is present, or vice versa).
+• Canadian clearance rules (Rule 2) activate ONLY when the job description contains clearance trigger language AND the job is Canadian-based (not US-based — see geographic guard above). US-based clearance jobs are handled by Rule 2B (documentation only, no tenure inference).
+• NEVER cross-apply the INFERENCE logic between rules (e.g., do not apply Canadian-tenure clearance inference to a US clearance job). The ONLY permitted cross-reference is the supporting context allowed in Rule 2B (noting US work-authorization context on a US clearance job) — never as an eligibility inference.
 • For jobs with no authorization or clearance language, NEITHER rule applies — evaluate purely on skills, experience, and location eligibility per the job description.
