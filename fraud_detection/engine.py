@@ -619,6 +619,19 @@ class FraudSignalEngine:
             for s in scored:
                 evidence = f" — {s.evidence}" if s.evidence else ""
                 lines.append(f"  • {s.label}{evidence}")
+                # Additively document the verbatim copied passage for a
+                # JD-mirror hit (what was lifted and where), without altering
+                # any note gating or band logic. Only present when captured.
+                details = getattr(s, "details", None) or {}
+                passage = str(details.get("copied_text") or "").strip()
+                if passage:
+                    lines.append(f"      Copied passage: \"{passage}\"")
+                    resume_ex = str(details.get("resume_excerpt") or "").strip()
+                    jd_ex = str(details.get("jd_excerpt") or "").strip()
+                    if resume_ex:
+                        lines.append(f"      In résumé: …{resume_ex}…")
+                    if jd_ex:
+                        lines.append(f"      In job posting: …{jd_ex}…")
         else:
             lines.append("No risk indicators were detected across the integrity checks.")
         if informational:

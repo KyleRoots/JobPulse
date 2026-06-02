@@ -71,6 +71,11 @@ JD_MIRROR_MIN_RUN_WORDS = 8
 JD_MIRROR_MODERATE_RUN_WORDS = 18
 JD_MIRROR_HEAVY_RUN_WORDS = 30
 JD_MIRROR_MIN_JD_WORDS = 40
+# Words of surrounding context to capture on each side of a copied passage so a
+# recruiter can locate it in the document, and a cap on the copied passage text
+# itself so a very long lift doesn't produce an unwieldy note/email block.
+JD_MIRROR_CONTEXT_WORDS = 8
+JD_MIRROR_MAX_PASSAGE_CHARS = 400
 
 # AI-style marker tuning: require a few em dashes (Word auto-converts the odd one)
 # before surfacing the informational note, to keep it conservative.
@@ -557,6 +562,52 @@ def _word_tokens(text: Optional[str]) -> List[str]:
     return re.findall(r"[a-z0-9]+", str(text).lower())
 
 
+def _word_tokens_with_spans(text: Optional[str]) -> List[tuple]:
+    """Like ``_word_tokens`` but keeps each token's char span into the original
+    text so a matched run can be reconstructed verbatim (original casing and
+    punctuation) for recruiter-facing display.
+
+    Returns a list of ``(lowercased_token, start_char, end_char)`` tuples.
+    """
+    if not text:
+        return []
+    s = str(text)
+    return [(m.group(0).lower(), m.start(), m.end())
+            for m in re.finditer(r"[A-Za-z0-9]+", s)]
+
+
+def _collapse_ws(text: str) -> str:
+    """Collapse runs of whitespace/newlines to single spaces for clean inline
+    display in emails and Bullhorn notes."""
+    return re.sub(r"\s+", " ", str(text)).strip()
+
+
+def _build_mirror_excerpt(
+    source_text: str,
+    spans: List[tuple],
+    run_start: int,
+    run_len: int,
+) -> Dict[str, str]:
+    """Reconstruct the copied passage plus a bounded context window from one
+    document, mapping matched token positions back to the original text.
+
+    Returns a dict with ``passage`` (the verbatim copied text) and ``excerpt``
+    (passage + surrounding context, whitespace-collapsed). Both are drawn from
+    the ORIGINAL source so casing/punctuation are preserved.
+    """
+    last = run_start + run_len - 1
+    passage_start = spans[run_start][1]
+    passage_end = spans[last][2]
+    passage = _collapse_ws(source_text[passage_start:passage_end])
+    if len(passage) > JD_MIRROR_MAX_PASSAGE_CHARS:
+        passage = passage[:JD_MIRROR_MAX_PASSAGE_CHARS].rstrip() + "…"
+
+    ctx_start_tok = max(0, run_start - JD_MIRROR_CONTEXT_WORDS)
+    ctx_end_tok = min(len(spans) - 1, last + JD_MIRROR_CONTEXT_WORDS)
+    excerpt = _collapse_ws(source_text[spans[ctx_start_tok][1]:spans[ctx_end_tok][2]])
+    return {"passage": passage, "excerpt": excerpt}
+
+
 def evaluate_jd_mirror(
     resume_text: Optional[str],
     job_description: Optional[str],
@@ -569,8 +620,12 @@ def evaluate_jd_mirror(
     a JD; they do NOT reproduce 8/18/30-word stretches of the posting verbatim.
     Graduated weight by run length. Requires a JD of meaningful length to bother.
     """
-    r_tokens = _word_tokens(resume_text)
-    j_tokens = _word_tokens(job_description)
+    # Keep char spans so the longest matched run can be reconstructed verbatim
+    # from the ORIGINAL text (casing/punctuation intact) for recruiter display.
+    r_spans = _word_tokens_with_spans(resume_text)
+    j_spans = _word_tokens_with_spans(job_description)
+    r_tokens = [t[0] for t in r_spans]
+    j_tokens = [t[0] for t in j_spans]
     if len(j_tokens) < JD_MIRROR_MIN_JD_WORDS or len(r_tokens) < JD_MIRROR_MIN_RUN_WORDS:
         return None
 
@@ -583,6 +638,8 @@ def evaluate_jd_mirror(
         jd_ngram_starts.setdefault(tuple(j_tokens[i:i + n]), []).append(i)
 
     longest_run = 0
+    best_ri = -1   # resume token index where the longest run starts
+    best_js = -1   # JD token index where the longest run starts
     ri = 0
     r_len = len(r_tokens)
     while ri <= r_len - n:
@@ -592,6 +649,7 @@ def evaluate_jd_mirror(
             ri += 1
             continue
         best_here = n
+        best_here_js = starts[0]
         for js in starts:
             run = n
             while (ri + run < r_len and js + run < len(j_tokens)
@@ -599,8 +657,11 @@ def evaluate_jd_mirror(
                 run += 1
             if run > best_here:
                 best_here = run
+                best_here_js = js
         if best_here > longest_run:
             longest_run = best_here
+            best_ri = ri
+            best_js = best_here_js
         # Skip past this matched run to keep the scan bounded.
         ri += max(best_here - n + 1, 1)
 
@@ -614,13 +675,33 @@ def evaluate_jd_mirror(
     else:
         points = POINTS_JD_MIRROR_LIGHT
 
+    # Reconstruct the copied passage + a bounded context window from BOTH
+    # documents so a recruiter can see exactly what was lifted and where, even
+    # for a Clear-band candidate. Defensive: never let display capture break the
+    # signal itself.
+    details: Dict[str, Any] = {"longest_run_words": longest_run}
+    try:
+        if best_ri >= 0 and best_js >= 0:
+            resume_ex = _build_mirror_excerpt(str(resume_text), r_spans, best_ri, longest_run)
+            jd_ex = _build_mirror_excerpt(str(job_description), j_spans, best_js, longest_run)
+            # copied_text == the resume-side verbatim passage (primary, kept for
+            # the note); jd_passage == the same run as it reads in the posting
+            # (may differ in casing/punctuation), so each excerpt highlights its
+            # own source rather than a shared string.
+            details["copied_text"] = resume_ex["passage"]
+            details["jd_passage"] = jd_ex["passage"]
+            details["resume_excerpt"] = resume_ex["excerpt"]
+            details["jd_excerpt"] = jd_ex["excerpt"]
+    except Exception:  # pragma: no cover - display reconstruction is best-effort
+        pass
+
     return FraudSignal(
         code="jd_mirror",
         label="Resume mirrors the job description verbatim",
         points=points,
         evidence=(f"Longest verbatim passage copied from the posting: "
                   f"{longest_run} consecutive words"),
-        details={"longest_run_words": longest_run},
+        details=details,
     )
 
 

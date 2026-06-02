@@ -590,6 +590,70 @@ class NotificationMixin:
         )
         return [attachment]
 
+    @staticmethod
+    def _render_mirror_excerpts_html(details: dict) -> str:
+        """Render the verbatim copied passage for the jd_mirror signal — shown as
+        it appears in the resume AND as referenced in the job posting, with the
+        copied span highlighted — so a recruiter can drill into exactly what was
+        lifted and where (surfaced on all bands, including Clear).
+
+        Returns '' when no passage was captured. All candidate- and posting-
+        derived text is HTML-escaped; fail-soft so it never breaks the banner.
+        """
+        try:
+            import html as _html
+            resume_passage = str(details.get('copied_text') or '').strip()
+            # The posting may render the same run with different casing/
+            # punctuation; fall back to the resume passage if not captured.
+            jd_passage = str(details.get('jd_passage') or '').strip() or resume_passage
+            resume_ex = str(details.get('resume_excerpt') or '').strip()
+            jd_ex = str(details.get('jd_excerpt') or '').strip()
+            if not resume_passage or not (resume_ex or jd_ex):
+                return ''
+
+            def _hl(excerpt: str, passage: str) -> str:
+                if not passage:
+                    return _html.escape(excerpt)
+                key = passage
+                idx = excerpt.find(key)
+                # A very long passage is stored ellipsized for display; the
+                # excerpt still holds the untruncated text, so fall back to the
+                # pre-ellipsis prefix to keep the highlight working.
+                if idx < 0 and key.endswith('…'):
+                    key = key[:-1].rstrip()
+                    idx = excerpt.find(key)
+                if idx < 0 or not key:
+                    return _html.escape(excerpt)
+                before = _html.escape(excerpt[:idx])
+                mid = _html.escape(excerpt[idx:idx + len(key)])
+                after = _html.escape(excerpt[idx + len(key):])
+                return (f'{before}<mark style="background:#fff3cd; padding:0 2px;">'
+                        f'{mid}</mark>{after}')
+
+            rows = ''
+            if resume_ex:
+                rows += (
+                    '<div style="margin:0 0 4px 0;">'
+                    '<span style="color:#6c757d; font-weight:bold;">'
+                    'In r&eacute;sum&eacute;:</span> '
+                    f'&hellip;{_hl(resume_ex, resume_passage)}&hellip;</div>'
+                )
+            if jd_ex:
+                rows += (
+                    '<div>'
+                    '<span style="color:#6c757d; font-weight:bold;">'
+                    'In job posting:</span> '
+                    f'&hellip;{_hl(jd_ex, jd_passage)}&hellip;</div>'
+                )
+            return (
+                '<div style="margin:4px 0 2px 0; padding:6px 8px;'
+                ' background:rgba(0,0,0,0.04); border-radius:4px;'
+                ' font-size:12px; color:#495057; line-height:1.4;">'
+                f'{rows}</div>'
+            )
+        except Exception:
+            return ''
+
     def _build_fraud_banner_html(self, candidate_id: Optional[int]) -> str:
         """Advisory fraud-risk banner for recruiter notification emails.
 
@@ -685,7 +749,13 @@ class NotificationMixin:
                         f' — <span style="color:#6c757d;">{_html.escape(str(ev))}</span>'
                         if ev else ''
                     )
-                    items += f'<li style="margin:2px 0;">{lbl}{ev_html}</li>'
+                    # For a verbatim-mirror hit, surface the actual copied
+                    # passage (resume excerpt vs posting excerpt) so a recruiter
+                    # can drill in — shown on ALL bands, including Clear.
+                    detail_html = ''
+                    if s.get('code') == 'jd_mirror':
+                        detail_html = self._render_mirror_excerpts_html(s.get('details') or {})
+                    items += f'<li style="margin:2px 0;">{lbl}{ev_html}{detail_html}</li>'
                 reasons_html = (
                     '<ul style="margin:8px 0 0 0; padding-left:18px; '
                     f'font-size:13px; color:#495057;">{items}</ul>'

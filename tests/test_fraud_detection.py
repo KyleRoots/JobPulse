@@ -306,6 +306,121 @@ def test_jd_mirror_below_min_run_no_signal():
     assert fsig.evaluate_jd_mirror(resume, jd) is None
 
 
+def test_jd_mirror_captures_verbatim_passage():
+    """The signal records the actual copied passage + surrounding context from
+    BOTH the resume and the posting (original casing/punctuation preserved), so
+    recruiters can drill into exactly what was lifted — even on a Clear band."""
+    jd = ("We are seeking a Senior Cloud Engineer to design, build, and operate "
+          "scalable distributed systems across our global platform. " + _jd(60))
+    resume = ("Experienced professional. design, build, and operate scalable "
+              "distributed systems across our global platform. Other resume text.")
+    sig = fsig.evaluate_jd_mirror(resume, jd)
+    assert sig is not None and sig.code == "jd_mirror"
+    d = sig.details
+    assert d["longest_run_words"] >= 8
+    # Verbatim passage reconstructed with original punctuation intact.
+    assert "design, build, and operate scalable" in d["copied_text"]
+    # Context excerpts include the copied passage plus surrounding words.
+    assert d["copied_text"] in d["resume_excerpt"]
+    assert d["copied_text"] in d["jd_excerpt"]
+    assert "Experienced professional" in d["resume_excerpt"]
+    assert "Senior Cloud Engineer" in d["jd_excerpt"]
+
+
+def test_jd_mirror_passage_capped():
+    """A very long verbatim lift is truncated for display but still flagged."""
+    run = " ".join(f"word{i}" for i in range(120))  # well over the char cap
+    jd = run + " tail words here for length " + _jd(20)
+    sig = fsig.evaluate_jd_mirror(run, jd)
+    assert sig is not None
+    assert len(sig.details["copied_text"]) <= fsig.JD_MIRROR_MAX_PASSAGE_CHARS + 1
+    assert sig.details["copied_text"].endswith("…")
+
+
+def test_jd_mirror_note_includes_copied_passage():
+    """The Bullhorn note additively documents the copied passage for a jd_mirror
+    hit, without altering existing note structure or gating."""
+    from fraud_detection.engine import FraudSignalEngine
+
+    jd = ("We are seeking a Senior Cloud Engineer to design, build, and operate "
+          "scalable distributed systems across our global platform. " + _jd(60))
+    resume = ("Experienced professional. design, build, and operate scalable "
+              "distributed systems across our global platform. Other resume text.")
+    sig = fsig.evaluate_jd_mirror(resume, jd)
+    result = fsig.FraudAssessmentResult(
+        risk_score=sig.points,
+        risk_band=fsig.FraudRiskBand.CLEAR,
+        signals=[sig],
+    )
+    note = FraudSignalEngine._build_note_text(result)
+    assert "Copied passage:" in note
+    assert "design, build, and operate scalable" in note
+    assert "In job posting:" in note
+
+
+def test_render_mirror_excerpts_html_highlights_and_escapes():
+    """The email helper renders resume vs posting excerpts, highlights the copied
+    span, and HTML-escapes candidate/posting text."""
+    from screening.notification import NotificationMixin
+
+    details = {
+        "copied_text": "design & build <systems>",
+        "resume_excerpt": "Intro. design & build <systems> tail.",
+        "jd_excerpt": "Posting design & build <systems> more.",
+    }
+    html = NotificationMixin._render_mirror_excerpts_html(details)
+    assert "In job posting" in html
+    assert "<mark" in html  # copied span highlighted
+    # Raw angle brackets from the copied text are escaped, not emitted as tags.
+    assert "<systems>" not in html
+    assert "&lt;systems&gt;" in html
+
+
+def test_render_mirror_excerpts_html_empty_when_no_passage():
+    from screening.notification import NotificationMixin
+    assert NotificationMixin._render_mirror_excerpts_html({}) == ""
+    assert NotificationMixin._render_mirror_excerpts_html(
+        {"longest_run_words": 9}
+    ) == ""
+
+
+def test_jd_mirror_highlights_both_sides_with_casing_mismatch():
+    """When the posting renders the copied run with different casing/punctuation
+    than the resume, each side is captured separately so BOTH excerpts highlight
+    their own verbatim passage."""
+    from screening.notification import NotificationMixin
+
+    jd = ("Overview: We Deliver Scalable Cloud Native Data Platforms At Global "
+          "Scale for clients. " + _jd(60))
+    resume = ("Summary - we deliver scalable, cloud-native data platforms at "
+              "global scale daily. More text.")
+    sig = fsig.evaluate_jd_mirror(resume, jd)
+    assert sig is not None
+    d = sig.details
+    # Resume and posting passages differ in casing/punctuation.
+    assert d["copied_text"] != d["jd_passage"]
+    assert d["copied_text"] in d["resume_excerpt"]
+    assert d["jd_passage"] in d["jd_excerpt"]
+    html = NotificationMixin._render_mirror_excerpts_html(d)
+    # Both the resume and the posting excerpts get their copied span highlighted.
+    assert html.count("<mark") == 2
+
+
+def test_jd_mirror_highlight_survives_truncated_passage():
+    """An over-long passage is stored ellipsized for display; the email helper
+    must still highlight it by falling back to the pre-ellipsis prefix."""
+    from screening.notification import NotificationMixin
+
+    run = " ".join(f"word{i}" for i in range(120))  # exceeds the char cap
+    jd = run + " tail words here for length " + _jd(20)
+    sig = fsig.evaluate_jd_mirror(run, jd)
+    assert sig is not None
+    d = sig.details
+    assert d["copied_text"].endswith("…")  # display passage is truncated
+    html = NotificationMixin._render_mirror_excerpts_html(d)
+    assert "<mark" in html  # highlight still rendered despite truncation
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # AI-style markers (informational only, 0 points)
 # ─────────────────────────────────────────────────────────────────────────────
