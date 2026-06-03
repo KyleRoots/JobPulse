@@ -17,6 +17,9 @@ Run gpt-4.1-mini first on every candidate; if mini's score >= an escalation line
 
 **Preliminary sizing (n~1,150, ONE 2-day window, only 18 qualifiers — too thin to commit on):** escalate@50 → ~68% of calls stay on mini, 0 real qualifiers missed; escalate@40 → ~50% stay, 0 missed. Implies ~35-50% off the OpenAI bill (~$1,300-1,900/mo). Validate at n>=6,000 across varied days/jobs before any cutover.
 
+## Layer-1 model choice: keep it CHEAP (mid-tier backfires)
+The layer-1 model runs on 100% of candidates, so its per-call cost dominates the blend; escalation only adds flagship cost on the ~32% that escalate. So a true mid-tier (gpt-4.1, out $8/Mtok ≈ $0.027/call) yields only ~18% savings vs ~56% for a cheap layer — it costs more on everyone than it saves by escalating less. **Decision: round-1 layer-1 = gpt-4.1-mini** (out $1.60; ~$0.005/call; zero code change — harness hardcodes it; 1,150 historical rows for continuity). **Fallback = gpt-5-mini** (out $2.00 — nearly same price but newer/smarter gpt-5 family → likely fewer escalations/near-misses) — use only if mini's escalation rate or near-miss count is marginal at a safe line. Testing a non-mini layer-1 needs a small code knob: the shadow model is hardcoded in `_shadow_screening_pick_model` and `_run_screening_shadow` deliberately bypasses env override.
+
 ## Operational gotcha: shared killswitch
 `SHADOW_LOGGING_DISABLED` (default `'true'`) is the master gate for BOTH the scoring model-swap shadow AND the embedding shadow. Each also has its own enable (`SCREENING_AB_SHADOW_ENABLED`, `EMBEDDING_AB_SHADOW_ENABLED`). Flipping the master to `false` will restart the embedding shadow too if its enable is truthy — set `EMBEDDING_AB_SHADOW_ENABLED=false` explicitly when running ONLY the scoring experiment, or you pay for two experiments.
 
