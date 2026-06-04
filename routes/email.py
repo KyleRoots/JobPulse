@@ -1,4 +1,5 @@
 import base64
+import io
 import json
 import logging
 import re
@@ -200,6 +201,131 @@ def _parse_raw_mime(raw):
     return recovered
 
 
+def _sniff_multipart_boundary(raw_bytes):
+    """Find the actual boundary delimiter from the body itself.
+
+    The leading cause of "valid body but zero parsed parts" is the multipart
+    boundary inside the body not matching the one declared in the Content-Type
+    header. Scanning the first lines for a ``--boundary`` delimiter lets us
+    recover even when the declared boundary is wrong. Returns the token without
+    the leading ``--`` (and without a trailing ``--``).
+    """
+    if not raw_bytes:
+        return None
+    head = raw_bytes[:8192]
+    for line in head.split(b'\n')[:25]:
+        s = line.strip()
+        if s.startswith(b'--') and len(s) > 2:
+            token = s[2:]
+            if token.endswith(b'--'):
+                token = token[:-2]
+            if not token:
+                continue
+            try:
+                return token.decode('ascii')
+            except Exception:
+                return None
+    return None
+
+
+def _parse_multipart_tolerant(raw_bytes, content_type):
+    """Tolerant multipart/form-data parser for when Werkzeug's strict parser
+    extracts nothing from an otherwise-present body.
+
+    Uses the lenient stdlib email parser; if the declared boundary yields no
+    usable parts it sniffs the real boundary out of the body and retries.
+    Emits the same SendGrid-shaped payload (named fields + an 'attachments'
+    JSON list matching what _extract_attachments consumes).
+    """
+    from email.parser import BytesParser
+    from email import policy
+
+    if not raw_bytes:
+        return {}
+
+    def _build_and_parse(ct):
+        header = f"Content-Type: {ct}\r\nMIME-Version: 1.0\r\n\r\n".encode()
+        msg = BytesParser(policy=policy.default).parsebytes(header + raw_bytes)
+        if not msg.is_multipart():
+            return {}
+        fields = {}
+        attachments = []
+        for part in msg.iter_parts():
+            filename = part.get_filename()
+            name = part.get_param('name', header='content-disposition')
+            if filename:
+                try:
+                    content_bytes = part.get_payload(decode=True) or b''
+                except Exception:
+                    content_bytes = b''
+                attachments.append({
+                    'filename': _decode_mime_header(filename) or 'attachment',
+                    'content': base64.b64encode(content_bytes).decode('ascii'),
+                    'type': part.get_content_type(),
+                })
+            elif name:
+                try:
+                    val = part.get_payload(decode=True)
+                    fields[name] = val.decode('utf-8', 'replace') if val else ''
+                except Exception:
+                    fields[name] = ''
+        result = dict(fields)
+        if attachments:
+            result['attachments'] = json.dumps(attachments)
+        return result
+
+    try:
+        result = _build_and_parse(content_type)
+    except Exception:
+        result = {}
+    if _has_parsed_email_fields(result, None):
+        return result
+
+    # Boundary mismatch fallback: re-parse using the boundary found in the body.
+    sniffed = _sniff_multipart_boundary(raw_bytes)
+    if sniffed:
+        try:
+            retry = _build_and_parse(f'multipart/form-data; boundary="{sniffed}"')
+            if _has_parsed_email_fields(retry, None):
+                return retry
+        except Exception:
+            pass
+    return result
+
+
+def _merge_recovered(payload, recovered):
+    """Merge recovered fields into the payload, filling only empty keys so a
+    normally-parsed payload is never overwritten. The 'attachments' key is
+    special-cased: a SendGrid count (e.g. '0') is replaced by a recovered
+    JSON list, but an already-usable list is kept."""
+    if not recovered:
+        return
+    for key, value in recovered.items():
+        if not value:
+            continue
+        if key == 'attachments':
+            if not _has_usable_attachments(payload.get(key)):
+                payload[key] = value
+        elif not str(payload.get(key) or '').strip():
+            payload[key] = value
+
+
+def _sanitize_body_snippet(raw_bytes, limit=700):
+    """Return a short, printable-only prefix of the raw body for diagnostics
+    when recovery fails entirely — enough to reveal the boundary and part
+    headers without dumping binary attachment data."""
+    if not raw_bytes:
+        return ''
+    head = raw_bytes[:limit]
+    try:
+        text = head.decode('utf-8', 'replace')
+    except Exception:
+        text = repr(head)
+    return ''.join(
+        ch if (ch.isprintable() or ch in '\r\n\t') else '.' for ch in text
+    )
+
+
 @email_bp.route('/api/email/inbound', methods=['GET', 'POST'])
 @csrf.exempt
 def email_inbound_webhook():
@@ -226,61 +352,107 @@ def email_inbound_webhook():
     try:
         logger.info("📧 Received inbound email webhook")
 
-        form_keys = list(request.form.keys())
-        file_keys = list(request.files.keys())
+        content_type = request.content_type or ''
+        content_length = request.content_length
+        ct_lower = content_type.lower()
+
+        # Read the raw body ONCE, up front, before form access consumes the
+        # stream. This is the linchpin of the recovery: if Werkzeug's strict
+        # multipart parser extracts nothing from an otherwise-present body
+        # (the failure mode that silently drops real candidates), we still
+        # hold the original bytes and can recover from them.
+        raw_body = b''
+        try:
+            raw_body = request.get_data(cache=True, parse_form_data=False) or b''
+        except Exception as e:
+            logger.error(f"📧 Failed to read raw request body: {e}")
+
+        # Primary parse: Werkzeug, run against the cached raw bytes (so request
+        # stream state is irrelevant). Handles the well-formed multipart and
+        # urlencoded cases exactly as before.
+        payload = {}
+        form_keys, file_keys = [], []
+        if raw_body and ('multipart/form-data' in ct_lower or
+                         'x-www-form-urlencoded' in ct_lower):
+            try:
+                from werkzeug.formparser import parse_form_data
+                environ = {
+                    'REQUEST_METHOD': 'POST',
+                    'CONTENT_TYPE': content_type,
+                    'CONTENT_LENGTH': str(len(raw_body)),
+                    'wsgi.input': io.BytesIO(raw_body),
+                }
+                _, form, files = parse_form_data(environ)
+                payload = form.to_dict()
+                for key, file in files.items():
+                    payload[key] = file.read()
+                    payload[f'{key}_info'] = {
+                        'filename': file.filename,
+                        'content_type': file.content_type,
+                    }
+                form_keys = list(form.keys())
+                file_keys = list(files.keys())
+            except Exception as e:
+                logger.error(f"📧 Primary form parse failed: {e}")
+
         logger.info(
             "📧 Inbound payload diagnostic: content_type=%s content_length=%s "
-            "form_keys=%s file_keys=%s",
-            request.content_type, request.content_length, form_keys, file_keys,
+            "body_len=%s form_keys=%s file_keys=%s",
+            content_type, content_length, len(raw_body), form_keys, file_keys,
         )
 
-        payload = request.form.to_dict()
-        
-        if request.files:
-            for key, file in request.files.items():
-                payload[key] = file.read()
-                payload[f'{key}_info'] = {
-                    'filename': file.filename,
-                    'content_type': file.content_type
-                }
-
-        # ── Raw-MIME fail-soft fallback ─────────────────────────────────────
-        # When SendGrid delivers the raw, full MIME message (Inbound Parse
-        # "POST raw MIME" mode) or any non-parsed body, the pre-parsed form
-        # fields (from/subject/text/attachments) are absent and a real
-        # candidate would be silently dropped as empty/ignored. If nothing
-        # usable was parsed but a raw message is available, reconstruct it.
-        if not _has_parsed_email_fields(payload, request.files):
-            raw_mime = payload.get('email')
-            if not raw_mime and not request.form and not request.files:
-                # Non-form body (raw text/JSON post): the stream was not
-                # consumed by form parsing, so it is still readable here.
+        # ── Fail-soft recovery ──────────────────────────────────────────────
+        # When the primary parse yields nothing usable (no sender/subject/body/
+        # attachment) but a body IS present, a real candidate would be silently
+        # dropped as empty/ignored. Recover from the raw bytes we cached above.
+        if not _has_parsed_email_fields(payload, None):
+            # Layer 1 — broken multipart/form-data: Werkzeug found no parts
+            # (most often a body/header boundary mismatch). Re-parse tolerantly,
+            # sniffing the real boundary out of the body if needed.
+            if raw_body and 'multipart/form-data' in ct_lower:
                 try:
-                    raw_mime = request.get_data(as_text=True)
-                except Exception:
-                    raw_mime = None
-            if raw_mime:
-                try:
-                    recovered = _parse_raw_mime(raw_mime)
-                    for key, value in recovered.items():
-                        if not value:
-                            continue
-                        if key == 'attachments':
-                            # Replace a SendGrid count (e.g. '0') with the
-                            # recovered list; keep an already-usable list.
-                            if not _has_usable_attachments(payload.get(key)):
-                                payload[key] = value
-                        elif not str(payload.get(key) or '').strip():
-                            payload[key] = value
-                    logger.warning(
-                        "📧 Raw-MIME fallback engaged: recovered from=%r "
-                        "subject=%r has_attachments=%s",
-                        (payload.get('from') or '')[:80],
-                        (payload.get('subject') or '')[:80],
-                        'attachments' in payload,
+                    _merge_recovered(
+                        payload, _parse_multipart_tolerant(raw_body, content_type)
                     )
                 except Exception as e:
-                    logger.error(f"📧 Raw-MIME fallback failed: {e}")
+                    logger.error(f"📧 Tolerant multipart parse failed: {e}")
+
+            # Layer 2 — raw, full MIME message (Inbound Parse "POST raw MIME"
+            # mode posts it as the 'email' field; a non-form body posts it as
+            # the request body itself).
+            if not _has_parsed_email_fields(payload, None):
+                raw_mime = payload.get('email')
+                if (not raw_mime and raw_body and
+                        'multipart/form-data' not in ct_lower and
+                        'x-www-form-urlencoded' not in ct_lower):
+                    try:
+                        raw_mime = raw_body.decode('utf-8', 'replace')
+                    except Exception:
+                        raw_mime = None
+                if raw_mime:
+                    try:
+                        _merge_recovered(payload, _parse_raw_mime(raw_mime))
+                    except Exception as e:
+                        logger.error(f"📧 Raw-MIME fallback failed: {e}")
+
+            if _has_parsed_email_fields(payload, None):
+                logger.warning(
+                    "📧 Inbound fallback engaged: recovered from=%r subject=%r "
+                    "has_attachments=%s",
+                    (payload.get('from') or '')[:80],
+                    (payload.get('subject') or '')[:80],
+                    _has_usable_attachments(payload.get('attachments')),
+                )
+            else:
+                # Total failure: log a sanitized snippet + the sniffed boundary
+                # so the exact malformation can be pinpointed without guessing.
+                logger.error(
+                    "📧 Inbound recovery FAILED — no usable fields. "
+                    "content_type=%r body_len=%s sniffed_boundary=%r snippet=%r",
+                    content_type, len(raw_body),
+                    _sniff_multipart_boundary(raw_body),
+                    _sanitize_body_snippet(raw_body),
+                )
 
         to_field = payload.get('to', '')
         is_scout_vetting = 'scout-vetting@parse.lyntrix.ai' in to_field.lower()

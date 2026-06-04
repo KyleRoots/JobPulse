@@ -266,5 +266,174 @@ class TestWebhookFallback:
         assert resp.status_code == 200
 
 
+def _build_multipart(boundary, fields, files=None):
+    """Construct a raw multipart/form-data body with a chosen boundary.
+
+    `fields`: dict of name -> str value.
+    `files`: list of (name, filename, content_bytes, content_type).
+    """
+    crlf = b'\r\n'
+    b = boundary.encode('ascii')
+    out = b''
+    for name, value in fields.items():
+        out += b'--' + b + crlf
+        out += (
+            f'Content-Disposition: form-data; name="{name}"'.encode() + crlf + crlf
+        )
+        out += value.encode('utf-8') + crlf
+    for name, filename, content, ctype in (files or []):
+        out += b'--' + b + crlf
+        out += (
+            f'Content-Disposition: form-data; name="{name}"; '
+            f'filename="{filename}"'.encode() + crlf
+        )
+        out += f'Content-Type: {ctype}'.encode() + crlf + crlf
+        out += content + crlf
+    out += b'--' + b + b'--' + crlf
+    return out
+
+
+class TestTolerantMultipart:
+    """Unit coverage for the tolerant multipart parser + boundary sniffing —
+    the core of the Jun 4 incident fix (Werkzeug parsed a present body into
+    zero parts because the body's boundary did not match the declared one)."""
+
+    def test_parses_normal_multipart(self):
+        from routes.email import _parse_multipart_tolerant
+
+        body = _build_multipart(
+            'GoodBoundary123',
+            {'from': 'Kyle <kyle@example.com>', 'subject': 'QA (35115)'},
+            [('attachment1', 'resume.pdf', b'%PDF-1.4 data', 'application/pdf')],
+        )
+        result = _parse_multipart_tolerant(
+            body, 'multipart/form-data; boundary=GoodBoundary123'
+        )
+        assert 'kyle@example.com' in result['from']
+        assert '35115' in result['subject']
+        atts = json.loads(result['attachments'])
+        assert atts[0]['filename'] == 'resume.pdf'
+        assert base64.b64decode(atts[0]['content']) == b'%PDF-1.4 data'
+
+    def test_recovers_when_declared_boundary_mismatches_body(self):
+        """The production failure: Content-Type declares one boundary, the body
+        uses another → sniff the real boundary out of the body and recover."""
+        from routes.email import _parse_multipart_tolerant
+
+        body = _build_multipart(
+            'ACTUAL_xYzZY',
+            {'from': 'Kyle <kyle@example.com>', 'subject': 'QA (35115)'},
+            [('attachment1', 'resume.pdf', b'%PDF-1.4 data', 'application/pdf')],
+        )
+        # Declared boundary is WRONG on purpose.
+        result = _parse_multipart_tolerant(
+            body, 'multipart/form-data; boundary=DECLARED_does_not_match'
+        )
+        assert 'kyle@example.com' in result['from']
+        assert '35115' in result['subject']
+        assert 'attachments' in result
+
+    def test_sniff_boundary(self):
+        from routes.email import _sniff_multipart_boundary
+
+        body = _build_multipart('xYzZY', {'subject': 'hi'})
+        assert _sniff_multipart_boundary(body) == 'xYzZY'
+
+    def test_sniff_boundary_empty_body(self):
+        from routes.email import _sniff_multipart_boundary
+        assert _sniff_multipart_boundary(b'') is None
+
+    def test_sanitize_snippet_strips_binary(self):
+        from routes.email import _sanitize_body_snippet
+        snippet = _sanitize_body_snippet(b'--bound\r\nName: x\x00\x01\xff binary')
+        assert '--bound' in snippet
+        assert '\x00' not in snippet
+
+
+class TestWebhookBoundaryMismatch:
+    """End-to-end regression for the live incident: a real multipart body whose
+    boundary does not match the declared Content-Type boundary. Werkzeug's
+    strict parser yields zero parts (the bug); the webhook must still recover
+    the candidate via the tolerant path."""
+
+    def test_boundary_mismatch_is_recovered(self, client, monkeypatch):
+        captured = {}
+
+        def _fake_process(app_ref, payload, is_scout_vetting=False):
+            captured['payload'] = payload
+
+        monkeypatch.setattr('routes.email._process_email_in_background', _fake_process)
+
+        body = _build_multipart(
+            'ACTUAL_xYzZY',
+            {
+                'from': 'Kyle Roots <kyle@example.com>',
+                'to': 'apply@myticas.com',
+                'subject': 'Senior QA Lead (35115) - Kyle Roots has applied',
+                'text': 'resume attached',
+            },
+            [('attachment1', 'resume.pdf', b'%PDF-1.4 data', 'application/pdf')],
+        )
+
+        resp = client.post(
+            '/api/email/inbound',
+            data=body,
+            content_type='multipart/form-data; boundary=DECLARED_does_not_match',
+        )
+        assert resp.status_code == 200
+
+        import time
+        for _ in range(50):
+            if 'payload' in captured:
+                break
+            time.sleep(0.01)
+
+        assert 'payload' in captured, "background processor never invoked"
+        payload = captured['payload']
+        assert 'kyle@example.com' in payload['from']
+        assert '35115' in payload['subject']
+        assert 'attachments' in payload
+        atts = json.loads(payload['attachments'])
+        assert atts[0]['filename'] == 'resume.pdf'
+
+    def test_normal_multipart_with_matching_boundary_still_works(self, client, monkeypatch):
+        """A well-formed multipart body (boundary matches) must parse via the
+        Werkzeug primary path, untouched by the recovery layers."""
+        captured = {}
+
+        def _fake_process(app_ref, payload, is_scout_vetting=False):
+            captured['payload'] = payload
+
+        monkeypatch.setattr('routes.email._process_email_in_background', _fake_process)
+
+        body = _build_multipart(
+            'Matching123',
+            {
+                'from': 'recruiter@partner.com',
+                'to': 'apply@myticas.com',
+                'subject': 'Real candidate',
+                'text': 'see resume',
+            },
+        )
+        resp = client.post(
+            '/api/email/inbound',
+            data=body,
+            content_type='multipart/form-data; boundary=Matching123',
+        )
+        assert resp.status_code == 200
+
+        import time
+        for _ in range(50):
+            if 'payload' in captured:
+                break
+            time.sleep(0.01)
+
+        assert 'payload' in captured
+        payload = captured['payload']
+        assert payload['from'] == 'recruiter@partner.com'
+        assert payload['subject'] == 'Real candidate'
+        assert 'attachments' not in payload
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
