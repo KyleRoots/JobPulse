@@ -53,7 +53,7 @@ localPort = 5904
 externalPort = 3000
 
 [agent]
-integrations = ["python_openai:1.0.0", "onedrive:1.0.0"]
+integrations = ["python_openai:1.0.0", "onedrive:1.0.0", "outlook:1.0.0"]
 
 [postMerge]
 scriptPath = "scripts/post-merge.sh"
