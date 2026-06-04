@@ -222,9 +222,14 @@ class GraphMailService:
         fetching raw bytes individually when contentBytes is absent."""
         out: List[Dict] = []
         try:
+            # NOTE: do NOT use $select here. `contentBytes` exists only on the
+            # fileAttachment derived type, not the base attachment type, so
+            # selecting it on the polymorphic /attachments collection returns
+            # 400 Bad Request. Listing without $select returns the full
+            # attachment (incl. contentBytes for file attachments under the
+            # inline-size limit); larger ones fall through to the $value fetch.
             data = self._get_json(
                 f"/me/messages/{message_id}/attachments",
-                params={"$select": "id,name,contentType,size,contentBytes"},
             )
         except Exception as e:  # noqa: BLE001
             logger.error(
