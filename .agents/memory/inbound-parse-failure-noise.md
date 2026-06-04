@@ -28,3 +28,19 @@ BOTH a real sender and a real subject (some signal it might be real). The
 gate uses sender-OR-subject-blank intentionally, so blank-either alone is
 treated as noise. Post-deploy, watch `status='ignored'` volume vs alert
 volume to confirm no real-candidate loss before tightening further.
+
+## Empty-POST flood at the public ingress (verified Jun 2026, prod)
+Root cause of the noise: the public, unauthenticated webhook `/api/email/inbound`
+accepts and PERSISTS a `ParsedEmail` row for EVERY POST (always returns 200,
+spawns a bg thread), including totally-empty payloads (no sender, no recipient,
+no subject, NULL `message_id`, no attachment, source defaults to 'Other'). Prod
+saw ~400-450 such empty POSTs/day as a steady around-the-clock drip — likely a
+bot/scanner probing the public URL, an uptime monitor, or a misconfigured
+SendGrid route. The `status='ignored'` gate is only a DOWNSTREAM band-aid; it
+still creates a DB row and burns a thread per hit and clutters the
+`/email-parsing` Processed Emails view. **Verified safe:** of 916 ignored rows
+in 72h, ZERO had a resume / candidate email / phone / Bullhorn id — no real
+candidate was ever ignored. Real root-cause options: (a) early-reject empty
+payloads at ingress before persisting, (b) actually enforce SendGrid signature
+verification (the code comments claim it but it isn't implemented), (c) UI:
+hide `ignored` from the default Processed Emails view.
