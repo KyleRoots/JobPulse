@@ -435,5 +435,102 @@ class TestWebhookBoundaryMismatch:
         assert 'attachments' not in payload
 
 
+class _ShortReadStream:
+    """A stream that returns at most `chunk` bytes per read() call — mimics the
+    gunicorn/Werkzeug short read that truncated large inbound bodies to ~4 KB
+    (the real Jun 4 root cause: candidate created without résumé, or 'None None'
+    ignored, depending on how far the partial read reached)."""
+
+    def __init__(self, data, chunk=4096):
+        self._data = data
+        self._pos = 0
+        self._chunk = chunk
+
+    def read(self, size=-1):
+        if self._pos >= len(self._data):
+            return b''
+        if size is None or size < 0:
+            size = len(self._data) - self._pos
+        n = min(size, self._chunk, len(self._data) - self._pos)
+        out = self._data[self._pos:self._pos + n]
+        self._pos += n
+        return out
+
+
+class _FakeReq:
+    def __init__(self, data, chunk=4096, content_length=None):
+        self.content_length = len(data) if content_length is None else content_length
+        self.stream = _ShortReadStream(data, chunk)
+
+
+class TestFullBodyRead:
+    """Core of the Jun 4 fix: a single read() short-returns ~4 KB while the body
+    is still buffering, truncating large multipart uploads. _read_full_request_body
+    must loop until the entire content_length is assembled."""
+
+    def test_assembles_full_body_past_short_reads(self):
+        from routes.email import _read_full_request_body
+        big = b'A' * 143517  # ~the real production body size
+        req = _FakeReq(big, chunk=4096)
+        result = _read_full_request_body(req)
+        assert len(result) == len(big)
+        assert result == big
+
+    def test_full_multipart_with_attachment_survives_short_reads(self):
+        """The end-to-end shape: a multipart body whose résumé attachment sits
+        past the first 4 KB must come through whole, so the attachment parses."""
+        from routes.email import _read_full_request_body, _parse_multipart_tolerant
+        body = _build_multipart(
+            'xYzZY',
+            {
+                'from': 'Kyle Roots <kyle@example.com>',
+                'subject': 'Senior QA Lead (35115) - Kyle Roots has applied',
+            },
+            [('attachment1', 'resume.pdf', b'%PDF-1.4 ' + b'R' * 50000,
+              'application/pdf')],
+        )
+        req = _FakeReq(body, chunk=4096)
+        assembled = _read_full_request_body(req)
+        assert assembled == body
+        result = _parse_multipart_tolerant(
+            assembled, 'multipart/form-data; boundary=xYzZY'
+        )
+        assert '35115' in result['subject']
+        atts = json.loads(result['attachments'])
+        assert atts[0]['filename'] == 'resume.pdf'
+        assert base64.b64decode(atts[0]['content']) == b'%PDF-1.4 ' + b'R' * 50000
+
+    def test_handles_missing_content_length_reads_to_eof(self):
+        from routes.email import _read_full_request_body
+        data = b'hello world ' * 5000
+        req = _FakeReq(data, chunk=512, content_length=0)
+        assert _read_full_request_body(req) == data
+
+    def test_stream_access_failure_is_fail_soft(self):
+        from routes.email import _read_full_request_body
+
+        class _BadReq:
+            content_length = 100
+
+            @property
+            def stream(self):
+                raise RuntimeError("no stream")
+
+        assert _read_full_request_body(_BadReq()) == b''
+
+    def test_read_error_is_fail_soft(self):
+        from routes.email import _read_full_request_body
+
+        class _ErrStream:
+            def read(self, size=-1):
+                raise IOError("boom")
+
+        class _R:
+            content_length = 100
+            stream = _ErrStream()
+
+        assert _read_full_request_body(_R()) == b''
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

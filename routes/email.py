@@ -326,6 +326,42 @@ def _sanitize_body_snippet(raw_bytes, limit=700):
     )
 
 
+def _read_full_request_body(req):
+    """Read the ENTIRE request body, looping past short reads.
+
+    Werkzeug/gunicorn can return a partial first chunk (~4 KB) from a single
+    read() when the body has not fully buffered yet, silently truncating large
+    multipart uploads. That truncation is the real cause of the inbound failure
+    mode: a body cut off before the résumé attachment yields a candidate with no
+    file, and one cut off before the sender/subject yields a 'None None' ignore.
+    Loop on the input stream until we have read content_length bytes (or EOF)."""
+    expected = req.content_length or 0
+    try:
+        stream = req.stream
+    except Exception as e:
+        logger.error(f"📧 Could not access request stream: {e}")
+        return b''
+    chunks = []
+    total = 0
+    while True:
+        to_read = 65536
+        if expected:
+            remaining = expected - total
+            if remaining <= 0:
+                break
+            to_read = min(to_read, remaining)
+        try:
+            chunk = stream.read(to_read)
+        except Exception as e:
+            logger.error(f"📧 Error reading request body chunk: {e}")
+            break
+        if not chunk:
+            break
+        chunks.append(chunk)
+        total += len(chunk)
+    return b''.join(chunks)
+
+
 @email_bp.route('/api/email/inbound', methods=['GET', 'POST'])
 @csrf.exempt
 def email_inbound_webhook():
@@ -356,16 +392,13 @@ def email_inbound_webhook():
         content_length = request.content_length
         ct_lower = content_type.lower()
 
-        # Read the raw body ONCE, up front, before form access consumes the
-        # stream. This is the linchpin of the recovery: if Werkzeug's strict
-        # multipart parser extracts nothing from an otherwise-present body
-        # (the failure mode that silently drops real candidates), we still
-        # hold the original bytes and can recover from them.
-        raw_body = b''
-        try:
-            raw_body = request.get_data(cache=True, parse_form_data=False) or b''
-        except Exception as e:
-            logger.error(f"📧 Failed to read raw request body: {e}")
+        # Read the FULL body in a loop, up front, before form access consumes
+        # the stream. A single read() short-returns ~4 KB while the body is
+        # still buffering, which truncates large multipart uploads and silently
+        # drops résumé attachments / produces 'None None' ignores. Looping until
+        # content_length guarantees the whole message reaches the parser, and
+        # holding the raw bytes also feeds the fail-soft recovery layers below.
+        raw_body = _read_full_request_body(request)
 
         # Primary parse: Werkzeug, run against the cached raw bytes (so request
         # stream state is irrelevant). Handles the well-formed multipart and
@@ -400,6 +433,16 @@ def email_inbound_webhook():
             "body_len=%s form_keys=%s file_keys=%s",
             content_type, content_length, len(raw_body), form_keys, file_keys,
         )
+
+        # If we still came up short after the looping read, the body was cut off
+        # upstream (proxy/ingress) rather than by a short read — flag it loudly
+        # so this distinct, harder failure mode is not mistaken for the old one.
+        if content_length and len(raw_body) < content_length:
+            logger.warning(
+                "📧 Inbound body still short after full read: got %s of %s bytes "
+                "— possible upstream truncation",
+                len(raw_body), content_length,
+            )
 
         # ── Fail-soft recovery ──────────────────────────────────────────────
         # When the primary parse yields nothing usable (no sender/subject/body/

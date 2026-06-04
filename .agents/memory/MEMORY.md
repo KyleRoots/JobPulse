@@ -11,3 +11,4 @@
 - [Scoring cost-cutover eval](scoring-cutover-eval.md) — schema diet + L2 cache layout BOTH fail; gpt-5.4 scoring has ~7pt inherent variance, prompt-cache already ~85%, format micro-opts not worth it.
 - [Screening re-vet redundancy](screening-revet-redundancy.md) — ~28% of scoring calls re-score the same (candidate, job); self-screen cooldown doesn't cover the inbound/auditor/scheduled re-vet paths. Use match→vetting_log to measure (telemetry can't).
 - [Telemetry dollar gap = stale pricing](telemetry-billing-gap.md) — /admin/ai-cost under-reports $ because PRICING rates lag OpenAI (not hidden usage); token counts are accurate. Derive real rates = dash category $ ÷ our token sums.
+- [Inbound body short-read](inbound-body-short-read.md) — webhook body_len≈4096 << content_length = WSGI short read (truncates résumé/None-None), NOT boundary/raw-MIME; fix = loop-read full body.
