@@ -44,3 +44,27 @@ candidate was ever ignored. Real root-cause options: (a) early-reject empty
 payloads at ingress before persisting, (b) actually enforce SendGrid signature
 verification (the code comments claim it but it isn't implemented), (c) UI:
 hide `ignored` from the default Processed Emails view.
+
+## CRITICAL failure mode: SendGrid send_raw=true → silent candidate loss
+**Symptom:** real applications keep landing in the Apply@ Outlook inbox, but
+`/email-parsing` shows ZERO `completed` while empty `ignored` rows keep arriving
+(webhook still up). The webhook reads ONLY SendGrid's *parsed* form fields
+(`from`/`subject`/`to`/`text`/`request.files`) and has **NO raw-MIME fallback**.
+If an email is routed through a SendGrid Inbound Parse hostname whose
+`send_raw=true`, SendGrid posts the full RFC822 message in a single `email`
+field and omits the parsed fields → webhook sees blank sender/subject, no
+attachment → records it as empty `ignored`. The raw content is never stored, so
+**these ARE lost real candidates** (recoverable only by re-forwarding from the
+mailbox; SendGrid does not replay old inbound).
+**Diagnose:** `GET https://api.sendgrid.com/v3/user/webhooks/parse/settings`
+(read-only) lists every parse hostname with its `url` + `send_raw` flag. A
+hostname pointing at our `/api/email/inbound` with `send_raw=true` is ALWAYS a
+bug — the webhook can never use raw MIME. Also confirm the Office365 forwarding
+rule on Apply@myticas.com points to a `send_raw=false` parse hostname
+(parse.myticas.com / parse.lyntrix.ai), NOT a raw one.
+**Fix levers:** (1) flip the offending hostname to `send_raw=false` (config,
+reversible, safe unconditionally); (2) add a raw-MIME fallback in the webhook
+(parse `payload['email']` with stdlib `email` when parsed fields are absent) to
+make intake resilient to this whole class. **Pin the break time** via the
+`Queuing email for background processing: <subject>` log line flipping from real
+subjects to `unknown`, cross-checked with `MAX(created_at) WHERE status='completed'`.
