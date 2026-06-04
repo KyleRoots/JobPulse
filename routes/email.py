@@ -1,3 +1,4 @@
+import base64
 import json
 import logging
 import re
@@ -73,6 +74,132 @@ def _process_email_in_background(app_ref, payload, is_scout_vetting=False):
             logger.error(traceback.format_exc())
 
 
+def _decode_mime_header(value):
+    """Decode an RFC2047-encoded MIME header into a clean unicode string."""
+    if not value:
+        return ''
+    try:
+        from email.header import decode_header, make_header
+        return str(make_header(decode_header(str(value))))
+    except Exception:
+        return str(value)
+
+
+def _has_parsed_email_fields(payload, files=None):
+    """True if the payload already carries usable pre-parsed email fields.
+
+    Used to decide whether the raw-MIME fallback needs to run. We only fall
+    back when SendGrid gave us nothing usable (no sender, no subject, no body,
+    no attachment) so a normal parsed payload is never touched.
+    """
+    if (payload.get('from') or '').strip():
+        return True
+    if (payload.get('subject') or '').strip():
+        return True
+    if (payload.get('text') or '').strip() or (payload.get('html') or '').strip():
+        return True
+    if files and len(files) > 0:
+        return True
+    # 'attachments' is a COUNT/metadata field in SendGrid payloads (e.g. '0'),
+    # so its mere presence is NOT a usable signal — only a parseable non-empty
+    # list or a positive count counts. Otherwise an empty email with
+    # attachments='0' would wrongly suppress the raw-MIME fallback.
+    atts = payload.get('attachments')
+    if atts:
+        try:
+            parsed = json.loads(atts)
+            if isinstance(parsed, list) and len(parsed) > 0:
+                return True
+            if isinstance(parsed, (int, float)) and parsed > 0:
+                return True
+        except Exception:
+            pass
+    if any(f'attachment{i}' in payload for i in range(1, 11)):
+        return True
+    return False
+
+
+def _has_usable_attachments(value):
+    """True only when `value` is a parseable, non-empty JSON attachment list.
+    A SendGrid count field (e.g. '0') is NOT usable and must not block a
+    recovered attachment list during the raw-MIME merge."""
+    if not value:
+        return False
+    try:
+        parsed = json.loads(value)
+        return isinstance(parsed, list) and len(parsed) > 0
+    except Exception:
+        return False
+
+
+def _parse_raw_mime(raw):
+    """Reconstruct the SendGrid-style payload dict from a raw RFC822/MIME message.
+
+    Fail-soft fallback for when SendGrid posts the raw, full MIME message
+    (Inbound Parse "POST raw MIME" mode) instead of pre-parsed form fields —
+    which otherwise leaves from/subject/text/attachments blank and silently
+    drops real candidates. Only the keys we can recover are returned; the
+    attachments key matches the JSON-list shape _extract_attachments expects.
+    """
+    from email.parser import BytesParser, Parser
+    from email import policy
+
+    if isinstance(raw, bytes):
+        msg = BytesParser(policy=policy.default).parsebytes(raw)
+    else:
+        msg = Parser(policy=policy.default).parsestr(str(raw))
+
+    recovered = {}
+    recovered['from'] = _decode_mime_header(msg.get('From', ''))
+    recovered['to'] = _decode_mime_header(msg.get('To', ''))
+    recovered['subject'] = _decode_mime_header(msg.get('Subject', ''))
+    # Preserve a headers blob so downstream Message-ID dedupe keeps working.
+    try:
+        recovered['headers'] = '\n'.join(f"{k}: {v}" for k, v in msg.items())
+    except Exception:
+        recovered['headers'] = ''
+
+    text_parts = []
+    html_parts = []
+    attachments = []
+
+    for part in msg.walk():
+        if part.is_multipart():
+            continue
+        content_type = part.get_content_type()
+        disposition = (part.get_content_disposition() or '')
+        filename = part.get_filename()
+        if disposition == 'attachment' or filename:
+            try:
+                content_bytes = part.get_payload(decode=True) or b''
+            except Exception:
+                content_bytes = b''
+            attachments.append({
+                'filename': _decode_mime_header(filename) or 'attachment',
+                'content': base64.b64encode(content_bytes).decode('ascii'),
+                'type': content_type,
+            })
+        elif content_type == 'text/plain':
+            try:
+                text_parts.append(part.get_content())
+            except Exception:
+                pass
+        elif content_type == 'text/html':
+            try:
+                html_parts.append(part.get_content())
+            except Exception:
+                pass
+
+    if text_parts:
+        recovered['text'] = '\n'.join(text_parts)
+    if html_parts:
+        recovered['html'] = '\n'.join(html_parts)
+    if attachments:
+        recovered['attachments'] = json.dumps(attachments)
+
+    return recovered
+
+
 @email_bp.route('/api/email/inbound', methods=['GET', 'POST'])
 @csrf.exempt
 def email_inbound_webhook():
@@ -98,7 +225,15 @@ def email_inbound_webhook():
     
     try:
         logger.info("📧 Received inbound email webhook")
-        
+
+        form_keys = list(request.form.keys())
+        file_keys = list(request.files.keys())
+        logger.info(
+            "📧 Inbound payload diagnostic: content_type=%s content_length=%s "
+            "form_keys=%s file_keys=%s",
+            request.content_type, request.content_length, form_keys, file_keys,
+        )
+
         payload = request.form.to_dict()
         
         if request.files:
@@ -108,7 +243,45 @@ def email_inbound_webhook():
                     'filename': file.filename,
                     'content_type': file.content_type
                 }
-        
+
+        # ── Raw-MIME fail-soft fallback ─────────────────────────────────────
+        # When SendGrid delivers the raw, full MIME message (Inbound Parse
+        # "POST raw MIME" mode) or any non-parsed body, the pre-parsed form
+        # fields (from/subject/text/attachments) are absent and a real
+        # candidate would be silently dropped as empty/ignored. If nothing
+        # usable was parsed but a raw message is available, reconstruct it.
+        if not _has_parsed_email_fields(payload, request.files):
+            raw_mime = payload.get('email')
+            if not raw_mime and not request.form and not request.files:
+                # Non-form body (raw text/JSON post): the stream was not
+                # consumed by form parsing, so it is still readable here.
+                try:
+                    raw_mime = request.get_data(as_text=True)
+                except Exception:
+                    raw_mime = None
+            if raw_mime:
+                try:
+                    recovered = _parse_raw_mime(raw_mime)
+                    for key, value in recovered.items():
+                        if not value:
+                            continue
+                        if key == 'attachments':
+                            # Replace a SendGrid count (e.g. '0') with the
+                            # recovered list; keep an already-usable list.
+                            if not _has_usable_attachments(payload.get(key)):
+                                payload[key] = value
+                        elif not str(payload.get(key) or '').strip():
+                            payload[key] = value
+                    logger.warning(
+                        "📧 Raw-MIME fallback engaged: recovered from=%r "
+                        "subject=%r has_attachments=%s",
+                        (payload.get('from') or '')[:80],
+                        (payload.get('subject') or '')[:80],
+                        'attachments' in payload,
+                    )
+                except Exception as e:
+                    logger.error(f"📧 Raw-MIME fallback failed: {e}")
+
         to_field = payload.get('to', '')
         is_scout_vetting = 'scout-vetting@parse.lyntrix.ai' in to_field.lower()
         is_scout_support = 'support@scoutgenius.ai' in to_field.lower()
