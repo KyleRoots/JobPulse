@@ -435,6 +435,16 @@ def seed_vetting_config(db, VettingConfig):
             # in [review, high); Clear < review.
             'fraud_review_threshold': '40',
             'fraud_high_risk_threshold': '75',
+            # Mailbox-Pull ingestion (emergency contingency). Master switch for
+            # the Microsoft Graph applicant-mailbox poller that bypasses the
+            # broken SendGrid Inbound Parse webhook. Default OFF — operator
+            # enables via /vetting/settings. DB-backed so it can be toggled in
+            # production without a republish. Batch size = messages per cycle.
+            'mailbox_pull_enabled': 'false',
+            'mailbox_pull_batch_size': '25',
+            # On first enable, anchor the poller this many hours back so it
+            # auto-drains the recent backlog (outage-lost applicants). Cap 720h.
+            'mailbox_pull_backfill_hours': '24',
         }
 
         settings_created = []

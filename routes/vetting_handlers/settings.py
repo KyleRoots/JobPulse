@@ -47,6 +47,15 @@ def vetting_settings():
         'fraud_note_all_bands_enabled': False,
         'fraud_review_threshold': 40,
         'fraud_high_risk_threshold': 75,
+        # Mailbox-Pull ingestion (emergency contingency bypass)
+        'mailbox_pull_enabled': False,
+        'mailbox_pull_batch_size': 25,
+        'mailbox_pull_backfill_hours': 24,
+        # Read-only telemetry (string-displayed in the UI status line)
+        'mailbox_pull_last_run': '',
+        'mailbox_pull_last_count': '',
+        'mailbox_pull_high_water': '',
+        'mailbox_pull_last_error': '',
     }
 
     all_configs = VettingConfig.query.filter(
@@ -61,13 +70,14 @@ def vetting_settings():
                        'screening_audit_enabled', 'recruiter_activity_check_enabled',
                        'scout_vetting_enabled', 'recruiter_decision_skip_enabled',
                        'fraud_detection_enabled', 'fraud_bullhorn_note_enabled',
-                       'fraud_note_all_bands_enabled'):
+                       'fraud_note_all_bands_enabled', 'mailbox_pull_enabled'):
                 settings[key] = value.lower() == 'true'
             elif key in ('match_threshold', 'batch_size',
                          'recruiter_activity_lookback_minutes',
                          'self_screen_cooldown_minutes',
                          'qualified_audit_sample_rate',
-                         'fraud_review_threshold', 'fraud_high_risk_threshold'):
+                         'fraud_review_threshold', 'fraud_high_risk_threshold',
+                         'mailbox_pull_batch_size', 'mailbox_pull_backfill_hours'):
                 try:
                     settings[key] = int(value)
                 except (ValueError, TypeError):
@@ -78,6 +88,8 @@ def vetting_settings():
                         else 60 if key == 'self_screen_cooldown_minutes'
                         else 40 if key == 'fraud_review_threshold'
                         else 75 if key == 'fraud_high_risk_threshold'
+                        else 25 if key == 'mailbox_pull_batch_size'
+                        else 24 if key == 'mailbox_pull_backfill_hours'
                         else 10
                     )
             elif key == 'embedding_similarity_threshold':
@@ -193,6 +205,10 @@ def save_vetting_settings():
         fraud_note_all_bands_enabled = 'fraud_note_all_bands_enabled' in request.form
         fraud_review_raw = request.form.get('fraud_review_threshold', '40')
         fraud_high_risk_raw = request.form.get('fraud_high_risk_threshold', '75')
+        # Mailbox-Pull ingestion (emergency contingency bypass)
+        mailbox_pull_enabled = 'mailbox_pull_enabled' in request.form
+        mailbox_pull_batch_raw = request.form.get('mailbox_pull_batch_size', '25')
+        mailbox_pull_backfill_raw = request.form.get('mailbox_pull_backfill_hours', '24')
         # Quality auditor controls (Task #11 rescope)
         # When the audit toggle is OFF the three fields below are disabled
         # in the UI and won't be submitted. Detect that case so we preserve
@@ -269,6 +285,25 @@ def save_vetting_settings():
             fraud_high_risk = 75
         if fraud_review >= fraud_high_risk:
             fraud_review, fraud_high_risk = 40, 75
+
+        # Validate mailbox-pull batch size (messages processed per cycle;
+        # clamp 1-100 to bound per-cycle Graph/AI work).
+        try:
+            mailbox_pull_batch = int(str(mailbox_pull_batch_raw).strip())
+            if mailbox_pull_batch < 1 or mailbox_pull_batch > 100:
+                mailbox_pull_batch = 25
+        except (ValueError, TypeError):
+            mailbox_pull_batch = 25
+
+        # Backlog look-back window in hours (clamp 0-720 = 30 days). On first
+        # turn-on the poller anchors its high-water this far back to recover
+        # outage-lost applicants.
+        try:
+            mailbox_pull_backfill = int(str(mailbox_pull_backfill_raw).strip())
+            if mailbox_pull_backfill < 0 or mailbox_pull_backfill > 720:
+                mailbox_pull_backfill = 24
+        except (ValueError, TypeError):
+            mailbox_pull_backfill = 24
 
         # Validate qualified_audit_sample_rate (0-100; 0 disables Phase 2).
         # Skipped entirely when fields weren't submitted (audit toggle off).
@@ -347,6 +382,10 @@ def save_vetting_settings():
              'true' if fraud_note_all_bands_enabled else 'false'),
             ('fraud_review_threshold', str(fraud_review)),
             ('fraud_high_risk_threshold', str(fraud_high_risk)),
+            ('mailbox_pull_enabled',
+             'true' if mailbox_pull_enabled else 'false'),
+            ('mailbox_pull_batch_size', str(mailbox_pull_batch)),
+            ('mailbox_pull_backfill_hours', str(mailbox_pull_backfill)),
         ])
         if auditor_fields_submitted:
             settings_to_save.extend([

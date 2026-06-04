@@ -589,6 +589,67 @@
                         </div>
                     </div>
 
+                    <!-- Mailbox-Pull Ingestion (emergency contingency bypass) -->
+                    <div class="mb-4 p-3 border rounded" style="border-color: rgba(255,193,7,0.35) !important;">
+                        <div class="d-flex justify-content-between align-items-center gap-3 mb-2">
+                            <div>
+                                <h6 class="mb-1">
+                                    <i class="fas fa-inbox me-1 text-warning"></i>Mailbox-Pull Applicant Ingestion
+                                </h6>
+                                <small class="text-muted">
+                                    Emergency contingency. Pulls applicant emails directly from the
+                                    <strong>apply@</strong> mailbox via Microsoft Graph and feeds them into
+                                    the existing résumé-parsing pipeline — bypassing the inbound email
+                                    webhook entirely. Duplicate-safe (Message-ID dedupe). When ON, the
+                                    poller checks for new mail every 60 seconds.
+                                </small>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="mailbox_pull_enabled"
+                                       {% if settings.mailbox_pull_enabled %}checked{% endif %}>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="row g-2 mt-1">
+                            <div class="col-md-4">
+                                <label class="form-label small mb-1">Messages per cycle</label>
+                                <input type="number" class="form-control form-control-sm"
+                                       name="mailbox_pull_batch_size" min="1" max="100"
+                                       value="{{ settings.mailbox_pull_batch_size }}">
+                                <small class="text-muted">How many new emails to process each 60s cycle (1–100).</small>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small mb-1">Backlog window (hours)</label>
+                                <input type="number" class="form-control form-control-sm"
+                                       name="mailbox_pull_backfill_hours" min="0" max="720"
+                                       value="{{ settings.mailbox_pull_backfill_hours }}">
+                                <small class="text-muted">On first turn-on, look back this many hours to recover lost applicants (0–720). Set this <em>before</em> enabling.</small>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <small class="text-info">
+                                <i class="fas fa-info-circle me-1"></i>Currently:
+                                {% if settings.mailbox_pull_enabled %}
+                                    <strong class="text-success">ON</strong> — polling the apply@ mailbox.
+                                {% else %}
+                                    <strong class="text-warning">OFF</strong> — poller idle (webhook is primary).
+                                {% endif %}
+                            </small>
+                            {% if settings.mailbox_pull_last_run %}
+                            <br><small class="text-muted">
+                                Last cycle: {{ settings.mailbox_pull_last_run }}
+                                · processed {{ settings.mailbox_pull_last_count or 0 }}
+                                {% if settings.mailbox_pull_high_water %}· high-water {{ settings.mailbox_pull_high_water }}{% endif %}
+                            </small>
+                            {% endif %}
+                            {% if settings.mailbox_pull_last_error %}
+                            <br><small class="text-danger">
+                                <i class="fas fa-exclamation-triangle me-1"></i>Last error: {{ settings.mailbox_pull_last_error }}
+                            </small>
+                            {% endif %}
+                        </div>
+                    </div>
+
                     <!-- Recruiter-Decisioned Full-Skip Gate (May 2026) -->
                     <div class="mb-4 p-3 border rounded" style="border-color: rgba(255,255,255,0.08) !important;">
                         <div class="d-flex justify-content-between align-items-center gap-3 mb-2">

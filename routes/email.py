@@ -913,6 +913,44 @@ def api_clear_stuck_emails():
         return jsonify({'error': str(e)}), 500
 
 
+@email_bp.route('/api/email/mailbox-backfill', methods=['POST'])
+@login_required
+def api_mailbox_backfill():
+    """One-time, bounded backlog recovery from the apply@ mailbox (Microsoft
+    Graph). Processes messages received since `since` (ISO8601 UTC), oldest-first,
+    up to `limit`, through the existing inbound pipeline. Safe to re-run —
+    Message-ID dedupe prevents double-submission to Bullhorn.
+
+    Admin-guarded (blueprint-level). Accepts JSON or form:
+        since: ISO8601 UTC, e.g. '2026-06-04T04:00:00Z' (required)
+        limit: int max messages (default 500, capped 2000)
+    """
+    try:
+        data = request.get_json(silent=True) or request.form
+        since = (data.get('since') or '').strip()
+        if not since:
+            return jsonify({
+                'success': False,
+                'error': "Missing 'since' (ISO8601 UTC, e.g. 2026-06-04T04:00:00Z)"
+            }), 400
+        try:
+            limit = int(data.get('limit', 500))
+        except (ValueError, TypeError):
+            limit = 500
+        limit = max(1, min(limit, 2000))
+
+        from tasks import run_mailbox_backfill
+        app_ref = current_app._get_current_object()
+        logger.info(f"📥 Mailbox backfill requested: since={since} limit={limit}")
+        summary = run_mailbox_backfill(app_ref, since, limit=limit)
+        return jsonify({'success': 'error' not in summary, 'summary': summary})
+    except Exception as e:
+        logger.error(f"Mailbox backfill route error: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @email_bp.route('/api/email/test-parse', methods=['POST'])
 @login_required 
 def api_test_email_parse():

@@ -655,6 +655,37 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
             print(f"❌ SCHEDULER INIT: Failed to register OneDrive sync: {e}", flush=True)
             app.logger.error(f"Failed to register OneDrive sync: {e}")
 
+    # ── Mailbox-Pull Ingestion (every 60 seconds) ────────────────────────────
+    # EMERGENCY CONTINGENCY: pull applicant emails from the apply@ O365 mailbox
+    # via Microsoft Graph and feed them into the existing inbound pipeline,
+    # bypassing the broken SendGrid webhook (load-balancer body truncation).
+    # The job itself checks the `mailbox_pull_enabled` DB flag at runtime, so it
+    # can be turned on/off in production without a republish. Fail-soft.
+    if is_primary_worker:
+        from tasks import run_mailbox_pull_cycle
+
+        def run_mailbox_pull():
+            run_mailbox_pull_cycle(app)
+
+        try:
+            scheduler.add_job(
+                func=run_mailbox_pull,
+                trigger=IntervalTrigger(seconds=60),
+                id='mailbox_pull_ingestion',
+                name='Mailbox-Pull Applicant Ingestion (60 sec)',
+                replace_existing=True,
+                max_instances=1,
+                coalesce=True,
+            )
+            print("✅ SCHEDULER INIT: Mailbox-pull ingestion registered (60 sec)", flush=True)
+            app.logger.info(
+                "📥 Mailbox-pull ingestion poller enabled (60-sec interval, "
+                "gated by mailbox_pull_enabled flag)"
+            )
+        except Exception as e:
+            print(f"❌ SCHEDULER INIT: Failed to register mailbox-pull: {e}", flush=True)
+            app.logger.error(f"Failed to register mailbox-pull ingestion: {e}")
+
     # ── 120-Hour Reference Number Refresh ─────────────────────────────────────
     if is_primary_worker:
         from tasks import reference_number_refresh
