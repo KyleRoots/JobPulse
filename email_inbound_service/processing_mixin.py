@@ -476,3 +476,99 @@ class ProcessingMixin:
                     pass
 
         return result
+
+    def recover_resume_for_existing_candidate(self, sendgrid_payload: Dict,
+                                              candidate_id: int) -> Dict[str, Any]:
+        """Repair an applicant that was ingested WITHOUT their résumé.
+
+        Re-runs only the résumé half of the pipeline against an ALREADY-EXISTING
+        Bullhorn candidate: extract + AI-parse the résumé from the re-fetched
+        email, enrich the candidate's résumé-derived fields (Resume pane / skills
+        / occupation, blank fields only), and attach the résumé file. It does NOT
+        create a candidate and does NOT create a job submission (both already
+        exist from the original run) — so it can never double-submit to Bullhorn.
+
+        Reuses the exact same helpers as ``process_email`` so parsing/mapping
+        stays identical. Returns a result dict; never raises.
+        """
+        result = {
+            'success': False,
+            'candidate_id': candidate_id,
+            'resume_file_id': None,
+            'resume_filename': None,
+            'enriched_fields': [],
+            'message': '',
+        }
+        try:
+            subject = sendgrid_payload.get('subject', '')
+            body_text = sendgrid_payload.get('text', '')
+            body_html = sendgrid_payload.get('html', body_text)
+            body = body_html if body_html else body_text
+            sender = sendgrid_payload.get('from', '')
+
+            source = self.detect_source(sender, subject, body)
+
+            attachments = self._extract_attachments(sendgrid_payload)
+            resume_file = self._select_best_resume(attachments)
+            if not resume_file:
+                result['message'] = 'No résumé attachment found in re-fetched email'
+                return result
+
+            resume_text, formatted_html = self._extract_resume_text(resume_file)
+            if not resume_text:
+                result['message'] = (
+                    f"Could not extract text from resume "
+                    f"'{resume_file['filename']}'"
+                )
+                return result
+
+            resume_data = self.parse_resume_with_ai(resume_text)
+            resume_data['raw_text'] = resume_text
+            resume_data['formatted_html'] = formatted_html
+
+            email_candidate = self.extract_candidate_from_email(subject, body, source)
+
+            from app import get_bullhorn_service
+            bullhorn = get_bullhorn_service()
+
+            bullhorn_data = self.map_to_bullhorn_fields(
+                email_candidate, resume_data, source,
+                email_candidate.get('work_authorization')
+            )
+
+            existing_candidate = bullhorn.get_candidate(candidate_id)
+            enriched_data = self._build_enrichment_update(
+                existing_candidate, bullhorn_data
+            )
+            if enriched_data:
+                bullhorn.update_candidate(candidate_id, enriched_data)
+                result['enriched_fields'] = list(enriched_data.keys())
+                self.logger.info(
+                    f"Résumé recovery: enriched candidate {candidate_id} with "
+                    f"{len(enriched_data)} field(s): {list(enriched_data.keys())}"
+                )
+
+            self.logger.info(
+                f"Résumé recovery: uploading '{resume_file['filename']}' to "
+                f"candidate {candidate_id}"
+            )
+            file_id = bullhorn.upload_candidate_file(
+                candidate_id,
+                resume_file['content'],
+                resume_file['filename'],
+            )
+            result['resume_file_id'] = file_id
+            result['resume_filename'] = resume_file['filename']
+            result['success'] = file_id is not None
+            result['message'] = (
+                'Résumé attached + candidate enriched'
+                if file_id else 'Enriched but résumé file upload failed'
+            )
+            return result
+        except Exception as e:
+            self.logger.error(
+                f"Résumé recovery failed for candidate {candidate_id}: {e}",
+                exc_info=True,
+            )
+            result['message'] = str(e)
+            return result

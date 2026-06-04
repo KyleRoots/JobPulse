@@ -249,3 +249,210 @@ def run_mailbox_backfill(app, since_iso, limit=500):
             return summary
         finally:
             db.session.remove()
+
+
+def _reset_candidate_for_revet(db, candidate_id):
+    """Clear a candidate's existing screening records so the next vetting cycle
+    re-scores them with the now-attached résumé. Mirrors the manual
+    /screening/revet-candidate reset. Returns True if anything was reset."""
+    from models import (
+        ParsedEmail, CandidateVettingLog, CandidateJobMatch,
+        EmbeddingFilterLog, EscalationLog,
+    )
+
+    parsed_emails = ParsedEmail.query.filter(
+        ParsedEmail.bullhorn_candidate_id == candidate_id,
+        ParsedEmail.status == 'completed',
+    ).all()
+    if not parsed_emails:
+        return False
+
+    pe_ids = [pe.id for pe in parsed_emails]
+    vetting_logs = CandidateVettingLog.query.filter(
+        CandidateVettingLog.parsed_email_id.in_(pe_ids)
+    ).all()
+    log_ids = [vl.id for vl in vetting_logs]
+
+    reset_any = False
+    if log_ids:
+        EmbeddingFilterLog.query.filter(
+            EmbeddingFilterLog.vetting_log_id.in_(log_ids)
+        ).delete(synchronize_session=False)
+        EscalationLog.query.filter(
+            EscalationLog.vetting_log_id.in_(log_ids)
+        ).delete(synchronize_session=False)
+        CandidateJobMatch.query.filter(
+            CandidateJobMatch.vetting_log_id.in_(log_ids)
+        ).delete(synchronize_session=False)
+        CandidateVettingLog.query.filter(
+            CandidateVettingLog.id.in_(log_ids)
+        ).delete(synchronize_session=False)
+        reset_any = True
+
+    for pe in parsed_emails:
+        if pe.vetted_at is not None:
+            reset_any = True
+        pe.vetted_at = None
+    return reset_any
+
+
+def run_resume_recovery(app, since_hours=24, limit=50):
+    """Repair applicants that were ingested WITHOUT their résumé.
+
+    Targets completed ParsedEmail rows that have a Bullhorn candidate but no
+    résumé file (``resume_file_id IS NULL``) within the last ``since_hours``. For
+    each, re-fetch the original mailbox message by its internetMessageId,
+    re-extract + AI-parse the résumé, enrich the EXISTING Bullhorn candidate,
+    attach the résumé file, set resume_file_id/resume_filename, and reset the
+    candidate for re-vetting. Triggers one vetting cycle at the end if any
+    candidate was reset.
+
+    Safe + idempotent: it never creates a candidate or job submission, only acts
+    when a résumé is actually found in the mailbox, and once resume_file_id is set
+    a row is skipped — so re-running only retries rows still missing a résumé.
+
+    Returns a summary dict.
+    """
+    summary = {
+        'candidates': 0, 'recovered': 0, 'enriched': 0,
+        'no_resume': 0, 'not_found': 0, 'failed': 0,
+        'reset_for_revet': 0, 'vetting_enqueued': False,
+        'since_hours': since_hours, 'limit': limit, 'details': [],
+    }
+    with app.app_context():
+        from app import db
+        from models import ParsedEmail, VettingConfig
+        from email_inbound_service import EmailInboundService
+
+        lock_held = False
+        try:
+            # Single-flight guard: prevent two concurrent recovery runs from
+            # both selecting the same résumé-less rows and double-uploading.
+            in_progress = (VettingConfig.get_value(
+                'resume_recovery_in_progress', 'false') or 'false').lower() == 'true'
+            if in_progress:
+                summary['error'] = 'Another résumé recovery run is already in progress.'
+                app.logger.warning("🩹 Résumé recovery skipped: already in progress")
+                return summary
+            VettingConfig.set_value('resume_recovery_in_progress', 'true',
+                                    'Résumé recovery run currently executing')
+            lock_held = True
+
+            cutoff = datetime.now(timezone.utc) - timedelta(hours=max(1, int(since_hours)))
+            cutoff_naive = cutoff.replace(tzinfo=None)
+
+            rows = (
+                ParsedEmail.query.filter(
+                    ParsedEmail.status == 'completed',
+                    ParsedEmail.bullhorn_candidate_id.isnot(None),
+                    ParsedEmail.resume_file_id.is_(None),
+                    ParsedEmail.message_id.isnot(None),
+                    ParsedEmail.created_at >= cutoff_naive,
+                )
+                .order_by(ParsedEmail.created_at.asc())
+                .limit(max(1, min(int(limit), 500)))
+                .all()
+            )
+            summary['candidates'] = len(rows)
+            if not rows:
+                app.logger.info("🩹 Résumé recovery: no missing-résumé rows in window")
+                return summary
+
+            from graph_mail_service import GraphMailService
+            service = GraphMailService()
+            svc = EmailInboundService()
+
+            any_reset = False
+            for pe in rows:
+                candidate_id = pe.bullhorn_candidate_id
+                detail = {'parsed_email_id': pe.id, 'candidate_id': candidate_id}
+                try:
+                    msg = service.get_message_by_internet_id(pe.message_id)
+                    if not msg:
+                        summary['not_found'] += 1
+                        detail['outcome'] = 'message_not_found'
+                        summary['details'].append(detail)
+                        continue
+
+                    attachments = []
+                    if msg.get('hasAttachments'):
+                        attachments = service.get_attachments(msg['id'])
+                    payload = service.to_payload(msg, attachments)
+
+                    res = svc.recover_resume_for_existing_candidate(
+                        payload, candidate_id
+                    )
+
+                    if not res.get('success'):
+                        msg_text = res.get('message', '')
+                        if 'No résumé attachment' in msg_text:
+                            summary['no_resume'] += 1
+                            detail['outcome'] = 'no_resume_in_mailbox'
+                        else:
+                            summary['failed'] += 1
+                            detail['outcome'] = f"failed: {msg_text[:120]}"
+                        summary['details'].append(detail)
+                        continue
+
+                    # Persist the attached-résumé marker FIRST and on its own
+                    # commit. The Bullhorn upload already happened, so committing
+                    # resume_file_id immediately ensures a later failure can't
+                    # leave the row NULL and trigger a duplicate re-upload on
+                    # re-run.
+                    pe.resume_file_id = res.get('resume_file_id')
+                    if res.get('resume_filename'):
+                        pe.resume_filename = res['resume_filename']
+                    db.session.commit()
+                    summary['recovered'] += 1
+                    if res.get('enriched_fields'):
+                        summary['enriched'] += 1
+
+                    # Reset for re-vet so the score reflects the real résumé.
+                    if _reset_candidate_for_revet(db, candidate_id):
+                        db.session.commit()
+                        summary['reset_for_revet'] += 1
+                        any_reset = True
+
+                    detail['outcome'] = 'recovered'
+                    detail['resume_filename'] = res.get('resume_filename')
+                    summary['details'].append(detail)
+                    app.logger.info(
+                        f"🩹 Résumé recovery: candidate {candidate_id} "
+                        f"(ParsedEmail {pe.id}) recovered — "
+                        f"{res.get('resume_filename')}"
+                    )
+                except Exception as e:  # noqa: BLE001
+                    db.session.rollback()
+                    summary['failed'] += 1
+                    detail['outcome'] = f"exception: {str(e)[:120]}"
+                    summary['details'].append(detail)
+                    app.logger.error(
+                        f"🩹 Résumé recovery error on ParsedEmail {pe.id} "
+                        f"(candidate {candidate_id}): {e}", exc_info=True
+                    )
+
+            if any_reset:
+                try:
+                    from utils.screening_dispatch import enqueue_vetting_now
+                    enq = enqueue_vetting_now(reason='resume_recovery')
+                    summary['vetting_enqueued'] = bool(enq.get('enqueued'))
+                except Exception as e:  # noqa: BLE001
+                    app.logger.warning(
+                        f"🩹 Résumé recovery: could not enqueue re-vet cycle: {e}"
+                    )
+
+            app.logger.info(f"🩹 Résumé recovery complete: {summary}")
+            return summary
+        except Exception as e:  # noqa: BLE001
+            app.logger.error(f"🩹 Résumé recovery fatal error: {e}", exc_info=True)
+            summary['error'] = str(e)
+            return summary
+        finally:
+            if lock_held:
+                try:
+                    VettingConfig.set_value('resume_recovery_in_progress', 'false',
+                                            'Résumé recovery run finished')
+                except Exception as e:  # noqa: BLE001
+                    app.logger.error(
+                        f"🩹 Résumé recovery: failed to release lock: {e}")
+            db.session.remove()

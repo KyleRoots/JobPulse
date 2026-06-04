@@ -26,7 +26,11 @@ from .bullhorn_maintenance import (
     enforce_tearsheet_jobs_public,
 )
 from .owner_reassignment import reassign_api_user_candidates, run_owner_reassignment_daily
-from .mailbox_pull import run_mailbox_pull_cycle, run_mailbox_backfill
+from .mailbox_pull import (
+    run_mailbox_pull_cycle,
+    run_mailbox_backfill,
+    run_resume_recovery,
+)
 
 __all__ = [
     "check_monitor_health",
@@ -50,4 +54,5 @@ __all__ = [
     "run_owner_reassignment_daily",
     "run_mailbox_pull_cycle",
     "run_mailbox_backfill",
+    "run_resume_recovery",
 ]

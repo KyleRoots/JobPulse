@@ -1046,6 +1046,24 @@
                         </select>
                     </div>
                 </form>
+                <form id="recoverResumesForm" action="{{ url_for('vetting.recover_missing_resumes') }}" method="POST" class="d-inline m-0">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="hours" id="recoverResumesHours" value="72">
+                    <input type="hidden" name="limit" value="100">
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-sm screening-action-btn"
+                            style="border-radius: 0.25rem 0 0 0.25rem;" onclick="confirmRecoverResumes()">
+                            <i class="fas fa-file-medical me-1"></i>Recover Missing Résumés
+                        </button>
+                        <select id="recoverResumesHoursSelect" class="form-select form-select-sm screening-time-select"
+                            onchange="document.getElementById('recoverResumesHours').value = this.value;">
+                            <option value="24">24h</option>
+                            <option value="48">48h</option>
+                            <option value="72" selected>72h</option>
+                            <option value="168">7d</option>
+                        </select>
+                    </div>
+                </form>
             </div>
         </div>
         <div class="collapse show" id="vettingAuditPanel">
@@ -1492,6 +1510,21 @@
                         document.getElementById('rescreenForm').submit();
                     }
                 });
+        }
+
+        function confirmRecoverResumes() {
+            const sel = document.getElementById('recoverResumesHoursSelect');
+            const hours = sel.value;
+            const label = sel.options[sel.selectedIndex].text;
+            const msg = 'Recover missing résumés from the last ' + label + ':\n\n' +
+                'For applicants ingested WITHOUT a résumé, this re-fetches their original ' +
+                'email from the mailbox, attaches the résumé to the EXISTING Bullhorn ' +
+                'candidate, and re-vets them.\n\n' +
+                'It never creates duplicate candidates or submissions, and skips anyone ' +
+                'who already has a résumé.\n\nProceed?';
+            if (confirm(msg)) {
+                document.getElementById('recoverResumesForm').submit();
+            }
         }
 
         // Vetting filter card click handling

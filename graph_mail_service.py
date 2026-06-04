@@ -216,6 +216,47 @@ class GraphMailService:
             data = self._get_json("/me/mailFolders/inbox/messages", params=params)
         return data.get("value", []) or [], data.get("@odata.nextLink")
 
+    def get_message_by_internet_id(self, internet_message_id: str) -> Optional[Dict]:
+        """Re-fetch a single message by its RFC 5322 Message-ID (Graph
+        ``internetMessageId``), searching the whole mailbox.
+
+        Used by the résumé-recovery tool to retrieve a message whose attachments
+        failed to ingest the first time, independent of the live poller's
+        high-water cursor (the message may already sit below it).
+
+        Accepts either the raw ``<...@...>`` Message-ID OR the ``graph-id-<id>``
+        fallback the adapter emits for messages that lack an internetMessageId;
+        the latter is fetched directly by Graph item id. Returns the message dict
+        (same shape as ``list_messages``) or None if not found.
+        """
+        if not internet_message_id:
+            return None
+        try:
+            if internet_message_id.startswith("graph-id-"):
+                graph_id = internet_message_id[len("graph-id-"):]
+                if not graph_id:
+                    return None
+                return self._get_json(
+                    f"/me/messages/{graph_id}",
+                    params={"$select": _MESSAGE_SELECT},
+                )
+            # OData string literal: single quotes are escaped by doubling.
+            safe = internet_message_id.replace("'", "''")
+            params = {
+                "$select": _MESSAGE_SELECT,
+                "$filter": f"internetMessageId eq '{safe}'",
+                "$top": "1",
+            }
+            data = self._get_json("/me/messages", params=params)
+            items = data.get("value", []) or []
+            return items[0] if items else None
+        except Exception as e:  # noqa: BLE001
+            logger.error(
+                f"GraphMail: get_message_by_internet_id failed for "
+                f"{internet_message_id[:60]!r}: {e}"
+            )
+            return None
+
     def get_attachments(self, message_id: str) -> List[Dict]:
         """Fetch file attachments for a message as
         [{filename, content_b64, content_type}]. Handles large attachments by

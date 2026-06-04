@@ -420,6 +420,64 @@ def revet_candidate(candidate_id):
     return redirect(url_for('vetting.vetting_settings'))
 
 
+@vetting_bp.route('/screening/recover-missing-resumes', methods=['POST'])
+@login_required
+def recover_missing_resumes():
+    """Repair applicants ingested WITHOUT their résumé (Graph attachment bug).
+
+    Re-fetches each affected applicant's original email from the mailbox,
+    re-parses + attaches the résumé to the EXISTING Bullhorn candidate, enriches
+    the résumé-derived fields, and resets them for re-vetting. Never creates
+    candidates or job submissions, and skips rows that already have a résumé —
+    so it is safe to run repeatedly.
+    """
+    try:
+        try:
+            hours = int(request.form.get('hours', 24))
+        except (ValueError, TypeError):
+            hours = 24
+        hours = max(1, min(hours, 168))
+
+        try:
+            limit = int(request.form.get('limit', 50))
+        except (ValueError, TypeError):
+            limit = 50
+        limit = max(1, min(limit, 500))
+
+        from tasks import run_resume_recovery
+        app_ref = current_app._get_current_object()
+        current_app.logger.info(
+            f"🩹 Résumé recovery requested: hours={hours}, limit={limit}"
+        )
+        summary = run_resume_recovery(app_ref, since_hours=hours, limit=limit)
+
+        if summary.get('error'):
+            flash(f"Résumé recovery error: {summary['error']}", 'error')
+        elif summary.get('candidates', 0) == 0:
+            flash(
+                f'No applicants missing a résumé found in the last {hours}h.',
+                'info',
+            )
+        else:
+            enq = (' Re-vetting started in the background.'
+                   if summary.get('vetting_enqueued') else
+                   ' Re-vetting will run on the next scheduled cycle.')
+            flash(
+                f"Résumé recovery: recovered {summary.get('recovered', 0)} of "
+                f"{summary.get('candidates', 0)} applicant(s) "
+                f"(enriched {summary.get('enriched', 0)}, "
+                f"no résumé in mailbox {summary.get('no_resume', 0)}, "
+                f"message not found {summary.get('not_found', 0)}, "
+                f"failed {summary.get('failed', 0)}).{enq}",
+                'success' if summary.get('recovered', 0) else 'warning',
+            )
+    except Exception as e:
+        current_app.logger.error(f"Error during résumé recovery: {str(e)}")
+        flash(f'Error during résumé recovery: {str(e)}', 'error')
+
+    return redirect(url_for('vetting.vetting_settings'))
+
+
 @vetting_bp.route('/screening/process-backlog', methods=['POST'])
 @login_required
 def process_backlog():
