@@ -224,7 +224,7 @@ class GraphMailService:
         try:
             data = self._get_json(
                 f"/me/messages/{message_id}/attachments",
-                params={"$select": "id,name,contentType,size,contentBytes,@odata.type"},
+                params={"$select": "id,name,contentType,size,contentBytes"},
             )
         except Exception as e:  # noqa: BLE001
             logger.error(

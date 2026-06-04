@@ -43,3 +43,7 @@ submissions with one mechanism, and reuses all existing AI résumé parsing.
   many messages share the boundary second.
 - All DB-backed flags live in VettingConfig (toggle in prod WITHOUT republish):
   `mailbox_pull_enabled`, `mailbox_pull_batch_size`, `mailbox_pull_backfill_hours`.
+
+## Graph /attachments $select gotcha (2026-06-04 prod incident)
+- `GET /me/messages/{id}/attachments?$select=...,@odata.type` → **400 Bad Request**. `@odata.type` is an instance annotation, NOT a selectable property; Graph returns it automatically regardless. Never put it in `$select`. Use `$select=id,name,contentType,size,contentBytes` and still read `att["@odata.type"]` from the response.
+- **Why it mattered**: the 400 was caught fail-soft (returned []), so applicants still ingested but WITHOUT their résumé attachment — silent quality loss. Burned message_ids (dedupe blocks reprocessing), so recovery isn't a simple re-pull: candidates already exist in Bullhorn (dup risk) and ParsedEmail rows already committed.
