@@ -961,7 +961,7 @@
 
 <!-- Vetting Audit Dashboard -->
 <div class="card settings-card mt-4">
-        <div class="card-header bg-transparent border-bottom border-secondary d-flex justify-content-between align-items-center"
+        <div class="card-header bg-transparent border-bottom border-secondary d-flex justify-content-between align-items-center flex-wrap gap-2"
             style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#vettingAuditPanel" aria-expanded="true">
             <h5 class="mb-0 d-flex align-items-center">
                 <i class="fas fa-chart-bar me-2"></i>Vetting Audit Dashboard
@@ -1019,7 +1019,7 @@
                     color: #fff;
                 }
             </style>
-            <div class="d-flex align-items-center gap-3" onclick="event.stopPropagation();">
+            <div class="d-flex align-items-center flex-wrap gap-2" onclick="event.stopPropagation();">
                 <form action="{{ url_for('vetting.start_fresh') }}" method="POST" class="d-inline m-0">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-sm screening-action-btn"
