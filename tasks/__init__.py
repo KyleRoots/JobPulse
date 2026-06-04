@@ -30,6 +30,7 @@ from .mailbox_pull import (
     run_mailbox_pull_cycle,
     run_mailbox_backfill,
     run_resume_recovery,
+    run_resume_recovery_sweep,
 )
 
 __all__ = [
@@ -55,4 +56,5 @@ __all__ = [
     "run_mailbox_pull_cycle",
     "run_mailbox_backfill",
     "run_resume_recovery",
+    "run_resume_recovery_sweep",
 ]

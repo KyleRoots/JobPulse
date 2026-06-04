@@ -456,3 +456,51 @@ def run_resume_recovery(app, since_hours=24, limit=50):
                     app.logger.error(
                         f"🩹 Résumé recovery: failed to release lock: {e}")
             db.session.remove()
+
+
+def run_resume_recovery_sweep(app):
+    """Scheduled auto-heal pass for applicants ingested without their résumé.
+
+    Thin wrapper around :func:`run_resume_recovery` for unattended scheduler use.
+    Unlike the operator-triggered button (which uses a wide, user-chosen window
+    for deliberate incident recovery), this sweep uses a SHORT rolling window so
+    it heals fresh post-commit failures automatically without endlessly
+    re-fetching permanently-unrecoverable rows (e.g. job-board forwards that
+    never carried a résumé) — those simply age out of the window.
+
+    Gated by the ``resume_recovery_sweep_enabled`` DB flag (default ON) so it can
+    be toggled in production without a republish. Window/limit are configurable
+    via ``resume_recovery_sweep_window_hours`` / ``resume_recovery_sweep_limit``.
+    Independent of ``mailbox_pull_enabled`` so it can still heal while steady
+    polling is paused. Fail-soft: never raises.
+    """
+    try:
+        with app.app_context():
+            from models import VettingConfig
+
+            enabled = (VettingConfig.get_value(
+                'resume_recovery_sweep_enabled', 'true') or 'true').lower() == 'true'
+            if not enabled:
+                return
+
+            try:
+                window = int(VettingConfig.get_value(
+                    'resume_recovery_sweep_window_hours', '6') or 6)
+            except (TypeError, ValueError):
+                window = 6
+            window = max(1, min(window, 72))
+
+            try:
+                limit = int(VettingConfig.get_value(
+                    'resume_recovery_sweep_limit', '25') or 25)
+            except (TypeError, ValueError):
+                limit = 25
+            limit = max(1, min(limit, 200))
+
+        summary = run_resume_recovery(app, since_hours=window, limit=limit)
+        # Only log when the sweep actually touched something — keeps the steady
+        # "nothing to do" case quiet.
+        if summary.get('candidates'):
+            app.logger.info(f"🩹 Résumé recovery sweep: {summary}")
+    except Exception as e:  # noqa: BLE001
+        app.logger.error(f"🩹 Résumé recovery sweep error: {e}", exc_info=True)

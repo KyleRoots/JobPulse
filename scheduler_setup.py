@@ -686,6 +686,39 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
             print(f"❌ SCHEDULER INIT: Failed to register mailbox-pull: {e}", flush=True)
             app.logger.error(f"Failed to register mailbox-pull ingestion: {e}")
 
+    # ── Résumé Recovery Sweep (every 30 minutes) ─────────────────────────────
+    # Auto-heals applicants ingested without their résumé (status=completed but
+    # resume_file_id IS NULL) by re-fetching the original mailbox message and
+    # attaching the résumé to the EXISTING Bullhorn candidate. Reuses the same
+    # idempotent, single-flight engine as the operator "Recover Missing Résumés"
+    # button; uses a short rolling window so it never hammers permanently-
+    # unrecoverable rows. Gated by the `resume_recovery_sweep_enabled` DB flag
+    # (default ON) — toggle in production without a republish. Fail-soft.
+    if is_primary_worker:
+        from tasks import run_resume_recovery_sweep
+
+        def run_resume_recovery_sweep_job():
+            run_resume_recovery_sweep(app)
+
+        try:
+            scheduler.add_job(
+                func=run_resume_recovery_sweep_job,
+                trigger=IntervalTrigger(minutes=30),
+                id='resume_recovery_sweep',
+                name='Résumé Recovery Sweep (30 min)',
+                replace_existing=True,
+                max_instances=1,
+                coalesce=True,
+            )
+            print("✅ SCHEDULER INIT: Résumé recovery sweep registered (30 min)", flush=True)
+            app.logger.info(
+                "🩹 Résumé recovery sweep enabled (30-min interval, "
+                "gated by resume_recovery_sweep_enabled flag)"
+            )
+        except Exception as e:
+            print(f"❌ SCHEDULER INIT: Failed to register résumé recovery sweep: {e}", flush=True)
+            app.logger.error(f"Failed to register résumé recovery sweep: {e}")
+
     # ── 120-Hour Reference Number Refresh ─────────────────────────────────────
     if is_primary_worker:
         from tasks import reference_number_refresh

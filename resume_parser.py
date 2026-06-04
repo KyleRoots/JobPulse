@@ -527,6 +527,91 @@ OUTPUT: Return ONLY the formatted HTML, nothing else. No explanation, no markdow
         except Exception:
             return escaped_text
     
+    def _extract_pdf_page_text(self, page) -> str:
+        """Return a single PDF page's text, reading two-column layouts
+        column-by-column instead of line-by-line.
+
+        ``page.get_text("text")`` follows the PDF's internal token order, which
+        on two-column résumés interleaves the left (sidebar) and right (body)
+        columns — shredding skills/contact sidebars into the work history. This
+        helper inspects the page's text blocks; when it confidently detects a
+        two-column layout (a clear left group, a clear right group, and few
+        blocks straddling the centre gutter) it emits the full left column
+        top-to-bottom, then the full right column. For everything else it falls
+        back to the exact same ``get_text("text")`` output, so single-column
+        résumés (the common case) are byte-for-byte unchanged. Lossless: every
+        text block is included.
+        """
+        try:
+            blocks = page.get_text("blocks")
+        except Exception:
+            return page.get_text("text")
+
+        text_blocks = []
+        for b in blocks:
+            if len(b) < 5:
+                continue
+            btype = b[6] if len(b) > 6 else 0  # 0 == text block, 1 == image
+            content = (b[4] or '').strip()
+            if btype == 0 and content:
+                text_blocks.append((b[0], b[1], b[2], b[3], content))
+
+        # Too few blocks to reason about columns — keep default behavior.
+        if len(text_blocks) < 6:
+            return page.get_text("text")
+
+        rect = page.rect
+        mid = rect.x0 + rect.width / 2.0
+        # Central dead-band: a true two-column layout keeps this gutter clear.
+        # Single-column body text is wide and crosses it, so it lands in `span`.
+        gutter = rect.width * 0.04
+        left, right, span = [], [], []
+        for b in text_blocks:
+            x0, x1 = b[0], b[2]
+            if x1 <= mid - gutter:
+                left.append(b)
+            elif x0 >= mid + gutter:
+                right.append(b)
+            else:
+                span.append(b)  # crosses the gutter (full-width text/headers)
+
+        total = len(text_blocks)
+        left_chars = sum(len(b[4]) for b in left)
+        right_chars = sum(len(b[4]) for b in right)
+        col_chars = left_chars + right_chars
+        # Confident two-column ONLY when:
+        #  - both columns have several blocks,
+        #  - very few blocks cross the central gutter (wide single-column body
+        #    text would cross it → high span count rejects it), AND
+        #  - the smaller column still carries a real share of the text mass, so
+        #    a single column with right-aligned dates (tiny right-side mass) is
+        #    rejected and read normally.
+        is_two_col = (
+            len(left) >= 3 and len(right) >= 3
+            and (len(left) + len(right)) >= int(total * 0.6)
+            and len(span) <= max(2, int(total * 0.25))
+            and col_chars > 0
+            and min(left_chars, right_chars) >= 0.20 * col_chars
+        )
+        if not is_two_col:
+            return page.get_text("text")
+
+        ky = lambda b: (round(b[1], 1), b[0])
+        left.sort(key=ky)
+        right.sort(key=ky)
+        # Full-width blocks ABOVE the first column row are real headers (the
+        # name/title banner) and lead. Any full-width block lower on the page
+        # (rare mid/footer divider) trails, so it never jumps above body text.
+        col_top = min(b[1] for b in (left + right))
+        header_span = sorted([b for b in span if b[1] < col_top], key=ky)
+        trailing_span = sorted([b for b in span if b[1] >= col_top], key=ky)
+        ordered = header_span + left + right + trailing_span
+        logger.info(
+            f"📐 Two-column PDF layout detected ({len(left)}L/{len(right)}R/"
+            f"{len(span)}span blocks) — reading column-by-column"
+        )
+        return '\n'.join(b[4] for b in ordered)
+
     def _extract_pdf_with_formatting(self, file_path: str, skip_ai: bool = False) -> tuple:
         """Extract text from PDF with AI-assisted HTML formatting
         
@@ -551,8 +636,9 @@ OUTPUT: Return ONLY the formatted HTML, nothing else. No explanation, no markdow
                     doc = fitz.open(file_path)
                     text_parts = []
                     for page in doc:
-                        # Use get_text with "text" option for best spacing
-                        page_text = page.get_text("text")
+                        # Column-aware extraction: reads two-column layouts
+                        # column-by-column, else falls back to default "text".
+                        page_text = self._extract_pdf_page_text(page)
                         if page_text:
                             text_parts.append(page_text)
                     doc.close()

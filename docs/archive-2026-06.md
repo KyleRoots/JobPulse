@@ -100,3 +100,34 @@ zombie). Two sub-patterns:
 re-extraction for jobs auto-removed in the last N hours, plus a Sentry alert
 for "auto-removal repeat offenders" ≥5 cycles AND a daily diff job that flags
 any tearsheet where Search count > Entity count for >24h (Pattern B detector).
+
+---
+
+## Mailbox-Pull Ingestion + Résumé Recovery (EMERGENCY, 2026-06-04 — RESOLVED)
+
+**Why**: Replit's GCE load balancer truncates inbound POST bodies (≤4096B), so
+the SendGrid Inbound Parse webhook silently lost applicant emails. Fix = PULL
+applicant emails from the `apply@myticas.com` O365 shared mailbox via Microsoft
+Graph into the EXISTING `process_email` pipeline (DB-flag `mailbox_pull_enabled`,
+toggle in `/vetting/settings`, no republish).
+
+**Graph attachment bug — FIXED 2026-06-04**: `get_attachments` used
+`$select=...,contentBytes`, but the attachments collection is polymorphic so
+Graph returned **400** (fail-soft → `[]`), so ~10 applicants (ParsedEmail ids
+11503–11512, since 2026-06-04 07:24:20 UTC) ingested to Bullhorn WITHOUT their
+résumé (status=completed, bullhorn_candidate_id set, resume_file_id/filename
+NULL). Fixed by removing `$select`.
+
+**Résumé Recovery tool**: "Recover Missing Résumés" button on `/vetting/settings`
+(24h/48h/72h/7d selector, default 72h) → re-fetches each affected applicant's
+original email by `internetMessageId`, re-parses + attaches the résumé to the
+**EXISTING** Bullhorn candidate (NEVER creates a candidate/submission), sets
+resume_file_id, then resets them for re-vet + enqueues one cycle. Idempotent:
+skips rows that already have a résumé (`resume_file_id IS NULL` gate), commits the
+résumé marker on its own commit right after upload, and serialized by a
+`resume_recovery_in_progress` single-flight flag.
+
+**Resolution**: republished (Graph `$select` fix + recovery tool), recovery run
+for the incident window, and the recovery logic was later generalized into a
+scheduled auto-recovery sweep (see the 2026-06-04 closing batch) so post-commit
+partial failures self-heal with no human action.
