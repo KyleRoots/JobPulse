@@ -435,14 +435,33 @@ def email_inbound_webhook():
         )
 
         # If we still came up short after the looping read, the body was cut off
-        # upstream (proxy/ingress) rather than by a short read — flag it loudly
-        # so this distinct, harder failure mode is not mistaken for the old one.
+        # before it reached us (load balancer / upstream), NOT by a short read on
+        # our side — flag it loudly so this distinct failure mode is not mistaken
+        # for the old one.
         if content_length and len(raw_body) < content_length:
             logger.warning(
                 "📧 Inbound body still short after full read: got %s of %s bytes "
                 "— possible upstream truncation",
                 len(raw_body), content_length,
             )
+            # The résumé and/or sender fields live in the bytes we never received,
+            # so this email cannot be processed. Returning 200 here would tell
+            # SendGrid the message was handled and the candidate would be lost for
+            # good. Return 503 instead so SendGrid RETRIES delivery — the
+            # truncation is intermittent, so a resend usually arrives intact.
+            logger.error(
+                "📧 Inbound delivery incomplete — requesting SendGrid retry "
+                "(got %s of %s bytes, content_type=%r)",
+                len(raw_body), content_length, content_type,
+            )
+            return jsonify({
+                'success': False,
+                'error': 'incomplete_request_body',
+                'message': ('Request body was truncated in transit; '
+                            'please retry delivery.'),
+                'expected_bytes': content_length,
+                'received_bytes': len(raw_body),
+            }), 503
 
         # ── Fail-soft recovery ──────────────────────────────────────────────
         # When the primary parse yields nothing usable (no sender/subject/body/

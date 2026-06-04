@@ -532,5 +532,84 @@ class TestFullBodyRead:
         assert _read_full_request_body(_R()) == b''
 
 
+class TestTruncatedBodyRequestsRetry:
+    """Option A safety net (Jun 4): when the body arrives truncated/empty relative
+    to its declared content_length — the production load balancer hands the worker
+    fewer bytes than promised — the webhook must return 503 (not 200) so SendGrid
+    RETRIES the delivery instead of the candidate being silently lost."""
+
+    def test_empty_body_returns_503_for_retry(self, client, monkeypatch):
+        called = {'bg': False}
+
+        def _should_not_run(*a, **k):
+            called['bg'] = True
+
+        monkeypatch.setattr('routes.email._process_email_in_background', _should_not_run)
+        # Simulate the load balancer delivering 0 bytes while content_length is set.
+        monkeypatch.setattr('routes.email._read_full_request_body', lambda req: b'')
+
+        body = _build_multipart(
+            'xYzZY',
+            {'from': 'Kyle Roots <kyle@example.com>', 'to': 'apply@myticas.com',
+             'subject': 'Data Architect (35185) - Kyle Roots has applied'},
+            [('attachment1', 'resume.pdf', b'%PDF-1.4 ' + b'R' * 50000,
+              'application/pdf')],
+        )
+        resp = client.post(
+            '/api/email/inbound',
+            data=body,
+            content_type='multipart/form-data; boundary=xYzZY',
+        )
+        assert resp.status_code == 503
+        assert resp.get_json()['error'] == 'incomplete_request_body'
+        assert called['bg'] is False, "must not process a truncated email"
+
+    def test_partial_body_returns_503_for_retry(self, client, monkeypatch):
+        monkeypatch.setattr('routes.email._process_email_in_background',
+                            lambda *a, **k: None)
+        # Deliver only the first ~4 KB of a large multipart body.
+        monkeypatch.setattr('routes.email._read_full_request_body',
+                            lambda req: b'X' * 4096)
+
+        body = _build_multipart(
+            'xYzZY',
+            {'from': 'Kyle Roots <kyle@example.com>', 'to': 'apply@myticas.com',
+             'subject': 'Data Architect (35185) - Kyle Roots has applied'},
+            [('attachment1', 'resume.pdf', b'%PDF-1.4 ' + b'R' * 50000,
+              'application/pdf')],
+        )
+        resp = client.post(
+            '/api/email/inbound',
+            data=body,
+            content_type='multipart/form-data; boundary=xYzZY',
+        )
+        assert resp.status_code == 503
+        payload = resp.get_json()
+        assert payload['received_bytes'] == 4096
+        assert payload['expected_bytes'] > 4096
+
+    def test_complete_body_still_returns_200(self, client, monkeypatch):
+        """The happy path must be untouched: a full body is processed and 200'd,
+        never mistaken for a truncation."""
+        captured = {}
+
+        def _fake_process(app_ref, payload, is_scout_vetting=False):
+            captured['payload'] = payload
+
+        monkeypatch.setattr('routes.email._process_email_in_background', _fake_process)
+
+        body = _build_multipart(
+            'Matching123',
+            {'from': 'recruiter@partner.com', 'to': 'apply@myticas.com',
+             'subject': 'Real candidate', 'text': 'see resume'},
+        )
+        resp = client.post(
+            '/api/email/inbound',
+            data=body,
+            content_type='multipart/form-data; boundary=Matching123',
+        )
+        assert resp.status_code == 200
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
