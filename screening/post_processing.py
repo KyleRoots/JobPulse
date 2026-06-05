@@ -51,10 +51,13 @@ def normalize_response_fields(result, job_id):
 def coerce_scores(result, job_id):
     raw_score = result.get('match_score')
     logger.info(f"📊 Raw GPT score for job {job_id}: {raw_score} (type: {type(raw_score).__name__})")
-    result['match_score'] = int(result.get('match_score', 0))
+    # _safe_float tolerates explicit JSON null and prose strings (mini sometimes
+    # emits these where gpt-5.4 always sent a number); int(None)/int("prose")
+    # would otherwise crash here and zero the score for the whole job.
+    result['match_score'] = int(_safe_float(result.get('match_score', 0), default=0.0))
     raw_tech = result.get('technical_score')
     if raw_tech is not None:
-        result['technical_score'] = int(raw_tech)
+        result['technical_score'] = int(_safe_float(raw_tech, default=result['match_score']))
     else:
         result['technical_score'] = result['match_score']
 
@@ -226,9 +229,16 @@ def enforce_recency_hard_gate(result, job_id):
 
     recency_original_score = result['match_score']
     most_recent_relevant = recency_analysis.get('most_recent_role_relevant', True)
+    if most_recent_relevant is None:
+        most_recent_relevant = True
     second_recent_relevant = recency_analysis.get('second_recent_role_relevant', True)
-    months_since = recency_analysis.get('months_since_relevant_work', 0)
-    ai_penalty = recency_analysis.get('penalty_applied', 0)
+    if second_recent_relevant is None:
+        second_recent_relevant = True
+    # .get(key, 0) returns None when the AI emits an explicit JSON null (the
+    # default only applies to a MISSING key), so coerce: mini sometimes nulls
+    # these where gpt-5.4 always sent numbers, which crashed `months_since > 24`.
+    months_since = int(_safe_float(recency_analysis.get('months_since_relevant_work', 0), default=0.0))
+    ai_penalty = int(_safe_float(recency_analysis.get('penalty_applied', 0), default=0.0))
 
     if most_recent_relevant:
         _justification = str(recency_analysis.get('relevance_justification', '') or '').strip()

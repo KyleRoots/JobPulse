@@ -18,6 +18,29 @@ will crash on mini.
 returns `match_score=0` ("Analysis failed"). These appeared the moment the
 canary went live and were absent before.
 
+**This is whack-a-mole — it recurred after the first fix.** The first pass only
+covered the years gate (`_compute_shortfalls` / `enforce_experience_floor`). The
+SAME `'>' NoneType and int` error kept firing in prod from TWO other sites that
+also read mini numeric fields: (1) `enforce_recency_hard_gate` —
+`months_since_relevant_work` + `penalty_applied`; (2) `coerce_scores` —
+`match_score` / `technical_score` (`int(None)`/`int("prose")`). Beyond the years
+fields, mini also nulls/proses nested recency/gap fields and the top-level
+scores. Hardening `coerce_scores` is the linchpin: once `match_score` is always
+a real int, every downstream `result['match_score'] > N` comparison AND the
+router reads (`mini_score`/`gpt4o_score`/`reverify_score` in
+`candidate_vetting_service/processing.py`) are protected for free.
+
+**The actual trap (durable):** `dict.get(key, default)` returns `None` when the
+key is PRESENT but explicitly `null` in the JSON — the default ONLY applies to a
+MISSING key. So `recency.get('months_since_relevant_work', 0)` returns `None`
+(not 0) when mini emits `"months_since_relevant_work": null`. Never trust a
+`.get(k, 0)` default to protect against null; coerce the result.
+
+**Separate, NOT a coercion bug:** mini also sometimes returns truncated/malformed
+JSON (`AI analysis error: Unterminated string ...`). That's an output-quality
+issue, not None>int. It's caught by the outer handler → escalates to gpt-5.4 via
+the canary safety net, so no candidate is lost; left unfixed on purpose.
+
 **Rule:** Treat ANY AI-provided numeric field as untrusted when a non-gpt-5.4
 model can produce it. Coerce through a tolerant helper (`_safe_float` in
 `screening/post_processing.py`) before arithmetic/comparison.
