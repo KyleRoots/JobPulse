@@ -38,6 +38,7 @@ from models.ats import (
     EmailDeliveryLog,
     ParsedEmail,
     OwnerReassignmentCooldown,
+    ApplyPageVisit,
 )
 from models.health import (
     EnvironmentStatus,
@@ -105,7 +106,7 @@ __all__ = [
     'GlobalSettings', 'EmailParsingConfig', 'SchedulerLock',
     # ats
     'BullhornMonitor', 'BullhornActivity', 'TearsheetJobHistory',
-    'EmailDeliveryLog', 'ParsedEmail', 'OwnerReassignmentCooldown',
+    'EmailDeliveryLog', 'ParsedEmail', 'OwnerReassignmentCooldown', 'ApplyPageVisit',
     # health
     'EnvironmentStatus', 'EnvironmentAlert', 'VettingHealthCheck',
     'LogMonitoringRun', 'LogMonitoringIssue', 'BackupLog', 'OneDriveSyncFolder',

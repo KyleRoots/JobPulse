@@ -1,5 +1,6 @@
 import logging
 import traceback
+import uuid
 from flask import Blueprint, render_template, request, jsonify, abort, make_response
 from extensions import db, csrf
 
@@ -39,11 +40,50 @@ def job_application_form(job_id, job_title):
             template = 'apply.html'
             logger.info(f"Serving Myticas template for domain: {host}")
 
+        # --- Dynamic source attribution: first-touch capture ---------------
+        # The browser referrer (where the candidate clicked Apply) is the only
+        # reliable origin signal — every published apply URL hardcodes
+        # ?source=LinkedIn, so we detect the true channel on OUR side here.
+        # referrer is only available on this GET, so we log it now and carry a
+        # token + the raw referrer/utm through the form to the POST. All writes
+        # are fail-soft and must never break the apply page.
+        referrer = request.referrer or ''
+        utm_source = request.args.get('utm_source', '')
+        visit_token = uuid.uuid4().hex
+        try:
+            from models import ApplyPageVisit
+            from source_attribution import referrer_host, resolve_source
+            visit = ApplyPageVisit(
+                token=visit_token,
+                bullhorn_job_id=str(job_id),
+                job_title=decoded_title[:512] if decoded_title else None,
+                host=host[:255],
+                referrer=referrer or None,
+                referrer_host=(referrer_host(referrer) or None),
+                source_param=(source[:128] if source else None),
+                feed_param=(feed[:64] if feed else None),
+                utm_source=(utm_source[:128] if utm_source else None),
+                utm_medium=(request.args.get('utm_medium', '')[:128] or None),
+                utm_campaign=(request.args.get('utm_campaign', '')[:255] or None),
+                user_agent=((request.user_agent.string or '')[:512] or None),
+                ip_address=(request.headers.get('X-Forwarded-For', request.remote_addr) or '')[:64] or None,
+                resolved_source=(resolve_source(source, referrer, utm_source) or None),
+                completed=False,
+            )
+            db.session.add(visit)
+            db.session.commit()
+        except Exception as touch_err:
+            db.session.rollback()
+            logger.warning(f"ApplyPageVisit first-touch log failed (non-fatal): {touch_err}")
+
         response = make_response(render_template(template,
                              job_id=job_id,
                              job_title=decoded_title,
                              source=source,
-                             feed=feed))
+                             feed=feed,
+                             visit_token=visit_token,
+                             detected_referrer=referrer,
+                             utm_source=utm_source))
 
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         response.headers['Pragma'] = 'no-cache'
@@ -134,7 +174,12 @@ def submit_application():
             'source': request.form.get('source', ''),
             # Internal feed discriminator (e.g. 'pando') used by inbound parser
             # to route Bullhorn candidate ownership to the Pandologic API user.
-            'feed': request.form.get('feed', '')
+            'feed': request.form.get('feed', ''),
+            # Dynamic source attribution: referrer + utm captured at first touch
+            # (GET) and carried back here so the true channel can be resolved.
+            'referrer': request.form.get('detected_referrer', ''),
+            'utm_source': request.form.get('utm_source', ''),
+            'visit_token': request.form.get('visit_token', ''),
         }
 
         required_fields = ['firstName', 'lastName', 'email', 'phone', 'jobId', 'jobTitle']

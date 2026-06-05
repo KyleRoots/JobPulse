@@ -206,3 +206,48 @@ class OwnerReassignmentCooldown(db.Model):
             f'<OwnerReassignmentCooldown candidate={self.candidate_id} '
             f'outcome={self.last_outcome} at={self.last_evaluated_at}>'
         )
+
+
+class ApplyPageVisit(db.Model):
+    """First-touch log for the public apply page (dynamic source attribution).
+
+    One row is written when a candidate lands on the apply form (GET), capturing
+    the browser referrer + URL params so we can infer the TRUE application
+    channel on our side instead of trusting the hardcoded ?source=LinkedIn that
+    every published apply URL carries. The row is updated to completed=True with
+    the resolved source + candidate email when the application is submitted.
+
+    Purely advisory/analytics — every read/write is fail-soft and must never
+    block or alter the public apply flow.
+    """
+    __tablename__ = 'apply_page_visit'
+
+    id = db.Column(db.Integer, primary_key=True)
+    token = db.Column(db.String(36), index=True, nullable=True)  # links GET -> POST
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    completed = db.Column(db.Boolean, default=False)
+
+    bullhorn_job_id = db.Column(db.String(32), nullable=True, index=True)
+    job_title = db.Column(db.String(512), nullable=True)
+    host = db.Column(db.String(255), nullable=True)
+
+    referrer = db.Column(db.Text, nullable=True)
+    referrer_host = db.Column(db.String(255), nullable=True)
+    source_param = db.Column(db.String(128), nullable=True)
+    feed_param = db.Column(db.String(64), nullable=True)
+    utm_source = db.Column(db.String(128), nullable=True)
+    utm_medium = db.Column(db.String(128), nullable=True)
+    utm_campaign = db.Column(db.String(255), nullable=True)
+
+    user_agent = db.Column(db.String(512), nullable=True)
+    ip_address = db.Column(db.String(64), nullable=True)
+
+    resolved_source = db.Column(db.String(64), nullable=True)
+    candidate_email = db.Column(db.String(255), nullable=True)
+
+    def __repr__(self):
+        return (
+            f'<ApplyPageVisit {self.id} job={self.bullhorn_job_id} '
+            f'src={self.resolved_source} completed={self.completed}>'
+        )

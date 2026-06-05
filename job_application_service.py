@@ -78,12 +78,51 @@ class JobApplicationService:
             
             import urllib.parse
             clean_job_title = urllib.parse.unquote(application_data['jobTitle']).replace('+', ' ')
-            source = application_data.get('source', 'Website')
+            raw_source = application_data.get('source', 'Website')
             # Internal feed discriminator (e.g. 'pando') passed through the apply
             # form. Included in the email body so the inbound parser can route
             # Bullhorn candidate ownership to the Pandologic API user.
             feed = application_data.get('feed', '') or ''
-            
+
+            # --- Dynamic source attribution ------------------------------------
+            # Resolve the TRUE channel from the browser referrer captured at first
+            # touch, falling back to utm and the hardcoded ?source= param. When we
+            # get a confident canonical Bullhorn source, stamp it onto the email
+            # subject/body so the existing inbound -> Bullhorn pipeline records the
+            # real channel. Otherwise keep the legacy value untouched. Fail-soft.
+            #
+            # Integrity: prefer the referrer/utm we persisted server-side at the
+            # GET first-touch (looked up by visit_token) over the hidden form
+            # fields, which a client could tamper with. The form values remain a
+            # fallback when the visit row is missing.
+            source = raw_source
+            referrer_in = application_data.get('referrer', '')
+            utm_in = application_data.get('utm_source', '')
+            explicit_in = raw_source
+            try:
+                visit_token = application_data.get('visit_token', '')
+                if visit_token:
+                    from models import ApplyPageVisit
+                    visit_row = ApplyPageVisit.query.filter_by(token=visit_token).first()
+                    if visit_row:
+                        referrer_in = visit_row.referrer or referrer_in
+                        utm_in = visit_row.utm_source or utm_in
+                        explicit_in = visit_row.source_param or explicit_in
+            except Exception as lookup_err:
+                logger.warning(f"ApplyPageVisit attribution lookup failed (non-fatal): {lookup_err}")
+            try:
+                from source_attribution import resolve_source
+                resolved = resolve_source(
+                    explicit_source=explicit_in,
+                    referrer=referrer_in,
+                    utm_source=utm_in,
+                )
+                if resolved:
+                    source = resolved
+            except Exception as src_err:
+                logger.warning(f"Dynamic source resolution failed (non-fatal): {src_err}")
+            application_data['source'] = source
+
             subject = f"{clean_job_title} ({application_data['jobId']}) - {application_data['firstName']} {application_data['lastName']} has applied on {source}"
             
             # Detect if this is an STSI application based on domain
@@ -136,6 +175,11 @@ class JobApplicationService:
             
             if response.status_code == 202:
                 logger.info(f"✅ Job application submitted successfully for {application_data['firstName']} {application_data['lastName']}")
+                self._close_apply_visit(
+                    token=application_data.get('visit_token', ''),
+                    resolved_source=source,
+                    candidate_email=application_data.get('email', ''),
+                )
                 return {
                     'success': True,
                     'message': 'Application submitted successfully'
@@ -154,7 +198,37 @@ class JobApplicationService:
                 'success': False,
                 'error': f'Error submitting application: {str(e)}'
             }
-    
+
+    def _close_apply_visit(self, token: str, resolved_source: str, candidate_email: str):
+        """Mark the first-touch ApplyPageVisit row as completed (fail-soft).
+
+        Links the GET first-touch log to this successful submission via the
+        hidden visit token, stamping the final resolved source + candidate email
+        for attribution analytics. Never raises — attribution must not affect the
+        apply result.
+        """
+        if not token:
+            return
+        from extensions import db
+        try:
+            from datetime import datetime
+            from models import ApplyPageVisit
+            visit = ApplyPageVisit.query.filter_by(token=token).first()
+            if visit:
+                visit.completed = True
+                visit.completed_at = datetime.utcnow()
+                if resolved_source:
+                    visit.resolved_source = resolved_source[:64]
+                if candidate_email:
+                    visit.candidate_email = candidate_email[:255]
+                db.session.commit()
+        except Exception as e:
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+            logger.warning(f"ApplyPageVisit completion update failed (non-fatal): {e}")
+
     def _check_and_clear_suppression(self, email: str):
         if not self.sendgrid_api_key:
             return

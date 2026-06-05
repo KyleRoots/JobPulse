@@ -87,6 +87,19 @@ class ExtractionMixin:
                 if candidate.lower() == known.lower():
                     return known
 
+        # Tolerant fallback: a captured value like "Indeed" or "indeed.com"
+        # (instead of the exact "Indeed Job Board") still maps to a canonical
+        # Bullhorn source. Only honored when it resolves to a known source value,
+        # so generic defaults ("Website", "Direct") still defer to legacy logic.
+        try:
+            from source_attribution import normalize_source_value
+            for candidate in candidates:
+                normalized = normalize_source_value(candidate)
+                if normalized and normalized in self.SOURCE_TO_BULLHORN.values():
+                    return normalized
+        except Exception:
+            pass
+
         return None
 
     def detect_feed(self, body: str) -> str:
