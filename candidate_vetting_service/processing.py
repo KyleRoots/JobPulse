@@ -423,6 +423,25 @@ class CandidateProcessingMixin:
             logger.info(f"🤖 Layer 2 model: {self.model}")
 
             escalation_range = self._get_escalation_range()
+            routing_mode = self._get_screening_routing_mode()
+            reject_threshold = self._get_cheap_first_reject_threshold()
+            # Prestige boost (applied after routing, outside gpt-5.4) is the only
+            # post-routing score raise the router must compensate for, so it must
+            # subtract it from the qualify floor on boost-eligible jobs. Other
+            # movers are safe: remote-location is applied inside the scoring call
+            # (already in mini_score) and the zero-score reverify re-scores with
+            # gpt-5.4. Fetch the boost size once in the main thread.
+            prestige_boost_points = 0
+            try:
+                from screening.prompt_builder import PRESTIGE_BOOST_POINTS
+                prestige_boost_points = PRESTIGE_BOOST_POINTS
+            except Exception:
+                prestige_boost_points = 0
+            if routing_mode != 'off':
+                logger.info(
+                    f"🧭 Cheap-first routing: mode={routing_mode}, "
+                    f"reject<{reject_threshold}%, layer2={self.model}"
+                )
             global_threshold = self.get_threshold()
             prefetched_global_reqs = self._get_global_custom_requirements() or ''
 
@@ -461,12 +480,27 @@ class CandidateProcessingMixin:
 
                     mini_score = analysis.get('match_score', 0)
 
-                    esc_low, esc_high = escalation_range
-                    if esc_low <= mini_score <= esc_high and self.model != 'gpt-5.4':
+                    # Routing decision: legacy two-sided range ('off') vs the
+                    # one-sided cheap-first gate ('canary'/'enforce'). Pass the
+                    # boost-adjusted qualify floor so a candidate is never
+                    # cheap-rejected if they could possibly qualify — even via a
+                    # low job threshold or a prestige boost.
+                    route_job_threshold = job_threshold_cache.get(job_id, global_threshold)
+                    qualify_floor = self._cheap_first_qualify_floor(
+                        route_job_threshold,
+                        bool(job_prestige_boost_cache.get(job_id)),
+                        prestige_boost_points,
+                    )
+                    do_escalate, cheap_gate = self._cheap_first_route(
+                        mini_score, routing_mode, reject_threshold,
+                        escalation_range, self.model, qualify_floor
+                    )
+
+                    if do_escalate:
                         job_title = job.get('title', 'Unknown')
                         logger.info(
                             f"⬆️ Escalating {candidate_name} × {job_title}: "
-                            f"Layer 2 score={mini_score}% (in escalation range)"
+                            f"Layer 2 score={mini_score}% → gpt-5.4"
                         )
                         try:
                             escalated_analysis = self.analyze_candidate_job_match(
@@ -478,13 +512,6 @@ class CandidateProcessingMixin:
 
                             gpt4o_score = escalated_analysis.get('match_score', 0)
 
-                            analysis['_escalation_data'] = {
-                                'mini_score': mini_score,
-                                'gpt4o_score': gpt4o_score,
-                                'job_id': job_id,
-                                'job_title': job_title
-                            }
-
                             analysis = escalated_analysis
                             analysis['_escalation_data'] = {
                                 'mini_score': mini_score,
@@ -493,8 +520,38 @@ class CandidateProcessingMixin:
                                 'job_title': job_title
                             }
 
+                            # Canary: surface any live false-negative the gate
+                            # WOULD have caused (mini rejected, gpt-5.4 qualified).
+                            if cheap_gate and cheap_gate.get('decision') == 'canary_check':
+                                cheap_gate['gpt4o_score'] = gpt4o_score
+                                # Compare against the boost-adjusted floor so the
+                                # monitor counts anyone gpt-5.4 could qualify
+                                # (raw or via prestige boost) as a would-be loss.
+                                cheap_gate['would_have_lost'] = bool(gpt4o_score >= qualify_floor)
+                                if cheap_gate['would_have_lost']:
+                                    logger.warning(
+                                        f"🚨 CANARY false-negative: {candidate_name} × {job_title} "
+                                        f"mini={mini_score} < {reject_threshold}% but gpt-5.4={gpt4o_score} "
+                                        f">= {int(qualify_floor)}% floor — enforce mode WOULD have wrongly rejected"
+                                    )
                         except Exception as esc_e:
                             logger.error(f"Escalation failed for job {job_id}: {str(esc_e)}")
+                            if self._suppress_mini_on_escalation_failure(cheap_gate):
+                                # Cheap-first (canary/enforce): gpt-5.4 is the sole
+                                # qualification authority. Do NOT let the mini
+                                # analysis qualify this candidate — propagate so the
+                                # job is recorded as a failed/zero result (eligible
+                                # for the zero-score gpt-5.4 reverify safety net).
+                                raise
+                            # Legacy 'off' mode: keep the mini analysis (no-op).
+                    elif cheap_gate and cheap_gate.get('decision') == 'reject':
+                        logger.info(
+                            f"💸 Cheap-first reject: {candidate_name} × {job.get('title', 'Unknown')} "
+                            f"mini={mini_score} < {reject_threshold}% — skipped gpt-5.4"
+                        )
+
+                    if cheap_gate:
+                        analysis['_cheap_gate'] = cheap_gate
 
                     return {
                         'job': job,
