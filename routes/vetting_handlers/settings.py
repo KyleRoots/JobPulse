@@ -26,6 +26,12 @@ def vetting_settings():
         'scout_vetting_enabled': False,
         'match_threshold': 80,
         'batch_size': 25,
+        # Cheap-first scoring routing (cost optimization). The mode drives the
+        # layer-2 model: canary/enforce require gpt-4.1-mini as the first-pass
+        # scorer; off keeps gpt-5.4. Shown read-only alongside the mode.
+        'screening_routing_mode': 'off',
+        'layer2_model': 'gpt-5.4',
+        'cheap_first_reject_threshold': 40,
         'admin_notification_email': '',
         'health_alert_email': '',
         'embedding_similarity_threshold': 0.25,
@@ -77,7 +83,8 @@ def vetting_settings():
                          'self_screen_cooldown_minutes',
                          'qualified_audit_sample_rate',
                          'fraud_review_threshold', 'fraud_high_risk_threshold',
-                         'mailbox_pull_batch_size', 'mailbox_pull_backfill_hours'):
+                         'mailbox_pull_batch_size', 'mailbox_pull_backfill_hours',
+                         'cheap_first_reject_threshold'):
                 try:
                     settings[key] = int(value)
                 except (ValueError, TypeError):
@@ -90,6 +97,7 @@ def vetting_settings():
                         else 75 if key == 'fraud_high_risk_threshold'
                         else 25 if key == 'mailbox_pull_batch_size'
                         else 24 if key == 'mailbox_pull_backfill_hours'
+                        else 40 if key == 'cheap_first_reject_threshold'
                         else 10
                     )
             elif key == 'embedding_similarity_threshold':
@@ -305,6 +313,27 @@ def save_vetting_settings():
         except (ValueError, TypeError):
             mailbox_pull_backfill = 24
 
+        # Cheap-first scoring routing (cost optimization).
+        # The mode drives the layer-2 model so the two can never be
+        # misconfigured: canary/enforce make gpt-4.1-mini the first-pass scorer;
+        # off restores gpt-5.4 (router becomes a hard no-op). Threshold is the
+        # mini score below which a candidate is auto-rejected in enforce mode.
+        routing_mode_value = request.form.get(
+            'screening_routing_mode', 'off').strip().lower()
+        if routing_mode_value not in ('off', 'canary', 'enforce'):
+            routing_mode_value = 'off'
+        layer2_model_value = (
+            'gpt-4.1-mini' if routing_mode_value in ('canary', 'enforce')
+            else 'gpt-5.4'
+        )
+        try:
+            cheap_first_reject = int(
+                str(request.form.get('cheap_first_reject_threshold', '40')).strip())
+            if cheap_first_reject < 0 or cheap_first_reject > 100:
+                cheap_first_reject = 40
+        except (ValueError, TypeError):
+            cheap_first_reject = 40
+
         # Validate qualified_audit_sample_rate (0-100; 0 disables Phase 2).
         # Skipped entirely when fields weren't submitted (audit toggle off).
         qualified_sample_rate = 10
@@ -386,6 +415,9 @@ def save_vetting_settings():
              'true' if mailbox_pull_enabled else 'false'),
             ('mailbox_pull_batch_size', str(mailbox_pull_batch)),
             ('mailbox_pull_backfill_hours', str(mailbox_pull_backfill)),
+            ('screening_routing_mode', routing_mode_value),
+            ('layer2_model', layer2_model_value),
+            ('cheap_first_reject_threshold', str(cheap_first_reject)),
         ])
         if auditor_fields_submitted:
             settings_to_save.extend([

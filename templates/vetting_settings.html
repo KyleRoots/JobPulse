@@ -497,6 +497,66 @@
                         </div>
                     </div>
 
+                    <!-- Cheap-First Scoring Routing (cost optimization) -->
+                    <div class="mb-4 p-3 border rounded" style="border-color: rgba(25,135,84,0.25) !important;">
+                        <div class="mb-2">
+                            <h6 class="mb-1">
+                                <i class="fas fa-coins me-1 text-success"></i>Cheap-First Scoring (Cost Optimization)
+                            </h6>
+                            <small class="text-muted">
+                                Scores every candidate on the cheap <strong>gpt-4.1-mini</strong> model
+                                first; only candidates with potential escalate to <strong>gpt-5.4</strong>,
+                                which stays the <strong>sole authority</strong> on every qualification.
+                                Validated on 6,302 real scorings — 0 of 43 qualifiers lost. Targets
+                                ~62% off the scoring bill (~$2,000–2,600/mo).
+                            </small>
+                        </div>
+                        <div class="mt-3">
+                            <label class="form-label mb-1">Routing Mode</label>
+                            <select class="form-select" name="screening_routing_mode">
+                                <option value="off"     {% if settings.screening_routing_mode == 'off' %}selected{% endif %}>Off — current behavior (gpt-5.4 scores everyone)</option>
+                                <option value="canary"  {% if settings.screening_routing_mode == 'canary' %}selected{% endif %}>Canary — run the gate but still score gpt-5.4 (proves safety, $0 savings)</option>
+                                <option value="enforce" {% if settings.screening_routing_mode == 'enforce' %}selected{% endif %}>Enforce — skip gpt-5.4 on clear rejects (savings ON)</option>
+                            </select>
+                            <small class="text-muted d-block mt-1">
+                                Selecting <strong>Canary</strong> or <strong>Enforce</strong> automatically
+                                switches the first-pass scorer to <strong>gpt-4.1-mini</strong>;
+                                <strong>Off</strong> restores <strong>gpt-5.4</strong>. Always run
+                                <strong>Canary</strong> for a few days and confirm the logs show
+                                <strong>0</strong> "CANARY false-negative" lines before choosing Enforce.
+                            </small>
+                        </div>
+                        <div class="mt-3">
+                            <label class="form-label mb-1">Auto-Reject Threshold (mini score)</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control"
+                                       name="cheap_first_reject_threshold"
+                                       value="{{ settings.cheap_first_reject_threshold }}"
+                                       min="0" max="100" step="5">
+                                <span class="input-group-text">/ 100</span>
+                            </div>
+                            <small class="text-muted">
+                                In <strong>Enforce</strong> mode, candidates the mini model scores below
+                                this skip gpt-5.4 (auto-rejected). Default <strong>40</strong> (validated).
+                            </small>
+                        </div>
+                        <div class="mt-3">
+                            <small class="text-info">
+                                <i class="fas fa-info-circle me-1"></i>Currently:
+                                {% if settings.screening_routing_mode == 'enforce' %}
+                                    <strong class="text-success">ENFORCE</strong> — saving on clear rejects
+                                    (first-pass model: <strong>{{ settings.layer2_model }}</strong>).
+                                {% elif settings.screening_routing_mode == 'canary' %}
+                                    <strong class="text-warning">CANARY</strong> — validating, no savings yet
+                                    (first-pass model: <strong>{{ settings.layer2_model }}</strong>).
+                                {% else %}
+                                    <strong class="text-secondary">OFF</strong> — gpt-5.4 scores every
+                                    candidate (no change from today).
+                                {% endif %}
+                            </small>
+                        </div>
+                    </div>
+
                     <!-- Fraud / Fake-Candidate Detection (Phase 1 — advisory only) -->
                     <div class="mb-4 p-3 border rounded" style="border-color: rgba(220,53,69,0.18) !important;">
                         <div class="d-flex justify-content-between align-items-center gap-3 mb-2">
