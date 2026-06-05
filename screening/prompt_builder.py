@@ -582,8 +582,14 @@ Respond in JSON format:
                 if not isinstance(original, dict):
                     continue
 
-                orig_est = float(original.get('estimated_years', 0))
-                new_est = float(data.get('estimated_years', 0))
+                try:
+                    new_est = float(data.get('estimated_years', 0))
+                except (ValueError, TypeError):
+                    continue
+                try:
+                    orig_est = float(original.get('estimated_years', 0))
+                except (ValueError, TypeError):
+                    orig_est = 0.0
 
                 if abs(new_est - orig_est) >= 0.5:
                     any_correction = True

@@ -4,6 +4,28 @@ from screening.prestige import detect_prestige_employer
 
 logger = logging.getLogger(__name__)
 
+
+def _safe_float(value, default=0.0):
+    """Coerce an AI-provided value to float, tolerating prose/None.
+
+    gpt-4.1-mini occasionally returns years fields as prose
+    (e.g. 'Not explicitly stated but strong hands-on required') or null
+    where gpt-5.4 returned a number. Returns `default` (which may be None)
+    when the value cannot be parsed, so callers can decide whether to skip
+    a gate rather than crash the whole analysis.
+    """
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return default
+    if isinstance(value, (int, float)):
+        return float(value)
+    try:
+        return float(str(value).strip())
+    except (ValueError, TypeError):
+        return default
+
+
 PLATFORM_AGE_CEILINGS = {
     'databricks': 8.0,
     'delta lake': 7.0,
@@ -124,10 +146,16 @@ def _compute_shortfalls(years_analysis, job_id):
             continue
         meets = data.get('meets_requirement', True)
         if not meets:
-            required = float(data.get('required_years', 0))
+            required = _safe_float(data.get('required_years', 0), default=0.0)
             if required <= 0:
                 continue
-            estimated = float(data.get('estimated_years', 0))
+            estimated = _safe_float(data.get('estimated_years'), default=None)
+            if estimated is None:
+                logger.warning(
+                    f"⚠️ Years gate: skipping '{skill}' for job {job_id} — "
+                    f"non-numeric estimated_years ({data.get('estimated_years')!r})"
+                )
+                continue
             required = _apply_platform_ceiling(skill, required, job_id)
             data['required_years'] = required
             shortfall = required - estimated
@@ -426,11 +454,9 @@ def enforce_experience_floor(result, job_id, custom_requirements, job_descriptio
 
     classification = exp_class.get('classification', '').upper()
     highest_role = exp_class.get('highest_role_type', '').upper()
-    professional_years = 3.0
-    try:
-        professional_years = float(exp_class.get('total_professional_years', 3.0))
-    except (ValueError, TypeError):
-        pass
+    professional_years = _safe_float(
+        exp_class.get('total_professional_years', 3.0), default=3.0
+    )
 
     requirements_text_combined = ' '.join(filter(None, [
         custom_requirements or '',
@@ -471,12 +497,12 @@ def enforce_experience_floor(result, job_id, custom_requirements, job_descriptio
             for skill, data in years_analysis.items():
                 if not isinstance(data, dict):
                     continue
-                required_yrs = float(data.get('required_years', 0))
+                required_yrs = _safe_float(data.get('required_years', 0), default=0.0)
                 if data.get('meets_requirement') and required_yrs >= 3:
                     data['meets_requirement'] = False
                     data['estimated_years'] = min(
                         professional_years,
-                        float(data.get('estimated_years', 0))
+                        _safe_float(data.get('estimated_years'), default=professional_years)
                     )
                     overridden = True
                     logger.warning(
@@ -493,10 +519,12 @@ def enforce_experience_floor(result, job_id, custom_requirements, job_descriptio
                     if not isinstance(data, dict):
                         continue
                     if not data.get('meets_requirement', True):
-                        req_yrs = float(data.get('required_years', 0))
+                        req_yrs = _safe_float(data.get('required_years', 0), default=0.0)
                         if req_yrs <= 0:
                             continue
-                        est_yrs = float(data.get('estimated_years', 0))
+                        est_yrs = _safe_float(data.get('estimated_years'), default=None)
+                        if est_yrs is None:
+                            continue
                         shortfall = req_yrs - est_yrs
                         if shortfall > max_shortfall_recheck:
                             max_shortfall_recheck = shortfall
