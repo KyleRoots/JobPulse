@@ -62,3 +62,16 @@ within minutes), not a candidate-recency cooldown. Real cost levers stay the out
 diet + audit/shadow-off (June cutover), not re-vet suppression.
 **Why:** the platform's core value is screening real applicants; a false skip (dropping a
 genuine re-application or new-job application) is far costlier than the tiny AI spend saved.
+
+## RE-CONFIRMED 2026-06-06 + Enforce overlap (do not re-pitch this as a big lever)
+Fresh 7-day prod numbers: 32.1% of scorings (5,434/16,937) are re-scores of the same
+(candidate, job). Split: **~68% (3,710) are LEGITIMATE** distinct-application re-scores
+(distinct `parsed_email_id`); only **~32% of the redundancy (1,729 ≈ ~250/day) is same/null-email**
+re-scoring — and per the 2026-06-02 correction above most of THAT is still intended (auditor path
+healthy; inbound ParsedEmail safe-to-block waste ≈ $1/day). **Enforce (cheap-first mini routing,
+live 2026-06-06) further guts the dollar case:** the redundant re-scores that are rejects now route
+to mini (~$0.005) instead of gpt-5.4 (~$0.038), ~8× cheaper, so dedupe's marginal $ dropped from the
+old gross "~$70-80/day" headline to ~single digits/day. **Conclusion: re-vet dedupe is NOT
+low-hanging fruit.** The headline 32% is mostly real candidate activity, the safe slice is tiny, and
+Enforce already discounted the rest. Any future work here must be content/duplicate-email based (not a
+candidate cooldown) and is low priority vs monitoring Enforce + letting the backlog drain.
