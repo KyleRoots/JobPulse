@@ -117,8 +117,11 @@ class FraudSignalEngine:
             gathered.extend(fsig.evaluate_work_history(self._extract_work_history(candidate)))
 
             # --- DB-derived signals (each fail-soft, zero AI cost) ------
-            gathered.append(fsig.evaluate_resume_reuse(
-                self._count_resume_reuse(candidate_id, vetting_log)))
+            _resume_reuse = self._count_resume_reuse(candidate_id, vetting_log)
+            gathered.extend(fsig.evaluate_resume_reuse(
+                genuine_identities=_resume_reuse.get("genuine"),
+                duplicate_records=_resume_reuse.get("duplicates"),
+            ))
             gathered.extend(fsig.evaluate_identity_reuse(
                 distinct_names_for_email=self._count_distinct_names_for_email(email, candidate_id),
                 distinct_names_for_phone=self._count_distinct_names_for_phone(phone, candidate_id),
@@ -343,41 +346,94 @@ class FraudSignalEngine:
         return []
 
     # --------------------------------------------------------- DB-derived facts
-    def _count_resume_reuse(self, candidate_id, vetting_log) -> int:
-        """Count OTHER candidate identities sharing this resume's content.
+    def _count_resume_reuse(self, candidate_id, vetting_log) -> dict:
+        """Classify OTHER candidate records that share this résumé's exact content.
 
         Uses Postgres ``md5(resume_text)`` over `candidate_vetting_log` so it
-        works across distinct Bullhorn candidate IDs (the cache table can't —
-        its content_hash is unique and byte-based). Returns the number of
-        DISTINCT other candidate IDs whose stored resume text is identical.
+        works across distinct Bullhorn candidate IDs (the cache table can't — its
+        content_hash is unique and byte-based). Each OTHER candidate record is
+        classified by comparing its name + email to THIS candidate:
+
+          - "duplicates": SAME normalized name AND SAME normalized email — the
+            same person entered twice (e.g. a duplicate Bullhorn record). Benign;
+            surfaced only as an informational "consider merging" note, never
+            scored as fraud.
+          - "genuine":    name OR email differs — a genuinely different identity
+            using the same résumé. The actual fraud indicator.
+
+        Returns ``{"genuine": [...], "duplicates": [...]}`` where each item is
+        ``{"candidate_id", "name", "email", "last_seen"}``. Fail-soft: returns
+        empty lists on any error.
         """
+        empty = {"genuine": [], "duplicates": []}
         resume_text = getattr(vetting_log, "resume_text", None)
         if not resume_text or len(resume_text) < 200:
-            return 0
+            return empty
+
+        this_name = fsig.normalize_name(getattr(vetting_log, "candidate_name", None))
+        this_email = (getattr(vetting_log, "candidate_email", None) or "").strip().lower()
+
+        def _fmt_date(value):
+            if value is None:
+                return ""
+            try:
+                return value.date().isoformat()
+            except AttributeError:
+                return str(value)[:10]
+
+        def _classify(rows):
+            genuine, dupes = [], []
+            for cid, nm, em, seen in rows:
+                item = {
+                    "candidate_id": int(cid) if cid is not None else None,
+                    "name": nm or "",
+                    "email": em or "",
+                    "last_seen": _fmt_date(seen),
+                }
+                same_name = bool(this_name) and fsig.normalize_name(nm) == this_name
+                same_email = bool(this_email) and (em or "").strip().lower() == this_email
+                if same_name and same_email:
+                    dupes.append(item)
+                else:
+                    genuine.append(item)
+            return {"genuine": genuine, "duplicates": dupes}
+
         try:
             with Session(db.engine) as session:
                 dialect = session.bind.dialect.name if session.bind else ""
                 if dialect == "postgresql":
-                    # Efficient server-side hashing on the live DB.
-                    row = session.execute(
+                    # Efficient server-side hashing on the live DB. DISTINCT ON
+                    # collapses to the MOST-RECENT row per other candidate id so
+                    # name/email/date are read from ONE coherent record (a plain
+                    # GROUP BY + MAX() could mix fields across rows and misclassify
+                    # a duplicate as genuine).
+                    rows = session.execute(
                         text(
-                            "SELECT COUNT(DISTINCT bullhorn_candidate_id) "
+                            "SELECT DISTINCT ON (bullhorn_candidate_id) "
+                            "bullhorn_candidate_id, "
+                            "candidate_name AS name, "
+                            "candidate_email AS email, "
+                            "created_at AS last_seen "
                             "FROM candidate_vetting_log "
                             "WHERE resume_text IS NOT NULL "
                             "AND md5(resume_text) = md5(:rt) "
                             "AND bullhorn_candidate_id IS NOT NULL "
                             "AND (:cid IS NULL OR bullhorn_candidate_id <> :cid) "
-                            "AND is_sandbox = false"
+                            "AND is_sandbox = false "
+                            "ORDER BY bullhorn_candidate_id, created_at DESC NULLS LAST"
                         ),
                         {"rt": resume_text, "cid": candidate_id},
-                    ).scalar()
-                    return int(row or 0)
+                    ).all()
+                    return _classify(rows)
 
                 # Dialect-agnostic fallback (e.g. SQLite in tests): hash in Python.
                 target_hash = hashlib.md5(resume_text.encode("utf-8")).hexdigest()
-                rows = (
+                all_rows = (
                     session.query(
                         CandidateVettingLog.bullhorn_candidate_id,
+                        CandidateVettingLog.candidate_name,
+                        CandidateVettingLog.candidate_email,
+                        CandidateVettingLog.created_at,
                         CandidateVettingLog.resume_text,
                     )
                     .filter(CandidateVettingLog.resume_text.isnot(None))
@@ -385,16 +441,23 @@ class FraudSignalEngine:
                     .filter(CandidateVettingLog.is_sandbox.is_(False))
                     .all()
                 )
-                others = set()
-                for cid, rt in rows:
+                # Collapse to one (most-recent) row per other candidate id.
+                seen_best = {}
+                for cid, nm, em, created, rt in all_rows:
                     if candidate_id is not None and cid == candidate_id:
                         continue
-                    if rt and hashlib.md5(rt.encode("utf-8")).hexdigest() == target_hash:
-                        others.add(cid)
-                return len(others)
+                    if not rt or hashlib.md5(rt.encode("utf-8")).hexdigest() != target_hash:
+                        continue
+                    prev = seen_best.get(cid)
+                    if prev is None or (
+                        created is not None and (prev[2] is None or created > prev[2])
+                    ):
+                        seen_best[cid] = (nm, em, created)
+                rows = [(cid, v[0], v[1], v[2]) for cid, v in seen_best.items()]
+                return _classify(rows)
         except Exception as exc:  # pragma: no cover - DB dialect/edge
             logger.debug("resume-reuse query failed: %s", exc)
-            return 0
+            return empty
 
     def _count_distinct_names_for_email(self, email, candidate_id) -> int:
         """Count distinct normalized names that have used this email address."""

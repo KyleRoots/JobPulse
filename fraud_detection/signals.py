@@ -396,21 +396,80 @@ def evaluate_work_history(work_history: Optional[Sequence[Dict[str, Any]]]) -> L
     return signals
 
 
-def evaluate_resume_reuse(distinct_other_identities: int) -> Optional[FraudSignal]:
-    """Flag when the same resume content hash is tied to other identities.
+def _format_identities(items: Sequence[Dict[str, Any]], limit: int = 3) -> str:
+    """Render a short, human-readable list of other identities for evidence text.
 
-    ``distinct_other_identities`` is the count of OTHER candidate identities
-    (different name/email/phone) sharing this candidate's resume content hash.
+    Each item is a dict with optional ``name``, ``email`` and ``last_seen``.
+    Caps the inline list (``limit``) so a note/email never balloons.
     """
-    if distinct_other_identities and distinct_other_identities >= 1:
-        return FraudSignal(
+    parts: List[str] = []
+    for it in list(items)[:limit]:
+        name = (str(it.get("name") or "").strip() or "Unknown name")
+        email = str(it.get("email") or "").strip()
+        when = str(it.get("last_seen") or "").strip()
+        seg = name
+        if email:
+            seg += f" ({email})"
+        if when:
+            seg += f", applied {when}"
+        parts.append(seg)
+    rendered = "; ".join(parts)
+    extra = len(items) - limit
+    if extra > 0:
+        rendered += f"; and {extra} more"
+    return rendered
+
+
+def evaluate_resume_reuse(
+    genuine_identities: Optional[Sequence[Dict[str, Any]]] = None,
+    duplicate_records: Optional[Sequence[Dict[str, Any]]] = None,
+) -> List[FraudSignal]:
+    """Résumé-content reuse signals (returns 0, 1 or 2 signals).
+
+    ``genuine_identities`` — OTHER candidate records sharing this résumé whose
+    name AND email BOTH differ from this candidate (a genuinely different person
+    using the same résumé). These SCORE ``POINTS_RESUME_REUSE`` and carry the
+    specific name/email/date as evidence so a recruiter can verify the claim
+    instead of reading a bare count.
+
+    ``duplicate_records`` — OTHER candidate records sharing this résumé that have
+    the SAME name and email (the same person entered twice, e.g. a duplicate
+    Bullhorn record). These are INFORMATIONAL ONLY (0 points) — surfaced as a
+    "consider merging" note, never scored as fraud — so a benign duplicate record
+    no longer trips a Review-band fraud flag.
+    """
+    genuine = [g for g in (genuine_identities or []) if g]
+    dupes = [d for d in (duplicate_records or []) if d]
+    out: List[FraudSignal] = []
+
+    if genuine:
+        n = len(genuine)
+        out.append(FraudSignal(
             code="resume_reuse",
             label="Resume reused across identities",
             points=POINTS_RESUME_REUSE,
-            evidence=f"Identical resume content is linked to {distinct_other_identities} other identity(ies).",
-            details={"other_identities": int(distinct_other_identities)},
-        )
-    return None
+            evidence=(
+                f"Identical résumé content was also submitted under "
+                f"{n} different identity(ies): {_format_identities(genuine)}."
+            ),
+            details={"other_identities": n, "identities": list(genuine)},
+        ))
+
+    if dupes:
+        n = len(dupes)
+        out.append(FraudSignal(
+            code="resume_duplicate_record",
+            label="Résumé also on a duplicate candidate record",
+            points=0,  # informational only — same person, not a fraud indicator
+            evidence=(
+                f"Identical résumé content also appears on {n} other candidate "
+                f"record(s) for the same person ({_format_identities(dupes)}) — "
+                f"likely a duplicate to merge, not a fraud indicator."
+            ),
+            details={"duplicate_records": n, "identities": list(dupes)},
+        ))
+
+    return out
 
 
 def evaluate_identity_reuse(

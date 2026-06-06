@@ -90,9 +90,36 @@ def test_work_history_clean():
 
 
 def test_resume_reuse():
-    assert fsig.evaluate_resume_reuse(0) is None
-    sig = fsig.evaluate_resume_reuse(2)
-    assert sig is not None and sig.points == fsig.POINTS_RESUME_REUSE
+    # No other records → no signals.
+    assert fsig.evaluate_resume_reuse() == []
+    assert fsig.evaluate_resume_reuse(genuine_identities=[], duplicate_records=[]) == []
+
+    # A genuinely different identity → one scored signal carrying the proof.
+    sigs = fsig.evaluate_resume_reuse(genuine_identities=[
+        {"candidate_id": 1, "name": "Jane Smith", "email": "jane@x.com", "last_seen": "2026-05-01"},
+        {"candidate_id": 2, "name": "John Doe", "email": "john@y.com", "last_seen": "2026-05-02"},
+    ])
+    assert len(sigs) == 1
+    sig = sigs[0]
+    assert sig.code == "resume_reuse" and sig.points == fsig.POINTS_RESUME_REUSE
+    assert "Jane Smith" in sig.evidence and "jane@x.com" in sig.evidence
+    assert sig.details["other_identities"] == 2
+
+    # Same-person duplicate record → informational only (0 points), never scored.
+    info = fsig.evaluate_resume_reuse(duplicate_records=[
+        {"candidate_id": 9, "name": "Edmond Vartanian", "email": "ed@x.com", "last_seen": "2026-04-28"},
+    ])
+    assert len(info) == 1
+    assert info[0].code == "resume_duplicate_record" and info[0].points == 0
+    assert "merge" in info[0].evidence.lower()
+
+    # Both at once → a scored genuine signal AND an informational duplicate note.
+    both = fsig.evaluate_resume_reuse(
+        genuine_identities=[{"name": "Imposter", "email": "x@x.com"}],
+        duplicate_records=[{"name": "Self", "email": "self@x.com"}],
+    )
+    codes = {s.code for s in both}
+    assert codes == {"resume_reuse", "resume_duplicate_record"}
 
 
 def test_identity_reuse_threshold():
@@ -145,7 +172,8 @@ def test_aggregate_review():
 
 def test_aggregate_high_risk_and_cap():
     sigs = [
-        fsig.evaluate_resume_reuse(1),                  # 40
+        *fsig.evaluate_resume_reuse(genuine_identities=[
+            {"name": "Other Person", "email": "other@x.com"}]),  # 40
         fsig.evaluate_disposable_email("a@guerrillamail.com"),  # 25
         *fsig.evaluate_identity_reuse(distinct_names_for_email=5),  # 35
     ]
@@ -789,6 +817,86 @@ def test_engine_resume_reuse_across_identities(_fraud_db):
     result = engine.assess(candidate, log)
     codes = {s['code'] for s in json.loads(result.signals_json)}
     assert 'resume_reuse' in codes
+
+
+def test_engine_resume_duplicate_record_not_scored(_fraud_db):
+    """Same person on two candidate records (same name + email, identical résumé)
+    must NOT score as fraud — only surface an informational 'consider merging'
+    note. This is the Edmond Vartanian false-positive fix."""
+    db, Assessment, VettingLog, VettingConfig = _fraud_db
+    from fraud_detection.engine import FraudSignalEngine
+
+    _set_config(db, VettingConfig, fraud_detection_enabled='true')
+
+    shared_resume = "EXPERIENCED SOFTWARE ENGINEER " * 20  # > 200 chars
+    # A prior record for the SAME person (same name + same email).
+    db.session.add(VettingLog(
+        bullhorn_candidate_id=8001, candidate_name="Edmond Vartanian",
+        candidate_email="edmondv1961@gmail.com", status="completed",
+        resume_text=shared_resume))
+    db.session.commit()
+
+    log = VettingLog(bullhorn_candidate_id=8002, candidate_name="Edmond Vartanian",
+                     candidate_email="edmondv1961@gmail.com", status="processing",
+                     resume_text=shared_resume)
+    db.session.add(log)
+    db.session.commit()
+
+    candidate = {"id": 8002, "firstName": "Edmond", "lastName": "Vartanian",
+                 "email": "edmondv1961@gmail.com"}
+    engine = FraudSignalEngine()
+    result = engine.assess(candidate, log)
+
+    signals = json.loads(result.signals_json)
+    codes = {s['code'] for s in signals}
+    # Not scored as fraud...
+    assert 'resume_reuse' not in codes
+    # ...but the informational merge hint IS surfaced (user wants this line).
+    assert 'resume_duplicate_record' in codes
+    dup = next(s for s in signals if s['code'] == 'resume_duplicate_record')
+    assert dup['points'] == 0
+    # The benign duplicate must not push the candidate into a Review band.
+    assert result.risk_band == fsig.FraudRiskBand.CLEAR
+
+
+def test_engine_resume_duplicate_coherent_row_selection(_fraud_db):
+    """Duplicate suppression must read name+email from ONE coherent (most-recent)
+    record per other candidate id — even when that candidate has older logs with
+    different historical name/email values (guards against mixing fields)."""
+    db, Assessment, VettingLog, VettingConfig = _fraud_db
+    from fraud_detection.engine import FraudSignalEngine
+
+    _set_config(db, VettingConfig, fraud_detection_enabled='true')
+
+    shared_resume = "SENIOR DATA ENGINEER PROFILE " * 20  # > 200 chars
+    # Other candidate id 8101 has TWO logs: an OLD one with stale name/email and
+    # a NEWER one that matches the current candidate exactly.
+    db.session.add(VettingLog(
+        bullhorn_candidate_id=8101, candidate_name="Stale Oldname",
+        candidate_email="stale.old@gmail.com", status="completed",
+        resume_text=shared_resume, created_at=datetime(2026, 1, 1, 9, 0, 0)))
+    db.session.add(VettingLog(
+        bullhorn_candidate_id=8101, candidate_name="Maria Gomez",
+        candidate_email="maria.gomez@gmail.com", status="completed",
+        resume_text=shared_resume, created_at=datetime(2026, 5, 20, 9, 0, 0)))
+    db.session.commit()
+
+    log = VettingLog(bullhorn_candidate_id=8102, candidate_name="Maria Gomez",
+                     candidate_email="maria.gomez@gmail.com", status="processing",
+                     resume_text=shared_resume, created_at=datetime(2026, 6, 1, 9, 0, 0))
+    db.session.add(log)
+    db.session.commit()
+
+    candidate = {"id": 8102, "firstName": "Maria", "lastName": "Gomez",
+                 "email": "maria.gomez@gmail.com"}
+    engine = FraudSignalEngine()
+    result = engine.assess(candidate, log)
+
+    codes = {s['code'] for s in json.loads(result.signals_json)}
+    # Most-recent row matches → duplicate suppression holds, not scored as fraud.
+    assert 'resume_reuse' not in codes
+    assert 'resume_duplicate_record' in codes
+    assert result.risk_band == fsig.FraudRiskBand.CLEAR
 
 
 def test_engine_phone_reuse_across_identities(_fraud_db):
