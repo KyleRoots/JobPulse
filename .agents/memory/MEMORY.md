@@ -19,3 +19,4 @@
 - [Bullhorn candidate base size](bullhorn-candidate-base-size.md) — real ATS candidate count is ~9k not "~1M"; the "1M" is the Job Boards (external) tab. Only ~9 deleted / ~260 archived total → no mass purge.
 - [Fraud resume-reuse vs duplicates](fraud-resume-reuse-duplicates.md) — same-person duplicate record (same name+email) is NOT fraud → 0-point "consider merging" line; only a different identity scores. PG must use DISTINCT ON (not GROUP BY+MAX) for coherent name/email/date.
 - [Inbound body short-read](inbound-body-short-read.md) — webhook body_len≈4096 << content_length = WSGI short read (truncates résumé/None-None), NOT boundary/raw-MIME; fix = loop-read full body.
+- [Start Fresh net-new cutover](start-fresh-net-new-cutover.md) — net-new re-enable needs BOTH floors: vetting_cutoff_date (inbound) AND last_run_timestamp (Bullhorn detectors, hard floor/no clamp, freezes while vetting off); Start Fresh now moves both.

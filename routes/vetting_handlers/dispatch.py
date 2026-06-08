@@ -280,13 +280,15 @@ def rescreen_remote_misfires():
 @vetting_bp.route('/screening/start-fresh', methods=['POST'])
 @login_required
 def start_fresh():
-    """Set vetting_cutoff_date to now and trigger an immediate vetting cycle"""
+    """Set vetting_cutoff_date AND last_run_timestamp to now (net-new fresh
+    start across both detection paths) and trigger an immediate vetting cycle."""
     from models import VettingConfig
 
     db = get_db()
 
     try:
-        now_utc = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+        now_dt = datetime.utcnow()
+        now_utc = now_dt.strftime('%Y-%m-%d %H:%M:%S')
 
         cutoff_config = VettingConfig.query.filter_by(setting_key='vetting_cutoff_date').first()
         if cutoff_config:
@@ -295,8 +297,21 @@ def start_fresh():
             cutoff_config = VettingConfig(setting_key='vetting_cutoff_date', setting_value=now_utc)
             db.session.add(cutoff_config)
 
+        # Net-new fresh start: advance last_run_timestamp too, so the Bullhorn-direct
+        # detectors (new applicants, PandoLogic, Matador) only look forward from now.
+        # Without this they query Bullhorn back to whenever vetting last ran and re-pull
+        # the accumulated backlog — the vetting_cutoff_date only gates the inbound path.
+        last_run_config = VettingConfig.query.filter_by(setting_key='last_run_timestamp').first()
+        if last_run_config:
+            last_run_config.setting_value = now_dt.isoformat()
+        else:
+            last_run_config = VettingConfig(setting_key='last_run_timestamp', setting_value=now_dt.isoformat())
+            db.session.add(last_run_config)
+
         db.session.commit()
-        current_app.logger.info(f"Start Fresh: set vetting_cutoff_date to {now_utc}")
+        current_app.logger.info(
+            f"Start Fresh: set vetting_cutoff_date and last_run_timestamp to {now_utc}"
+        )
 
         # M3: hand off to background scheduler instead of running inline.
         try:
