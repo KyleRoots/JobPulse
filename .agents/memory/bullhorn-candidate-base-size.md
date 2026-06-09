@@ -1,25 +1,18 @@
 ---
-name: Bullhorn candidate base size & "1M" scare
-description: The real Bullhorn ATS candidate count is ~9k, not ~1M; how to verify and why the Job Boards tab confuses this.
+name: Bullhorn candidate base size
+description: The real Bullhorn ATS Candidate base is ~900k+ (≈984k via search/Candidate); an earlier "~9k" finding here was WRONG.
 ---
 
-# Bullhorn candidate base is ~9k, not "~1 million"
+# Bullhorn candidate base is ~900k+ (NOT ~9k)
 
-A live read-only count (2026-06-04) against the production Bullhorn returned:
-- All candidates (incl archived+deleted): ~8,934
-- Live (excl archive & deleted): ~8,669
-- Archived (status=Archive): ~260
-- Deleted (isDeleted:1): ~9
+A live read-only count (2026-06-09) against production Bullhorn `search/Candidate` returned:
+- `id:[1 TO *]` total: **~984,201**
+- `isDeleted:0` total: ~984,143
 
-**The real candidate base is ~9k.** A user once feared a drop "from ~1M to 8,666" — that was a misread, not data loss.
+This matches the Bullhorn UI Candidates screen badge (**Bullhorn (924,729)** + "of 924729" pager) — i.e. the *main* Bullhorn tab itself holds ~900k+ records, not a small ATS core.
 
-**Why "~1M" appears:** the Bullhorn Candidates screen has a toggle **"Bullhorn (N) | Job Boards"**. The *Bullhorn* tab = records actually in the ATS (~9k). The *Job Boards* tab = external candidates searchable across LinkedIn/job boards (can be hundreds of thousands+). People conflate the two.
+**CORRECTION:** An earlier version of this note claimed the base was ~9k and that the ~1M was only the "Job Boards" external tab. That was wrong — the selected **Bullhorn** tab itself reads ~924k–984k. Do not trust the old ~9k figure for capacity/cost/feasibility math.
 
-**Why this rules out our tool as a deleter/archiver:**
-- Only ~9 deleted records exist in ALL of Bullhorn — a mass purge would be in the hundreds of thousands.
-- Only ~260 archived total; ~187 of those are our all-time duplicate-merges (`candidate_merge_log` rows). Merge ARCHIVES (status=Archive) one record at a time, never deletes.
-- The only bulk archive/delete capability is in the **Scout Support** module: two-tier human approval, acts on explicit entity-ID lists, not wired to any scheduler — cannot fire autonomously.
+**How to verify the true total fast:** authenticate `BullhornService()` and GET `search/Candidate?query=id:[1 TO *]&fields=id&count=1`, read the `total` field. (Run inside `app.app_context()`; `bh.authenticate()` then use `bh.base_url` + `BhRestToken` header.)
 
-**How to verify the true total fast:** authenticate `BullhornService()` and GET `search/Candidate?query=id:[0 TO *]&fields=id&count=1`, read the `total` field. Vary the query for live (`AND -isDeleted:1 AND -status:Archive`), archived (`status:Archive`), deleted (`isDeleted:1`).
-
-**Decision relevance:** capacity/cost models should assume a ~9k active candidate base, not 1M.
+**Feasibility implication (big):** any per-candidate sweep (e.g. resume-freshness-sync's base scan doing one fileAttachments GET per candidate) over the full base is ~900k+ API calls — days of runtime + Bullhorn rate limits. Such tools MUST be scoped (targeted candidate IDs, a dateLastModified/dateAdded window, or by querying recently-added FileAttachments) rather than sweeping everyone.
