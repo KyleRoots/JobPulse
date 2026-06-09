@@ -13,12 +13,21 @@ logger = logging.getLogger(__name__)
 class ResumeMixin:
 
     def map_to_bullhorn_fields(self, email_data: Dict, resume_data: Dict,
-                                source: str, work_auth: str = None) -> Dict[str, Any]:
+                                source: str, work_auth: str = None,
+                                feed: str = None) -> Dict[str, Any]:
         """
         Map extracted data to Bullhorn candidate field names
 
         Priority: Email data > Resume data for basic fields
         Resume data provides enhanced info (skills, work history)
+
+        `feed` is the internal distribution discriminator (from the apply-form
+        URL `?feed=` param). When it indicates PandoLogic (feed=pando), the
+        applicant arrived on our own apply form via PandoLogic distribution
+        (e.g. TheJobNetwork), so the Bullhorn source is overridden to
+        "Corporate Website" and the candidate owner is set to the PandoLogic
+        API user. Genuine recognized referrers (LinkedIn/Indeed/Facebook) do
+        not carry feed=pando, so they keep their true source.
         """
         candidate = {}
 
@@ -42,6 +51,22 @@ class ResumeMixin:
 
         bullhorn_source = self.SOURCE_TO_BULLHORN.get(source, 'Other')
         candidate['source'] = bullhorn_source
+
+        if self._is_pando_feed(feed):
+            candidate['source'] = self.PANDO_FEED_SOURCE
+            owner_id = self._pando_owner_id()
+            if owner_id:
+                candidate['owner'] = {'id': owner_id}
+                logger.info(
+                    f"PandoLogic feed detected (feed={feed!r}): source -> "
+                    f"{self.PANDO_FEED_SOURCE!r}, owner -> {owner_id}"
+                )
+            else:
+                logger.warning(
+                    f"PandoLogic feed detected (feed={feed!r}) but "
+                    f"pandologic_api_user_id is unset/invalid; source set to "
+                    f"{self.PANDO_FEED_SOURCE!r}, owner left unchanged"
+                )
 
         candidate['status'] = 'Online Applicant'
 
@@ -85,6 +110,33 @@ class ResumeMixin:
             candidate['customText9'] = resume_data['linkedin_url']
 
         return candidate
+
+    @staticmethod
+    def _is_pando_feed(feed: Optional[str]) -> bool:
+        """True when the apply-form feed discriminator indicates PandoLogic.
+
+        Tolerant of the exact token the apply URL carries (observed values
+        include both 'pando' and 'pandologic'); matches any 'pando*' value.
+        """
+        return bool(feed) and str(feed).strip().lower().startswith('pando')
+
+    @staticmethod
+    def _pando_owner_id() -> Optional[int]:
+        """Resolve the PandoLogic Bullhorn API user id from VettingConfig.
+
+        Returns None (caller leaves owner unchanged) when unset or non-numeric.
+        """
+        try:
+            from models import VettingConfig
+            raw = VettingConfig.get_value('pandologic_api_user_id')
+            if raw in (None, ''):
+                return None
+            return int(str(raw).strip())
+        except (ValueError, TypeError):
+            return None
+        except Exception:
+            logger.exception("Failed to resolve pandologic_api_user_id")
+            return None
 
     def _check_existing_resume_summary(self, bullhorn, candidate_id: int,
                                          current_resume_filename: str = None) -> bool:

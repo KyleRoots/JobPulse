@@ -47,7 +47,16 @@ class _InboundCore:
         'Glassdoor': 'Glassdoor',
         'Monster': 'Monster',
         'Twitter': 'Twitter',
+        'Corporate Website': 'Corporate Website',
     }
+
+    # Bullhorn source used for PandoLogic-distributed apply-form traffic
+    # (feed=pando — e.g. TheJobNetwork). These applicants land on our own
+    # apply form, so "Corporate Website" is the accurate source; the PandoLogic
+    # distribution channel is captured separately via the candidate owner
+    # (see ResumeMixin._pando_owner_id). Change this single value to re-map
+    # that traffic to a different picklist value (e.g. 'Vendor/3rd Party').
+    PANDO_FEED_SOURCE = 'Corporate Website'
 
     WORK_AUTH_TO_VISA_TYPE = {
         'US Citizen': 'US Citizen',

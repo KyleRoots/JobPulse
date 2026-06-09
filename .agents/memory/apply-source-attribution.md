@@ -33,6 +33,22 @@ our own domains (myticas/stsigroup/scoutgenius) AND **PandoLogic** — it's a
 redirect middle-man that masks the true origin, so mapping it to a "source"
 would be misleading.
 
+**PandoLogic-distributed apply traffic (feed=pando) decision:** ~27% of
+applicants reach our own apply form via PandoLogic distribution (e.g.
+TheJobNetwork referrer) carrying the hardcoded `?source=LinkedIn`. The reliable
+discriminator is `feed=pando` (NOT the referrer host or source string). When the
+inbound mapper sees feed=pando it sets Bullhorn **source="Corporate Website"**
+(they applied on our form) + **owner = PandoLogic API user** (id from
+`VettingConfig.pandologic_api_user_id`), capturing the channel in the owner.
+**Why:** genuine recognized referrers (LinkedIn/Indeed/Facebook) do NOT carry
+feed=pando in the data, so keying off feed never mislabels real referrers; and
+owner alone is mutable (auto-reassign hands it to recruiters), so source carries
+the durable "applied on our site" fact. The source value is a single constant
+(`_InboundCore.PANDO_FEED_SOURCE`) — flip to 'Vendor/3rd Party' if preferred.
+**How to apply:** override lives in `map_to_bullhorn_fields`; enrichment/recovery
+paths never stomp an existing candidate's owner/source (neither is in the
+enrichment allowlist).
+
 **Integrity:** at submit time, prefer the referrer/utm we persisted server-side
 at the GET first-touch (looked up by `visit_token` in `apply_page_visit`) over
 the round-tripped hidden form fields, which a client could tamper with.

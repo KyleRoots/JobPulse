@@ -306,7 +306,8 @@ class ProcessingMixin:
 
             bullhorn_data = self.map_to_bullhorn_fields(
                 email_candidate, resume_data, source,
-                email_candidate.get('work_authorization')
+                email_candidate.get('work_authorization'),
+                feed=self.detect_feed(body)
             )
 
             self.logger.info(f"Bullhorn candidate data:")
@@ -533,7 +534,8 @@ class ProcessingMixin:
 
             bullhorn_data = self.map_to_bullhorn_fields(
                 email_candidate, resume_data, source,
-                email_candidate.get('work_authorization')
+                email_candidate.get('work_authorization'),
+                feed=self.detect_feed(body)
             )
 
             existing_candidate = bullhorn.get_candidate(candidate_id)
