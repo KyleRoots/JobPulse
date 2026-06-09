@@ -94,6 +94,7 @@ class DispatchMixin:
             "find_zero_match": self._builtin_find_zero_match,
             "export_qualified": self._builtin_export_qualified,
             "resume_reparser": self._builtin_resume_reparser,
+            "resume_freshness_sync": self._builtin_resume_freshness_sync,
             "salesrep_sync": self._builtin_salesrep_sync,
             "update_field_bulk": self._builtin_update_field_bulk,
             "email_extractor": self._builtin_email_extractor,

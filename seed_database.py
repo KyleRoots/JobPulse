@@ -158,6 +158,12 @@ BUILTIN_AUTOMATIONS = [
         "builtin_key": "resume_reparser",
     },
     {
+        "name": "Resume Field Sync (Newest File)",
+        "description": "One-time cleanup: re-parse the candidate resume field (description) from the MOST RECENT resume file in the Files tab — but only when that file was added after the record was last modified (so manual edits and already-current records are left alone). AI-formatted output. Always dry-run first to review scope.",
+        "automation_type": "one-time",
+        "builtin_key": "resume_freshness_sync",
+    },
+    {
         "name": "Bulk Field Update",
         "description": "Update one or more fields on all Bullhorn records matching a search query. Supports any entity type (Candidate, JobOrder, etc). Always dry-run first to confirm scope before executing.",
         "automation_type": "one-time",

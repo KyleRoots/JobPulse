@@ -33,6 +33,7 @@ def automations_dashboard():
             'cleanup_ai_notes',
             'email_extractor',
             'resume_reparser',
+            'resume_freshness_sync',
             'duplicate_merge_scan',
         ],
         'Reporting': [

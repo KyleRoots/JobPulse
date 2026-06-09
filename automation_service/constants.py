@@ -11,6 +11,7 @@ LONG_RUNNING_BUILTINS = {
     "cleanup_ai_notes",
     "cleanup_duplicate_notes",
     "resume_reparser",
+    "resume_freshness_sync",
     "export_qualified",
     "email_extractor",
     "retry_recruiter_notifications",

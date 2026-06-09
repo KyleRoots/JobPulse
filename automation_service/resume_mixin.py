@@ -182,7 +182,7 @@ class ResumeMixin:
             "candidates": candidate_details[:50]
         }
 
-    def _download_and_extract_text(self, candidate_id, resume_file_info):
+    def _download_and_extract_text(self, candidate_id, resume_file_info, quick_mode=True):
         import base64
         import tempfile
         import os
@@ -220,7 +220,7 @@ class ResumeMixin:
 
             from resume_parser import ResumeParser
             parser = ResumeParser()
-            result = parser.parse_resume(tmp_path, quick_mode=True, skip_cache=True)
+            result = parser.parse_resume(tmp_path, quick_mode=quick_mode, skip_cache=True)
 
             formatted_html = result.get("formatted_html", "")
             if formatted_html and len(formatted_html.strip()) > 50:
@@ -244,6 +244,215 @@ class ResumeMixin:
             escaped = escaped.replace('\n', '<br>')
             parts.append(f"<p>{escaped}</p>")
         return "\n".join(parts)
+
+    def _ms_to_str(self, ms):
+        try:
+            ms = int(ms)
+        except (TypeError, ValueError):
+            return ""
+        if ms <= 0:
+            return ""
+        return datetime.utcfromtimestamp(ms / 1000).strftime("%Y-%m-%d %H:%M UTC")
+
+    def _builtin_resume_freshness_sync(self, params):
+        """One-time cleanup: re-parse the candidate resume field (the Bullhorn
+        `description`) from the MOST RECENT resume file in the Files tab.
+
+        Only acts when the newest resume file was added AFTER the candidate
+        record was last modified (by at least `min_gap_minutes`) — a strong
+        signal the file is newer than what is currently parsed into the field.
+        This preserves manual edits and skips records that are already current.
+
+        Output is AI-formatted HTML (quick_mode=False). Dry-run by default —
+        returns a preview of what WOULD change without writing to Bullhorn.
+        Naturally idempotent: a successful update bumps dateLastModified, so a
+        second run no longer flags the same record.
+        """
+        dry_run = params.get("dry_run", True)
+        if isinstance(dry_run, str):
+            dry_run = dry_run.lower() not in ('false', '0', 'no')
+
+        limit = int(params.get("limit", 100))
+        start = int(params.get("start", 0))
+        min_gap_minutes = int(params.get("min_gap_minutes", 60))
+        gap_ms = max(0, min_gap_minutes) * 60 * 1000
+        candidate_ids_raw = params.get("candidate_ids", "")
+
+        specific_ids = []
+        if candidate_ids_raw:
+            if isinstance(candidate_ids_raw, str):
+                specific_ids = [int(x.strip()) for x in candidate_ids_raw.split(",") if x.strip().isdigit()]
+            elif isinstance(candidate_ids_raw, (list, tuple)):
+                specific_ids = [int(x) for x in candidate_ids_raw if str(x).strip().isdigit()]
+
+        fields = "id,firstName,lastName,email,dateLastModified"
+        search_url = f"{self._bh_url()}search/Candidate"
+        candidates = []
+        next_start = None
+        total_available = 0
+
+        if specific_ids:
+            chunk_size = 100
+            for i in range(0, len(specific_ids), chunk_size):
+                chunk = specific_ids[i:i + chunk_size]
+                id_clause = " OR ".join(str(c) for c in chunk)
+                try:
+                    resp = requests.get(search_url, headers=self._bh_headers(), params={
+                        "query": f"id:({id_clause})",
+                        "fields": fields,
+                        "count": chunk_size,
+                        "sort": "id",
+                    }, timeout=20)
+                    resp.raise_for_status()
+                    candidates.extend(resp.json().get("data", []))
+                except Exception as e:
+                    self.logger.warning(f"resume_freshness_sync: could not fetch candidate batch {chunk}: {e}")
+            total_available = len(candidates)
+        else:
+            batch_count = min(max(limit, 1), 500)
+            try:
+                resp = requests.get(search_url, headers=self._bh_headers(), params={
+                    "query": "id:[1 TO *]",
+                    "fields": fields,
+                    "count": batch_count,
+                    "start": start,
+                    "sort": "id",
+                }, timeout=30)
+                resp.raise_for_status()
+                data = resp.json()
+                total_available = data.get("total", 0)
+                candidates = data.get("data", [])
+                if candidates:
+                    next_start = start + len(candidates)
+            except Exception as e:
+                self.logger.warning(f"resume_freshness_sync: candidate page fetch failed: {e}")
+
+        results = {
+            "candidates_scanned": len(candidates),
+            "total_candidates": total_available,
+            "with_resume": 0,
+            "no_file": 0,
+            "stale_found": 0,
+            "updated": 0,
+            "skipped_current": 0,
+            "failed": 0,
+            "next_start": next_start,
+        }
+        candidate_details = []
+
+        for cand in candidates:
+            cid = cand.get("id")
+            name = f"{cand.get('firstName', '')} {cand.get('lastName', '')}".strip()
+            try:
+                last_mod = int(cand.get("dateLastModified") or 0)
+            except (TypeError, ValueError):
+                last_mod = 0
+
+            file_url = f"{self._bh_url()}entity/Candidate/{cid}/fileAttachments"
+            try:
+                file_resp = requests.get(file_url, headers=self._bh_headers(),
+                                         params={"fields": "id,name,type,contentType,dateAdded"}, timeout=15)
+                file_resp.raise_for_status()
+                files = file_resp.json().get("data", [])
+                resume_files = [f for f in files if
+                                (str(f.get("type", "")).lower() == "resume") or
+                                str(f.get("name", "")).lower().endswith((".pdf", ".doc", ".docx"))]
+            except Exception:
+                resume_files = []
+
+            if not resume_files:
+                results["no_file"] += 1
+                continue
+
+            results["with_resume"] += 1
+
+            def _da(f):
+                try:
+                    return int(f.get("dateAdded") or 0)
+                except (TypeError, ValueError):
+                    return 0
+
+            newest = max(resume_files, key=_da)
+            newest_da = _da(newest)
+
+            # Conservative staleness rule: the newest file must be present, the
+            # record's last-modified must be known, and the file must be newer
+            # by more than the configured gap. Missing timestamps -> skip.
+            is_stale = (newest_da > 0 and last_mod > 0 and (newest_da - last_mod) > gap_ms)
+
+            if not is_stale:
+                results["skipped_current"] += 1
+                if len(candidate_details) < 50:
+                    candidate_details.append({
+                        "candidate_id": cid,
+                        "name": name,
+                        "newest_file": newest.get("name", "unknown"),
+                        "file_dateAdded": self._ms_to_str(newest_da),
+                        "candidate_dateLastModified": self._ms_to_str(last_mod),
+                        "status": "skipped_current",
+                    })
+                continue
+
+            results["stale_found"] += 1
+            detail = {
+                "candidate_id": cid,
+                "name": name,
+                "email": cand.get("email", ""),
+                "newest_file": newest.get("name", "unknown"),
+                "file_dateAdded": self._ms_to_str(newest_da),
+                "candidate_dateLastModified": self._ms_to_str(last_mod),
+                "status": "would_update" if dry_run else None,
+            }
+
+            if not dry_run:
+                try:
+                    text = self._download_and_extract_text(cid, newest, quick_mode=False)
+                    if text and len(text.strip()) > 50:
+                        update_url = f"{self._bh_url()}entity/Candidate/{cid}"
+                        upd = requests.post(
+                            update_url,
+                            headers={**self._bh_headers(), "Content-Type": "application/json"},
+                            json={"description": text[:20000]},
+                            timeout=20
+                        )
+                        upd_body = upd.json() if upd.status_code in (200, 201) else {}
+                        if upd_body.get("changeType") == "UPDATE" or upd_body.get("changedEntityId"):
+                            results["updated"] += 1
+                            detail["status"] = "updated"
+                        else:
+                            results["failed"] += 1
+                            detail["status"] = "update_failed"
+                            detail["response"] = str(upd_body)[:200]
+                    else:
+                        results["failed"] += 1
+                        detail["status"] = "parse_failed"
+                except Exception as e:
+                    self.logger.warning(f"resume_freshness_sync: failed for candidate {cid}: {e}")
+                    results["failed"] += 1
+                    detail["status"] = "error"
+                    detail["error"] = str(e)[:150]
+                time.sleep(0.1)
+
+            if len(candidate_details) < 50:
+                candidate_details.append(detail)
+
+        mode = "specific IDs" if specific_ids else f"base scan from offset {start}"
+        parts = [f"{'DRY RUN: ' if dry_run else ''}Scanned {results['candidates_scanned']} candidates ({mode})"]
+        parts.append(f"{results['with_resume']} have resume files")
+        parts.append(f"{results['stale_found']} have a newer file than the resume field")
+        if not dry_run:
+            parts.append(f"updated {results['updated']}, failed {results['failed']}")
+        else:
+            parts.append("re-run with dry_run=false to apply")
+        if next_start is not None and not specific_ids:
+            parts.append(f"continue from start={next_start}")
+
+        return {
+            "summary": ", ".join(parts),
+            "dry_run": dry_run,
+            **results,
+            "candidates": candidate_details[:50],
+        }
 
     def _builtin_email_extractor(self, params):
         import re as _re

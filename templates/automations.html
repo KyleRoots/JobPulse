@@ -847,6 +847,12 @@
                    '<div class="mb-3"><label class="form-label">Days Back</label><input type="number" class="form-control" id="param-days_back" value="5" min="1"></div>' +
                    '<div class="mb-3"><label class="form-label">Limit</label><input type="number" class="form-control" id="param-limit" value="100" min="1" max="500"></div>' +
                    '<div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="param-dry_run" checked><label class="form-check-label" for="param-dry_run">Dry Run (preview only, no changes)</label></div>';
+        } else if (currentRunBuiltinKey === 'resume_freshness_sync') {
+            body = '<div class="mb-3"><label class="form-label fw-semibold">Candidate IDs <small class="text-muted fw-normal">(optional — comma-separated; leave blank to scan the base from the offset below)</small></label><input type="text" class="form-control" id="param-candidate_ids" placeholder="e.g. 4592981,4593007"></div>' +
+                   '<div class="mb-3"><label class="form-label">Start Offset <small class="text-muted fw-normal">(base scan paging)</small></label><input type="number" class="form-control" id="param-start" value="0" min="0"></div>' +
+                   '<div class="mb-3"><label class="form-label">Limit (candidates per batch)</label><input type="number" class="form-control" id="param-limit" value="100" min="1" max="500"></div>' +
+                   '<div class="mb-3"><label class="form-label">Min Gap (minutes) <small class="text-muted fw-normal">file must be newer than record by this much</small></label><input type="number" class="form-control" id="param-min_gap_minutes" value="60" min="0"></div>' +
+                   '<div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="param-dry_run" checked><label class="form-check-label" for="param-dry_run">Dry Run (preview only, no changes)</label></div>';
         } else if (currentRunBuiltinKey === 'update_field_bulk') {
             body = '<div class="mb-3"><label class="form-label">Entity</label><select class="form-select" id="param-entity"><option value="Candidate" selected>Candidate</option><option value="JobOrder">JobOrder</option><option value="ClientContact">ClientContact</option><option value="ClientCorporation">ClientCorporation</option></select></div>' +
                    '<div class="mb-3"><label class="form-label">Lucene Query</label><input type="text" class="form-control" id="param-query" placeholder="e.g. source:LinkedIn"></div>' +
@@ -941,6 +947,12 @@
 
         var hoursBackEl = document.getElementById('param-hours_back');
         if (hoursBackEl && hoursBackEl.value) params.hours_back = parseInt(hoursBackEl.value);
+
+        var startEl = document.getElementById('param-start');
+        if (startEl && startEl.value !== '') params.start = parseInt(startEl.value);
+
+        var minGapEl = document.getElementById('param-min_gap_minutes');
+        if (minGapEl && minGapEl.value !== '') params.min_gap_minutes = parseInt(minGapEl.value);
 
         var timeWindowEl = document.getElementById('param-time_window_minutes');
         if (timeWindowEl && timeWindowEl.value) params.time_window_minutes = parseInt(timeWindowEl.value);
