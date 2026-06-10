@@ -153,3 +153,101 @@ def test_enrichment_never_overwrites_existing_owner_or_source(mapper):
     assert 'owner' not in enriched
     # sanity: genuinely-missing fields still enrich
     assert enriched.get('occupation') == 'Engineer'
+
+
+# ── submit_application glue: pando referrer -> feed + Corporate Website --------
+
+class _FakeSendGridResponse:
+    status_code = 202
+    headers = {}
+    body = b''
+
+
+def test_submit_application_pando_referrer_tags_feed_and_source(monkeypatch):
+    """End-to-end glue on the apply form: a PandoLogic referrer (TheJobNetwork)
+    with the hardcoded ?source=LinkedIn param and NO explicit feed must make the
+    outbound email carry feed='pando' and source 'Corporate Website', so the
+    existing inbound pipeline routes Bullhorn ownership to the Pando API user."""
+    from job_application_service import JobApplicationService
+
+    svc = JobApplicationService()
+
+    captured = {}
+    monkeypatch.setattr(
+        svc, '_build_application_email_html',
+        lambda data, is_stsi=False: captured.update(html=dict(data)) or '')
+    monkeypatch.setattr(
+        svc, '_build_application_email_text',
+        lambda data, is_stsi=False: captured.update(text=dict(data)) or '')
+    monkeypatch.setattr(svc, '_create_logo_attachment', lambda is_stsi: None)
+    monkeypatch.setattr(svc, '_create_attachment', lambda f, kind: None)
+    monkeypatch.setattr(svc, '_close_apply_visit', lambda **kw: None)
+    monkeypatch.setattr(svc, '_check_and_clear_suppression', lambda *a, **k: None)
+
+    class _FakeSG:
+        def send(self, message):
+            return _FakeSendGridResponse()
+
+    svc.sg = _FakeSG()
+    svc.sendgrid_api_key = 'test-key'
+
+    application_data = {
+        'firstName': 'Ada', 'lastName': 'Lovelace',
+        'email': 'ada@example.com', 'phone': '555-1234',
+        'jobId': '34613', 'jobTitle': 'Engineer',
+        'source': 'LinkedIn',   # hardcoded apply-URL default
+        'feed': '',             # PandoLogic does not preserve ?feed=pando
+        'referrer': 'https://myticasconsulting.thejobnetwork.com/job/1',
+        'utm_source': '',
+        'visit_token': '',      # empty -> skip the ApplyPageVisit DB lookup
+    }
+
+    result = svc.submit_application(application_data, resume_file=object())
+
+    assert result.get('success') is True
+    assert captured['html']['feed'] == 'pando'
+    assert captured['html']['source'] == 'Corporate Website'
+    assert captured['text']['feed'] == 'pando'
+
+
+def test_submit_application_real_linkedin_referrer_unchanged(monkeypatch):
+    """Guard: a genuine LinkedIn referrer must NOT be tagged pando — feed stays
+    empty and source resolves to the real channel."""
+    from job_application_service import JobApplicationService
+
+    svc = JobApplicationService()
+
+    captured = {}
+    monkeypatch.setattr(
+        svc, '_build_application_email_html',
+        lambda data, is_stsi=False: captured.update(html=dict(data)) or '')
+    monkeypatch.setattr(svc, '_build_application_email_text',
+                        lambda data, is_stsi=False: '')
+    monkeypatch.setattr(svc, '_create_logo_attachment', lambda is_stsi: None)
+    monkeypatch.setattr(svc, '_create_attachment', lambda f, kind: None)
+    monkeypatch.setattr(svc, '_close_apply_visit', lambda **kw: None)
+    monkeypatch.setattr(svc, '_check_and_clear_suppression', lambda *a, **k: None)
+
+    class _FakeSG:
+        def send(self, message):
+            return _FakeSendGridResponse()
+
+    svc.sg = _FakeSG()
+    svc.sendgrid_api_key = 'test-key'
+
+    application_data = {
+        'firstName': 'Ada', 'lastName': 'Lovelace',
+        'email': 'ada@example.com', 'phone': '555-1234',
+        'jobId': '34613', 'jobTitle': 'Engineer',
+        'source': 'LinkedIn',
+        'feed': '',
+        'referrer': 'https://www.linkedin.com/jobs/view/1',
+        'utm_source': '',
+        'visit_token': '',
+    }
+
+    result = svc.submit_application(application_data, resume_file=object())
+
+    assert result.get('success') is True
+    assert captured['html']['feed'] == ''
+    assert captured['html']['source'] == 'LinkedIn Job Board'

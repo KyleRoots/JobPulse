@@ -10,6 +10,7 @@ from source_attribution import (
     referrer_host,
     source_from_referrer,
     resolve_source,
+    is_pando_referrer,
 )
 
 
@@ -57,8 +58,31 @@ def test_falls_back_to_param_when_referrer_unusable():
     assert resolve_source('LinkedIn', '', '') == 'LinkedIn Job Board'
     # Internal referrer -> param.
     assert resolve_source('LinkedIn', 'https://apply.myticas.com/1/x/', '') == 'LinkedIn Job Board'
-    # PandoLogic-masked referrer -> param.
-    assert resolve_source('LinkedIn', 'https://click.pandologic.com/r', '') == 'LinkedIn Job Board'
+
+
+def test_is_pando_referrer_detects_distribution_hosts():
+    # TheJobNetwork is PandoLogic's programmatic distribution network.
+    assert is_pando_referrer('https://myticasconsulting.thejobnetwork.com/job/1') is True
+    assert is_pando_referrer('https://click.pandologic.com/redir?x') is True
+    assert is_pando_referrer('https://x.pandolytics.com/r') is True
+    # Genuine boards and blank referrers are not PandoLogic.
+    assert is_pando_referrer('https://www.indeed.com/viewjob?jk=1') is False
+    assert is_pando_referrer('https://linkedin.com/jobs') is False
+    assert is_pando_referrer('') is False
+    assert is_pando_referrer(None) is False
+
+
+def test_pando_referrer_resolves_to_corporate_website():
+    # PandoLogic masks the true board; we tag the on-form source as Corporate
+    # Website (the distribution channel is captured via the candidate owner).
+    assert resolve_source('LinkedIn', 'https://myticasconsulting.thejobnetwork.com/j/1', '') == 'Corporate Website'
+    assert resolve_source('LinkedIn', 'https://click.pandologic.com/r', '') == 'Corporate Website'
+    assert resolve_source('LinkedIn', 'https://x.pandolytics.com/r', '') == 'Corporate Website'
+
+
+def test_pando_referrer_beats_recognized_board_param_and_utm():
+    # The PandoLogic referrer is browser truth and wins over every other signal.
+    assert resolve_source('Indeed', 'https://x.thejobnetwork.com/j', 'indeed') == 'Corporate Website'
 
 
 def test_utm_used_between_referrer_and_param():

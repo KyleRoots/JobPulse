@@ -110,6 +110,23 @@ class JobApplicationService:
                         explicit_in = visit_row.source_param or explicit_in
             except Exception as lookup_err:
                 logger.warning(f"ApplyPageVisit attribution lookup failed (non-fatal): {lookup_err}")
+            # PandoLogic masks the true board (Indeed/ZipRecruiter/Dice/...) behind
+            # its own redirect network (e.g. TheJobNetwork) and does NOT preserve
+            # our ?feed=pando tag, so the apply-page referrer is the only reliable
+            # PandoLogic signal on our side. When we see one, treat it as the pando
+            # feed so the inbound pipeline routes ownership to the PandoLogic API
+            # user (source -> 'Corporate Website'). Fail-soft.
+            if not feed:
+                try:
+                    from source_attribution import is_pando_referrer
+                    if is_pando_referrer(referrer_in):
+                        feed = 'pando'
+                        logger.info(
+                            f"PandoLogic referrer detected ({referrer_in!r}): "
+                            "tagging feed=pando -> source 'Corporate Website' + Pando owner"
+                        )
+                except Exception as pando_err:
+                    logger.warning(f"PandoLogic referrer detection failed (non-fatal): {pando_err}")
             try:
                 from source_attribution import resolve_source
                 resolved = resolve_source(
@@ -128,9 +145,11 @@ class JobApplicationService:
             # Detect if this is an STSI application based on domain
             is_stsi = request_host and 'stsigroup' in request_host.lower()
 
-            # Ensure the feed value reaches the body builders even when callers
-            # construct application_data without the key.
-            application_data.setdefault('feed', feed)
+            # Ensure the resolved feed value (including referrer-detected pando)
+            # reaches the body builders. Overwrite rather than setdefault: the key
+            # already exists from the apply form (often ''), so setdefault alone
+            # would drop a feed we inferred from the PandoLogic referrer above.
+            application_data['feed'] = feed
 
             html_content = self._build_application_email_html(application_data, is_stsi)
             text_content = self._build_application_email_text(application_data, is_stsi)

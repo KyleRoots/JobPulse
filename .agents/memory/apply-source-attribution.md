@@ -28,26 +28,40 @@ from that subject. So resolving the real source at submit time and writing it
 into that subject means the existing inbound→Bullhorn pipeline carries it
 untouched — no Bullhorn-write code changes needed.
 
-**Non-source referrers** deliberately return '' (fall through to next signal):
-our own domains (myticas/stsigroup/scoutgenius) AND **PandoLogic** — it's a
-redirect middle-man that masks the true origin, so mapping it to a "source"
-would be misleading.
+**Non-source referrers** that are OUR OWN domains
+(myticas/stsigroup/scoutgenius) return '' from `source_from_referrer` (fall
+through to next signal). PandoLogic hosts are handled by their OWN branch — see
+below.
 
-**PandoLogic-distributed apply traffic (feed=pando) decision:** ~27% of
-applicants reach our own apply form via PandoLogic distribution (e.g.
-TheJobNetwork referrer) carrying the hardcoded `?source=LinkedIn`. The reliable
-discriminator is `feed=pando` (NOT the referrer host or source string). When the
-inbound mapper sees feed=pando it sets Bullhorn **source="Corporate Website"**
-(they applied on our form) + **owner = PandoLogic API user** (id from
-`VettingConfig.pandologic_api_user_id`), capturing the channel in the owner.
-**Why:** genuine recognized referrers (LinkedIn/Indeed/Facebook) do NOT carry
-feed=pando in the data, so keying off feed never mislabels real referrers; and
-owner alone is mutable (auto-reassign hands it to recruiters), so source carries
-the durable "applied on our site" fact. The source value is a single constant
-(`_InboundCore.PANDO_FEED_SOURCE`) — flip to 'Vendor/3rd Party' if preferred.
+**PandoLogic-distributed apply traffic decision (two detection paths):** a large
+slice of applicants reach our own apply form via PandoLogic distribution carrying
+the hardcoded `?source=LinkedIn`. Outcome for ALL of them: Bullhorn
+**source="Corporate Website"** (they applied on our form) + **owner = PandoLogic
+API user** (id from `VettingConfig.pandologic_api_user_id`) — the distribution
+channel is captured in the owner, not the source.
+- **Path A — `feed=pando` tag:** the original discriminator. Inbound mapper sees
+  `feed=pando` → applies the override in `map_to_bullhorn_fields`. Constant is
+  `_InboundCore.PANDO_FEED_SOURCE` (flip to 'Vendor/3rd Party' if preferred).
+- **Path B — referrer host (added because Path A never fires in prod):**
+  production spot-check (Jun 2026) found `feed=pando` on **0 of ~5,000** visits —
+  PandoLogic does NOT preserve our `?feed=pando` query param through its redirect
+  network, and the true board (Indeed/Zip/Dice) is masked behind
+  `thejobnetwork.com` (TheJobNetwork = PandoLogic's programmatic network, ~28% of
+  apply traffic, all previously mislabeled "LinkedIn"). Fix: detect PandoLogic by
+  **referrer host** (`thejobnetwork.com`/`pandologic`/`pandolytics`) in
+  `source_attribution.is_pando_referrer`. `resolve_source` returns
+  `PANDO_SOURCE='Corporate Website'` at TOP priority for these, and
+  `job_application_service.submit_application` sets `feed='pando'` so Path A's
+  downstream owner-routing fires. Keep `PANDO_SOURCE` in sync with
+  `_InboundCore.PANDO_FEED_SOURCE`.
+**Why referrer (not the param):** every apply URL hardcodes `?source=LinkedIn`,
+and `feed=pando` doesn't survive the PandoLogic click — the referrer host is the
+only reliable PandoLogic signal on our side. Genuine LinkedIn/Indeed referrers
+never have a pando host, so this never mislabels real referrers.
 **How to apply:** override lives in `map_to_bullhorn_fields`; enrichment/recovery
 paths never stomp an existing candidate's owner/source (neither is in the
-enrichment allowlist).
+enrichment allowlist). Only affects NEW applications — no retro-relabel of the
+~900 already mislabeled.
 
 **Integrity:** at submit time, prefer the referrer/utm we persisted server-side
 at the GET first-touch (looked up by `visit_token` in `apply_page_visit`) over

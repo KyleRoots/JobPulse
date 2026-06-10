@@ -55,12 +55,30 @@ _TOKEN_ALIASES = {
 # Hostnames that are OUR OWN / non-source middle-men: never treat as a channel.
 # PandoLogic is a redirect aggregator that masks the true origin (documented
 # wrinkle) — we deliberately do NOT map it to a source, so a pandologic referrer
-# falls through to the next-best signal rather than mis-attributing.
+# falls through to the PandoLogic branch below (Corporate Website) rather than
+# mis-attributing to a job board.
 _NON_SOURCE_HOST_SUBSTRINGS = (
     'myticas.com',
     'stsigroup.com',
     'stsi.com',
     'scoutgenius.ai',
+    'pandologic',
+    'pandolytics',
+)
+
+# Bullhorn source used for PandoLogic-distributed apply-form traffic. PandoLogic
+# masks the true board (Indeed/ZipRecruiter/Dice/...) behind its own redirect
+# network and does NOT preserve our ?feed=pando tag, so the referrer host is the
+# only reliable PandoLogic signal on our side. The PandoLogic distribution
+# channel is captured separately via the candidate owner (Pandologic API user).
+# Keep in sync with email_inbound_service._core._InboundCore.PANDO_FEED_SOURCE.
+PANDO_SOURCE = 'Corporate Website'
+
+# Referrer hostname substrings that signal a PandoLogic-distributed application.
+# 'thejobnetwork.com' is PandoLogic's programmatic distribution network; the
+# pandologic/pandolytics hosts cover direct PandoLogic redirects.
+_PANDO_REFERRER_SUBSTRINGS = (
+    'thejobnetwork.com',
     'pandologic',
     'pandolytics',
 )
@@ -118,15 +136,30 @@ def source_from_referrer(referrer):
     return normalize_source_value(host)
 
 
+def is_pando_referrer(referrer):
+    """True when the apply-page referrer is a PandoLogic distribution host.
+
+    PandoLogic redistributes our jobs to many boards but the click returns
+    through its own network (e.g. TheJobNetwork), masking the original board, so
+    the referrer host is the only reliable PandoLogic signal on our side.
+    """
+    host = referrer_host(referrer)
+    if not host:
+        return False
+    return any(sub in host for sub in _PANDO_REFERRER_SUBSTRINGS)
+
+
 def resolve_source(explicit_source='', referrer='', utm_source=''):
     """Resolve the best-available canonical Bullhorn source.
 
-    Priority: referrer host (browser truth) > utm_source > explicit ?source=
-    param. The published apply URLs hardcode ?source=LinkedIn for every channel,
-    so the explicit param is the WEAKEST signal and is only used when the
-    referrer and utm give us nothing. Returns '' when undetermined (caller keeps
-    its own fallback).
+    Priority: PandoLogic referrer (Corporate Website) > referrer host (browser
+    truth) > utm_source > explicit ?source= param. The published apply URLs
+    hardcode ?source=LinkedIn for every channel, so the explicit param is the
+    WEAKEST signal and is only used when the referrer and utm give us nothing.
+    Returns '' when undetermined (caller keeps its own fallback).
     """
+    if is_pando_referrer(referrer):
+        return PANDO_SOURCE
     ref = source_from_referrer(referrer)
     if ref:
         return ref
