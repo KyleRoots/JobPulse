@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Any
 
 from utils.candidate_name_extraction import (
@@ -15,6 +15,67 @@ logger = logging.getLogger(__name__)
 
 
 class ProcessingMixin:
+
+    # Default cross-route de-dupe window (minutes). The two transport copies of
+    # one application (Exchange copy via the mailbox-pull path + SendGrid copy
+    # via the inbound webhook) arrive seconds-to-minutes apart; genuine
+    # re-applies are hours/days apart and must be preserved.
+    _CROSS_ROUTE_DEFAULT_WINDOW_MIN = 30
+
+    def _cross_route_dedupe_enabled(self) -> bool:
+        """Master switch (DB-backed, tunable without republish). Default ON."""
+        try:
+            from models import VettingConfig
+            val = VettingConfig.get_value('cross_route_dedupe_enabled', 'true')
+            return (val or 'true').strip().lower() == 'true'
+        except Exception:  # noqa: BLE001 — config read must never break intake
+            return True
+
+    def _cross_route_dedupe_window_minutes(self) -> int:
+        """Window (minutes) within which a sibling submission collapses the
+        duplicate. 0 (or negative) disables the guard. Default 30, capped 24h."""
+        try:
+            from models import VettingConfig
+            raw = VettingConfig.get_value(
+                'cross_route_dedupe_window_minutes',
+                str(self._CROSS_ROUTE_DEFAULT_WINDOW_MIN))
+            minutes = int(raw)
+        except (TypeError, ValueError):
+            minutes = self._CROSS_ROUTE_DEFAULT_WINDOW_MIN
+        except Exception:  # noqa: BLE001
+            return self._CROSS_ROUTE_DEFAULT_WINDOW_MIN
+        return max(0, min(minutes, 1440))
+
+    def _find_cross_route_sibling(self, parsed_email_id, candidate_id, job_id):
+        """Return a recent sibling ParsedEmail that ALREADY produced a Bullhorn
+        submission for the SAME (candidate, job) within the configured window —
+        i.e. the first transport copy of this same application — or None.
+
+        Keyed on the resolved Bullhorn candidate_id (both transport copies
+        resolve to the same candidate via candidate-level dedupe) + job_id, so
+        it is independent of which mail system stamped the Message-ID. Requires
+        a non-null bullhorn_submission_id so we only collapse against a copy
+        that actually reached the pipeline — never against a still-processing or
+        failed sibling, because dropping a real applicant is the exact failure
+        this guard must avoid.
+        """
+        if not self._cross_route_dedupe_enabled():
+            return None
+        window = self._cross_route_dedupe_window_minutes()
+        if window <= 0 or not candidate_id or not job_id:
+            return None
+
+        from models import ParsedEmail
+        cutoff = datetime.utcnow() - timedelta(minutes=window)
+        query = ParsedEmail.query.filter(
+            ParsedEmail.bullhorn_candidate_id == candidate_id,
+            ParsedEmail.bullhorn_job_id == job_id,
+            ParsedEmail.bullhorn_submission_id.isnot(None),
+            ParsedEmail.created_at >= cutoff,
+        )
+        if parsed_email_id is not None:
+            query = query.filter(ParsedEmail.id != parsed_email_id)
+        return query.order_by(ParsedEmail.created_at.desc()).first()
 
     def process_email(self, sendgrid_payload: Dict) -> Dict[str, Any]:
         """
@@ -333,6 +394,48 @@ class ProcessingMixin:
 
             parsed_email.bullhorn_candidate_id = candidate_id
             result['candidate_id'] = candidate_id
+
+            # ── Cross-route duplicate guard ──────────────────────────────────
+            # The SAME application can reach us as TWO inbox messages with
+            # DIFFERENT Message-IDs — one stamped by Microsoft/Exchange (pulled
+            # from the apply@ mailbox via Graph) and one by SendGrid (delivered
+            # to the inbound webhook) — so the message_id dedupe at the top can
+            # never link them. Both copies resolve to the SAME Bullhorn
+            # candidate, so if a recent sibling ParsedEmail already created a
+            # submission for this (candidate, job), THIS is the second copy:
+            # collapse it WITHOUT a duplicate submission / résumé upload / notes.
+            # Genuine re-applies (hours/days later) fall outside the window and
+            # proceed normally (the standing "show repeat applies" decision).
+            sibling = self._find_cross_route_sibling(
+                parsed_email.id, candidate_id, job_id)
+            if sibling is not None:
+                self.logger.info(
+                    f"Cross-route duplicate detected: candidate {candidate_id} "
+                    f"→ job {job_id} already submitted by ParsedEmail "
+                    f"{sibling.id} (submission {sibling.bullhorn_submission_id}) "
+                    f"within {self._cross_route_dedupe_window_minutes()}m — "
+                    f"skipping duplicate submission/upload/notes."
+                )
+                parsed_email.is_duplicate_candidate = True
+                parsed_email.status = 'duplicate'
+                parsed_email.processed_at = datetime.utcnow()
+                parsed_email.processing_notes = (
+                    f"Cross-route duplicate of ParsedEmail {sibling.id} "
+                    f"(submission {sibling.bullhorn_submission_id}). Same "
+                    f"application arrived via both mail transports; skipped "
+                    f"duplicate Bullhorn submission, résumé upload, and notes."
+                )
+                db.session.commit()
+                result['success'] = True
+                result['is_duplicate'] = True
+                result['duplicate'] = True
+                result['candidate_id'] = candidate_id
+                result['submission_id'] = sibling.bullhorn_submission_id
+                result['message'] = (
+                    f"Cross-route duplicate collapsed for candidate "
+                    f"{candidate_id} → job {job_id}"
+                )
+                return result
 
             is_new_candidate = not result.get('is_duplicate')
 

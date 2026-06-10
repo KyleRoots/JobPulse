@@ -445,6 +445,17 @@ def seed_vetting_config(db, VettingConfig):
             # On first enable, anchor the poller this many hours back so it
             # auto-drains the recent backlog (outage-lost applicants). Cap 720h.
             'mailbox_pull_backfill_hours': '24',
+            # Cross-route apply de-dupe. The SAME application can arrive as TWO
+            # inbox messages with DIFFERENT Message-IDs (Exchange copy via the
+            # mailbox-pull path + SendGrid copy via the inbound webhook); the
+            # message_id dedupe can't link them, so both would create a Bullhorn
+            # submission. This guard collapses the second copy when a sibling
+            # already submitted the SAME (candidate, job) within the window.
+            # Genuine re-applies (hours/days later) fall outside the window and
+            # are preserved. DB-backed → tunable without a republish; window 0
+            # disables it.
+            'cross_route_dedupe_enabled': 'true',
+            'cross_route_dedupe_window_minutes': '30',
         }
 
         settings_created = []
