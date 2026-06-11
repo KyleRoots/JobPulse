@@ -19,13 +19,14 @@ import logging
 import models
 from email_inbound_service._core import _InboundCore
 from email_inbound_service.ai_mixin import AIMixin
+from email_inbound_service.extraction_mixin import ExtractionMixin
 from email_inbound_service.resume_mixin import ResumeMixin
 
 
-class _Harness(ResumeMixin, AIMixin, _InboundCore):
+class _Harness(ResumeMixin, AIMixin, ExtractionMixin, _InboundCore):
     """Minimal combination exposing map_to_bullhorn_fields /
-    _build_enrichment_update without the OpenAI client init that
-    _InboundCore.__init__ performs."""
+    _build_enrichment_update / detect_feed without the OpenAI client init
+    that _InboundCore.__init__ performs."""
 
     def __init__(self):  # noqa: D401 - intentionally skips OpenAI setup
         self.logger = logging.getLogger('test_pando')
@@ -131,16 +132,55 @@ def test_no_feed_keeps_true_source(mapper, basic_email):
     assert 'owner' not in candidate
 
 
-# ── enrichment must never stomp an existing candidate's owner/source ----------
+# ── detect_feed: must survive the HTML apply email -----------------------------
 
-def test_enrichment_never_overwrites_existing_owner_or_source(mapper):
-    """The duplicate/recovery paths run map output through enrichment, which is
-    the load-bearing guard: a Pando override on a NEW candidate must not later
-    overwrite an EXISTING candidate's owner/source. Lock that 'source' and
-    'owner' are not enrichable, even when the mapped payload carries them."""
+# The apply-form email is HTML; inbound processes the HTML body where the
+# "Feed:" label and its value sit in SEPARATE <td> cells. A naive
+# `Feed:\s*value` regex only matches the plain-text body, which is why the
+# owner override never fired in production until detect_feed learned to strip
+# tags.
+_HTML_FEED_BODY = (
+    '<table><tr>'
+    '<td style="font-weight:bold;">Feed:</td>'
+    '<td style="color:#333;">pando</td>'
+    '</tr></table>'
+)
+_HTML_FEED_SENTINEL = (
+    '<tr><td>Feed:</td><td>-</td></tr>'
+)
+
+
+def test_detect_feed_html_cell_split(mapper):
+    """The real production failure: HTML body with Feed label/value split."""
+    assert mapper.detect_feed(_HTML_FEED_BODY) == 'pando'
+
+
+def test_detect_feed_plain_text(mapper):
+    assert mapper.detect_feed('Source: Corporate Website\nFeed: pando\n') == 'pando'
+
+
+def test_detect_feed_html_sentinel_is_empty(mapper):
+    assert mapper.detect_feed(_HTML_FEED_SENTINEL) == ''
+
+
+def test_detect_feed_absent_is_empty(mapper):
+    assert mapper.detect_feed('<p>Some unrelated job-board forward</p>') == ''
+
+
+def test_detect_feed_blank_is_empty(mapper):
+    assert mapper.detect_feed('') == ''
+
+
+# ── enrichment: correct pando attribution on RETURNING candidates -------------
+# The duplicate/recovery paths run map output through enrichment. For a
+# PandoLogic application (new_data carries an owner), the attribution source is
+# always corrected, and ownership is reassigned ONLY when the existing owner is
+# an automated API user — never a human recruiter.
+
+def test_enrichment_human_owner_keeps_owner_but_corrects_source(mapper):
     existing = {
         'source': 'LinkedIn',
-        'owner': {'id': 999999},
+        'owner': {'id': 999999},  # a human recruiter
         'phone': '555-1111',
     }
     new_data = {
@@ -149,10 +189,53 @@ def test_enrichment_never_overwrites_existing_owner_or_source(mapper):
         'occupation': 'Engineer',
     }
     enriched = mapper._build_enrichment_update(existing, new_data)
-    assert 'source' not in enriched
+    # source corrected, but the human owner is left untouched
+    assert enriched.get('source') == 'Corporate Website'
     assert 'owner' not in enriched
     # sanity: genuinely-missing fields still enrich
     assert enriched.get('occupation') == 'Engineer'
+
+
+def test_enrichment_api_user_owner_gets_reassigned(mapper):
+    existing = {
+        'source': 'LinkedIn',
+        'owner': {'id': 1147490},  # Myticas API user
+    }
+    new_data = {
+        'source': 'Corporate Website',
+        'owner': {'id': 4582033},
+    }
+    enriched = mapper._build_enrichment_update(existing, new_data)
+    assert enriched.get('source') == 'Corporate Website'
+    assert enriched.get('owner') == {'id': 4582033}
+
+
+def test_enrichment_unowned_candidate_gets_pando_owner(mapper):
+    existing = {'source': 'LinkedIn'}  # no owner
+    new_data = {'source': 'Corporate Website', 'owner': {'id': 4582033}}
+    enriched = mapper._build_enrichment_update(existing, new_data)
+    assert enriched.get('owner') == {'id': 4582033}
+
+
+def test_enrichment_non_pando_never_touches_source_or_owner(mapper):
+    """A non-PandoLogic application (no owner in new_data) must never alter an
+    existing candidate's source or owner."""
+    existing = {'source': 'LinkedIn', 'owner': {'id': 1147490}}
+    new_data = {'source': 'Indeed Job Board', 'occupation': 'Engineer'}
+    enriched = mapper._build_enrichment_update(existing, new_data)
+    assert 'source' not in enriched
+    assert 'owner' not in enriched
+    assert enriched.get('occupation') == 'Engineer'
+
+
+def test_enrichment_pando_source_already_correct_skips_source(mapper):
+    """If the existing source is already Corporate Website, don't re-write it,
+    but still reassign an API-user owner."""
+    existing = {'source': 'Corporate Website', 'owner': {'id': 1147490}}
+    new_data = {'source': 'Corporate Website', 'owner': {'id': 4582033}}
+    enriched = mapper._build_enrichment_update(existing, new_data)
+    assert 'source' not in enriched
+    assert enriched.get('owner') == {'id': 4582033}
 
 
 # ── submit_application glue: pando referrer -> feed + Corporate Website --------

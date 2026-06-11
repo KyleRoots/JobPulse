@@ -108,17 +108,32 @@ class ExtractionMixin:
         email body. The apply-form email emits a "Feed: {value}" line populated
         from the URL `?feed=` query param. Returns the lowercased value when
         present and non-empty, else an empty string.
+
+        The inbound pipeline processes the HTML body, where the "Feed:" label
+        and its value live in SEPARATE table cells
+        (``<td>Feed:</td><td>pando</td>``). A plain ``Feed:\\s*value`` match only
+        works on the plain-text body, so when the raw match fails we strip HTML
+        tags (turning the cells into adjacent text) and retry.
         """
         if not body:
             return ''
-        match = re.search(r'(?i)Feed:\s*([A-Za-z0-9_-]{1,40})', body)
-        if not match:
+        # The "Feed:" label is always intact within a single cell; bail early
+        # (and skip the tag-strip) when no apply-form Feed line is present.
+        if not re.search(r'(?i)feed:', body):
             return ''
-        value = match.group(1).strip().lower()
-        # Sentinel emitted when the form had no feed value
-        if value in ('', '-', 'none', 'null'):
-            return ''
-        return value
+        candidates = [body]
+        if '<' in body and '>' in body:
+            candidates.append(re.sub(r'<[^>]+>', ' ', body))
+        for text in candidates:
+            match = re.search(r'(?i)Feed:\s*([A-Za-z0-9_-]{1,40})', text)
+            if not match:
+                continue
+            value = match.group(1).strip().lower()
+            # Sentinel emitted when the form had no feed value
+            if value in ('', '-', 'none', 'null'):
+                return ''
+            return value
+        return ''
 
     def extract_bullhorn_job_id(self, subject: str, body: str, source: str = None) -> Optional[int]:
         """
