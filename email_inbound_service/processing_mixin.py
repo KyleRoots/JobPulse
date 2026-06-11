@@ -365,10 +365,11 @@ class ProcessingMixin:
             parsed_email.is_duplicate_candidate = duplicate_id is not None
             parsed_email.duplicate_confidence = confidence
 
+            feed = self.detect_feed(body)
             bullhorn_data = self.map_to_bullhorn_fields(
                 email_candidate, resume_data, source,
                 email_candidate.get('work_authorization'),
-                feed=self.detect_feed(body)
+                feed=feed
             )
 
             self.logger.info(f"Bullhorn candidate data:")
@@ -380,7 +381,10 @@ class ProcessingMixin:
 
             if duplicate_id and confidence >= 0.80:
                 existing_candidate = bullhorn.get_candidate(duplicate_id)
-                enriched_data = self._build_enrichment_update(existing_candidate, bullhorn_data)
+                enriched_data = self._build_enrichment_update(
+                    existing_candidate, bullhorn_data,
+                    is_pando=self._is_pando_feed(feed)
+                )
                 if enriched_data:
                     candidate_id = bullhorn.update_candidate(duplicate_id, enriched_data)
                     self.logger.info(f"Enriched existing candidate {candidate_id} with {len(enriched_data)} fields: {list(enriched_data.keys())}")
@@ -635,15 +639,17 @@ class ProcessingMixin:
             from app import get_bullhorn_service
             bullhorn = get_bullhorn_service()
 
+            feed = self.detect_feed(body)
             bullhorn_data = self.map_to_bullhorn_fields(
                 email_candidate, resume_data, source,
                 email_candidate.get('work_authorization'),
-                feed=self.detect_feed(body)
+                feed=feed
             )
 
             existing_candidate = bullhorn.get_candidate(candidate_id)
             enriched_data = self._build_enrichment_update(
-                existing_candidate, bullhorn_data
+                existing_candidate, bullhorn_data,
+                is_pando=self._is_pando_feed(feed)
             )
             if enriched_data:
                 bullhorn.update_candidate(candidate_id, enriched_data)

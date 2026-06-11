@@ -482,7 +482,7 @@ Consider: name spelling variations, nicknames, contact info matches.
             self.logger.warning("Could not load api_user_ids for PandoLogic owner guard")
         return ids
 
-    def _build_enrichment_update(self, existing: Optional[Dict], new_data: Dict) -> Dict:
+    def _build_enrichment_update(self, existing: Optional[Dict], new_data: Dict, is_pando: bool = False) -> Dict:
         """
         Build an enrichment-only update payload. Only includes fields that are
         blank/missing/empty on the existing record but populated in new_data.
@@ -529,13 +529,13 @@ Consider: name spelling variations, nicknames, contact info matches.
             if addr_update:
                 enriched['address'] = addr_update
 
-        # PandoLogic attribution. map_to_bullhorn_fields() sets candidate['owner']
-        # (plus source='Corporate Website') ONLY for feed=pando applications, so
-        # the presence of new_data['owner'] is the pando signal. Returning
-        # candidates would otherwise keep their stale source/owner because the
-        # enrichable_fields list above intentionally excludes them.
-        pando_owner = new_data.get('owner')
-        if pando_owner and new_data.get('source'):
+        # PandoLogic attribution. The caller passes is_pando (derived from the
+        # detected feed) as the explicit signal — we do NOT infer it from
+        # new_data['owner'], so source is still corrected for returning
+        # candidates even when pandologic_api_user_id is unset (no owner target).
+        # Returning candidates would otherwise keep their stale source/owner
+        # because the enrichable_fields list above intentionally excludes them.
+        if is_pando and new_data.get('source'):
             # Always correct the attribution source to the PandoLogic value.
             if existing.get('source') != new_data['source']:
                 enriched['source'] = new_data['source']
@@ -543,15 +543,22 @@ Consider: name spelling variations, nicknames, contact info matches.
                     f"  PandoLogic: updating source {existing.get('source')!r} -> "
                     f"{new_data['source']!r}"
                 )
-            # Only re-own when currently owned by an API user (or unowned) —
-            # never reassign away from a human recruiter who claimed the candidate.
+            # Only re-own when a pando owner target exists AND the candidate is
+            # currently owned by an API user (or unowned) — never reassign away
+            # from a human recruiter who claimed the candidate.
+            pando_owner = new_data.get('owner')
             existing_owner = existing.get('owner') or {}
             existing_owner_id = existing_owner.get('id')
             try:
                 existing_owner_id = int(existing_owner_id) if existing_owner_id is not None else None
             except (ValueError, TypeError):
                 existing_owner_id = None
-            if existing_owner_id is None or existing_owner_id in self._get_inbound_api_user_ids():
+            if not pando_owner:
+                self.logger.info(
+                    "  PandoLogic: source corrected but pandologic_api_user_id "
+                    "unset — owner left unchanged"
+                )
+            elif existing_owner_id is None or existing_owner_id in self._get_inbound_api_user_ids():
                 enriched['owner'] = pando_owner
                 self.logger.info(
                     f"  PandoLogic: reassigning owner {existing_owner_id} -> "

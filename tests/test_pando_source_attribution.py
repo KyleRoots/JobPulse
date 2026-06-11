@@ -188,7 +188,7 @@ def test_enrichment_human_owner_keeps_owner_but_corrects_source(mapper):
         'owner': {'id': 4582033},
         'occupation': 'Engineer',
     }
-    enriched = mapper._build_enrichment_update(existing, new_data)
+    enriched = mapper._build_enrichment_update(existing, new_data, is_pando=True)
     # source corrected, but the human owner is left untouched
     assert enriched.get('source') == 'Corporate Website'
     assert 'owner' not in enriched
@@ -205,7 +205,7 @@ def test_enrichment_api_user_owner_gets_reassigned(mapper):
         'source': 'Corporate Website',
         'owner': {'id': 4582033},
     }
-    enriched = mapper._build_enrichment_update(existing, new_data)
+    enriched = mapper._build_enrichment_update(existing, new_data, is_pando=True)
     assert enriched.get('source') == 'Corporate Website'
     assert enriched.get('owner') == {'id': 4582033}
 
@@ -213,8 +213,29 @@ def test_enrichment_api_user_owner_gets_reassigned(mapper):
 def test_enrichment_unowned_candidate_gets_pando_owner(mapper):
     existing = {'source': 'LinkedIn'}  # no owner
     new_data = {'source': 'Corporate Website', 'owner': {'id': 4582033}}
-    enriched = mapper._build_enrichment_update(existing, new_data)
+    enriched = mapper._build_enrichment_update(existing, new_data, is_pando=True)
     assert enriched.get('owner') == {'id': 4582033}
+
+
+def test_enrichment_pando_without_owner_target_still_corrects_source(mapper):
+    """Robustness: if pandologic_api_user_id is unset, map output carries the
+    corrected source but NO owner. Source must still be corrected for a
+    returning candidate; owner must be left unchanged (no target)."""
+    existing = {'source': 'LinkedIn', 'owner': {'id': 1147490}}
+    new_data = {'source': 'Corporate Website'}  # no owner -> config unset
+    enriched = mapper._build_enrichment_update(existing, new_data, is_pando=True)
+    assert enriched.get('source') == 'Corporate Website'
+    assert 'owner' not in enriched
+
+
+def test_enrichment_non_pando_owner_payload_never_triggers_pando(mapper):
+    """Future-proofing the explicit-signal contract: even if a non-pando payload
+    somehow carried an owner, without is_pando the pando block must not fire."""
+    existing = {'source': 'LinkedIn', 'owner': {'id': 1147490}}
+    new_data = {'source': 'Corporate Website', 'owner': {'id': 4582033}}
+    enriched = mapper._build_enrichment_update(existing, new_data, is_pando=False)
+    assert 'source' not in enriched
+    assert 'owner' not in enriched
 
 
 def test_enrichment_non_pando_never_touches_source_or_owner(mapper):
@@ -233,7 +254,7 @@ def test_enrichment_pando_source_already_correct_skips_source(mapper):
     but still reassign an API-user owner."""
     existing = {'source': 'Corporate Website', 'owner': {'id': 1147490}}
     new_data = {'source': 'Corporate Website', 'owner': {'id': 4582033}}
-    enriched = mapper._build_enrichment_update(existing, new_data)
+    enriched = mapper._build_enrichment_update(existing, new_data, is_pando=True)
     assert 'source' not in enriched
     assert enriched.get('owner') == {'id': 4582033}
 
