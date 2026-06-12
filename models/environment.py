@@ -17,6 +17,7 @@ This module is intentionally minimal — it establishes the registry plus the
 configuration (apply templates, logos, owner/source routing) are layered on in
 a later increment that wires them into the request / inbound paths.
 """
+import json
 from datetime import datetime
 from sqlalchemy import text
 from extensions import db
@@ -51,6 +52,19 @@ class BullhornEnvironment(db.Model):
     bullhorn_client_secret = db.Column(db.String(255), nullable=True)
     bullhorn_username = db.Column(db.String(255), nullable=True)
     bullhorn_password = db.Column(db.String(255), nullable=True)
+
+    # Per-brand screening configuration (Task #101). Both NULL on the default
+    # (Myticas) environment, so its screening behaves byte-for-byte as before.
+    #   screening_profile         — selects prompt/scoring tuning. NULL/''
+    #                               resolves to 'standard' (the historical IT
+    #                               behavior). 'light_industrial' tunes the
+    #                               prompt + experience-floor for sparse
+    #                               commercial / trade / warehouse resumes.
+    #   screening_config_overrides — optional JSON object of VettingConfig
+    #                               key→value overrides applied on top of the
+    #                               global settings for this environment only.
+    screening_profile = db.Column(db.String(50), nullable=True)
+    screening_config_overrides = db.Column(db.Text, nullable=True)
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -87,6 +101,30 @@ class BullhornEnvironment(db.Model):
         if len(creds) == len(_CREDENTIAL_KEYS):
             return creds
         return None
+
+    def get_screening_profile(self):
+        """Return the screening profile key, defaulting to 'standard'.
+
+        NULL or empty resolves to 'standard' so the default environment keeps
+        the historical IT screening behavior with no special-casing.
+        """
+        profile = (self.screening_profile or '').strip()
+        return profile or 'standard'
+
+    def get_screening_overrides(self):
+        """Return the per-environment VettingConfig override dict.
+
+        Returns ``{}`` when unset or unparseable (fail-soft to the global
+        settings), so a malformed override row can never break screening.
+        """
+        raw = self.screening_config_overrides
+        if not raw:
+            return {}
+        try:
+            data = json.loads(raw)
+        except Exception:
+            return {}
+        return data if isinstance(data, dict) else {}
 
     @classmethod
     def get_default(cls):

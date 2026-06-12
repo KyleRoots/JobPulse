@@ -1,3 +1,8 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 def build_location_instruction(work_type, job_location_full, candidate_location_label):
     if not job_location_full:
         return ""
@@ -110,8 +115,137 @@ MANDATORY LOCATION EXTRACTION (follow this EXACT priority order):
 CRITICAL OVERRIDE RULE: If the resume clearly states a specific location (e.g., "Frisco, TX") but the system address field shows only a country (e.g., "United States"), ALWAYS use the resume location. The resume is the candidate's own stated location and takes absolute precedence over system defaults."""
 
 
-def build_system_message(global_reqs_section):
-    return f"""You are a strict, evidence-based technical recruiter analyzing candidate-job fit.
+# --- Per-brand screening profiles (Task #101) -----------------------------
+# The 'standard' system prompt literal below is NEVER modified — the default
+# (Myticas) environment renders it byte-for-byte as before. Non-standard
+# profiles are applied as targeted post-render string swaps so the standard
+# output can never drift. If a marker is not found the swap is skipped (and
+# logged), failing safe to standard behavior.
+
+# Exact rendered text of Rule 13b in the standard prompt (single braces — the
+# f-string {{N}}/{{domain}} render to {N}/{domain}).
+_STANDARD_RULE_13B = """13b. INDUSTRIAL/COMMERCIAL/SKILLED-TRADES SENIORITY INFERENCE (DOMAIN-GATED):
+   When ALL of the following are true, you MAY credit common-practice minutiae duties as PRESENT
+   even when the resume does not enumerate them line-by-line:
+   NOTE: This rule is a NARROWLY SCOPED EXCEPTION to rules 1 and 2 (no-inference) and
+   applies ONLY when ALL three gating conditions (a), (b), and (c) below are satisfied.
+   For all candidates and JDs that do not meet every condition, rules 1 and 2 govern and
+   strict literal evidence is required.
+   (a) The JOB is in an industrial, commercial-construction, skilled-trades, manufacturing,
+       field-operations, or facilities domain (e.g., construction management/superintendent,
+       HVAC/MEP design or install, electrical/mechanical/plumbing trades, oil & gas, utilities,
+       mining/metals, heavy industrial, light industrial, manufacturing/production, warehouse/
+       logistics ops, field service technician).
+   (b) The candidate has 10+ years of clearly-evidenced senior experience in the SAME domain as
+       the job (matching titles, matching project types, or matching duties at scale).
+   (c) The minutiae in question are STANDARD PRACTICE for that role (e.g., RFIs, submittals,
+       punch lists, pay applications, change orders, daily logs, safety toolbox talks,
+       subcontractor coordination, materials staging, inspection sign-offs, commissioning/
+       start-up support, drawing/spec interpretation, OSHA compliance routines, lockout/tagout,
+       PPE enforcement, JHA/JSA reviews).
+   When inferring, cite evidence in requirement_evidence as
+   "Inferred from {N}+ years senior {domain} experience — standard practice for this role"
+   and apply PARTIAL credit (not full credit). Note the inference in match_summary so the
+   recruiter knows which requirements were credited by inference vs explicit resume mention.
+   This rule DOES NOT apply to:
+     * IT/software/data/cloud/cybersecurity/AI/ML/analytics/SaaS/DevOps roles — strict literal
+       evidence is still required for those.
+     * Specialty certifications, named software platforms, named tools, or branded equipment
+       (e.g., specific PLC brand, specific CAD package, specific ERP module, specific safety
+       certification) — these still require explicit resume mention.
+     * Candidates with fewer than 10 years of in-domain senior experience.
+     * Domain-mismatch candidates (e.g., IT/software background applying to a Construction
+       Manager job — inference does NOT apply because the candidate is not a senior practitioner
+       of that domain).
+   RATIONALE: Industrial, trades, and construction resumes are typically less detailed than IT
+   resumes; senior practitioners in these fields perform standard-practice minutiae as a
+   baseline expectation. Requiring literal enumeration of every minutia penalizes domain
+   experts unfairly and rejects qualified candidates."""
+
+# light_industrial variant: relaxes gate (b) from "10+ years senior" to any
+# level (entry/mid/senior), adds sparse-resume framing, and drops the
+# "<10 years" exclusion. Gates (a) job-domain and (c) standard-practice still
+# apply, so it never fires for IT/software or domain-mismatch candidates.
+_LIGHT_INDUSTRIAL_RULE_13B = """13b. COMMERCIAL / LIGHT-INDUSTRIAL STANDARD-PRACTICE INFERENCE (LIGHT-INDUSTRIAL PROFILE):
+   This is a commercial / light-industrial brand. Resumes here are typically SHORT and sparse —
+   warehouse, forklift, assembly, general labor, field service, and skilled-trades workers rarely
+   enumerate every duty. Brevity is NORMAL and is NOT, by itself, a reason to reject a candidate.
+   When ALL of the following are true, you MAY credit common-practice minutiae duties as PRESENT
+   even when the resume does not enumerate them line-by-line:
+   NOTE: This rule is a SCOPED EXCEPTION to rules 1 and 2 (no-inference) and applies ONLY when
+   ALL three gating conditions (a), (b), and (c) below are satisfied. For candidates and JDs that
+   do not meet every condition, rules 1 and 2 govern and strict literal evidence is required.
+   (a) The JOB is in an industrial, commercial-construction, skilled-trades, manufacturing,
+       field-operations, warehouse/logistics, or facilities domain (e.g., warehouse associate,
+       forklift/material handler, assembler/production operator, general labor, maintenance/
+       facilities tech, HVAC/MEP, electrical/mechanical/plumbing trades, oil & gas, utilities,
+       construction, field service technician).
+   (b) The candidate shows clearly-evidenced HANDS-ON experience in the SAME domain as the job
+       (matching role types or matching duties) at ANY seniority level — entry, mid, or senior.
+       Unlike the IT default, you do NOT require 10+ years: high-volume commercial / light-
+       industrial roles are routinely performed by entry- and mid-level workers, so on-domain
+       experience at ANY level can support standard-practice inference.
+   (c) The minutiae in question are STANDARD PRACTICE for that role (e.g., picking/packing,
+       cycle counts, pallet jack / forklift operation, staging/loading, line changeovers, basic
+       PM/maintenance routines, safety toolbox talks, PPE use, lockout/tagout, JHA/JSA reviews,
+       RFIs, submittals, punch lists, daily logs, inspection sign-offs, drawing/spec reading).
+   When inferring, cite evidence in requirement_evidence as
+   "Inferred from in-domain {domain} experience — standard practice for this role"
+   and apply PARTIAL credit (not full credit). Note the inference in match_summary so the
+   recruiter knows which requirements were credited by inference vs explicit resume mention.
+   This rule DOES NOT apply to:
+     * IT/software/data/cloud/cybersecurity/AI/ML/analytics/SaaS/DevOps roles — strict literal
+       evidence is still required for those.
+     * Specialty certifications, named software platforms, named tools, or branded equipment
+       (e.g., specific PLC brand, specific CAD package, specific ERP module, specific safety
+       certification) — these still require explicit resume mention.
+     * Domain-mismatch candidates (e.g., an office/IT background applying to a skilled-trades or
+       warehouse job — inference does NOT apply because the candidate is not a practitioner of
+       that domain).
+   RATIONALE: Commercial and light-industrial resumes are short by nature; workers at all levels
+   perform standard-practice duties as a baseline. Requiring literal enumeration of every minutia
+   penalizes qualified high-volume candidates and rejects hireable workers unfairly."""
+
+# Exact rendered text of the FRESH_GRAD/ENTRY hard-cap scoring instruction.
+_STANDARD_ENTRY_CAP_LINE = (
+    "- If experience_level_classification is FRESH_GRAD or ENTRY and any requirement "
+    "specifies 3+ years of experience, the match_score MUST NOT exceed 55."
+)
+# light_industrial raises the cap to 70 to match the relaxed post-processing
+# experience floor (entry/mid workers routinely fill these roles).
+_LIGHT_INDUSTRIAL_ENTRY_CAP_LINE = (
+    "- If experience_level_classification is FRESH_GRAD or ENTRY and any requirement "
+    "specifies 3+ years of experience, the match_score MUST NOT exceed 70 (commercial / "
+    "light-industrial roles are routinely filled by entry- and mid-level workers, so a sparse "
+    "but on-domain entry candidate can still be a reasonable fit)."
+)
+
+
+def _apply_screening_profile(message, profile):
+    """Apply a non-standard screening profile to the rendered system message.
+
+    Targeted string swaps only; if a marker is not found the swap is skipped and
+    logged (fail-safe to standard). Never mutates the standard literal.
+    """
+    if profile == 'light_industrial':
+        for marker, replacement, label in (
+            (_STANDARD_RULE_13B, _LIGHT_INDUSTRIAL_RULE_13B, 'Rule 13b'),
+            (_STANDARD_ENTRY_CAP_LINE, _LIGHT_INDUSTRIAL_ENTRY_CAP_LINE, 'entry-cap line'),
+        ):
+            if marker in message:
+                message = message.replace(marker, replacement)
+            else:
+                logger.warning(
+                    "light_industrial profile: standard %s marker not found; "
+                    "leaving that section as standard", label
+                )
+        return message
+    logger.warning("Unknown screening profile '%s'; using standard prompt", profile)
+    return message
+
+
+def build_system_message(global_reqs_section, profile='standard'):
+    message = f"""You are a strict, evidence-based technical recruiter analyzing candidate-job fit.
 
 CRITICAL RULES:
 1. You MUST only cite skills and experience that are EXPLICITLY written in the candidate\'s resume.
@@ -525,3 +659,7 @@ CRITICAL SCORING RULES:
 - If experience_level_classification is FRESH_GRAD or ENTRY and any requirement specifies 3+ years of experience, the match_score MUST NOT exceed 55.
 - "Experience with deployment workflows", "production deployment", or similar deployment/operations requirements are ONLY satisfied by professional (non-academic, non-intern) deployment experience. Coursework deployments (Streamlit, Railway, Heroku, hobby Docker) do NOT satisfy production deployment requirements.
 - BE HONEST. If the resume does not show the required skills or sufficient years, the technical_score should be LOW. If location also doesn\'t match, the match_score must reflect BOTH the technical gaps AND the location penalty."""
+
+    if profile and profile != 'standard':
+        message = _apply_screening_profile(message, profile)
+    return message

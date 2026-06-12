@@ -444,6 +444,10 @@ class CandidateProcessingMixin:
                 )
             global_threshold = self.get_threshold()
             prefetched_global_reqs = self._get_global_custom_requirements() or ''
+            # Resolve the per-brand screening profile ONCE in the main thread
+            # (worker threads run without app context) and pass it into each
+            # scoring call. Default env → 'standard' → Myticas unchanged.
+            screening_profile = self._get_screening_profile()
 
             job_threshold_cache = {}
             job_prestige_boost_cache = {}
@@ -475,7 +479,8 @@ class CandidateProcessingMixin:
                     analysis = self.analyze_candidate_job_match(
                         cached_resume_text, job, candidate_location,
                         prefetched_requirements=prefetched_req,
-                        prefetched_global_requirements=prefetched_global_reqs
+                        prefetched_global_requirements=prefetched_global_reqs,
+                        screening_profile=screening_profile
                     )
 
                     mini_score = analysis.get('match_score', 0)
@@ -507,7 +512,8 @@ class CandidateProcessingMixin:
                                 cached_resume_text, job, candidate_location,
                                 prefetched_requirements=prefetched_req,
                                 model_override='gpt-5.4',
-                                prefetched_global_requirements=prefetched_global_reqs
+                                prefetched_global_requirements=prefetched_global_reqs,
+                                screening_profile=screening_profile
                             )
 
                             gpt4o_score = escalated_analysis.get('match_score', 0)

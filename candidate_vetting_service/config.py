@@ -50,8 +50,79 @@ class VettingConfigMixin:
             logger.error("Bullhorn credentials not fully configured")
             return None
 
+    def _resolve_environment(self):
+        """Lazily resolve and cache this service's BullhornEnvironment row.
+
+        ``self.environment_id`` selects the tenant; ``None`` resolves the default
+        (Myticas) environment. Fully fail-soft — any error caches/returns
+        ``None`` so config resolution falls back to the historical global path.
+        """
+        cached = getattr(self, '_environment_cache', 'UNSET')
+        if cached != 'UNSET':
+            return cached
+        env = None
+        try:
+            from models import BullhornEnvironment
+            env_id = getattr(self, 'environment_id', None)
+            if env_id is not None:
+                env = BullhornEnvironment.query.get(env_id)
+            else:
+                env = BullhornEnvironment.get_default()
+        except Exception as e:
+            logger.debug(f"Environment resolution skipped (fail-soft to global): {e}")
+            env = None
+        self._environment_cache = env
+        return env
+
+    def _get_env_screening_overrides(self) -> dict:
+        """Return this environment's VettingConfig override map (cached, fail-soft).
+
+        The default environment carries no overrides, so this is ``{}`` and
+        config resolution is identical to the historical global-only path.
+        """
+        cached = getattr(self, '_env_overrides_cache', None)
+        if cached is not None:
+            return cached
+        overrides = {}
+        try:
+            env = self._resolve_environment()
+            if env is not None:
+                overrides = env.get_screening_overrides() or {}
+        except Exception:
+            overrides = {}
+        self._env_overrides_cache = overrides
+        return overrides
+
+    def _get_screening_profile(self) -> str:
+        """Return the screening profile key for this environment (cached).
+
+        Defaults to 'standard' (the historical behavior) for the default
+        environment or on any resolution error.
+        """
+        cached = getattr(self, '_screening_profile_cache', None)
+        if cached is not None:
+            return cached
+        profile = 'standard'
+        try:
+            env = self._resolve_environment()
+            if env is not None:
+                profile = env.get_screening_profile() or 'standard'
+        except Exception:
+            profile = 'standard'
+        self._screening_profile_cache = profile
+        return profile
+
     def get_config_value(self, key: str, default: str = None) -> str:
-        """Get configuration value from database"""
+        """Get configuration value, honoring per-environment overrides.
+
+        Resolution order: a per-environment screening override (when present)
+        wins over the global VettingConfig row. The default environment has no
+        overrides, so this is byte-for-byte the historical global-only lookup.
+        """
+        overrides = self._get_env_screening_overrides()
+        if key in overrides:
+            value = overrides[key]
+            return value if value is None else str(value)
         config = VettingConfig.query.filter_by(setting_key=key).first()
         return config.setting_value if config else default
 

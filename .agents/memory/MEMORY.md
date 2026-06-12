@@ -21,3 +21,4 @@
 - [Inbound body short-read](inbound-body-short-read.md) — webhook body_len≈4096 << content_length = WSGI short read (truncates résumé/None-None), NOT boundary/raw-MIME; fix = loop-read full body.
 - [Start Fresh net-new cutover](start-fresh-net-new-cutover.md) — net-new re-enable needs BOTH floors: vetting_cutoff_date (inbound) AND last_run_timestamp (Bullhorn detectors, hard floor/no clamp, freezes while vetting off); Start Fresh now moves both.
 - [Duplicate pipeline entries intentional](duplicate-pipeline-entries-intentional.md) — same candidate ID appearing N× in a job Pipeline is duplicate JobSubmissions (wanted: shows repeat applies), NOT a dedup bug; only duplicate candidate RECORDS matter.
+- [Per-brand screening profiles](per-brand-screening-profiles.md) — env override map + profile gate the screening config; Myticas-unchanged invariant relies on default-env→{}/'standard' and NEVER editing the standard prompt literal (swap post-render).

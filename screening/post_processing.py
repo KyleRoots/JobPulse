@@ -457,7 +457,8 @@ def enforce_midcareer_gap(result, job_id):
                 result['gaps_identified'] = _midcareer_note
 
 
-def enforce_experience_floor(result, job_id, custom_requirements, job_description):
+def enforce_experience_floor(result, job_id, custom_requirements, job_description,
+                             profile='standard'):
     exp_class = result.get('experience_level_classification', {})
     if not isinstance(exp_class, dict) or not exp_class:
         return
@@ -481,11 +482,16 @@ def enforce_experience_floor(result, job_id, custom_requirements, job_descriptio
 
     exp_floor_original_score = result['match_score']
 
+    # Per-brand profile (Task #101): the light_industrial profile raises the
+    # FRESH_GRAD/ENTRY cap because commercial / light-industrial roles are
+    # routinely filled by entry- and mid-level workers. Standard stays at 55.
+    entry_floor_cap = 70 if profile == 'light_industrial' else 55
+
     if classification in ('FRESH_GRAD', 'ENTRY') and required_min_years >= 3:
-        if result['match_score'] > 55:
-            result['match_score'] = 55
+        if result['match_score'] > entry_floor_cap:
+            result['match_score'] = entry_floor_cap
             logger.info(
-                f"📉 Experience floor: capped {exp_floor_original_score}→55 "
+                f"📉 Experience floor: capped {exp_floor_original_score}→{entry_floor_cap} "
                 f"for job {job_id} (classification={classification}, "
                 f"professional_years={professional_years:.1f}, "
                 f"required={required_min_years}yr)"

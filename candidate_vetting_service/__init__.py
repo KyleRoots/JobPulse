@@ -66,8 +66,13 @@ class CandidateVettingService(
     _quota_alert_sent: bool = False
     _bullhorn_lock = threading.Lock()
 
-    def __init__(self, bullhorn_service: BullhornService = None):
+    def __init__(self, bullhorn_service: BullhornService = None,
+                 environment_id: int = None):
         self.bullhorn = bullhorn_service
+        # Multi-tenant discriminator (Task #100/#101). None → resolve the
+        # default (Myticas) environment lazily in VettingConfigMixin, so screening
+        # config + profile match the historical single-tenant behavior.
+        self.environment_id = environment_id
         self.email_service = EmailService(db=db, EmailDeliveryLog=EmailDeliveryLog)
         self.openai_client = None
         self._init_openai()

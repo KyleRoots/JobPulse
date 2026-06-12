@@ -58,6 +58,10 @@ def run_schema_migrations(db):
         ("job_embedding", "environment_id", "INTEGER"),
         ("candidate_profile_embedding", "environment_id", "INTEGER"),
         ("recruiter_notification_ledger", "environment_id", "INTEGER"),
+        # Per-brand screening profile + config overrides (Task #101, June 2026).
+        # Both NULL on the default environment → screening unchanged for Myticas.
+        ("bullhorn_environment", "screening_profile", "VARCHAR(50)"),
+        ("bullhorn_environment", "screening_config_overrides", "TEXT"),
     ]
 
     _SAFE_IDENTIFIER = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
