@@ -16,6 +16,14 @@ class JobEmbedding(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # Multi-tenant discriminator (Task #100): the connected Bullhorn instance
+    # this row belongs to. Nullable + backfilled to the default (Myticas)
+    # environment so single-tenant behavior is byte-for-byte unchanged.
+    environment_id = db.Column(
+        db.Integer, db.ForeignKey('bullhorn_environment.id'),
+        nullable=True, index=True,
+    )
+
     def __repr__(self):
         return f'<JobEmbedding job_id={self.bullhorn_job_id}>'
 

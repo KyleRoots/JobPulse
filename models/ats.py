@@ -22,6 +22,14 @@ class BullhornMonitor(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # Multi-tenant discriminator (Task #100): the connected Bullhorn instance
+    # this row belongs to. Nullable + backfilled to the default (Myticas)
+    # environment so single-tenant behavior is byte-for-byte unchanged.
+    environment_id = db.Column(
+        db.Integer, db.ForeignKey('bullhorn_environment.id'),
+        nullable=True, index=True,
+    )
+
     def __repr__(self):
         return f'<BullhornMonitor {self.name}>'
 
@@ -161,6 +169,14 @@ class ParsedEmail(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     vetted_at = db.Column(db.DateTime, nullable=True)  # Tracks when AI vetting was completed
     vetting_retry_count = db.Column(db.Integer, default=0, server_default='0')
+
+    # Multi-tenant discriminator (Task #100): the connected Bullhorn instance
+    # this row belongs to. Nullable + backfilled to the default (Myticas)
+    # environment so single-tenant behavior is byte-for-byte unchanged.
+    environment_id = db.Column(
+        db.Integer, db.ForeignKey('bullhorn_environment.id'),
+        nullable=True, index=True,
+    )
 
     __table_args__ = (
         db.Index('idx_parsed_email_unvetted', 'status', 'vetted_at', 'bullhorn_candidate_id'),

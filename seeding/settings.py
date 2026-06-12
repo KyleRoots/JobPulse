@@ -181,6 +181,91 @@ def seed_global_settings(db, GlobalSettings):
         raise
 
 
+# Tables carrying the multi-tenant environment_id discriminator (Task #100).
+# Backfilled to the default (Myticas) environment so single-tenant behavior is
+# byte-for-byte unchanged. Keep in sync with the column adds in
+# seeding/migrations.run_schema_migrations and the model definitions.
+_ENVIRONMENT_SCOPED_TABLES = (
+    'candidate_vetting_log',
+    'candidate_job_match',
+    'job_vetting_requirements',
+    'parsed_email',
+    'bullhorn_monitor',
+    'candidate_fraud_assessment',
+    'job_embedding',
+    'candidate_profile_embedding',
+    'recruiter_notification_ledger',
+)
+
+
+def backfill_environment_id(db, environment_id):
+    """Set environment_id = <default> on ATS-scoped rows where it is still NULL.
+
+    Idempotent and safe to re-run: only touches NULL rows. Each table is its
+    own committed statement so one failure can't poison the others. Table names
+    come from a fixed internal allow-list (never user input).
+    """
+    from sqlalchemy import text
+    for table in _ENVIRONMENT_SCOPED_TABLES:
+        try:
+            result = db.session.execute(
+                text(f'UPDATE {table} SET environment_id = :env_id WHERE environment_id IS NULL'),
+                {'env_id': environment_id},
+            )
+            db.session.commit()
+            if result.rowcount:
+                logger.info(f"✅ Backfilled environment_id on {result.rowcount} {table} row(s)")
+        except Exception as e:
+            db.session.rollback()
+            logger.warning(f"⚠️ environment_id backfill skipped for {table}: {str(e)}")
+
+
+def seed_bullhorn_environment(db):
+    """Seed the default (Myticas) Bullhorn environment + backfill discriminator.
+
+    Models the existing single-tenant Myticas connection as the DEFAULT
+    environment (Task #100). It intentionally carries NO inline credentials —
+    the default environment keeps resolving Bullhorn credentials from
+    GlobalSettings, so nothing about the live connection changes. After ensuring
+    the row exists, backfills environment_id on existing ATS-scoped rows so they
+    resolve to the default tenant. Fully idempotent.
+    """
+    from models import BullhornEnvironment
+
+    try:
+        env = BullhornEnvironment.query.filter_by(is_default=True).first()
+        if env is None:
+            env = BullhornEnvironment.query.filter_by(key='myticas').first()
+        if env is None:
+            env = BullhornEnvironment(
+                key='myticas',
+                display_name='Myticas',
+                company_name='Myticas Consulting',
+                is_default=True,
+                is_active=True,
+            )
+            db.session.add(env)
+            db.session.commit()
+            logger.info("✅ Seeded default Bullhorn environment 'myticas'")
+        else:
+            # Idempotent self-heal: ensure the default flags are correct.
+            changed = False
+            if not env.is_default:
+                env.is_default = True
+                changed = True
+            if not env.is_active:
+                env.is_active = True
+                changed = True
+            if changed:
+                db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ Failed to seed default Bullhorn environment: {str(e)}")
+        return
+
+    backfill_environment_id(db, env.id)
+
+
 def seed_bullhorn_monitors(db, BullhornMonitor):
     """
     Seed BullhornMonitor tearsheet configurations (upsert behavior)

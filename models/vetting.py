@@ -56,6 +56,14 @@ class CandidateVettingLog(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # Multi-tenant discriminator (Task #100): the connected Bullhorn instance
+    # this row belongs to. Nullable + backfilled to the default (Myticas)
+    # environment so single-tenant behavior is byte-for-byte unchanged.
+    environment_id = db.Column(
+        db.Integer, db.ForeignKey('bullhorn_environment.id'),
+        nullable=True, index=True,
+    )
+
     __table_args__ = (
         db.Index('idx_vetting_log_status_created', 'status', 'created_at'),
     )
@@ -109,6 +117,14 @@ class CandidateJobMatch(db.Model):
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    # Multi-tenant discriminator (Task #100): the connected Bullhorn instance
+    # this row belongs to. Nullable + backfilled to the default (Myticas)
+    # environment so single-tenant behavior is byte-for-byte unchanged.
+    environment_id = db.Column(
+        db.Integer, db.ForeignKey('bullhorn_environment.id'),
+        nullable=True, index=True,
+    )
+
     __table_args__ = (
         db.Index('idx_match_job_created', 'bullhorn_job_id', 'created_at'),
     )
@@ -141,6 +157,14 @@ class JobVettingRequirements(db.Model):
     last_ai_interpretation = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Multi-tenant discriminator (Task #100): the connected Bullhorn instance
+    # this row belongs to. Nullable + backfilled to the default (Myticas)
+    # environment so single-tenant behavior is byte-for-byte unchanged.
+    environment_id = db.Column(
+        db.Integer, db.ForeignKey('bullhorn_environment.id'),
+        nullable=True, index=True,
+    )
 
     def __repr__(self):
         return f'<JobVettingRequirements job_id={self.bullhorn_job_id}>'
@@ -437,6 +461,14 @@ class RecruiterNotificationLedger(db.Model):
     )
     sent_at = db.Column(
         db.DateTime, nullable=False, default=datetime.utcnow, index=True,
+    )
+
+    # Multi-tenant discriminator (Task #100): the connected Bullhorn instance
+    # this row belongs to. Nullable + backfilled to the default (Myticas)
+    # environment so single-tenant behavior is byte-for-byte unchanged.
+    environment_id = db.Column(
+        db.Integer, db.ForeignKey('bullhorn_environment.id'),
+        nullable=True, index=True,
     )
 
     __table_args__ = (

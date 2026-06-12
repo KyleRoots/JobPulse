@@ -307,6 +307,7 @@ from seeding.users import (  # noqa: E402
 )
 from seeding.settings import (  # noqa: E402
     seed_global_settings,
+    seed_bullhorn_environment,
     seed_bullhorn_monitors,
     seed_vetting_config,
     seed_environment_monitoring,
@@ -408,6 +409,16 @@ def seed_database(db, User):
         except Exception as e:
             logger.error(f"❌ Failed to seed Bullhorn monitors: {str(e)}")
             raise
+
+        # Seed the default (Myticas) Bullhorn environment + backfill the
+        # multi-tenant environment_id discriminator (Task #100). Runs after the
+        # monitors seeding so freshly-seeded monitor rows are backfilled too.
+        # Fail-soft: a problem here must not abort the rest of seeding.
+        try:
+            seed_bullhorn_environment(db)
+            results['bullhorn_environment_configured'] = True
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to seed default Bullhorn environment: {str(e)}")
 
         # Seed environment monitoring (production only)
         if is_production_environment():

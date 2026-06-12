@@ -53,6 +53,14 @@ class CandidateFraudAssessment(db.Model):
     # Captured if the assessment itself errored (fail-soft — never raises).
     evaluation_error = db.Column(db.Text, nullable=True)
 
+    # Multi-tenant discriminator (Task #100): the connected Bullhorn instance
+    # this row belongs to. Nullable + backfilled to the default (Myticas)
+    # environment so single-tenant behavior is byte-for-byte unchanged.
+    environment_id = db.Column(
+        db.Integer, db.ForeignKey('bullhorn_environment.id'),
+        nullable=True, index=True,
+    )
+
     __table_args__ = (
         db.Index(
             "ix_candidate_fraud_assessment_cand_created",

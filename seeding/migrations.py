@@ -45,6 +45,19 @@ def run_schema_migrations(db):
         ("candidate_vetting_log", "candidate_phone", "VARCHAR(32)"),
         # Canonical LinkedIn URL for fraud linkedin-reuse signal (added June 2026)
         ("candidate_vetting_log", "candidate_linkedin_url", "VARCHAR(255)"),
+        # Multi-tenant environment_id discriminator (Task #100, June 2026).
+        # Plain nullable INTEGER on existing tables (the FK is created only by
+        # create_all on fresh DBs / Alembic); backfilled to the default
+        # environment in seed_bullhorn_environment.
+        ("candidate_vetting_log", "environment_id", "INTEGER"),
+        ("candidate_job_match", "environment_id", "INTEGER"),
+        ("job_vetting_requirements", "environment_id", "INTEGER"),
+        ("parsed_email", "environment_id", "INTEGER"),
+        ("bullhorn_monitor", "environment_id", "INTEGER"),
+        ("candidate_fraud_assessment", "environment_id", "INTEGER"),
+        ("job_embedding", "environment_id", "INTEGER"),
+        ("candidate_profile_embedding", "environment_id", "INTEGER"),
+        ("recruiter_notification_ledger", "environment_id", "INTEGER"),
     ]
 
     _SAFE_IDENTIFIER = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
@@ -96,6 +109,38 @@ def run_schema_migrations(db):
     except Exception as e:
         db.session.rollback()
         logger.warning(f"⚠️ Index ensure skipped for candidate_linkedin_url: {str(e)}")
+
+    # Index the multi-tenant environment_id discriminator on each ATS-scoped
+    # table (Task #100). Mirrors the name SQLAlchemy auto-generates
+    # (ix_<table>_environment_id) so a fresh-DB create_all() and this ALTER path
+    # converge on one index.
+    for _env_table in (
+        'candidate_vetting_log', 'candidate_job_match', 'job_vetting_requirements',
+        'parsed_email', 'bullhorn_monitor', 'candidate_fraud_assessment',
+        'job_embedding', 'candidate_profile_embedding', 'recruiter_notification_ledger',
+    ):
+        try:
+            db.session.execute(text(
+                f'CREATE INDEX IF NOT EXISTS ix_{_env_table}_environment_id '
+                f'ON {_env_table} (environment_id)'
+            ))
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            logger.warning(f"⚠️ Index ensure skipped for {_env_table}.environment_id: {str(e)}")
+
+    # Enforce at most ONE default Bullhorn environment (Task #100). Partial
+    # unique index so the no-argument get_bullhorn_service() default-credential
+    # path can never become ambiguous. Idempotent.
+    try:
+        db.session.execute(text(
+            'CREATE UNIQUE INDEX IF NOT EXISTS uq_bullhorn_environment_single_default '
+            'ON bullhorn_environment (is_default) WHERE is_default'
+        ))
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ Index ensure skipped for bullhorn_environment single-default: {str(e)}")
 
     # Add is_company_admin to user table (added Feb 2026)
     # Handled separately because 'user' is a PostgreSQL reserved word requiring quoting
