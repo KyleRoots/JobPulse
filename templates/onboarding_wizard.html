@@ -1,0 +1,220 @@
+{% extends "base_layout.html" %}
+
+{% block title %}Customer Onboarding - Scout Genius™{% endblock %}
+
+{% block page_title %}Customer Onboarding{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Provision a new customer tenant — Bullhorn environment, brand, admin, and modules</p>{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .wiz-form { max-width: 880px; }
+    .wiz-step {
+        background: var(--card-bg, #1c2128);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 12px;
+        padding: 22px 24px;
+        margin-bottom: 20px;
+    }
+    .wiz-step h3 {
+        font-size: 16px; font-weight: 700; margin: 0 0 4px 0;
+        display: flex; align-items: center; gap: 10px;
+    }
+    .wiz-step .step-num {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 26px; height: 26px; border-radius: 50%;
+        background: rgba(99,102,241,0.18); color: #a5b4fc;
+        font-size: 13px; font-weight: 700;
+    }
+    .wiz-step .step-hint { color: #9ca3af; font-size: 13px; margin: 0 0 16px 36px; }
+    .wiz-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; }
+    .wiz-field { display: flex; flex-direction: column; gap: 5px; }
+    .wiz-field.full { grid-column: 1 / -1; }
+    .wiz-field label { font-size: 13px; font-weight: 600; color: #d1d5db; }
+    .wiz-field label .req { color: #f87171; }
+    .wiz-field input, .wiz-field select {
+        background: #0d1117; border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 8px; padding: 9px 11px; color: #e5e7eb; font-size: 14px;
+    }
+    .wiz-field small { color: #6b7280; font-size: 12px; }
+    .module-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .module-opt {
+        display: flex; align-items: center; gap: 9px;
+        background: #0d1117; border: 1px solid rgba(255,255,255,0.10);
+        border-radius: 8px; padding: 10px 12px; cursor: pointer; font-size: 14px;
+    }
+    .module-opt input { width: 16px; height: 16px; }
+    .validate-row { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+    #cred-status { font-size: 13px; font-weight: 600; }
+    #cred-status.ok { color: #4ade80; }
+    #cred-status.bad { color: #f87171; }
+    #cred-status.checking { color: #fbbf24; }
+    .wiz-actions { display: flex; gap: 12px; align-items: center; margin-top: 6px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<form class="wiz-form" method="POST" action="{{ url_for('onboarding.provision') }}" id="onboarding-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="wiz-step">
+        <h3><span class="step-num">1</span> Bullhorn Environment &amp; Credentials</h3>
+        <p class="step-hint">Connect the customer's Bullhorn instance. Credentials are validated live before provisioning.</p>
+        <div class="wiz-grid">
+            <div class="wiz-field full">
+                <label>Environment Display Name <span class="req">*</span></label>
+                <input type="text" name="env_display_name" required placeholder="Acme Staffing" value="{{ form.env_display_name or '' }}">
+            </div>
+            <div class="wiz-field full">
+                <label>Company Name</label>
+                <input type="text" name="company_name" placeholder="Acme Staffing LLC" value="{{ form.company_name or '' }}">
+            </div>
+            <div class="wiz-field">
+                <label>Bullhorn Client ID <span class="req">*</span></label>
+                <input type="text" name="bullhorn_client_id" required value="{{ form.bullhorn_client_id or '' }}" autocomplete="off">
+            </div>
+            <div class="wiz-field">
+                <label>Bullhorn Client Secret <span class="req">*</span></label>
+                <input type="password" name="bullhorn_client_secret" required value="{{ form.bullhorn_client_secret or '' }}" autocomplete="off">
+            </div>
+            <div class="wiz-field">
+                <label>Bullhorn Username <span class="req">*</span></label>
+                <input type="text" name="bullhorn_username" required value="{{ form.bullhorn_username or '' }}" autocomplete="off">
+            </div>
+            <div class="wiz-field">
+                <label>Bullhorn Password <span class="req">*</span></label>
+                <input type="password" name="bullhorn_password" required value="{{ form.bullhorn_password or '' }}" autocomplete="off">
+            </div>
+        </div>
+        <div class="validate-row">
+            <button type="button" class="btn btn-outline-light btn-sm" id="validate-btn">
+                <i class="fas fa-plug"></i> Validate Credentials
+            </button>
+            <span id="cred-status"></span>
+        </div>
+    </div>
+
+    <div class="wiz-step">
+        <h3><span class="step-num">2</span> Brand &amp; Apply Domain</h3>
+        <p class="step-hint">The apply-form identity for this customer (host, logo, email envelope).</p>
+        <div class="wiz-grid">
+            <div class="wiz-field">
+                <label>Brand Display Name</label>
+                <input type="text" name="brand_display_name" placeholder="Defaults to environment name" value="{{ form.brand_display_name or '' }}">
+            </div>
+            <div class="wiz-field">
+                <label>Apply Domain (host substring)</label>
+                <input type="text" name="apply_domain" placeholder="apply.acme.com" value="{{ form.apply_domain or '' }}">
+                <small>Matches apply requests by host substring.</small>
+            </div>
+            <div class="wiz-field">
+                <label>Brand Company Name</label>
+                <input type="text" name="brand_company_name" value="{{ form.brand_company_name or '' }}">
+            </div>
+            <div class="wiz-field">
+                <label>Logo Alt Text</label>
+                <input type="text" name="logo_alt_text" value="{{ form.logo_alt_text or '' }}">
+            </div>
+            <div class="wiz-field">
+                <label>From Email</label>
+                <input type="text" name="from_email" placeholder="careers@acme.com" value="{{ form.from_email or '' }}">
+            </div>
+            <div class="wiz-field">
+                <label>To Email (apply inbox)</label>
+                <input type="text" name="to_email" placeholder="apply@acme.com" value="{{ form.to_email or '' }}">
+                <small>Inbound applicant emails to this address route to this tenant.</small>
+            </div>
+            <div class="wiz-field">
+                <label>Logo Path</label>
+                <input type="text" name="logo_path" placeholder="static/logos/acme.png" value="{{ form.logo_path or '' }}">
+            </div>
+            <div class="wiz-field">
+                <label>Apply Template</label>
+                <input type="text" name="apply_template" value="{{ form.apply_template or 'apply.html' }}">
+            </div>
+        </div>
+    </div>
+
+    <div class="wiz-step">
+        <h3><span class="step-num">3</span> Screening Profile</h3>
+        <p class="step-hint">Tunes the AI screening behavior for this customer's candidate pool.</p>
+        <div class="wiz-grid">
+            <div class="wiz-field full">
+                <label>Profile</label>
+                <select name="screening_profile">
+                    {% for p in screening_profiles %}
+                    <option value="{{ p }}" {% if form.screening_profile == p %}selected{% endif %}>{{ p.replace('_', ' ')|title }}</option>
+                    {% endfor %}
+                </select>
+                <small>"Standard" matches the historical IT screening behavior.</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="wiz-step">
+        <h3><span class="step-num">4</span> Company Admin</h3>
+        <p class="step-hint">The first user for this tenant — a company admin scoped to this environment.</p>
+        <div class="wiz-grid">
+            <div class="wiz-field">
+                <label>Username <span class="req">*</span></label>
+                <input type="text" name="admin_username" required value="{{ form.admin_username or '' }}" autocomplete="off">
+            </div>
+            <div class="wiz-field">
+                <label>Email <span class="req">*</span></label>
+                <input type="email" name="admin_email" required value="{{ form.admin_email or '' }}" autocomplete="off">
+            </div>
+            <div class="wiz-field full">
+                <label>Temporary Password <span class="req">*</span></label>
+                <input type="password" name="admin_password" required autocomplete="new-password">
+            </div>
+        </div>
+    </div>
+
+    <div class="wiz-step">
+        <h3><span class="step-num">5</span> Modules</h3>
+        <p class="step-hint">Grant the company admin access to these modules.</p>
+        <div class="module-grid">
+            {% for m in all_modules %}
+            <label class="module-opt">
+                <input type="checkbox" name="modules" value="{{ m }}"
+                    {% if form.getlist is defined and m in form.getlist('modules') %}checked{% endif %}>
+                {{ m.replace('_', ' ')|title }}
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="wiz-actions">
+        <button type="submit" class="btn btn-primary"><i class="fas fa-rocket"></i> Provision Tenant</button>
+        <a href="{{ url_for('onboarding.wizard') }}" class="btn btn-link text-muted">Reset</a>
+    </div>
+</form>
+
+<script>
+(function () {
+    const btn = document.getElementById('validate-btn');
+    const status = document.getElementById('cred-status');
+    const csrf = document.querySelector('input[name="csrf_token"]').value;
+    btn.addEventListener('click', function () {
+        const payload = {
+            bullhorn_client_id: document.querySelector('[name="bullhorn_client_id"]').value,
+            bullhorn_client_secret: document.querySelector('[name="bullhorn_client_secret"]').value,
+            bullhorn_username: document.querySelector('[name="bullhorn_username"]').value,
+            bullhorn_password: document.querySelector('[name="bullhorn_password"]').value,
+        };
+        status.className = 'checking';
+        status.textContent = 'Validating…';
+        fetch('{{ url_for("onboarding.validate_credentials") }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+            body: JSON.stringify(payload),
+        })
+        .then(r => r.json().then(d => ({ ok: r.ok, d })))
+        .then(({ ok, d }) => {
+            status.className = ok ? 'ok' : 'bad';
+            status.textContent = (ok ? '✓ ' : '✗ ') + (d.message || (ok ? 'Valid' : 'Invalid'));
+        })
+        .catch(() => { status.className = 'bad'; status.textContent = '✗ Validation request failed.'; });
+    });
+})();
+</script>
+{% endblock %}

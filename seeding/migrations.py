@@ -133,6 +133,52 @@ def run_schema_migrations(db):
             db.session.rollback()
             logger.warning(f"⚠️ Index ensure skipped for {_env_table}.environment_id: {str(e)}")
 
+    # Swap the legacy global single-column unique on each isolation table for a
+    # per-environment composite unique (Task #100). Each tuple is:
+    #   (table, legacy_unique_constraint_name, plain_index, scoped_column,
+    #    composite_unique_index)
+    # Steps per table (all idempotent):
+    #   1. DROP the legacy `<table>_<col>_key` unique constraint (created by an
+    #      older create_all with unique=True). Its backing index goes with it.
+    #   2. Recreate a PLAIN index `ix_<table>_<col>` (the model now declares the
+    #      column index=True only) so query performance is preserved and a fresh
+    #      create_all converges on the same index name.
+    #   3. CREATE the composite UNIQUE index on (environment_id, <col>).
+    # Safe ordering note: the legacy unique still guarantees one row per <col> at
+    # this point, so the composite index always builds without conflict; the
+    # seed-time backfill then stamps environment_id on those rows.
+    _unique_swaps = (
+        ('job_vetting_requirements',
+         'job_vetting_requirements_bullhorn_job_id_key',
+         'ix_job_vetting_requirements_bullhorn_job_id',
+         'bullhorn_job_id', 'uq_jvr_env_job'),
+        ('candidate_profile_embedding',
+         'candidate_profile_embedding_bullhorn_candidate_id_key',
+         'ix_candidate_profile_embedding_bullhorn_candidate_id',
+         'bullhorn_candidate_id', 'uq_cpe_env_candidate'),
+        ('job_embedding',
+         'job_embedding_bullhorn_job_id_key',
+         'ix_job_embedding_bullhorn_job_id',
+         'bullhorn_job_id', 'uq_je_env_job'),
+    )
+    for _tbl, _legacy_uq, _plain_idx, _col, _composite_uq in _unique_swaps:
+        try:
+            db.session.execute(text(
+                f'ALTER TABLE {_tbl} DROP CONSTRAINT IF EXISTS {_legacy_uq}'
+            ))
+            db.session.execute(text(
+                f'CREATE INDEX IF NOT EXISTS {_plain_idx} ON {_tbl} ({_col})'
+            ))
+            db.session.execute(text(
+                f'CREATE UNIQUE INDEX IF NOT EXISTS {_composite_uq} '
+                f'ON {_tbl} (environment_id, {_col})'
+            ))
+            db.session.commit()
+            logger.info(f"✅ Ensured per-environment unique {_composite_uq} on {_tbl}")
+        except Exception as e:
+            db.session.rollback()
+            logger.warning(f"⚠️ Unique swap skipped for {_tbl}.{_col}: {str(e)}")
+
     # Enforce at most ONE default Bullhorn environment (Task #100). Partial
     # unique index so the no-argument get_bullhorn_service() default-credential
     # path can never become ambiguous. Idempotent.
@@ -163,6 +209,27 @@ def run_schema_migrations(db):
     except Exception as e:
         db.session.rollback()
         logger.warning(f"⚠️ Migration skipped for user.is_company_admin: {str(e)}")
+
+    # Add environment_id to user table (Task #100, June 2026). Plain nullable
+    # INTEGER (FK added only by create_all on fresh DBs / Alembic); NULL resolves
+    # to the default environment so existing users are unaffected. 'user' is a
+    # PostgreSQL reserved word requiring quoting.
+    try:
+        result = db.session.execute(text("""
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'user' AND column_name = 'environment_id'
+        """))
+        if result.fetchone() is None:
+            db.session.execute(text('ALTER TABLE "user" ADD COLUMN environment_id INTEGER'))
+            db.session.commit()
+            logger.info("✅ Added column environment_id to user table")
+        db.session.execute(text(
+            'CREATE INDEX IF NOT EXISTS ix_user_environment_id ON "user" (environment_id)'
+        ))
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ Migration skipped for user.environment_id: {str(e)}")
 
     # Add last_active_at to user table (added March 2026 for Active Users tracking)
     try:

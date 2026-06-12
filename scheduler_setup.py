@@ -478,13 +478,20 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
             with app.app_context():
                 try:
                     from salesrep_sync_service import run_salesrep_sync
-                    bullhorn = get_bullhorn_service()
-                    result = run_salesrep_sync(bullhorn)
-                    if result.get('updated', 0) > 0:
-                        app.logger.info(
-                            f"🏢 Sales Rep Sync: {result['updated']} companies updated "
-                            f"(scanned {result['scanned']}, {result.get('errors', 0)} errors)"
-                        )
+                    from utils.environment_runner import for_each_active_environment
+
+                    def _sync(env):
+                        env_key = getattr(env, 'key', 'default')
+                        bullhorn = get_bullhorn_service(env)
+                        result = run_salesrep_sync(bullhorn)
+                        if result.get('updated', 0) > 0:
+                            app.logger.info(
+                                f"🏢 Sales Rep Sync [{env_key}]: {result['updated']} companies updated "
+                                f"(scanned {result['scanned']}, {result.get('errors', 0)} errors)"
+                            )
+                        return result
+
+                    for_each_active_environment('salesrep_sync', _sync, app.logger)
                 except Exception as e:
                     app.logger.error(f"Sales Rep Sync job error: {e}")
                 finally:

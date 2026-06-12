@@ -142,8 +142,11 @@ class JobApplicationService:
 
             subject = f"{clean_job_title} ({application_data['jobId']}) - {application_data['firstName']} {application_data['lastName']} has applied on {source}"
             
-            # Detect if this is an STSI application based on domain
-            is_stsi = request_host and 'stsigroup' in request_host.lower()
+            # Resolve the apply-form brand from the request host (Myticas / STSI
+            # / a future tenant). Drives template, logo, company name and the
+            # email envelope. Falls back to the historical hardcoded mapping if
+            # brands are not seeded, so behavior is byte-for-byte unchanged.
+            branding = self._resolve_branding(request_host)
 
             # Ensure the resolved feed value (including referrer-detected pando)
             # reaches the body builders. Overwrite rather than setdefault: the key
@@ -151,20 +154,20 @@ class JobApplicationService:
             # would drop a feed we inferred from the PandoLogic referrer above.
             application_data['feed'] = feed
 
-            html_content = self._build_application_email_html(application_data, is_stsi)
-            text_content = self._build_application_email_text(application_data, is_stsi)
+            html_content = self._build_application_email_html(application_data, branding)
+            text_content = self._build_application_email_text(application_data, branding)
             
             # Create email message
             message = Mail(
-                from_email=Email(self.from_email),
-                to_emails=To(self.to_email),
+                from_email=Email(branding['from_email']),
+                to_emails=To(branding['to_email']),
                 subject=subject,
                 html_content=Content("text/html", html_content),
                 plain_text_content=Content("text/plain", text_content)
             )
             
             # Add appropriate logo as inline attachment based on branding
-            logo_attachment = self._create_logo_attachment(is_stsi)
+            logo_attachment = self._create_logo_attachment(branding)
             if logo_attachment:
                 message.add_attachment(logo_attachment)
             
@@ -322,7 +325,47 @@ class JobApplicationService:
         except Exception as e:
             logger.error(f"Failed to send suppression alert email: {str(e)}")
     
-    def _build_application_email_html(self, data: Dict, is_stsi: bool = False) -> str:
+    def _resolve_branding(self, request_host: Optional[str]) -> Dict:
+        """Resolve apply-form branding for a request host.
+
+        Returns a dict with template/logo/company/from/to keys read from the
+        matching Brand row (host -> brand, default-brand fallback). When brands
+        are not seeded (or resolution fails), falls back to the historical
+        hardcoded Myticas/STSI mapping so output is byte-for-byte unchanged.
+        """
+        try:
+            from models import Brand
+            brand = Brand.resolve_for_host(request_host or '')
+        except Exception as e:
+            logger.warning(f"Brand resolution failed, using hardcoded fallback: {e}")
+            brand = None
+
+        if brand is not None:
+            return {
+                'template': brand.apply_template,
+                'logo_path': brand.logo_path,
+                'logo_filename': brand.logo_filename,
+                'logo_cid': brand.logo_cid,
+                'company_name': brand.company_name,
+                'logo_alt_text': brand.logo_alt_text,
+                'from_email': brand.from_email or self.from_email,
+                'to_email': brand.to_email or self.to_email,
+            }
+
+        # Hardcoded historical fallback (exact parity if brands unseeded).
+        is_stsi = bool(request_host and 'stsigroup' in request_host.lower())
+        return {
+            'template': 'apply_stsi.html' if is_stsi else 'apply.html',
+            'logo_path': 'static/stsi-logo.png' if is_stsi else 'static/myticas-logo.png',
+            'logo_filename': 'stsi-logo.png' if is_stsi else 'myticas-logo.png',
+            'logo_cid': 'stsi_logo' if is_stsi else 'myticas_logo',
+            'company_name': 'STSI (Staffing Technical Services Inc.)' if is_stsi else 'Myticas Consulting',
+            'logo_alt_text': 'STSI Group' if is_stsi else 'Myticas Consulting',
+            'from_email': self.from_email,
+            'to_email': self.to_email,
+        }
+
+    def _build_application_email_html(self, data: Dict, branding: Dict = None) -> str:
         """Build HTML email content for job application"""
         
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M UTC")
@@ -331,15 +374,12 @@ class JobApplicationService:
         import urllib.parse
         clean_job_title = urllib.parse.unquote(data['jobTitle']).replace('+', ' ')
         
-        # Determine branding
-        if is_stsi:
-            logo_cid = "stsi_logo"
-            company_name = "STSI (Staffing Technical Services Inc.)"
-            alt_text = "STSI Group"
-        else:
-            logo_cid = "myticas_logo"
-            company_name = "Myticas Consulting"
-            alt_text = "Myticas Consulting"
+        # Branding from the resolved Brand (host -> brand). Defaults preserve the
+        # historical Myticas rendering when no branding is provided.
+        branding = branding or {}
+        logo_cid = branding.get('logo_cid') or "myticas_logo"
+        company_name = branding.get('company_name') or "Myticas Consulting"
+        alt_text = branding.get('logo_alt_text') or "Myticas Consulting"
         
         html_content = f"""
         <html>
@@ -414,7 +454,7 @@ class JobApplicationService:
         
         return html_content
     
-    def _build_application_email_text(self, data: Dict, is_stsi: bool = False) -> str:
+    def _build_application_email_text(self, data: Dict, branding: Dict = None) -> str:
         """Build plain text email content for job application"""
         
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M UTC")
@@ -423,8 +463,8 @@ class JobApplicationService:
         import urllib.parse
         clean_job_title = urllib.parse.unquote(data['jobTitle']).replace('+', ' ')
         
-        # Determine company name
-        company_name = "STSI (Staffing Technical Services Inc.)" if is_stsi else "Myticas Consulting"
+        # Company name from the resolved Brand; default preserves Myticas text.
+        company_name = (branding or {}).get('company_name') or "Myticas Consulting"
         
         text_content = f"""
 Job posting is on behalf of {company_name}
@@ -484,18 +524,14 @@ Scout Genius™ Automation Platform
             logger.error(f"Error creating {file_type} attachment: {str(e)}")
             return None
     
-    def _create_logo_attachment(self, is_stsi: bool = False) -> Optional[Attachment]:
+    def _create_logo_attachment(self, branding: Dict = None) -> Optional[Attachment]:
         """Create inline logo attachment for email based on branding"""
         try:
-            # Determine which logo to use
-            if is_stsi:
-                logo_path = "static/stsi-logo.png"
-                logo_filename = "stsi-logo.png"
-                content_id = "stsi_logo"
-            else:
-                logo_path = "static/myticas-logo.png"
-                logo_filename = "myticas-logo.png"
-                content_id = "myticas_logo"
+            # Logo from the resolved Brand; defaults preserve the Myticas logo.
+            branding = branding or {}
+            logo_path = branding.get('logo_path') or "static/myticas-logo.png"
+            logo_filename = branding.get('logo_filename') or "myticas-logo.png"
+            content_id = branding.get('logo_cid') or "myticas_logo"
             
             if not os.path.exists(logo_path):
                 logger.warning(f"Logo file not found: {logo_path} - skipping logo attachment")

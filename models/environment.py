@@ -18,9 +18,22 @@ configuration (apply templates, logos, owner/source routing) are layered on in
 a later increment that wires them into the request / inbound paths.
 """
 import json
+import re
 from datetime import datetime
 from sqlalchemy import text
 from extensions import db
+
+
+def _extract_email_addr(value):
+    """Pull a bare email address out of a possibly display-name-wrapped string.
+
+    e.g. 'Apply Inbox <apply@myticas.com>' -> 'apply@myticas.com'. Returns ''
+    when no address is found.
+    """
+    if not value:
+        return ''
+    match = re.search(r'[\w.+-]+@[\w.-]+', str(value))
+    return match.group(0).lower() if match else ''
 
 
 _CREDENTIAL_KEYS = (
@@ -141,3 +154,159 @@ class BullhornEnvironment(db.Model):
         return cls.query.filter_by(is_active=True).order_by(
             cls.is_default.desc(), cls.id.asc()
         ).all()
+
+
+def default_environment_id():
+    """Resolve the default environment id for stamping new ATS-scoped rows.
+
+    Used as the SQLAlchemy column ``default`` on the multi-tenant
+    ``environment_id`` discriminator of tables that carry a per-environment
+    unique constraint. Returning the default (Myticas) environment's id means
+    every new row is correctly attributed to the single live environment, so
+    the per-environment unique constraint behaves exactly like the historical
+    single-column unique. Returns ``None`` (fail-soft) when no environment is
+    seeded yet — the boot-time backfill stamps any such rows on the next seed.
+    """
+    try:
+        env = BullhornEnvironment.get_default()
+        return env.id if env else None
+    except Exception:
+        return None
+
+
+class Brand(db.Model):
+    """An apply-form identity (domain + branding) belonging to one environment.
+
+    A single Bullhorn environment may serve MULTIPLE brands distinguished only
+    by the apply-form host. The Myticas environment, for example, serves both
+    the Myticas and STSI brands from one Bullhorn instance (same data, same
+    credentials), historically selected by a hardcoded ``'stsigroup' in host``
+    check. Brand rows make that host -> template/logo/company/from/to mapping
+    data-driven. With the seeded Myticas + STSI brands the apply pipeline
+    renders byte-for-byte as before; a new customer adds a new Brand (usually
+    one) pointing at its own environment.
+    """
+    __tablename__ = 'environment_brand'
+
+    id = db.Column(db.Integer, primary_key=True)
+    environment_id = db.Column(
+        db.Integer, db.ForeignKey('bullhorn_environment.id'),
+        nullable=False, index=True,
+    )
+    # Stable machine key, e.g. 'myticas', 'stsi'.
+    key = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    display_name = db.Column(db.String(120), nullable=False)
+
+    # JSON array of case-insensitive host substrings that select this brand
+    # (e.g. ["stsigroup"]). The default brand matches as a fallback regardless.
+    domains = db.Column(db.Text, nullable=True)
+
+    # Apply-form rendering.
+    apply_template = db.Column(db.String(120), nullable=False, default='apply.html')
+    logo_path = db.Column(db.String(255), nullable=True)
+    logo_filename = db.Column(db.String(120), nullable=True)
+    logo_cid = db.Column(db.String(120), nullable=True)
+    company_name = db.Column(db.String(160), nullable=True)
+    logo_alt_text = db.Column(db.String(160), nullable=True)
+
+    # Application-forward email envelope.
+    from_email = db.Column(db.String(255), nullable=True)
+    to_email = db.Column(db.String(255), nullable=True)
+
+    # Exactly one brand should carry is_default=True (the global fallback,
+    # historically Myticas).
+    is_default = db.Column(db.Boolean, nullable=False, default=False, index=True)
+    is_active = db.Column(db.Boolean, nullable=False, default=True, index=True)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    environment = db.relationship(
+        'BullhornEnvironment', backref=db.backref('brands', lazy='dynamic')
+    )
+
+    __table_args__ = (
+        # Enforce at most ONE default brand so apply-host resolution can never
+        # fall back to an ambiguous default. Partial unique index.
+        db.Index(
+            'uq_environment_brand_single_default',
+            'is_default', unique=True,
+            postgresql_where=text('is_default'),
+            sqlite_where=text('is_default = 1'),
+        ),
+    )
+
+    def __repr__(self):
+        flag = ' default' if self.is_default else ''
+        return f'<Brand {self.key}{flag}>'
+
+    def get_domains(self):
+        """Return the list of lower-cased host substrings for this brand."""
+        raw = self.domains
+        if not raw:
+            return []
+        try:
+            data = json.loads(raw)
+        except Exception:
+            return []
+        if isinstance(data, list):
+            return [str(d).strip().lower() for d in data if str(d).strip()]
+        return []
+
+    def set_domains(self, domains):
+        """Persist a list of host substrings as JSON (lower-cased, de-blanked)."""
+        cleaned = [str(d).strip().lower() for d in (domains or []) if str(d).strip()]
+        self.domains = json.dumps(cleaned)
+
+    def matches_host(self, host):
+        """True when any of this brand's domain tokens is a substring of host."""
+        if not host:
+            return False
+        h = host.lower()
+        return any(token in h for token in self.get_domains())
+
+    @classmethod
+    def resolve_for_host(cls, host):
+        """Resolve the Brand for an apply-form request host.
+
+        Non-default brands whose domain token is a substring of the host win
+        first (mirroring the historical ``'stsigroup' in host`` check). When
+        none match, the global default brand is returned (historically
+        Myticas), so any host that is not an STSI host renders the Myticas
+        brand exactly as before. Returns ``None`` only when no brands exist.
+        """
+        h = (host or '').lower()
+        candidates = cls.query.filter_by(is_active=True).order_by(
+            cls.is_default.asc(), cls.id.asc()
+        ).all()
+        for brand in candidates:
+            if not brand.is_default and brand.matches_host(h):
+                return brand
+        for brand in candidates:
+            if brand.is_default:
+                return brand
+        return candidates[0] if candidates else None
+
+    @classmethod
+    def get_default(cls):
+        """Return the global default (fallback) brand, or None if unseeded."""
+        return cls.query.filter_by(is_default=True).order_by(cls.id.asc()).first()
+
+    @classmethod
+    def resolve_environment_id_for_recipient(cls, recipient):
+        """Resolve the owning environment id for an inbound applicant email.
+
+        Matches the email's recipient (To) address against active brands'
+        ``to_email``. Falls back to the default environment so single-tenant
+        inbound is attributed to the live (Myticas) environment exactly as
+        before. Returns ``None`` only when no environment is seeded — callers
+        treat that as "leave NULL, backfill stamps it later".
+        """
+        addr = _extract_email_addr(recipient)
+        if addr:
+            for brand in cls.query.filter_by(is_active=True).all():
+                brand_addr = (brand.to_email or '').strip().lower()
+                if brand_addr and brand_addr == addr:
+                    return brand.environment_id
+        env = BullhornEnvironment.get_default()
+        return env.id if env else None

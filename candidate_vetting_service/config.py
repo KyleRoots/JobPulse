@@ -29,9 +29,36 @@ class VettingConfigMixin:
             logger.warning("OPENAI_API_KEY not found - AI matching will not work")
 
     def _get_bullhorn_service(self) -> BullhornService:
-        """Get or create Bullhorn service with current credentials"""
+        """Get or create Bullhorn service for this service's environment.
+
+        Non-default environments that carry their own inline credential set
+        connect to their OWN Bullhorn instance. The default (Myticas)
+        environment carries no inline credentials, so this falls through to the
+        historical GlobalSettings path below — byte-for-byte unchanged.
+        """
         if self.bullhorn:
             return self.bullhorn
+
+        try:
+            env = self._resolve_environment()
+            if env is not None and not getattr(env, 'is_default', False):
+                creds = env.resolve_credentials()
+                if creds:
+                    from utils.bullhorn_helpers import get_bullhorn_service
+                    self.bullhorn = get_bullhorn_service(env)
+                    return self.bullhorn
+                # Non-default tenant WITHOUT a complete inline credential set:
+                # fail CLOSED. Falling through to GlobalSettings would run this
+                # tenant's cycle against the DEFAULT (Myticas) Bullhorn instance
+                # — cross-tenant data corruption. Refuse instead.
+                logger.error(
+                    "Non-default environment '%s' lacks a complete inline "
+                    "Bullhorn credential set; refusing to fall back to global "
+                    "credentials.", getattr(env, 'key', getattr(env, 'id', '?'))
+                )
+                return None
+        except Exception as e:
+            logger.debug(f"Env-credential resolution skipped (fail-soft to global): {e}")
 
         bh_keys = ['bullhorn_client_id', 'bullhorn_client_secret', 'bullhorn_username', 'bullhorn_password']
         rows = GlobalSettings.query.filter(GlobalSettings.setting_key.in_(bh_keys)).all()
@@ -137,10 +164,35 @@ class VettingConfigMixin:
         except (ValueError, TypeError):
             return 80.0
 
+    def _job_req_for(self, job_id: int):
+        """Resolve the JobVettingRequirements row for ``job_id``, scoped to this
+        service's environment.
+
+        ``bullhorn_job_id`` is no longer globally unique once a second tenant is
+        active, so an unscoped lookup could read another tenant's job settings.
+        This filters by ``environment_id`` ONLY when more than one environment is
+        active — matching ``scope_query``'s no-op so single-tenant prod (where
+        legacy rows may carry a NULL ``environment_id``) is byte-for-byte
+        unchanged. Fail-soft: any resolution error falls back to the unscoped
+        historical lookup.
+        """
+        query = JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id)
+        try:
+            from utils.environment_context import _active_environment_count
+            if _active_environment_count() > 1:
+                env = self._resolve_environment()
+                if env is not None:
+                    query = query.filter(
+                        JobVettingRequirements.environment_id == env.id
+                    )
+        except Exception:
+            pass
+        return query.first()
+
     def get_job_threshold(self, job_id: int) -> float:
         """Get match threshold for a specific job (returns job-specific if set, otherwise global default)"""
         try:
-            job_req = JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).first()
+            job_req = self._job_req_for(job_id)
             if job_req and job_req.vetting_threshold is not None:
                 return float(job_req.vetting_threshold)
             return self.get_threshold()
@@ -285,7 +337,7 @@ class VettingConfigMixin:
     def _get_job_custom_requirements(self, job_id: int) -> Optional[str]:
         """Get custom requirements for a job if user has specified any"""
         try:
-            job_req = JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).first()
+            job_req = self._job_req_for(job_id)
             if job_req:
                 return job_req.get_active_requirements()
             return None

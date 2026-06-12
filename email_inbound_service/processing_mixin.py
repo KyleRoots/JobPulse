@@ -118,13 +118,20 @@ class ProcessingMixin:
                     self.logger.info(f"Skipping duplicate email (message_id already processed): {message_id[:50]}")
                     return {'success': True, 'message': 'Duplicate email skipped', 'duplicate': True}
 
+            # Attribute this inbound application to its owning environment by
+            # the recipient (To) address. Single-tenant inbound resolves to the
+            # default (Myticas) environment, so behavior is unchanged.
+            from models import Brand
+            environment_id = Brand.resolve_environment_id_for_recipient(recipient)
+
             parsed_email = ParsedEmail(
                 message_id=message_id,
                 sender_email=sender,
                 recipient_email=recipient,
                 subject=subject,
                 status='processing',
-                received_at=datetime.utcnow()
+                received_at=datetime.utcnow(),
+                environment_id=environment_id
             )
             db.session.add(parsed_email)
             db.session.commit()

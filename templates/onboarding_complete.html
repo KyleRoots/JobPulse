@@ -1,0 +1,61 @@
+{% extends "base_layout.html" %}
+
+{% block title %}Tenant Provisioned - Scout Genius™{% endblock %}
+
+{% block page_title %}Tenant Provisioned{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Readiness check for the newly provisioned customer</p>{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .ready-card {
+        max-width: 720px;
+        background: var(--card-bg, #1c2128);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 12px; padding: 24px; margin-bottom: 20px;
+    }
+    .ready-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; margin-bottom: 22px; }
+    .ready-summary .k { color: #9ca3af; font-size: 13px; }
+    .ready-summary .v { color: #e5e7eb; font-weight: 600; }
+    .ready-list { list-style: none; padding: 0; margin: 0; }
+    .ready-list li {
+        display: flex; align-items: center; gap: 12px;
+        padding: 11px 0; border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .ready-list li:last-child { border-bottom: none; }
+    .ready-list .icon { width: 20px; text-align: center; }
+    .ready-list .ok { color: #4ade80; }
+    .ready-list .bad { color: #f87171; }
+    .ready-list .label { flex: 1; color: #e5e7eb; }
+    .ready-list .detail { color: #9ca3af; font-size: 13px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ready-card">
+    <div class="ready-summary">
+        <div class="k">Environment</div>
+        <div class="v">{{ result.environment.display_name }} <span class="text-muted">({{ result.environment.key }})</span></div>
+        <div class="k">Primary Brand</div>
+        <div class="v">{{ result.brand.display_name }} <span class="text-muted">({{ result.brand.key }})</span></div>
+        <div class="k">Company Admin</div>
+        <div class="v">{{ result.user.username }} <span class="text-muted">&lt;{{ result.user.email }}&gt;</span></div>
+        <div class="k">Modules</div>
+        <div class="v">{{ result.user.get_modules() | join(', ') or '—' }}</div>
+    </div>
+
+    <h3 style="font-size:15px;font-weight:700;margin:0 0 12px 0;">Readiness Check</h3>
+    <ul class="ready-list">
+        {% for c in result.readiness %}
+        <li>
+            <span class="icon {{ 'ok' if c.ok else 'bad' }}">
+                <i class="fas fa-{{ 'check-circle' if c.ok else 'times-circle' }}"></i>
+            </span>
+            <span class="label">{{ c.check }}</span>
+            <span class="detail">{{ c.detail }}</span>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+
+<a href="{{ url_for('onboarding.wizard') }}" class="btn btn-outline-light"><i class="fas fa-plus"></i> Onboard Another Customer</a>
+{% endblock %}

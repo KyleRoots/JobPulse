@@ -2,6 +2,7 @@
 import json
 from datetime import datetime
 from extensions import db
+from models.environment import default_environment_id
 
 
 class ParsedResumeCache(db.Model):
@@ -109,7 +110,9 @@ class CandidateProfileEmbedding(db.Model):
     __tablename__ = 'candidate_profile_embedding'
 
     id = db.Column(db.Integer, primary_key=True)
-    bullhorn_candidate_id = db.Column(db.Integer, unique=True, nullable=False, index=True)
+    # Per-environment unique (see __table_args__), not globally unique — two
+    # environments may legitimately carry the same Bullhorn candidate id.
+    bullhorn_candidate_id = db.Column(db.Integer, nullable=False, index=True)
     candidate_name = db.Column(db.String(200), nullable=True)
     profile_hash = db.Column(db.String(64), nullable=False)
     embedding_vector = db.Column(db.Text, nullable=False)
@@ -123,11 +126,16 @@ class CandidateProfileEmbedding(db.Model):
     # environment so single-tenant behavior is byte-for-byte unchanged.
     environment_id = db.Column(
         db.Integer, db.ForeignKey('bullhorn_environment.id'),
-        nullable=True, index=True,
+        nullable=True, index=True, default=default_environment_id,
     )
 
     __table_args__ = (
         db.Index('idx_cand_profile_emb_updated', 'updated_at'),
+        # Multi-tenant uniqueness: one embedding row per (environment,
+        # candidate). Replaces the legacy global unique on bullhorn_candidate_id.
+        db.UniqueConstraint(
+            'environment_id', 'bullhorn_candidate_id', name='uq_cpe_env_candidate'
+        ),
     )
 
     def __repr__(self):

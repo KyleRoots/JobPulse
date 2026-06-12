@@ -97,7 +97,7 @@ from models.cost_forecast import CostForecastOverride, CostForecastScenario
 from models.placement_margin import PlacementMarginCalcLog
 from models.reporting import MonthlyReportRun
 from models.fraud import CandidateFraudAssessment
-from models.environment import BullhornEnvironment
+from models.environment import BullhornEnvironment, Brand
 
 __all__ = [
     # user
@@ -135,5 +135,5 @@ __all__ = [
     # fraud detection
     'CandidateFraudAssessment',
     # multi-tenant
-    'BullhornEnvironment',
+    'BullhornEnvironment', 'Brand',
 ]

@@ -68,7 +68,10 @@ def dashboard_redirect():
     try:
         # Active jobs: count from JobVettingRequirements (synced jobs from tearsheets)
         from models import JobVettingRequirements
-        active_jobs = JobVettingRequirements.query.count()
+        from utils.environment_context import scope_query
+        active_jobs = scope_query(
+            JobVettingRequirements.query, JobVettingRequirements
+        ).count()
     except Exception as e:
         current_app.logger.debug(f"Could not count active jobs: {e}")
     

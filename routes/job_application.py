@@ -33,12 +33,25 @@ def job_application_form(job_id, job_title):
         decoded_title = urllib.parse.unquote(job_title)
 
         host = request.host.lower()
-        if 'stsigroup.com' in host:
-            template = 'apply_stsi.html'
-            logger.info(f"Serving STSI template for domain: {host}")
-        else:
-            template = 'apply.html'
-            logger.info(f"Serving Myticas template for domain: {host}")
+        # Resolve the apply-form brand by host (Myticas / STSI / future tenant).
+        # Falls back to the historical hardcoded mapping if brands are unseeded
+        # so the served template is byte-for-byte unchanged.
+        template = None
+        try:
+            from models import Brand
+            brand = Brand.resolve_for_host(host)
+            if brand is not None:
+                template = brand.apply_template
+                logger.info(f"Serving brand '{brand.key}' template for domain: {host}")
+        except Exception as e:
+            logger.warning(f"Brand resolution failed for {host}, using fallback: {e}")
+        if not template:
+            if 'stsigroup.com' in host:
+                template = 'apply_stsi.html'
+                logger.info(f"Serving STSI template for domain: {host}")
+            else:
+                template = 'apply.html'
+                logger.info(f"Serving Myticas template for domain: {host}")
 
         # --- Dynamic source attribution: first-touch capture ---------------
         # The browser referrer (where the candidate clicked Apply) is the only

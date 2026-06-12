@@ -1,6 +1,7 @@
 """Job-side embedding cache + filter audit log."""
 from datetime import datetime
 from extensions import db
+from models.environment import default_environment_id
 
 
 class JobEmbedding(db.Model):
@@ -8,7 +9,9 @@ class JobEmbedding(db.Model):
     __tablename__ = 'job_embedding'
 
     id = db.Column(db.Integer, primary_key=True)
-    bullhorn_job_id = db.Column(db.Integer, unique=True, nullable=False, index=True)
+    # Per-environment unique (see __table_args__), not globally unique — two
+    # environments may legitimately carry the same Bullhorn job id.
+    bullhorn_job_id = db.Column(db.Integer, nullable=False, index=True)
     job_title = db.Column(db.String(500), nullable=True)
     description_hash = db.Column(db.String(64), nullable=False)  # SHA-256 of description text
     embedding_vector = db.Column(db.Text, nullable=False)  # JSON-serialized float array (1536 dims)
@@ -21,7 +24,13 @@ class JobEmbedding(db.Model):
     # environment so single-tenant behavior is byte-for-byte unchanged.
     environment_id = db.Column(
         db.Integer, db.ForeignKey('bullhorn_environment.id'),
-        nullable=True, index=True,
+        nullable=True, index=True, default=default_environment_id,
+    )
+
+    __table_args__ = (
+        # Multi-tenant uniqueness: one embedding row per (environment, job).
+        # Replaces the legacy global unique on bullhorn_job_id.
+        db.UniqueConstraint('environment_id', 'bullhorn_job_id', name='uq_je_env_job'),
     )
 
     def __repr__(self):

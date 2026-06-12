@@ -264,6 +264,97 @@ def seed_bullhorn_environment(db):
         return
 
     backfill_environment_id(db, env.id)
+    seed_brands(db, env)
+
+
+# Apply-form brands owned by the default (Myticas) environment. Values mirror
+# the historically hardcoded host->branding mapping in routes/job_application.py
+# and job_application_service.py EXACTLY, so the apply pipeline renders
+# byte-for-byte unchanged once it reads brand config (Task #100 Step 5a). Both
+# brands share the same Bullhorn instance and the same forward envelope
+# (from=info@myticas.com, to=apply@myticas.com); only host, template, logo and
+# company/alt text differ.
+_DEFAULT_BRANDS = (
+    {
+        'key': 'myticas',
+        'display_name': 'Myticas',
+        'domains': [],
+        'apply_template': 'apply.html',
+        'logo_path': 'static/myticas-logo.png',
+        'logo_filename': 'myticas-logo.png',
+        'logo_cid': 'myticas_logo',
+        'company_name': 'Myticas Consulting',
+        'logo_alt_text': 'Myticas Consulting',
+        'from_email': 'info@myticas.com',
+        'to_email': 'apply@myticas.com',
+        'is_default': True,
+    },
+    {
+        'key': 'stsi',
+        'display_name': 'STSI',
+        'domains': ['stsigroup'],
+        'apply_template': 'apply_stsi.html',
+        'logo_path': 'static/stsi-logo.png',
+        'logo_filename': 'stsi-logo.png',
+        'logo_cid': 'stsi_logo',
+        'company_name': 'STSI (Staffing Technical Services Inc.)',
+        'logo_alt_text': 'STSI Group',
+        'from_email': 'info@myticas.com',
+        'to_email': 'apply@myticas.com',
+        'is_default': False,
+    },
+)
+
+
+def seed_brands(db, environment):
+    """Seed the default environment's apply-form brands (Myticas + STSI).
+
+    Idempotent upsert keyed on Brand.key. Only fills in fields that are unset
+    so a brand a super-admin later edits in the UI is not stomped on reboot;
+    the immutable identity fields (template/logo/company) are refreshed to keep
+    parity with the canonical defaults. Fully fail-soft.
+    """
+    from models import Brand
+
+    try:
+        for spec in _DEFAULT_BRANDS:
+            brand = Brand.query.filter_by(key=spec['key']).first()
+            if brand is None:
+                brand = Brand(
+                    environment_id=environment.id,
+                    key=spec['key'],
+                    display_name=spec['display_name'],
+                    apply_template=spec['apply_template'],
+                    logo_path=spec['logo_path'],
+                    logo_filename=spec['logo_filename'],
+                    logo_cid=spec['logo_cid'],
+                    company_name=spec['company_name'],
+                    logo_alt_text=spec['logo_alt_text'],
+                    from_email=spec['from_email'],
+                    to_email=spec['to_email'],
+                    is_default=spec['is_default'],
+                    is_active=True,
+                )
+                brand.set_domains(spec['domains'])
+                db.session.add(brand)
+                db.session.commit()
+                logger.info(f"✅ Seeded brand '{spec['key']}'")
+            else:
+                # Self-heal: ensure the brand stays attached to the default env
+                # and keeps its canonical default flag. Other fields are left as
+                # they are so UI edits survive reboots.
+                changed = False
+                if brand.environment_id != environment.id:
+                    brand.environment_id = environment.id
+                    changed = True
+                if brand.is_default != spec['is_default']:
+                    brand.is_default = spec['is_default']
+                    changed = True
+                if changed:
+                    db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ Failed to seed brands: {str(e)}")
 
 
 def seed_bullhorn_monitors(db, BullhornMonitor):

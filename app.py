@@ -15,7 +15,7 @@ import requests
 from datetime import datetime, timedelta
 from functools import wraps
 
-from flask import render_template, request, send_file, flash, redirect, url_for, jsonify, after_this_request, has_request_context, session, abort
+from flask import render_template, request, send_file, flash, redirect, url_for, jsonify, after_this_request, has_request_context, session, abort, g
 from flask_login import current_user, login_required, login_user, logout_user
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -209,7 +209,9 @@ from routes.activity_log import activity_log_bp
 app.register_blueprint(activity_log_bp)
 
 from routes.monthly_report import monthly_report_bp
+from routes.onboarding import onboarding_bp
 app.register_blueprint(monthly_report_bp)
+app.register_blueprint(onboarding_bp)
 
 from utils.bullhorn_helpers import get_bullhorn_service, get_email_service
 
@@ -230,6 +232,21 @@ _MODULE_MAP = {
     '/activity-log': 'system',
     '/dashboard': 'system',
 }
+
+@app.before_request
+def _resolve_environment():
+    """Attach the request's current Bullhorn environment to ``g`` (fail-soft).
+
+    With a single active environment this is simply the default (Myticas) env,
+    so it changes nothing observable; it becomes meaningful once a second tenant
+    is provisioned. Query scoping itself lives in ``utils.environment_context``.
+    """
+    try:
+        from utils.environment_context import current_environment
+        g.environment = current_environment()
+    except Exception:
+        g.environment = None
+
 
 @app.before_request
 def _track_module_access():

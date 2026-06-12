@@ -29,8 +29,11 @@ def _get_user_job_ids():
     Admins and company admins get all job IDs across all monitors.
     """
     from models import BullhornMonitor
+    from utils.environment_context import scope_query
 
-    monitors = BullhornMonitor.query.filter_by(is_active=True).all()
+    monitors = scope_query(
+        BullhornMonitor.query.filter_by(is_active=True), BullhornMonitor
+    ).all()
     job_ids = set()
 
     bullhorn_uid = current_user.bullhorn_user_id
@@ -71,8 +74,11 @@ def _get_user_jobs_with_meta():
     Used to enrich per-job requirement panels with title/location data.
     """
     from models import BullhornMonitor
+    from utils.environment_context import scope_query
 
-    monitors = BullhornMonitor.query.filter_by(is_active=True).all()
+    monitors = scope_query(
+        BullhornMonitor.query.filter_by(is_active=True), BullhornMonitor
+    ).all()
     jobs_map = {}
 
     bullhorn_uid = current_user.bullhorn_user_id
@@ -132,24 +138,31 @@ def dashboard():
     week_ago = datetime.utcnow() - timedelta(days=7)
 
     if job_ids:
+        from utils.environment_context import scope_query
         all_matches = (
-            CandidateJobMatch.query
-            .join(CandidateVettingLog)
-            .options(joinedload(CandidateJobMatch.vetting_log))
-            .filter(
-                CandidateJobMatch.bullhorn_job_id.in_(job_ids),
-                CandidateVettingLog.is_sandbox != True
+            scope_query(
+                CandidateJobMatch.query
+                .join(CandidateVettingLog)
+                .options(joinedload(CandidateJobMatch.vetting_log))
+                .filter(
+                    CandidateJobMatch.bullhorn_job_id.in_(job_ids),
+                    CandidateVettingLog.is_sandbox != True
+                ),
+                CandidateJobMatch,
             )
             .order_by(CandidateJobMatch.created_at.desc())
             .limit(2000)
             .all()
         )
         pending_logs = (
-            CandidateVettingLog.query
-            .filter(
-                CandidateVettingLog.applied_job_id.in_(job_ids),
-                CandidateVettingLog.status == 'pending',
-                CandidateVettingLog.is_sandbox != True
+            scope_query(
+                CandidateVettingLog.query
+                .filter(
+                    CandidateVettingLog.applied_job_id.in_(job_ids),
+                    CandidateVettingLog.status == 'pending',
+                    CandidateVettingLog.is_sandbox != True
+                ),
+                CandidateVettingLog,
             )
             .order_by(CandidateVettingLog.created_at.desc())
             .limit(50)
@@ -263,8 +276,12 @@ def dashboard():
 
     job_requirements = {}
     if job_ids:
-        reqs = JobVettingRequirements.query.filter(
-            JobVettingRequirements.bullhorn_job_id.in_(job_ids)
+        from utils.environment_context import scope_query
+        reqs = scope_query(
+            JobVettingRequirements.query.filter(
+                JobVettingRequirements.bullhorn_job_id.in_(job_ids)
+            ),
+            JobVettingRequirements,
         ).all()
         job_requirements = {r.bullhorn_job_id: r for r in reqs}
 
@@ -377,7 +394,11 @@ def save_job_settings(job_id):
             flash('Threshold must be between 50 and 100.', 'error')
             return redirect(url_for('scout_screening.dashboard'))
 
-        job_req = JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).first()
+        from utils.environment_context import scope_query
+        job_req = scope_query(
+            JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id),
+            JobVettingRequirements,
+        ).first()
 
         if is_ajax_threshold_save:
             employer_prestige_boost = job_req.employer_prestige_boost if job_req else False
@@ -491,7 +512,11 @@ def reset_job_requirements(job_id):
         return jsonify({'success': False, 'error': 'Not authorized for this job.'}), 403
 
     try:
-        job_req = JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).first()
+        from utils.environment_context import scope_query
+        job_req = scope_query(
+            JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id),
+            JobVettingRequirements,
+        ).first()
         if not job_req:
             return jsonify({'success': False, 'error': 'No requirements record found.'}), 404
 
@@ -694,12 +719,16 @@ def candidate_search():
     like = f'%{q}%'
     predicates = None
 
+    from utils.environment_context import scope_query
     if q.isdigit():
         id_hit = (
-            db.session.query(CandidateVettingLog.id)
-            .filter(
-                CandidateVettingLog.applied_job_id.in_(job_ids),
-                CandidateVettingLog.bullhorn_candidate_id == int(q),
+            scope_query(
+                db.session.query(CandidateVettingLog.id)
+                .filter(
+                    CandidateVettingLog.applied_job_id.in_(job_ids),
+                    CandidateVettingLog.bullhorn_candidate_id == int(q),
+                ),
+                CandidateVettingLog,
             )
             .first()
         )
@@ -743,14 +772,15 @@ def candidate_search():
 
     # Pending logs — used either as the result set (status='pending')
     # or as the source of group_counts['pending'] when status is unset.
-    pending_log_q = (
+    pending_log_q = scope_query(
         db.session.query(CandidateVettingLog)
         .filter(
             CandidateVettingLog.applied_job_id.in_(job_ids),
             CandidateVettingLog.status == 'pending',
             CandidateVettingLog.is_sandbox != True,
             or_(*predicates),
-        )
+        ),
+        CandidateVettingLog,
     )
     if this_week_only:
         pending_log_q = pending_log_q.filter(CandidateVettingLog.created_at >= week_ago)
@@ -829,14 +859,16 @@ def candidate_search():
     # this_week is pushed into SQL so the cap honours the week filter.
     # status / min_score remain in Python because they require
     # group-level aggregation (best_score across matches, etc.).
-    base_q = (
+    from utils.environment_context import scope_query
+    base_q = scope_query(
         db.session.query(CandidateJobMatch.id)
         .join(CandidateVettingLog, CandidateJobMatch.vetting_log_id == CandidateVettingLog.id)
         .filter(
             CandidateJobMatch.bullhorn_job_id.in_(job_ids),
             CandidateVettingLog.is_sandbox != True,
             or_(*predicates),
-        )
+        ),
+        CandidateJobMatch,
     )
     if this_week_only:
         base_q = base_q.filter(CandidateJobMatch.created_at >= week_ago)
@@ -1018,14 +1050,21 @@ def stats_api():
     if not job_ids:
         return jsonify({'qualified': 0, 'pending': 0, 'not_recommended': 0, 'location_barrier': 0, 'screened_this_week': 0})
 
-    matches = CandidateJobMatch.query.filter(
-        CandidateJobMatch.bullhorn_job_id.in_(job_ids)
+    from utils.environment_context import scope_query
+    matches = scope_query(
+        CandidateJobMatch.query.filter(
+            CandidateJobMatch.bullhorn_job_id.in_(job_ids)
+        ),
+        CandidateJobMatch,
     ).all()
 
-    pending = CandidateVettingLog.query.filter(
-        CandidateVettingLog.applied_job_id.in_(job_ids),
-        CandidateVettingLog.status == 'pending',
-        CandidateVettingLog.is_sandbox != True
+    pending = scope_query(
+        CandidateVettingLog.query.filter(
+            CandidateVettingLog.applied_job_id.in_(job_ids),
+            CandidateVettingLog.status == 'pending',
+            CandidateVettingLog.is_sandbox != True
+        ),
+        CandidateVettingLog,
     ).count()
 
     from models import VettingConfig as _VC

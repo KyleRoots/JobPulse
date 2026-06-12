@@ -16,12 +16,23 @@ def run_candidate_vetting_cycle():
             if not config or config.setting_value.lower() != 'true':
                 return  # Silently skip if disabled
 
-            vetting_service = CandidateVettingService()
-            summary = vetting_service.run_vetting_cycle()
+            from utils.environment_runner import for_each_active_environment
 
-            if summary.get('status') != 'disabled':
-                app.logger.info(f"Candidate vetting cycle completed: {summary.get('candidates_processed', 0)} processed, "
-                              f"{summary.get('candidates_qualified', 0)} qualified, {summary.get('notifications_sent', 0)} notifications")
+            def _run(env):
+                env_key = getattr(env, 'key', 'default')
+                vetting_service = CandidateVettingService(
+                    environment_id=(env.id if env else None)
+                )
+                summary = vetting_service.run_vetting_cycle()
+                if summary.get('status') != 'disabled':
+                    app.logger.info(
+                        f"Candidate vetting cycle [{env_key}] completed: "
+                        f"{summary.get('candidates_processed', 0)} processed, "
+                        f"{summary.get('candidates_qualified', 0)} qualified, "
+                        f"{summary.get('notifications_sent', 0)} notifications")
+                return summary
+
+            for_each_active_environment('candidate_vetting_cycle', _run, app.logger)
 
         except Exception as e:
             app.logger.error(f"Candidate vetting cycle error: {str(e)}")
@@ -55,80 +66,102 @@ def run_requirements_maintenance():
             if str(vetting_enabled).lower() != 'true':
                 return
 
-            svc = CandidateVettingService()
-
-            try:
-                mod_results = svc.check_and_refresh_changed_jobs()
-                refreshed = mod_results.get('jobs_refreshed', 0)
-                if refreshed > 0:
-                    logger.info(
-                        f"Requirements maintenance [modified]: {refreshed} job(s) re-interpreted, "
-                        f"{mod_results.get('jobs_skipped', 0)} unchanged"
-                    )
-            except Exception as mod_err:
-                logger.error(f"Requirements maintenance [modified]: error — {mod_err}")
-
-            try:
-                active_jobs = svc.get_active_jobs_from_tearsheets()
-                if not active_jobs:
-                    return
-
-                existing_ids = set(
-                    r.bullhorn_job_id for r in
-                    JobVettingRequirements.query.filter(
-                        JobVettingRequirements.ai_interpreted_requirements.isnot(None)
-                    ).with_entities(JobVettingRequirements.bullhorn_job_id).all()
-                )
-
-                new_jobs = [
-                    j for j in active_jobs
-                    if j.get('id') and int(j['id']) not in existing_ids
-                ]
-
-                if not new_jobs:
-                    return
-
-                logger.info(f"Requirements maintenance [new]: {len(new_jobs)} job(s) found without requirements — extracting...")
-
-                jobs_payload = []
-                for job in new_jobs:
-                    job_address = job.get('address', {}) if isinstance(job.get('address'), dict) else {}
-                    job_city = job_address.get('city', '')
-                    job_state = job_address.get('state', '')
-                    job_country = job_address.get('countryName', '') or job_address.get('country', '')
-                    job_location = ', '.join(filter(None, [job_city, job_state, job_country]))
-
-                    on_site_value = job.get('onSite', 1)
-                    if isinstance(on_site_value, list):
-                        on_site_value = on_site_value[0] if on_site_value else 1
-                    if isinstance(on_site_value, (int, float)):
-                        work_type_map = {1: 'On-site', 2: 'Hybrid', 3: 'Remote'}
-                        job_work_type = work_type_map.get(int(on_site_value), 'On-site')
-                    else:
-                        onsite_str = str(on_site_value).lower().strip() if on_site_value else ''
-                        if 'remote' in onsite_str or onsite_str == 'offsite':
-                            job_work_type = 'Remote'
-                        elif 'hybrid' in onsite_str:
-                            job_work_type = 'Hybrid'
-                        else:
-                            job_work_type = 'On-site'
-
-                    jobs_payload.append({
-                        'id': job.get('id'),
-                        'title': job.get('title', ''),
-                        'description': job.get('publicDescription', '') or job.get('description', ''),
-                        'location': job_location,
-                        'work_type': job_work_type,
-                    })
-
-                extract_results = svc.extract_requirements_for_jobs(jobs_payload)
-                logger.info(
-                    f"Requirements maintenance [new]: extracted={extract_results.get('extracted', 0)}, "
-                    f"skipped={extract_results.get('skipped', 0)}, failed={extract_results.get('failed', 0)}"
-                )
-
-            except Exception as new_err:
-                logger.error(f"Requirements maintenance [new]: error — {new_err}")
+            from utils.environment_runner import for_each_active_environment
+            for_each_active_environment(
+                'requirements_maintenance',
+                lambda env: _run_requirements_maintenance_for_env(
+                    env, CandidateVettingService, JobVettingRequirements
+                ),
+            )
 
         except Exception as e:
             logger.error(f"run_requirements_maintenance: unexpected error — {e}")
+
+
+def _run_requirements_maintenance_for_env(env, CandidateVettingService, JobVettingRequirements):
+    """Requirements maintenance for a single environment.
+
+    With the default (single) environment this scopes to that environment's id,
+    which is the only id present, so the behavior is unchanged.
+    """
+    env_key = getattr(env, 'key', 'default')
+    env_id = env.id if env else None
+    svc = CandidateVettingService(environment_id=env_id)
+
+    try:
+        mod_results = svc.check_and_refresh_changed_jobs()
+        refreshed = mod_results.get('jobs_refreshed', 0)
+        if refreshed > 0:
+            logger.info(
+                f"Requirements maintenance [{env_key}][modified]: {refreshed} job(s) re-interpreted, "
+                f"{mod_results.get('jobs_skipped', 0)} unchanged"
+            )
+    except Exception as mod_err:
+        logger.error(f"Requirements maintenance [{env_key}][modified]: error — {mod_err}")
+
+    try:
+        active_jobs = svc.get_active_jobs_from_tearsheets()
+        if not active_jobs:
+            return
+
+        existing_query = JobVettingRequirements.query.filter(
+            JobVettingRequirements.ai_interpreted_requirements.isnot(None)
+        )
+        if env_id is not None:
+            existing_query = existing_query.filter(
+                JobVettingRequirements.environment_id == env_id
+            )
+        existing_ids = set(
+            r.bullhorn_job_id for r in
+            existing_query.with_entities(JobVettingRequirements.bullhorn_job_id).all()
+        )
+
+        new_jobs = [
+            j for j in active_jobs
+            if j.get('id') and int(j['id']) not in existing_ids
+        ]
+
+        if not new_jobs:
+            return
+
+        logger.info(f"Requirements maintenance [{env_key}][new]: {len(new_jobs)} job(s) found without requirements — extracting...")
+
+        jobs_payload = []
+        for job in new_jobs:
+            job_address = job.get('address', {}) if isinstance(job.get('address'), dict) else {}
+            job_city = job_address.get('city', '')
+            job_state = job_address.get('state', '')
+            job_country = job_address.get('countryName', '') or job_address.get('country', '')
+            job_location = ', '.join(filter(None, [job_city, job_state, job_country]))
+
+            on_site_value = job.get('onSite', 1)
+            if isinstance(on_site_value, list):
+                on_site_value = on_site_value[0] if on_site_value else 1
+            if isinstance(on_site_value, (int, float)):
+                work_type_map = {1: 'On-site', 2: 'Hybrid', 3: 'Remote'}
+                job_work_type = work_type_map.get(int(on_site_value), 'On-site')
+            else:
+                onsite_str = str(on_site_value).lower().strip() if on_site_value else ''
+                if 'remote' in onsite_str or onsite_str == 'offsite':
+                    job_work_type = 'Remote'
+                elif 'hybrid' in onsite_str:
+                    job_work_type = 'Hybrid'
+                else:
+                    job_work_type = 'On-site'
+
+            jobs_payload.append({
+                'id': job.get('id'),
+                'title': job.get('title', ''),
+                'description': job.get('publicDescription', '') or job.get('description', ''),
+                'location': job_location,
+                'work_type': job_work_type,
+            })
+
+        extract_results = svc.extract_requirements_for_jobs(jobs_payload)
+        logger.info(
+            f"Requirements maintenance [{env_key}][new]: extracted={extract_results.get('extracted', 0)}, "
+            f"skipped={extract_results.get('skipped', 0)}, failed={extract_results.get('failed', 0)}"
+        )
+
+    except Exception as new_err:
+        logger.error(f"Requirements maintenance [{env_key}][new]: error — {new_err}")

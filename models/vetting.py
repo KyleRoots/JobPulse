@@ -1,6 +1,7 @@
 """Candidate vetting, screening, scout vetting sessions, audit, and config models."""
 from datetime import datetime
 from extensions import db
+from models.environment import default_environment_id
 from utils.sqlalchemy_types import SafeString, SafeText
 
 
@@ -142,7 +143,9 @@ class JobVettingRequirements(db.Model):
     historical rows that pre-date inline editing (Apr 2026).
     """
     id = db.Column(db.Integer, primary_key=True)
-    bullhorn_job_id = db.Column(db.Integer, unique=True, nullable=False, index=True)
+    # Per-environment unique (see __table_args__), not globally unique — two
+    # environments may legitimately carry the same Bullhorn job id.
+    bullhorn_job_id = db.Column(db.Integer, nullable=False, index=True)
     job_title = db.Column(db.String(255), nullable=True)
     job_location = db.Column(db.String(255), nullable=True)  # City, State, Country
     job_work_type = db.Column(db.String(50), nullable=True)  # On-site, Hybrid, Remote
@@ -163,7 +166,15 @@ class JobVettingRequirements(db.Model):
     # environment so single-tenant behavior is byte-for-byte unchanged.
     environment_id = db.Column(
         db.Integer, db.ForeignKey('bullhorn_environment.id'),
-        nullable=True, index=True,
+        nullable=True, index=True, default=default_environment_id,
+    )
+
+    __table_args__ = (
+        # Multi-tenant uniqueness: one requirements row per (environment, job).
+        # Replaces the legacy global unique on bullhorn_job_id. New rows stamp
+        # environment_id via the column default, so in single-environment mode
+        # this behaves exactly like the old single-column unique.
+        db.UniqueConstraint('environment_id', 'bullhorn_job_id', name='uq_jvr_env_job'),
     )
 
     def __repr__(self):

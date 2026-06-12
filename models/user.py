@@ -18,6 +18,14 @@ class User(UserMixin, db.Model):
     is_company_admin = db.Column(db.Boolean, default=False)
     role = db.Column(db.String(20), default='user')
     company = db.Column(db.String(100), default='Myticas Consulting')
+    # Multi-tenant discriminator (Task #100): the Bullhorn environment this user
+    # belongs to. Nullable → resolves to the default (Myticas) environment, so
+    # existing users behave byte-for-byte as before. New customers' users carry
+    # their own environment_id, which scopes the data they can see.
+    environment_id = db.Column(
+        db.Integer, db.ForeignKey('bullhorn_environment.id'),
+        nullable=True, index=True,
+    )
     bullhorn_user_id = db.Column(db.Integer, nullable=True)
     display_name = db.Column(db.String(255), nullable=True)
     subscribed_modules = db.Column(db.Text, nullable=True)

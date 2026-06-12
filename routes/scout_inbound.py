@@ -23,8 +23,11 @@ logger = logging.getLogger(__name__)
 def _get_user_jobs():
     """Get all jobs assigned to the current user across all tearsheets."""
     from models import BullhornMonitor
-    
-    monitors = BullhornMonitor.query.filter_by(is_active=True).all()
+    from utils.environment_context import scope_query
+
+    monitors = scope_query(
+        BullhornMonitor.query.filter_by(is_active=True), BullhornMonitor
+    ).all()
     user_jobs = []
     all_job_ids = set()
     tearsheet_names = set()
@@ -79,8 +82,10 @@ def scout_inbound_dashboard():
     user_jobs, tearsheet_names, job_ids = _get_user_jobs()
     
     if job_ids:
-        candidates = ParsedEmail.query.filter(
-            ParsedEmail.bullhorn_job_id.in_(job_ids)
+        from utils.environment_context import scope_query
+        candidates = scope_query(
+            ParsedEmail.query.filter(ParsedEmail.bullhorn_job_id.in_(job_ids)),
+            ParsedEmail,
         ).order_by(ParsedEmail.received_at.desc()).limit(100).all()
     else:
         candidates = []
@@ -146,8 +151,10 @@ def scout_inbound_candidates_api():
     if not job_ids:
         return jsonify({'candidates': [], 'total': 0})
     
-    candidates = ParsedEmail.query.filter(
-        ParsedEmail.bullhorn_job_id.in_(job_ids)
+    from utils.environment_context import scope_query
+    candidates = scope_query(
+        ParsedEmail.query.filter(ParsedEmail.bullhorn_job_id.in_(job_ids)),
+        ParsedEmail,
     ).order_by(ParsedEmail.received_at.desc()).limit(100).all()
     
     return jsonify({
