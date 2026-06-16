@@ -55,6 +55,115 @@ class DuplicateMergeService:
             logger.warning(f"Error checking placements for candidate {candidate_id}: {e}")
         return False
 
+    def _get_merge_api_user_ids(self) -> set:
+        """Bullhorn API CorporateUser IDs that count as 'automated' owners.
+
+        Ownership held by one of these (or no owner at all) is fair game to
+        replace during a merge; ownership held by anyone else is a human
+        recruiter's claim and must be preserved. The known Myticas API user
+        (1147490) is always included as a safety net against config drift.
+        """
+        ids = {1147490}
+        try:
+            from models import VettingConfig
+            raw = VettingConfig.get_value('api_user_ids')
+            if raw:
+                ids.update(
+                    int(x.strip()) for x in str(raw).split(',') if x.strip().isdigit()
+                )
+        except Exception:
+            logger.warning("Could not load api_user_ids for merge owner guard")
+        return ids
+
+    @staticmethod
+    def _owner_dict_to_id(owner):
+        """Coerce an 'owner' association dict to an int id, or None."""
+        if not isinstance(owner, dict):
+            return None
+        oid = owner.get('id')
+        try:
+            return int(oid) if oid is not None else None
+        except (ValueError, TypeError):
+            return None
+
+    def _resolve_owner_id_confident(self, candidate):
+        """Resolve a candidate's owner id AND report whether we're confident.
+
+        Returns ``(owner_id_or_None, resolved)``. ``resolved`` is False only
+        when we had to hit Bullhorn and the lookup did not return a record —
+        callers can then fail closed instead of mistaking a transient error
+        for 'unowned'. When the 'owner' key is already present on the dict we
+        trust it (a present-but-empty owner is a confident 'unowned').
+        """
+        if not isinstance(candidate, dict):
+            return None, False
+        if 'owner' in candidate:
+            return self._owner_dict_to_id(candidate.get('owner')), True
+        cid = candidate.get('id')
+        if not cid:
+            return None, True
+        try:
+            full = self.bullhorn.get_candidate(cid)
+        except Exception as e:
+            logger.debug(f"  Owner lookup failed for candidate {cid}: {e}")
+            return None, False
+        if not full:
+            # get_candidate swallows errors and returns None/{} — treat as
+            # unresolved so the safety net never overwrites on a soft failure.
+            return None, False
+        return self._owner_dict_to_id(full.get('owner')), True
+
+    def _resolve_owner_id(self, candidate):
+        """Best-effort owner id for a candidate dict, or None on any failure.
+
+        Used by primary selection, where an unresolved owner simply falls back
+        to the existing recency logic (safe). For the merge owner safety net use
+        :meth:`_resolve_owner_id_confident` so transient failures fail closed.
+        """
+        owner_id, _ = self._resolve_owner_id_confident(candidate)
+        return owner_id
+
+    def _is_human_owner(self, owner_id) -> bool:
+        """True when owner_id is a real recruiter (present and not an API user)."""
+        if owner_id is None:
+            return False
+        return owner_id not in self._get_merge_api_user_ids()
+
+    def _preserve_human_owner(self, primary, duplicate):
+        """Ensure the surviving record keeps a human recruiter as owner.
+
+        No-op when the survivor is already human-owned. Only writes when the
+        survivor is API-user-owned/unowned AND the archived duplicate was owned
+        by a human — i.e. a recruiter's claim would otherwise be lost.
+        """
+        try:
+            primary_id = primary.get('id')
+            if not primary_id:
+                return
+            # Only act when the archived duplicate was genuinely human-owned.
+            dup_owner = self._resolve_owner_id(duplicate)
+            if not self._is_human_owner(dup_owner):
+                return
+            # Fail closed: if we can't confidently determine the survivor's
+            # CURRENT owner, do nothing rather than risk stomping a human owner
+            # on a transient lookup failure.
+            primary_owner, resolved = self._resolve_owner_id_confident(primary)
+            if not resolved:
+                logger.warning(
+                    f"  Skipping owner-preserve on {primary_id}: could not "
+                    f"confidently resolve current owner"
+                )
+                return
+            if self._is_human_owner(primary_owner):
+                return  # survivor already human-owned
+            self.bullhorn.update_candidate(primary_id, {'owner': {'id': dup_owner}})
+            logger.info(
+                f"  👤 Preserved human owner {dup_owner} on surviving record "
+                f"{primary_id} (survivor was API-user/unowned)"
+            )
+        except Exception as e:
+            logger.warning(f"  Could not preserve human owner on {primary.get('id')}: {e}")
+
     def determine_primary(self, candidate_a, candidate_b):
         id_a = candidate_a.get('id')
         id_b = candidate_b.get('id')
@@ -69,6 +178,19 @@ class DuplicateMergeService:
             return candidate_a, candidate_b, "active_placement"
         if b_has_placement:
             return candidate_b, candidate_a, "active_placement"
+
+        # Prefer the record claimed by a human recruiter over one owned by an
+        # automated API user (or unowned). A fresh inbound application creates
+        # an API-user-owned record with the newest dateAdded; without this tier
+        # that throwaway would win on recency below and the recruiter's record
+        # (with their notes and ownership) would be archived. Active placements
+        # above still take top priority.
+        a_human = self._is_human_owner(self._resolve_owner_id(candidate_a))
+        b_human = self._is_human_owner(self._resolve_owner_id(candidate_b))
+        if a_human and not b_human:
+            return candidate_a, candidate_b, "human_owner"
+        if b_human and not a_human:
+            return candidate_b, candidate_a, "human_owner"
 
         date_a = candidate_a.get('dateAdded', 0)
         date_b = candidate_b.get('dateAdded', 0)
@@ -100,7 +222,7 @@ class DuplicateMergeService:
         try:
             url = f"{self.bullhorn.base_url}entity/Candidate/{candidate_id}/notes"
             params = {
-                'fields': 'id,action,comments,dateAdded,commentingPerson',
+                'fields': 'id,action,comments,dateAdded,commentingPerson(id,firstName,lastName)',
                 'count': 500,
                 'BhRestToken': self.bullhorn.rest_token
             }
@@ -185,7 +307,18 @@ class DuplicateMergeService:
                 default_user_id = GlobalSettings.get_value('bullhorn_api_user_id', '1147490')
             except Exception:
                 default_user_id = '1147490'
-            commenting_person_id = self.bullhorn.user_id or int(default_user_id)
+            # Preserve the original author of the note. Bullhorn would otherwise
+            # re-stamp commentingPerson as the acting (API) user on transfer,
+            # wiping out the recruiter who actually made the note — so re-use the
+            # source note's commentingPerson when we have one, falling back to
+            # the API user only when the original author is unknown.
+            orig_person = note.get('commentingPerson') or {}
+            orig_person_id = orig_person.get('id') if isinstance(orig_person, dict) else None
+            try:
+                orig_person_id = int(orig_person_id) if orig_person_id is not None else None
+            except (ValueError, TypeError):
+                orig_person_id = None
+            commenting_person_id = orig_person_id or self.bullhorn.user_id or int(default_user_id)
             original_date_added = note.get('dateAdded')
             payload = {
                 'personReference': {'id': primary_id},
@@ -396,6 +529,12 @@ class DuplicateMergeService:
 
         self._archive_duplicate(duplicate_id)
 
+        # Safety net for the active-placement edge: if the survivor still ended
+        # up owned by an API user (or unowned) while the archived duplicate was
+        # owned by a human recruiter, restore the human owner so a recruiter's
+        # claim is never silently handed to the Myticas API user.
+        self._preserve_human_owner(primary, duplicate)
+
         merge_log = CandidateMergeLog(
             primary_candidate_id=primary_id,
             duplicate_candidate_id=duplicate_id,
@@ -502,7 +641,7 @@ class DuplicateMergeService:
                 url = f"{self.bullhorn.base_url}search/Candidate"
                 params = {
                     'query': 'isDeleted:0 AND -status:Archive',
-                    'fields': 'id,firstName,lastName,email,email2,email3,phone,mobile,dateAdded,status',
+                    'fields': 'id,firstName,lastName,email,email2,email3,phone,mobile,dateAdded,status,owner(id,firstName,lastName)',
                     'count': count,
                     'start': start,
                     'sort': 'id',
@@ -545,7 +684,7 @@ class DuplicateMergeService:
             url = f"{self.bullhorn.base_url}search/Candidate"
             params = {
                 'query': lucene_query,
-                'fields': 'id,firstName,lastName,email,email2,email3,phone,mobile,dateAdded,status',
+                'fields': 'id,firstName,lastName,email,email2,email3,phone,mobile,dateAdded,status,owner(id,firstName,lastName)',
                 'count': 500,
                 'sort': '-dateAdded',
                 'BhRestToken': self.bullhorn.rest_token
@@ -592,7 +731,7 @@ class DuplicateMergeService:
                 url = f"{self.bullhorn.base_url}search/Candidate"
                 params = {
                     'query': search_query,
-                    'fields': 'id,firstName,lastName,email,email2,email3,phone,mobile,dateAdded,status',
+                    'fields': 'id,firstName,lastName,email,email2,email3,phone,mobile,dateAdded,status,owner(id,firstName,lastName)',
                     'count': 20,
                     'BhRestToken': self.bullhorn.rest_token
                 }
@@ -622,7 +761,7 @@ class DuplicateMergeService:
                 url = f"{self.bullhorn.base_url}search/Candidate"
                 params = {
                     'query': search_query,
-                    'fields': 'id,firstName,lastName,email,email2,email3,phone,mobile,dateAdded,status',
+                    'fields': 'id,firstName,lastName,email,email2,email3,phone,mobile,dateAdded,status,owner(id,firstName,lastName)',
                     'count': 20,
                     'BhRestToken': self.bullhorn.rest_token
                 }
