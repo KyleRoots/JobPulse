@@ -277,6 +277,129 @@ class TestParseTextHeuristic:
 
 
 # ---------------------------------------------------------------------------
+# Layer 3 — lowercase name particles ("el-", "van", "de", ...)
+# ---------------------------------------------------------------------------
+class TestLowercaseParticleSurnames:
+    """Pinned by a production finding: the old header heuristic required
+    EVERY word to start with a capital letter
+    (``all(word[0].isupper() ...)``). A surname with a lowercase particle —
+    "Ahmed el-Gabry", "Ludwig van Beethoven", "Robert de Niro" — failed
+    that check, so the real name line was skipped and the parser fell
+    through to the next title-cased line (e.g. a "Career Highlights"
+    section header), committing garbage like firstName="Career"
+    lastName="Highlights".
+
+    The fix makes the casing guard particle-aware and routes the split
+    through the shared ``split_full_name`` helper, so the résumé header
+    path now behaves exactly like the inbound-email extraction path.
+    """
+
+    @pytest.fixture
+    def parser(self):
+        from resume_parser import ResumeParser
+        return ResumeParser()
+
+    def _header(self, name):
+        return (
+            f"{name}\n"
+            "Mobile: +1-613-222-0624\n"
+            "E-mail: test@example.com\n"
+            "\n"
+            "Career Highlights\n"
+            "- Senior Product Manager\n"
+        )
+
+    def test_lowercase_hyphen_particle_el_gabry(self, parser):
+        """The exact failure shape: lowercase 'el-' particle."""
+        result = parser._parse_text(self._header("Ahmed el-Gabry"))
+        assert result['first_name'] == 'Ahmed'
+        assert result['last_name'] == 'El-Gabry'
+
+    def test_capitalized_particle_unchanged(self, parser):
+        result = parser._parse_text(self._header("Ahmed El-Gabry"))
+        assert result['first_name'] == 'Ahmed'
+        assert result['last_name'] == 'El-Gabry'
+
+    def test_all_caps_particle_normalized(self, parser):
+        result = parser._parse_text(self._header("Ahmed EL-GABRY"))
+        assert result['first_name'] == 'Ahmed'
+        assert result['last_name'] == 'El-Gabry'
+
+    def test_van_particle(self, parser):
+        result = parser._parse_text(self._header("Ludwig van Beethoven"))
+        assert result['first_name'] == 'Ludwig'
+        assert result['last_name'] == 'van Beethoven'
+
+    def test_de_particle(self, parser):
+        result = parser._parse_text(self._header("Robert de Niro"))
+        assert result['first_name'] == 'Robert'
+        assert result['last_name'] == 'de Niro'
+
+    def test_hyphen_and_apostrophe_name(self, parser):
+        result = parser._parse_text(self._header("Mary-Jane O'Brien"))
+        assert result['first_name'] == 'Mary-Jane'
+        assert result['last_name'] == "O'Brien"
+
+    def test_does_not_grab_section_header_when_particle_name_present(
+        self, parser
+    ):
+        """Regression: the particle name line must be accepted FIRST so
+        the parser never falls through to 'Career Highlights'."""
+        result = parser._parse_text(self._header("Ahmed el-Gabry"))
+        assert (result['first_name'], result['last_name']) != (
+            'Career', 'Highlights'
+        )
+
+    def test_section_header_alone_is_not_picked(self, parser):
+        """Defense-in-depth: even with NO real name line, a 'Career
+        Highlights' section header must not be committed as a name."""
+        text = (
+            "E-mail: test@example.com\n"
+            "Phone: 555-555-5555\n"
+            "\n"
+            "Career Highlights\n"
+            "- Senior Product Manager\n"
+        )
+        result = parser._parse_text(text)
+        assert result.get('first_name') != 'Career'
+        assert result.get('last_name') != 'Highlights'
+
+    def test_casing_is_normalized_via_shared_splitter(self, parser):
+        """Documents the intentional casing policy. Because the résumé path
+        now routes through the shared ``split_full_name`` helper (the SAME
+        normalizer used by the inbound-email path), casing is title-cased
+        rather than copied verbatim from the résumé:
+
+          * all-caps "JOHN SMITH"          -> "John Smith"   (improvement)
+          * lowercase particle "el-Gabry"  -> "El-Gabry"     (improvement)
+          * internal-cap "McDonald"        -> "Mcdonald"     (tradeoff)
+
+        The internal-cap flattening (McDonald/MacLeod/DeVito) is the one
+        downside, accepted for cross-path consistency. Pinned here so the
+        behavior is explicit and any future change is deliberate.
+        """
+        result = parser._parse_text(self._header("JOHN SMITH"))
+        assert (result['first_name'], result['last_name']) == ('John', 'Smith')
+
+        result = parser._parse_text(self._header("Ronald McDonald"))
+        assert (result['first_name'], result['last_name']) == (
+            'Ronald', 'Mcdonald'
+        )
+
+    def test_lowercase_non_particle_line_rejected(self, parser):
+        """A fully lowercase non-name line must not be accepted as a
+        name (the particle exception is narrow, not a blanket relaxation
+        of the title-case requirement)."""
+        text = (
+            "experienced professional\n"
+            "test@example.com\n"
+        )
+        result = parser._parse_text(text)
+        assert result.get('first_name') != 'experienced'
+        assert result.get('last_name') != 'professional'
+
+
+# ---------------------------------------------------------------------------
 # Layer 4 — backfill discovery query
 # ---------------------------------------------------------------------------
 class TestBackfillSearchQueryCoverage:

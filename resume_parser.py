@@ -860,11 +860,40 @@ OUTPUT: Return ONLY the formatted HTML, nothing else. No explanation, no markdow
             #      ``is_valid_name`` (which knows the work-authorization
             #      blocklist), so even if a "Canadian Citizen" line
             #      survives the strip, it cannot be accepted.
-            from utils.candidate_name_extraction import is_valid_name
+            from utils.candidate_name_extraction import (
+                is_valid_name, split_full_name, NAME_PARTICLES,
+            )
 
             lines = original_text.split('\n')
             skip_words = ['resume', 'cv', 'curriculum', 'vitae', 'profile',
-                          'contact', 'phone', 'email', 'address']
+                          'contact', 'phone', 'email', 'address',
+                          # Common résumé section headers. These are never a
+                          # person's name but can be title-cased 2-token lines
+                          # (e.g. "Career Highlights") that the name heuristic
+                          # would otherwise mis-grab if the real name line were
+                          # skipped. Defense-in-depth.
+                          'career', 'highlights', 'summary', 'objective',
+                          'experience', 'education', 'skills', 'employment',
+                          'references', 'certifications', 'projects']
+
+            def _name_line_well_cased(tokens):
+                """A header name line should be title-cased, EXCEPT known name
+                particles ('el', 'van', 'de', ...) may be lowercase. Hyphenated
+                tokens like 'el-Gabry' are checked segment-by-segment so a
+                lowercase particle prefix is accepted while still requiring the
+                real surname segment to be capitalized."""
+                for token in tokens:
+                    for seg in token.replace("'", "").split('-'):
+                        if not seg:
+                            continue
+                        if not seg.isalpha():
+                            return False
+                        if seg[0].isupper():
+                            continue
+                        if seg.lower() in NAME_PARTICLES:
+                            continue
+                        return False
+                return True
 
             for line in lines[:8]:
                 line = line.strip()
@@ -884,17 +913,24 @@ OUTPUT: Return ONLY the formatted HTML, nothing else. No explanation, no markdow
                 if not (2 <= len(words) <= 4):
                     continue
 
-                if not all(
-                    word[0].isupper()
-                    and word.replace('-', '').replace("'", "").isalpha()
-                    for word in words
-                ):
+                # Require a title-cased line, but allow lowercase name
+                # particles so surnames like "Ahmed el-Gabry",
+                # "Ludwig van Beethoven" or "Robert de Niro" are accepted
+                # rather than rejected (the old "every word starts uppercase"
+                # rule dropped them and could fall through to a later, wrong
+                # line such as a "Career Highlights" section header).
+                if not _name_line_well_cased(words):
                     continue
 
-                first = words[0]
-                last = ' '.join(words[1:])
+                # Use the shared particle-aware splitter so the first/last
+                # split AND casing normalization match the inbound-email
+                # extraction path exactly (single source of truth).
+                first, last = split_full_name(candidate_line)
+                if not first or not last:
+                    continue
 
-                # Reject work-authorization phrases like "Canadian Citizen".
+                # Reject work-authorization phrases ("Canadian Citizen"),
+                # job-board CTAs, and generic placeholder tokens.
                 if not is_valid_name(first, last):
                     continue
 
