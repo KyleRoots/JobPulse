@@ -62,6 +62,14 @@ def run_schema_migrations(db):
         # Both NULL on the default environment → screening unchanged for Myticas.
         ("bullhorn_environment", "screening_profile", "VARCHAR(50)"),
         ("bullhorn_environment", "screening_config_overrides", "TEXT"),
+        # Per-environment Sales Rep display-name sync config (June 2026). All
+        # NULL on the default (Myticas) environment → it keeps the historical
+        # customText3 → customText6 mapping and stays enabled; new tenants are
+        # OFF until their fields are set, so the sync never writes the wrong
+        # field on a tenant whose customText3/6 mean something else.
+        ("bullhorn_environment", "salesrep_sync_enabled", "BOOLEAN"),
+        ("bullhorn_environment", "salesrep_source_field", "VARCHAR(50)"),
+        ("bullhorn_environment", "salesrep_display_field", "VARCHAR(50)"),
     ]
 
     _SAFE_IDENTIFIER = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')

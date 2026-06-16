@@ -482,8 +482,23 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
 
                     def _sync(env):
                         env_key = getattr(env, 'key', 'default')
+                        # Per-environment gate: the default (Myticas) environment
+                        # runs as before; new tenants stay OFF until their fields
+                        # are configured, so we never write to the wrong custom
+                        # field on a tenant that uses customText3/6 differently.
+                        if env is not None and not env.salesrep_sync_active():
+                            return {'skipped': True, 'scanned': 0,
+                                    'updated': 0, 'errors': 0}
+                        source_field = (env.get_salesrep_source_field()
+                                        if env is not None else None)
+                        display_field = (env.get_salesrep_display_field()
+                                         if env is not None else None)
                         bullhorn = get_bullhorn_service(env)
-                        result = run_salesrep_sync(bullhorn)
+                        result = run_salesrep_sync(
+                            bullhorn,
+                            source_field=source_field,
+                            display_field=display_field,
+                        )
                         if result.get('updated', 0) > 0:
                             app.logger.info(
                                 f"🏢 Sales Rep Sync [{env_key}]: {result['updated']} companies updated "

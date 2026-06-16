@@ -79,6 +79,23 @@ class BullhornEnvironment(db.Model):
     screening_profile = db.Column(db.String(50), nullable=True)
     screening_config_overrides = db.Column(db.Text, nullable=True)
 
+    # Per-environment Sales Rep display-name sync config (June 2026). All NULL
+    # on the default (Myticas) environment, so it keeps the historical
+    # customText3 → customText6 mapping and stays enabled. New tenants are OFF
+    # until their fields are configured (their Bullhorn custom fields very
+    # likely differ), so the sync can never write to the wrong field.
+    #   salesrep_sync_enabled  — tri-state: NULL→enabled only for the default
+    #                            env (disabled for new tenants); explicit
+    #                            True/False overrides.
+    #   salesrep_source_field  — custom field holding the numeric CorporateUser
+    #                            ID. NULL → 'customText3'.
+    #   salesrep_display_field — custom field that receives the resolved name
+    #                            (shown in the company header). NULL →
+    #                            'customText6'.
+    salesrep_sync_enabled = db.Column(db.Boolean, nullable=True)
+    salesrep_source_field = db.Column(db.String(50), nullable=True)
+    salesrep_display_field = db.Column(db.String(50), nullable=True)
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -138,6 +155,38 @@ class BullhornEnvironment(db.Model):
         except Exception:
             return {}
         return data if isinstance(data, dict) else {}
+
+    def salesrep_sync_active(self):
+        """Whether the Sales Rep display-name sync runs for this environment.
+
+        Tri-state ``salesrep_sync_enabled``:
+          * NULL  → enabled ONLY for the default (Myticas) environment, so it
+            keeps running exactly as before; new tenants are OFF until someone
+            explicitly configures and enables them (prevents writing to the
+            wrong custom field on a tenant that uses customText3/6 differently).
+          * True/False → explicit override.
+        """
+        if self.salesrep_sync_enabled is None:
+            return bool(self.is_default)
+        return bool(self.salesrep_sync_enabled)
+
+    def get_salesrep_source_field(self):
+        """Per-env source field (numeric rep ID), or None to use the default.
+
+        Returns ``None`` when unset/blank so the caller falls back to the
+        service default (``customText3``) — keeping a single source of truth.
+        """
+        value = (self.salesrep_source_field or '').strip()
+        return value or None
+
+    def get_salesrep_display_field(self):
+        """Per-env display field (resolved name), or None to use the default.
+
+        Returns ``None`` when unset/blank so the caller falls back to the
+        service default (``customText6``).
+        """
+        value = (self.salesrep_display_field or '').strip()
+        return value or None
 
     @classmethod
     def get_default(cls):

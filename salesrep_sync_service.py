@@ -54,12 +54,21 @@ def _resolve_user(rest_url, headers, user_id):
         return None
 
 
-def run_salesrep_sync(bullhorn_service):
+def run_salesrep_sync(bullhorn_service, source_field=None, display_field=None):
     global _user_cache
     _user_cache = {}
 
+    # Per-environment field names fall back to the historical Myticas defaults
+    # (customText3 → customText6) when not supplied, so existing callers and the
+    # default environment behave byte-for-byte as before.
+    source_field = (source_field or "").strip() or SOURCE_FIELD
+    display_field = (display_field or "").strip() or DISPLAY_FIELD
+
     start_time = datetime.utcnow()
-    logger.info("🔄 Sales Rep Sync: Starting sync cycle...")
+    logger.info(
+        f"🔄 Sales Rep Sync: Starting sync cycle "
+        f"(source={source_field}, display={display_field})..."
+    )
 
     try:
         if not bullhorn_service.rest_token or not bullhorn_service.base_url:
@@ -72,7 +81,7 @@ def run_salesrep_sync(bullhorn_service):
         logger.error(f"Sales Rep Sync: Failed to get Bullhorn connection: {e}")
         return {"success": False, "error": str(e)}
 
-    fields = f"id,name,{SOURCE_FIELD},{DISPLAY_FIELD}"
+    fields = f"id,name,{source_field},{display_field}"
     mismatches = []
     updated = []
     errors = []
@@ -84,7 +93,7 @@ def run_salesrep_sync(bullhorn_service):
         while True:
             url = f"{rest_url}query/ClientCorporation"
             params = {
-                "where": f"{SOURCE_FIELD} IS NOT NULL AND {SOURCE_FIELD} <> ''",
+                "where": f"{source_field} IS NOT NULL AND {source_field} <> ''",
                 "fields": fields,
                 "count": batch_size,
                 "start": start_idx,
@@ -103,8 +112,8 @@ def run_salesrep_sync(bullhorn_service):
                 total_scanned += 1
                 company_id = company.get("id")
                 company_name = (company.get("name") or "").strip()
-                source_val = (company.get(SOURCE_FIELD) or "").strip()
-                current_display = _safe_str(company.get(DISPLAY_FIELD))
+                source_val = (company.get(source_field) or "").strip()
+                current_display = _safe_str(company.get(display_field))
 
                 if not _is_numeric_id(source_val):
                     continue
@@ -129,7 +138,7 @@ def run_salesrep_sync(bullhorn_service):
                     update_resp = requests.post(
                         update_url,
                         headers={**headers, "Content-Type": "application/json"},
-                        json={DISPLAY_FIELD: resolved_name},
+                        json={display_field: resolved_name},
                         timeout=15
                     )
                     update_resp.raise_for_status()
