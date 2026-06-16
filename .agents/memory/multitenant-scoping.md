@@ -15,14 +15,12 @@ byte-for-byte unchanged.
 AND writes (save/reset paths leak cross-tenant edits otherwise).
 
 **How to apply:**
-- Request-context paths (routes): wrap with `scope_query(query, Model)` from
-  `utils/environment_context.py`. It no-ops when active env count <= 1, the user
-  is super-admin (roll-up), or the model has no `environment_id` column. Works on
-  both `Model.query` and `db.session.query(...)` objects.
-- Background/service paths (no request context): scope by the service's OWN env,
-  e.g. `candidate_vetting_service/config.py::_job_req_for()` filters by
-  `self._resolve_environment().id` ONLY when `_active_environment_count() > 1`.
-  Don't rely on request-context resolvers in scheduler/service code.
+- Request-context paths (routes): wrap reads in the shared scope-query helper. It
+  must no-op when active env count <= 1, the user is super-admin (roll-up), or the
+  model has no `environment_id` column.
+- Background/service paths (no request context): scope by the service's OWN
+  resolved env, and ONLY when active env count > 1. Don't rely on request-context
+  resolvers in scheduler/service code.
 
 **Why the >1-env gate matters:** legacy rows can carry NULL `environment_id`; a
 hard env filter at single-env would drop them and break parity. The count gate

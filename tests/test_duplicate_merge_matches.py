@@ -327,3 +327,59 @@ def test_preserve_human_owner_restores_when_survivor_owner_fetched_as_api():
     service._preserve_human_owner(primary, duplicate)
 
     fake_bh.update_candidate.assert_called_once_with(300, {'owner': {'id': 555}})
+
+
+def _stub_merge_collaborators(service):
+    """Stub the heavy transfer/note/archive helpers so merge_candidates() can run
+    end-to-end without real Bullhorn calls or sleeps."""
+    service._get_candidate_submissions = lambda cid: []
+    service._get_candidate_notes = lambda cid: []
+    service._get_candidate_files = lambda cid: []
+    service._enrich_primary = lambda *a, **k: None
+    service._add_merge_note = lambda *a, **k: None
+    service._archive_duplicate = lambda cid: None
+    service._candidate_name = lambda c: f"cand-{c.get('id')}"
+
+
+def test_merge_candidates_end_to_end_restores_human_owner_on_active_placement_edge():
+    """End-to-end through merge_candidates(): the active-placement edge can leave
+    an API-owned survivor while archiving a human-owned duplicate. The post-merge
+    safety net must restore the human owner before the merge log is committed."""
+    service = DuplicateMergeService()
+    fake_bh = MagicMock()
+    service._bullhorn = fake_bh
+    _stub_merge_collaborators(service)
+
+    primary = {'id': 300, 'owner': {'id': API_USER_ID}}   # survivor (had placement)
+    duplicate = {'id': 200, 'owner': {'id': 555}}          # archived, human-owned
+
+    with patch('duplicate_merge_service.db') as fake_db, \
+            patch('models.CandidateMergeLog', MagicMock()):
+        result = service.merge_candidates(
+            primary, duplicate, confidence=0.99, match_field='email'
+        )
+
+    fake_bh.update_candidate.assert_called_once_with(300, {'owner': {'id': 555}})
+    assert fake_db.session.commit.called
+    assert result == {'submissions': 0, 'notes': 0, 'files': 0}
+
+
+def test_merge_candidates_end_to_end_noop_when_survivor_already_human():
+    """End-to-end: when the survivor is already human-owned, the merge completes
+    and commits without any owner reassignment."""
+    service = DuplicateMergeService()
+    fake_bh = MagicMock()
+    service._bullhorn = fake_bh
+    _stub_merge_collaborators(service)
+
+    primary = {'id': 300, 'owner': {'id': 555}}            # survivor, human-owned
+    duplicate = {'id': 200, 'owner': {'id': API_USER_ID}}  # archived, API-owned
+
+    with patch('duplicate_merge_service.db') as fake_db, \
+            patch('models.CandidateMergeLog', MagicMock()):
+        service.merge_candidates(
+            primary, duplicate, confidence=0.99, match_field='email'
+        )
+
+    fake_bh.update_candidate.assert_not_called()
+    assert fake_db.session.commit.called
