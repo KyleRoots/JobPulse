@@ -344,14 +344,43 @@ def split_full_name(full_name: str) -> Tuple[Optional[str], Optional[str]]:
 
 
 def _titlecase(token: str) -> str:
-    """Normalize casing for a single name token preserving hyphens/apostrophes."""
+    """Normalize casing for a single name token preserving hyphens/apostrophes.
+
+    Casing policy (shared by the résumé and inbound-email paths):
+
+      * **Preserve deliberate internal capitalization.** A segment that
+        already has an uppercase letter somewhere *other than* the first
+        position AND at least one lowercase letter — "McDonald",
+        "MacLeod", "DeVito", "DiCaprio" — is kept exactly as written. The
+        source clearly intends that casing, so we must not flatten it to
+        "Mcdonald".
+      * **Otherwise title-case.** ALL-CAPS ("SMITH" -> "Smith") and
+        lowercase ("smith" -> "Smith") input — which carries no casing
+        signal — is title-cased.
+      * **Re-capitalize the "Mc" prefix** on title-cased output
+        ("Mcdonald" -> "McDonald"). "Mc" + a capital next letter is the
+        near-universal Scottish/Irish form, so this is safe even when the
+        source gave no signal (e.g. "MCDONALD").
+      * **"Mac" is intentionally NOT auto-capitalized.** It collides with
+        ordinary surnames/words (Mace, Mack, Macey, Machado, Macon), so
+        guessing would produce false positives like "MacEy". A
+        signal-less "MACLEOD" therefore stays "Macleod"; a source-cased
+        "MacLeod" is preserved by the rule above.
+    """
     if not token:
         return token
 
     def cap(part: str) -> str:
         if not part:
             return part
-        return part[:1].upper() + part[1:].lower()
+        # Preserve deliberate mixed-case (McDonald, DeVito, DiCaprio).
+        if any(c.isupper() for c in part[1:]) and any(c.islower() for c in part):
+            return part
+        titled = part[:1].upper() + part[1:].lower()
+        # Re-capitalize the unambiguous "Mc" prefix.
+        if len(titled) > 2 and titled[:2] == "Mc" and titled[2].islower():
+            titled = "Mc" + titled[2].upper() + titled[3:]
+        return titled
 
     parts = re.split(r"([\-'])", token)
     return "".join(cap(p) if p not in ("-", "'") else p for p in parts)

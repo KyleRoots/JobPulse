@@ -365,25 +365,23 @@ class TestLowercaseParticleSurnames:
         assert result.get('last_name') != 'Highlights'
 
     def test_casing_is_normalized_via_shared_splitter(self, parser):
-        """Documents the intentional casing policy. Because the résumé path
-        now routes through the shared ``split_full_name`` helper (the SAME
-        normalizer used by the inbound-email path), casing is title-cased
-        rather than copied verbatim from the résumé:
+        """Documents the casing policy. The résumé path routes through the
+        shared ``split_full_name`` helper (the SAME normalizer used by the
+        inbound-email path):
 
           * all-caps "JOHN SMITH"          -> "John Smith"   (improvement)
           * lowercase particle "el-Gabry"  -> "El-Gabry"     (improvement)
-          * internal-cap "McDonald"        -> "Mcdonald"     (tradeoff)
+          * source-cased "McDonald"        -> "McDonald"     (preserved)
 
-        The internal-cap flattening (McDonald/MacLeod/DeVito) is the one
-        downside, accepted for cross-path consistency. Pinned here so the
-        behavior is explicit and any future change is deliberate.
+        Internal mixed-case is now preserved, so Mc/Mac/De surnames keep
+        their casing. See ``TestNameCasingPolicy`` for the full matrix.
         """
         result = parser._parse_text(self._header("JOHN SMITH"))
         assert (result['first_name'], result['last_name']) == ('John', 'Smith')
 
         result = parser._parse_text(self._header("Ronald McDonald"))
         assert (result['first_name'], result['last_name']) == (
-            'Ronald', 'Mcdonald'
+            'Ronald', 'McDonald'
         )
 
     def test_lowercase_non_particle_line_rejected(self, parser):
