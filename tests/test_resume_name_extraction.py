@@ -30,6 +30,7 @@ from utils.candidate_name_extraction import (
     WORK_AUTH_TOKENS,
     is_valid_name,
     is_work_auth_phrase,
+    split_full_name,
 )
 
 
@@ -463,3 +464,74 @@ class TestBackfillSearchQueryCoverage:
             assert f'lastName:"{word}"' in query, (
                 f"Search query missing lastName clause for '{word}'"
             )
+
+
+# ---------------------------------------------------------------------------
+# Layer 5 — name casing policy (shared _titlecase via split_full_name)
+# ---------------------------------------------------------------------------
+class TestNameCasingPolicy:
+    """Pins the casing policy of the shared ``split_full_name`` normalizer.
+
+    Both the résumé parser and the inbound-email path route through this
+    helper, so this is the single place that defines how names are cased.
+
+    Policy:
+      * Source-cased mixed-case surnames are PRESERVED (McDonald, MacLeod,
+        DeVito, DiCaprio) — no longer flattened to "Mcdonald".
+      * ALL-CAPS / lowercase input (no casing signal) is title-cased.
+      * The unambiguous "Mc" prefix is re-capitalized even with no signal
+        ("MCDONALD"/"mcdonald" -> "McDonald").
+      * "Mac" is intentionally NOT auto-capitalized (would mis-fire on
+        Macey/Mack/Machado), so a signal-less "MACLEOD" stays "Macleod".
+    """
+
+    # --- deliberate mixed-case is preserved -------------------------------
+    def test_mcdonald_preserved(self):
+        assert split_full_name("Ronald McDonald") == ("Ronald", "McDonald")
+
+    def test_macleod_preserved(self):
+        assert split_full_name("Shaun MacLeod") == ("Shaun", "MacLeod")
+
+    def test_devito_preserved(self):
+        assert split_full_name("Danny DeVito") == ("Danny", "DeVito")
+
+    def test_dicaprio_preserved(self):
+        assert split_full_name("Leonardo DiCaprio") == ("Leonardo", "DiCaprio")
+
+    # --- signal-less input gets title-cased -------------------------------
+    def test_all_caps_normalized(self):
+        assert split_full_name("JOHN SMITH") == ("John", "Smith")
+
+    def test_lowercase_normalized(self):
+        assert split_full_name("john smith") == ("John", "Smith")
+
+    # --- "Mc" prefix re-capitalized even with no casing signal ------------
+    def test_mc_prefix_from_all_caps(self):
+        assert split_full_name("RONALD MCDONALD") == ("Ronald", "McDonald")
+
+    def test_mc_prefix_from_lowercase(self):
+        assert split_full_name("ronald mcdonald") == ("Ronald", "McDonald")
+
+    # --- "Mac" is NOT auto-capitalized (false-positive guard) ------------
+    def test_mac_not_autocapitalized_when_no_signal(self):
+        # No casing signal -> stays flat rather than risk "MacEy".
+        assert split_full_name("SHAUN MACLEOD") == ("Shaun", "Macleod")
+
+    def test_macey_not_mangled(self):
+        assert split_full_name("Jane Macey") == ("Jane", "Macey")
+
+    def test_mack_not_mangled(self):
+        assert split_full_name("Jane Mack") == ("Jane", "Mack")
+
+    def test_machado_not_mangled(self):
+        assert split_full_name("Joao Machado") == ("Joao", "Machado")
+
+    # --- particles and hyphen/apostrophe still correct -------------------
+    def test_lowercase_particle_titlecased(self):
+        assert split_full_name("Ahmed el-Gabry") == ("Ahmed", "El-Gabry")
+
+    def test_apostrophe_name(self):
+        assert split_full_name("Sean O'Brien") == ("Sean", "O'Brien")
+
+    def test_particle_lastname_preserved(self):
+        assert split_full_name("Jean van der Berg") == ("Jean", "van der Berg")

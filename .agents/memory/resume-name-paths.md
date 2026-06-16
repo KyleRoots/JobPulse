@@ -29,14 +29,23 @@ purely the résumé path's divergence.
 section-header words ("career", "highlights", "summary", ...) to the skip list
 as defense-in-depth so a non-name line is never grabbed.
 
-## Casing tradeoff (intentional)
+## Casing policy (shared `_titlecase`)
 
-Routing through `split_full_name` title-cases output:
-- `JOHN SMITH` → `John Smith` (improvement)
-- `el-Gabry` → `El-Gabry` (improvement, matches desired Bullhorn form)
-- `McDonald`/`MacLeod`/`DeVito` → `Mcdonald`/`Macleod`/`Devito` (the one downside)
+The shared `_titlecase` is the single normalizer for BOTH paths. Policy:
+- **Preserve deliberate mixed-case**: a segment with an uppercase letter beyond
+  position 0 AND a lowercase letter is kept as-is → `McDonald`, `MacLeod`,
+  `DeVito`, `DiCaprio` preserved (NOT flattened).
+- **Title-case signal-less input**: `JOHN SMITH`/`john smith` → `John Smith`;
+  `el-Gabry` → `El-Gabry`.
+- **Re-capitalize `Mc`** on title-cased output (unambiguous): `MCDONALD`/
+  `mcdonald` → `McDonald`.
+- **Do NOT auto-capitalize `Mac`** — collides with Macey/Mack/Machado/Macon, so
+  guessing → false positives like `MacEy`. Signal-less `MACLEOD` stays
+  `Macleod`; source-cased `MacLeod` preserved by the mixed-case rule.
 
-Internal-cap flattening is accepted for cross-path consistency. If a future ask
-wants Mc/Mac preserved, fix it in the SHARED `_titlecase` so BOTH paths benefit
-(don't re-fork the résumé path). Pinned by `tests/test_resume_name_extraction.py`
-(`TestLowercaseParticleSurnames`).
+**Why:** McDonald→Mcdonald was a real data-quality miss; `Mc` is safe to fix,
+`Mac` is not (ambiguous without a dictionary).
+**How to apply:** any Mc/Mac/casing tweak goes in the SHARED `_titlecase` so both
+paths benefit — never re-fork the résumé path. Pinned by
+`tests/test_resume_name_extraction.py` (`TestNameCasingPolicy`,
+`TestLowercaseParticleSurnames`).
