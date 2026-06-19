@@ -77,6 +77,70 @@ class ProcessingMixin:
             query = query.filter(ParsedEmail.id != parsed_email_id)
         return query.order_by(ParsedEmail.created_at.desc()).first()
 
+    def _cross_route_lock_enabled(self) -> bool:
+        """Whether to serialize concurrent processing of the same applicant with
+        a Postgres advisory lock (DB-backed, tunable without republish). The
+        _find_cross_route_sibling guard above only catches the SECOND copy once
+        the FIRST has committed a submission; when the two transport copies race
+        each other before either creates the candidate, only this lock prevents
+        two separate Bullhorn candidate records. Default ON."""
+        try:
+            from models import VettingConfig
+            val = VettingConfig.get_value('cross_route_lock_enabled', 'true')
+            return (val or 'true').strip().lower() == 'true'
+        except Exception:  # noqa: BLE001 — config read must never break intake
+            return True
+
+    def _acquire_candidate_identity_xact_lock(self, environment_id,
+                                              candidate_email):
+        """Serialize concurrent processing of the SAME applicant (per
+        environment) so two transport copies arriving at the same instant cannot
+        each mint a separate Bullhorn candidate.
+
+        Both copies of one application (Exchange via mailbox-pull + SendGrid via
+        the inbound webhook) resolve to the same person, but when they run
+        concurrently BOTH can pass find_duplicate_candidate before either has
+        created the candidate → two candidate records (observed in prod). A
+        transaction-scoped Postgres advisory lock keyed on (environment,
+        normalized email) makes the second copy WAIT until the first commits; it
+        then sees the first copy's candidate via find_duplicate_candidate and the
+        existing cross-route guard collapses the duplicate submission. The lock
+        auto-releases on the transaction's commit/rollback (no leak across the
+        connection pool, and a crashed worker frees it when its connection
+        closes).
+
+        Keyed on email only (not job) so two simultaneous applies by the same
+        person to different jobs also serialize — preventing a duplicate
+        candidate without ever dropping the second job's submission. No-op when
+        disabled or when no email is available. FAILS OPEN on any error
+        (including non-Postgres backends in tests): a locking problem must never
+        block a real applicant from reaching Bullhorn.
+        """
+        if not candidate_email or not self._cross_route_lock_enabled():
+            return
+        try:
+            from app import db
+            from sqlalchemy import text
+            key = f"{environment_id or 0}:{candidate_email.strip().lower()}"
+            db.session.execute(
+                text("SELECT pg_advisory_xact_lock(hashtext(:k))"),
+                {"k": key})
+            self.logger.debug(
+                f"Candidate-identity lock held for '{key}' "
+                f"(cross-route race guard)")
+        except Exception as ex:  # noqa: BLE001 — fail OPEN, never block intake
+            # A real DBAPI error leaves the transaction in an aborted state, so
+            # every subsequent query (find_duplicate_candidate, the candidate
+            # write) would raise — which would BLOCK intake, the opposite of the
+            # fail-open contract. Roll back to a clean session before continuing.
+            try:
+                from app import db
+                db.session.rollback()
+            except Exception:  # noqa: BLE001
+                pass
+            self.logger.warning(
+                f"Candidate-identity lock skipped, continuing intake: {ex}")
+
     def process_email(self, sendgrid_payload: Dict) -> Dict[str, Any]:
         """
         Main entry point - process a complete inbound email from SendGrid
@@ -364,6 +428,17 @@ class ProcessingMixin:
 
             from app import get_bullhorn_service
             bullhorn = get_bullhorn_service()
+
+            # ── Cross-route race guard (pre-create serialization) ────────────
+            # Serialize concurrent processing of the SAME applicant so two
+            # transport copies that race each other here cannot each create a
+            # separate Bullhorn candidate. Held until THIS transaction commits
+            # (candidate + submission done at the end), so a second concurrent
+            # copy waits, then finds this copy's candidate via
+            # find_duplicate_candidate and the cross-route guard below collapses
+            # the duplicate. Fails open — never blocks intake.
+            self._acquire_candidate_identity_xact_lock(
+                environment_id, candidate_email)
 
             duplicate_id, confidence = self.find_duplicate_candidate(
                 candidate_email, candidate_phone, first_name, last_name, bullhorn

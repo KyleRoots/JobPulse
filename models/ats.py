@@ -170,6 +170,14 @@ class ParsedEmail(db.Model):
     vetted_at = db.Column(db.DateTime, nullable=True)  # Tracks when AI vetting was completed
     vetting_retry_count = db.Column(db.Integer, default=0, server_default='0')
 
+    # Auto-recovery poison-loop guard (June 2026): when the stuck-'processing'
+    # reaper supersedes a row to re-drive it, it stamps the row's original
+    # message_id here BEFORE clearing message_id. Each crashing copy of the same
+    # email is re-fetched with the same Message-ID, so counting superseded
+    # breadcrumbs by recovery_message_id gives a STABLE retry identity that
+    # survives the successor-row churn (the per-row id/subject does not).
+    recovery_message_id = db.Column(db.String(255), nullable=True)
+
     # Multi-tenant discriminator (Task #100): the connected Bullhorn instance
     # this row belongs to. Nullable + backfilled to the default (Myticas)
     # environment so single-tenant behavior is byte-for-byte unchanged.

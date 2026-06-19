@@ -53,6 +53,10 @@ def run_schema_migrations(db):
         ("candidate_job_match", "environment_id", "INTEGER"),
         ("job_vetting_requirements", "environment_id", "INTEGER"),
         ("parsed_email", "environment_id", "INTEGER"),
+        # Auto-recovery poison-loop stable identity (June 2026): preserves the
+        # original Message-ID on a superseded breadcrumb so the reaper's poison
+        # cap counts retries of the SAME email across successor-row churn.
+        ("parsed_email", "recovery_message_id", "VARCHAR(255)"),
         ("bullhorn_monitor", "environment_id", "INTEGER"),
         ("candidate_fraud_assessment", "environment_id", "INTEGER"),
         ("job_embedding", "environment_id", "INTEGER"),
