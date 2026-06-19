@@ -5,7 +5,7 @@ description: One Bullhorn API user (username+password) is shared by multiple app
 
 # Bullhorn shared API user — credential blast radius
 
-**Rule:** A single Bullhorn API user (`myticasbh1.api`, username + password) is shared by **multiple independent apps**: Scout Genius production, Scout Genius dev, and at least one separate Replit project. Each app has its **own** `client_id` + `redirect_uri` (independent OAuth apps), but they all authenticate with the **same shared username + password**.
+**Rule:** A single shared Bullhorn API service account (username + password; the actual username lives in the DB `global_settings`, not here) is shared by **multiple independent apps**: Scout Genius production, Scout Genius dev, and at least one separate Replit project. Each app has its **own** `client_id` + `redirect_uri` (independent OAuth apps), but they all authenticate with the **same shared username + password**.
 
 **Why:** Changing the shared username or password affects **every** integrating app at once. If even one consumer is left on a stale password, its background poller keeps retrying with the wrong password and trips the Bullhorn account lockout (`failedLoginLockoutThreshold`) — which locks out **all** apps. This is exactly what caused the June 2026 production auth outage: the password was rotated in some places but not the DB the live path reads, and the retries locked the shared account.
 

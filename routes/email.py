@@ -4,7 +4,7 @@ import json
 import logging
 import re
 import threading
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from flask import Blueprint, render_template, request, jsonify, current_app
 from flask_login import login_required, current_user
 from routes import register_admin_guard
@@ -946,6 +946,306 @@ def api_mailbox_backfill():
         return jsonify({'success': 'error' not in summary, 'summary': summary})
     except Exception as e:
         logger.error(f"Mailbox backfill route error: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+_OUTAGE_RECOVERY_PG_LOCK_KEY = 728193641  # stable bigint for pg_advisory_xact_lock
+_OUTAGE_RECOVERY_MARKER_KEY = 'outage_recovery_in_progress'  # VettingConfig: locked_at ISO or ''
+_OUTAGE_RECOVERY_STALE_MINUTES = 180  # marker older than this = abandoned run -> takeover
+
+
+def _acquire_recovery_marker():
+    """Atomically claim the cross-worker outage-recovery marker.
+
+    The app runs multiple gunicorn workers, so a per-process lock is not enough:
+    two workers could otherwise start overlapping backfills and double-submit to
+    Bullhorn (the row's UNIQUE message_id only blocks the duplicate ROW, and only
+    AFTER the Bullhorn write already happened). A transaction-scoped Postgres
+    advisory lock serializes the check-and-set across workers; the marker row
+    then holds the 'in progress' state for the whole background run. A stale
+    marker (crashed run, older than _OUTAGE_RECOVERY_STALE_MINUTES) is taken
+    over. Returns True if claimed, False if a non-stale run already holds it.
+    """
+    from sqlalchemy import text
+    from models import VettingConfig
+    now = datetime.utcnow()
+    db.session.execute(
+        text("SELECT pg_advisory_xact_lock(:k)"),
+        {"k": _OUTAGE_RECOVERY_PG_LOCK_KEY})
+    marker = (VettingConfig.get_value(_OUTAGE_RECOVERY_MARKER_KEY, '') or '').strip()
+    if marker:
+        try:
+            locked_at = datetime.fromisoformat(marker)
+            if (now - locked_at) <= timedelta(minutes=_OUTAGE_RECOVERY_STALE_MINUTES):
+                db.session.commit()  # release advisory lock; leave marker intact
+                return False
+        except ValueError:
+            pass  # unparseable marker -> treat as abandoned, take over
+    # set_value commits, which persists the marker AND releases the advisory lock.
+    VettingConfig.set_value(_OUTAGE_RECOVERY_MARKER_KEY, now.isoformat())
+    return True
+
+
+def _release_recovery_marker(app_ref):
+    """Clear the cross-worker recovery marker. Safe from the background thread
+    (own app context) or the request finally; tolerates a dirty session."""
+    try:
+        with app_ref.app_context():
+            from models import VettingConfig
+            try:
+                db.session.rollback()
+            except Exception:  # noqa: BLE001
+                pass
+            VettingConfig.set_value(_OUTAGE_RECOVERY_MARKER_KEY, '')
+    except Exception as ex:  # noqa: BLE001
+        try:
+            app_ref.logger.error(f"Outage-recovery: failed to clear marker: {ex}")
+        except Exception:  # noqa: BLE001
+            pass
+
+
+@email_bp.route('/api/email/outage-recovery', methods=['POST'])
+@login_required
+def api_outage_recovery():
+    """One-time recovery for inbound applications stranded by a Bullhorn outage.
+
+    During a Bullhorn auth/API outage the candidate write fails but the row is
+    still marked 'completed'/'failed' with a NULL bullhorn_candidate_id, and the
+    Message-ID dedupe then blocks any straight retry. This endpoint:
+
+      1. Finds rows received since `since` (the outage start) that never reached
+         Bullhorn (bullhorn_candidate_id IS NULL), EXCLUDING rows intentionally
+         not submitted (duplicate / ignored) or already superseded.
+      2. Clears their message_id and marks them 'recovery_superseded' (kept for
+         audit) so the dedupe no longer matches.
+      3. Re-drives the outage window through run_mailbox_backfill, which
+         re-fetches each email from the apply@ mailbox and re-runs the FULL
+         inbound pipeline (candidate create/enrich, notes, résumé upload, job
+         submission).
+
+    Double-submission safety has two layers: (a) a PRE-SKIP that leaves a
+    stranded row alone when the SAME application (candidate_email + job) already
+    produced a Bullhorn submission via a sibling transport copy within the
+    cross-route dedupe window of its receive time — this covers partial outages
+    the live now-anchored cross-route guard cannot see; and (b) a cross-worker
+    single-flight marker so two gunicorn workers cannot run overlapping
+    backfills. Operators should eyeball `skipped_sample` (dry run) first, since a
+    genuine repeat-apply INSIDE the window is treated as already-submitted (same
+    tradeoff as the live cross-route dedupe).
+
+    Safe to re-run: recovered rows get a fresh message_id (dedupe-protected) and
+    superseded/skipped rows are excluded by the status filter.
+
+    Admin-guarded (blueprint-level) + login required. Accepts JSON or form:
+        since:   ISO8601 UTC outage start (required), e.g. '2026-06-19T02:49:58Z'
+        limit:   max messages for the backfill (default 500, cap 2000)
+        dry_run: 'true' (DEFAULT) reports what WOULD be reset without changing
+                 anything; pass 'false' to perform the reset + backfill.
+    """
+    from models import ParsedEmail
+    try:
+        data = request.get_json(silent=True) or request.form
+        since = (data.get('since') or '').strip()
+        if not since:
+            return jsonify({
+                'success': False,
+                'error': "Missing 'since' (ISO8601 UTC, e.g. 2026-06-19T02:49:58Z)"
+            }), 400
+
+        # Parse `since` to a naive-UTC datetime to match received_at, which is
+        # stored as naive UTC (datetime.utcnow()).
+        try:
+            since_dt = datetime.fromisoformat(since.replace('Z', '+00:00'))
+            if since_dt.tzinfo is not None:
+                since_dt = since_dt.astimezone(timezone.utc).replace(tzinfo=None)
+        except ValueError:
+            return jsonify({
+                'success': False,
+                'error': f"Bad 'since' format (expected ISO8601 UTC): {since}"
+            }), 400
+
+        try:
+            limit = int(data.get('limit', 500))
+        except (ValueError, TypeError):
+            limit = 500
+        limit = max(1, min(limit, 2000))
+
+        dry_run = str(data.get('dry_run', 'true')).strip().lower() != 'false'
+
+        # Read the cross-route dedupe window (minutes) so recovery uses the SAME
+        # notion of "same application via a different transport" as the live
+        # pipeline. 0 disables the guard; capped at 24h. Default 30.
+        try:
+            from models import VettingConfig
+            window_min = int(VettingConfig.get_value(
+                'cross_route_dedupe_window_minutes', '30'))
+        except (TypeError, ValueError):
+            window_min = 30
+        except Exception:  # noqa: BLE001
+            window_min = 30
+        window_min = max(0, min(window_min, 1440))
+
+        # Stranded = received in the outage window, never written to Bullhorn,
+        # and not intentionally skipped (duplicate/ignored) or already handled by
+        # a prior recovery. message_id IS NOT NULL so there is a dedupe key to
+        # clear; the backfill re-fetches each email from the mailbox.
+        stranded = ParsedEmail.query.filter(
+            ParsedEmail.received_at >= since_dt,
+            ParsedEmail.bullhorn_candidate_id.is_(None),
+            ParsedEmail.message_id.isnot(None),
+            ~ParsedEmail.status.in_(
+                ['duplicate', 'ignored', 'recovery_superseded',
+                 'recovery_skipped_submitted']),
+        ).order_by(ParsedEmail.received_at.asc()).all()
+        stranded_count = len(stranded)
+
+        # Split stranded rows. A row whose SAME application (candidate_email +
+        # bullhorn_job_id) already reached Bullhorn via a sibling transport copy
+        # WITHIN the dedupe window of its own receive time must NOT be re-driven —
+        # doing so would create a duplicate JobSubmission (the live cross-route
+        # guard only looks back from "now", so it cannot see an hours-old sibling
+        # left over from a partial outage). Genuine repeat-applies (days apart)
+        # fall OUTSIDE the window and are still re-driven correctly.
+        to_redrive = []
+        skipped_submitted = []
+        for pe in stranded:
+            sibling = None
+            if (window_min > 0 and pe.candidate_email
+                    and pe.bullhorn_job_id and pe.received_at):
+                lo = pe.received_at - timedelta(minutes=window_min)
+                hi = pe.received_at + timedelta(minutes=window_min)
+                sibling = ParsedEmail.query.filter(
+                    ParsedEmail.id != pe.id,
+                    ParsedEmail.candidate_email == pe.candidate_email,
+                    ParsedEmail.bullhorn_job_id == pe.bullhorn_job_id,
+                    ParsedEmail.bullhorn_submission_id.isnot(None),
+                    ParsedEmail.received_at >= lo,
+                    ParsedEmail.received_at <= hi,
+                ).first()
+            if sibling is not None:
+                skipped_submitted.append((pe, sibling))
+            else:
+                to_redrive.append(pe)
+
+        if dry_run:
+            return jsonify({
+                'success': True,
+                'dry_run': True,
+                'since': since,
+                'window_minutes': window_min,
+                'stranded_count': stranded_count,
+                'redrive_count': len(to_redrive),
+                'skipped_already_submitted_count': len(skipped_submitted),
+                'sample': [
+                    {
+                        'id': pe.id,
+                        'received_at': pe.received_at.isoformat() if pe.received_at else None,
+                        'status': pe.status,
+                        'candidate_email': pe.candidate_email,
+                        'bullhorn_job_id': pe.bullhorn_job_id,
+                    }
+                    for pe in to_redrive[:10]
+                ],
+                'skipped_sample': [
+                    {
+                        'id': pe.id,
+                        'candidate_email': pe.candidate_email,
+                        'bullhorn_job_id': pe.bullhorn_job_id,
+                        'already_submitted_via_id': sib.id,
+                    }
+                    for pe, sib in skipped_submitted[:10]
+                ],
+                'message': (
+                    f"DRY RUN — {len(to_redrive)} stranded rows would be reset and "
+                    f"re-driven; {len(skipped_submitted)} skipped (already reached "
+                    f"Bullhorn via another transport within {window_min}m). "
+                    f"No changes made. Re-send with dry_run=false to execute."
+                ),
+            })
+
+        # --- live run: cross-worker single-flight via a DB marker (the app runs
+        # multiple gunicorn workers, so an in-process lock cannot prevent two
+        # workers from launching overlapping backfills). Claimed atomically and
+        # released when the backfill finishes; a stale marker is taken over. ---
+        if not _acquire_recovery_marker():
+            return jsonify({
+                'success': False,
+                'error': ('An outage-recovery run is already in progress; '
+                          'wait for it to finish before starting another.'),
+            }), 409
+        ownership_transferred = False
+        try:
+            stamp = datetime.utcnow().isoformat()
+            reset_ids = []
+            for pe in to_redrive:
+                reset_ids.append(pe.id)
+                pe.message_id = None
+                pe.status = 'recovery_superseded'
+                pe.processing_notes = (
+                    (pe.processing_notes or '')
+                    + f" | Outage-recovery {stamp}Z: message_id cleared; "
+                      f"superseded by mailbox-backfill re-drive."
+                )[:2000]
+
+            skipped_ids = []
+            for pe, sib in skipped_submitted:
+                skipped_ids.append(pe.id)
+                pe.status = 'recovery_skipped_submitted'
+                pe.processing_notes = (
+                    (pe.processing_notes or '')
+                    + f" | Outage-recovery {stamp}Z: NOT re-driven — same "
+                      f"application already submitted via ParsedEmail {sib.id} "
+                      f"(submission {sib.bullhorn_submission_id}) within "
+                      f"{window_min}m."
+                )[:2000]
+            db.session.commit()
+            logger.info(
+                f"📥 Outage-recovery: reset {len(reset_ids)} stranded rows, "
+                f"skipped {len(skipped_ids)} already-submitted (since {since}); "
+                f"starting background backfill (limit={limit})"
+            )
+
+            # Re-drive in a background thread — dozens of emails × AI parse +
+            # Bullhorn writes can exceed the request timeout. The thread owns the
+            # cross-worker marker and clears it when the backfill finishes.
+            app_ref = current_app._get_current_object()
+
+            def _bg_backfill():
+                try:
+                    from tasks import run_mailbox_backfill
+                    summary = run_mailbox_backfill(app_ref, since, limit=limit)
+                    app_ref.logger.info(
+                        f"📥 Outage-recovery backfill complete: {summary}")
+                finally:
+                    _release_recovery_marker(app_ref)
+
+            threading.Thread(target=_bg_backfill, daemon=True).start()
+            ownership_transferred = True
+
+            return jsonify({
+                'success': True,
+                'dry_run': False,
+                'since': since,
+                'window_minutes': window_min,
+                'reset_count': len(reset_ids),
+                'reset_ids': reset_ids,
+                'skipped_already_submitted_count': len(skipped_ids),
+                'skipped_ids': skipped_ids,
+                'message': (
+                    f"Reset {len(reset_ids)} stranded rows ({len(skipped_ids)} "
+                    f"skipped as already-submitted); mailbox-backfill re-drive "
+                    f"started in the background. Monitor parsed_email for "
+                    f"bullhorn_candidate_id filling in."
+                ),
+            })
+        finally:
+            if not ownership_transferred:
+                _release_recovery_marker(current_app._get_current_object())
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Outage-recovery route error: {e}")
         import traceback
         logger.error(traceback.format_exc())
         return jsonify({'success': False, 'error': str(e)}), 500
