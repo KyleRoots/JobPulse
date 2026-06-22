@@ -1,0 +1,1 @@
+candidate_job_match	candidate_job_match_vetting_log_id_fkey

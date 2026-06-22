@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(env)",
+      "Bash(python3 -c \"import flask, sqlalchemy, openai, apscheduler; print\\('core deps import OK'\\)\")",
+      "Bash(python3 -m py_compile main.py app.py extensions.py scheduler_setup.py seed_database.py)",
+      "Bash(python3 -c \"import main; print\\('main:app imported OK ->', type\\(main.app\\).__name__\\)\")",
+      "Bash(python3 -c \"import sentry_sdk; print\\('sentry_sdk installed OK, version', sentry_sdk.VERSION\\)\")",
+      "Bash(alembic current *)",
+      "Bash(alembic heads *)",
+      "Bash(bash -n scripts/post-merge.sh)",
+      "Bash(command -v pip)",
+      "Bash(command -v alembic)",
+      "Bash(alembic history *)",
+      "Bash(awk 'NR<=40')",
+      "Read(//nix/store/**)",
+      "Bash(alembic -c /home/runner/workspace/alembic.ini current)",
+      "Bash(alembic -c /home/runner/workspace/alembic.ini stamp head)",
+      "Bash(grep -vE \"^$|Context impl|transactional\")",
+      "Bash(alembic -c /home/runner/workspace/alembic.ini heads)",
+      "Bash(mkdir -p docs/db_reconciliation_2026-06-22)",
+      "Bash(mv alembic/versions/docs/db_reconciliation_2026-06-22/* docs/db_reconciliation_2026-06-22/)",
+      "Bash(rm -rf alembic/versions/docs)",
+      "Bash(python3 -)",
+      "Bash(git add *)"
+    ]
+  }
+}
