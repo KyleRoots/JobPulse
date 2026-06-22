@@ -571,11 +571,14 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
                     fuzzy_merged = stats.get('fuzzy_merged', 0)
                     fuzzy_skipped = stats.get('fuzzy_skipped', 0)
                     fuzzy_errors = stats.get('fuzzy_errors', 0)
+                    fuzzy_drained = stats.get('fuzzy_drained', 0)
+                    fuzzy_queue_depth = stats.get('fuzzy_queue_depth', 0)
                     app.logger.info(
                         f"🔀 Scheduled dedup: checked={checked}, "
                         f"merged={merged}, skipped={skipped}, errors={errors} | "
                         f"AI-fuzzy checked={fuzzy_checked}, merged={fuzzy_merged}, "
-                        f"skipped={fuzzy_skipped}, errors={fuzzy_errors}"
+                        f"skipped={fuzzy_skipped}, errors={fuzzy_errors}, "
+                        f"drained={fuzzy_drained}, queue_depth={fuzzy_queue_depth}"
                     )
 
                     try:
@@ -612,6 +615,8 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
                                     'fuzzy_merged': fuzzy_merged,
                                     'fuzzy_skipped': fuzzy_skipped,
                                     'fuzzy_errors': fuzzy_errors,
+                                    'fuzzy_drained': fuzzy_drained,
+                                    'fuzzy_queue_depth': fuzzy_queue_depth,
                                     'summary': summary,
                                 })
                             )

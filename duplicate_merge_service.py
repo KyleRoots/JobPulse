@@ -13,7 +13,7 @@ RECENT_WINDOW_HOURS = 2
 
 # AI fuzzy matcher (Task #57): per-cycle budget so the hourly window holds.
 # Long-tail candidates ride to the next cycle.
-FUZZY_MAX_CANDIDATES_PER_CYCLE = 25
+FUZZY_MAX_CANDIDATES_PER_CYCLE = 100
 
 
 class DuplicateMergeService:
@@ -909,6 +909,7 @@ class DuplicateMergeService:
             'fuzzy_backfilled': 0,
             'fuzzy_queued': 0,    # overflow enqueued for next cycle
             'fuzzy_drained': 0,   # queued items processed this cycle
+            'fuzzy_queue_depth': 0,
         }
 
         already_merged = set()
@@ -1005,6 +1006,7 @@ class DuplicateMergeService:
             stats['fuzzy_backfilled'] = fuzzy_stats.get('backfilled', 0)
             stats['fuzzy_queued'] = fuzzy_stats.get('queued', 0)
             stats['fuzzy_drained'] = fuzzy_stats.get('drained', 0)
+            stats['fuzzy_queue_depth'] = fuzzy_stats.get('queue_depth', 0)
         except Exception as e:
             logger.error(f"AI fuzzy matcher pass failed: {e}", exc_info=True)
             stats['fuzzy_errors'] += 1
@@ -1076,7 +1078,18 @@ class DuplicateMergeService:
         # Drain the persistent overflow queue ahead of fresh recent
         # candidates — older deferred work has higher priority because it
         # is closest to falling out of the recent window.
-        cycle_cap = FUZZY_MAX_CANDIDATES_PER_CYCLE
+        _cap_override = getattr(self, 'FUZZY_MAX_CANDIDATES_PER_CYCLE', None)
+        if _cap_override is not None:
+            cycle_cap = int(_cap_override)
+        else:
+            try:
+                from models import VettingConfig
+                cycle_cap = int(VettingConfig.get_value(
+                    'fuzzy_max_candidates_per_cycle',
+                    str(FUZZY_MAX_CANDIDATES_PER_CYCLE)
+                ))
+            except Exception:
+                cycle_cap = FUZZY_MAX_CANDIDATES_PER_CYCLE
         work_items: list = []        # list of (candidate_dict, queue_row_or_None)
         queued_ids_seen: set = set()
 
