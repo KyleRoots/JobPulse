@@ -170,3 +170,44 @@ partial failures self-heal with no human action.
 - **Auto-recovery sweep — VERIFIED 2026-06-07**: scheduled "Résumé Recovery Sweep (30 min)" re-attaches completed-but-no-résumé rows to the EXISTING candidate (idempotent, single-flight, never creates a candidate/submission). DB flags `resume_recovery_sweep_enabled` (ON), `_window_hours` (6), `_limit` (25). Prod evidence: fires on its 30-min interval, logs "executed successfully", no errors.
 - **Legacy `.doc` extraction — fixed 2026-05-30, VERIFIED 2026-06-07**: pure-Python `olefile` extractor (`_try_olefile_doc`) runs first (antiword EIOs in prod Nix); printable-ratio guard ≥0.80. Prod evidence: real `.doc` parsed cleanly — `✅ olefile extracted 41892 chars`. Lesson in `.agents/memory/doc-extraction-prod.md`.
 - **Inbound noise gate — fixed 2026-06-02, VERIFIED 2026-06-07**: non-candidate emails recorded as `ParsedEmail.status='ignored'` (no admin alert); real candidates still alert. Prod evidence (last 7d): 1,854 `completed` / 984 `ignored` / 63 `failed`.
+
+---
+
+## 2026-06-22 trim — cross-route dedupe checkpoint + PandoLogic attribution both paths (VERIFIED)
+
+### Cross-route inbound de-dupe — checkpoint CLOSED 2026-06-22
+
+Deployed 2026-06-10. The 24–48h formal verify window was deferred; closed via telemetry pull on 2026-06-22 (12 days of prod data).
+
+**Verification method**: deployment log sampling (production DB read replica returned empty via tool; logs are authoritative for this class of check).
+
+**Outcome**: Guard firing at ~25–30 collapsals/hour = ~600+/day, which matches the pre-fix ~591 duplicate Bullhorn submissions/day baseline (~8,284/14d). The windowed guard (`_find_cross_route_sibling`, 30-minute window, keyed on `bullhorn_candidate_id + bullhorn_job_id + non-null submission_id`) is catching essentially all cross-route duplicate pairs. Representative log line:
+```
+Cross-route duplicate detected: candidate 4666832 → job 35187 already submitted by ParsedEmail 22735 (submission 917356) within 30m — skipping duplicate submission/upload/notes.
+```
+
+**False-collapse check**: All observed log entries confirm "within 30m" — the guard only fires when the same candidate→same job already has a Bullhorn submission within the configured window. No anomalous collapses observed. Genuine re-applies (different job, or same job >30 min apart) go through normally.
+
+**Single-ingestion-door consolidation status**: Prerequisite (dedupe checkpoint) cleared 2026-06-22. Task remains QUEUED — pickup deferred to post-July-1 (June risk posture: inbound is the sole Bullhorn path during screening pause; consolidation would risk dropping applicants if Phase 1 observability isn't proven first). See active watch-item in `replit.md`.
+
+---
+
+### PandoLogic attribution — both paths VERIFIED 2026-06-22
+
+Two fixes shipped June 10–11; both verified firing in prod on 2026-06-22.
+
+**Path A — Apply form referrer-based detection (shipped 2026-06-10)**:
+- `source_attribution.is_pando_referrer` detects `thejobnetwork.com` referrer → `job_application_service.submit_application` tags `feed=pando`, `source='Corporate Website'`, `owner=4582033`.
+- Prod evidence (today): 10+ detections logged, e.g.:
+  ```
+  Form field 'detected_referrer': 'https://myticasconsulting.thejobnetwork.com/'
+  PandoLogic referrer detected (...): tagging feed=pando -> source 'Corporate Website' + Pando owner
+  ```
+- Supersedes the dead `?feed=pando` query-param path (confirmed 0 fires in prod before this fix; PandoLogic strips query params through its redirect network).
+
+**Path B — Inbound email HTML feed detection (shipped 2026-06-11)**:
+- `extraction_mixin.detect_feed` now strips HTML tags and retries when the plain-text regex misses (feed/value sit in separate `<td>` cells in HTML bodies).
+- `_build_enrichment_update` now accepts an explicit `is_pando` flag so returning candidates also get source/owner corrected.
+- Prod evidence: `"PandoLogic feed detected (feed='pando'): source -> 'Corporate Website', owner -> 4582033"` logging on inbound emails; returning-candidate correction also firing (`"PandoLogic: updating source 'LinkedIn Job Board' -> 'Corporate Website'"` + owner reassignment from system account 66 → 4582033).
+
+**Net result**: PandoLogic traffic from `myticasconsulting.thejobnetwork.com` (~100+ applicants/day based on prior 6-day sample of 652 completed apps) now correctly labelled `source='Corporate Website'`, `owner=4582033`. No longer mislabelled as "LinkedIn Job Board."
