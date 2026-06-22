@@ -27,3 +27,20 @@ already-existing DB. Index names in step 2 must match what SQLAlchemy auto-gener
 
 **How to apply:** any new column/index on an existing table. `col_type` in the tuple
 list must match regex `^[A-Z()0-9 ]+$` (e.g. `VARCHAR(32)`).
+
+# Workspace shell DDL lands in DEV, and DEV schema auto-syncs to PROD on Publish
+
+Any DDL run from the workspace shell (including by an external coding agent like
+Claude Code that a user accidentally invokes) hits the **development** database
+(`DATABASE_URL`), never prod directly — prod is a separate managed DB only reachable
+read-only via `executeSql(environment:"production")`. So a tool that *thinks* it
+edited "production" (e.g. because `APP_ENV=production`) actually only touched dev.
+
+**Why this matters:** Replit's Publish flow diffs the **dev** schema against prod and
+applies the diff to prod. So an accidental dev schema change (e.g. added FKs) will
+silently propagate to prod on the next Publish unless reverted first. Before
+keeping/reverting such a change, verify prod data won't reject it (e.g. orphan-row
+check before adding a FK that would VALIDATE on prod).
+**How to apply:** whenever you find unexpected schema in dev (stray FKs, columns,
+alembic stamp moves) — confirm it's dev-only, check it matches the models, and decide
+keep-vs-revert *with the user* because "keep" means it ships to prod at next publish.
