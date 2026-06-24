@@ -92,6 +92,7 @@ def app():
         'LOGIN_DISABLED': False,
         'SQLALCHEMY_TRACK_MODIFICATIONS': False,
         'SERVER_NAME': 'localhost:5000',
+        'RATELIMIT_ENABLED': False,  # Prevent rate-limiter 429s across login tests
     })
 
     # Create application context and database tables
