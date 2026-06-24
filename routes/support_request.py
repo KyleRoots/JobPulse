@@ -88,7 +88,7 @@ def _support_access_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         host = request.host.lower()
-        if not any(s in host for s in _SUPPORT_HOSTS):
+        if host not in _SUPPORT_HOSTS:
             if not current_user.is_authenticated:
                 abort(403)
         return f(*args, **kwargs)
