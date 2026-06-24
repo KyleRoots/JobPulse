@@ -189,6 +189,7 @@ def trigger_ai_classification_fix():
 
 
 @triggers_bp.route('/api/system/health')
+@login_required
 def system_health_check():
     """System health check endpoint to detect scheduler timing issues"""
     from models import BullhornMonitor, ScheduleConfig
