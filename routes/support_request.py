@@ -2,7 +2,8 @@ import os
 import logging
 import base64
 from datetime import datetime
-from flask import Blueprint, render_template, request, jsonify, make_response, session
+from flask import Blueprint, render_template, request, jsonify, make_response, session, abort
+from flask_login import current_user
 from extensions import csrf, db
 from werkzeug.utils import secure_filename
 from functools import wraps
@@ -72,6 +73,26 @@ RATE_LIMIT_MAX = 5
 
 
 _MYTICAS_FINANCE_EMAIL = 'accounting@myticas.com'
+
+_SUPPORT_HOSTS = ('support.myticas.com', 'support.stsigroup.com')
+
+
+def _support_access_required(f):
+    """Enforce server-side auth on support routes for non-support hosts.
+
+    Requests arriving on a recognised support host (support.myticas.com /
+    support.stsigroup.com) are already gated by redirect_support_domain()
+    via before_app_request.  On every other host the caller must be an
+    authenticated Flask-Login user; unauthenticated callers receive 403.
+    """
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        host = request.host.lower()
+        if not any(s in host for s in _SUPPORT_HOSTS):
+            if not current_user.is_authenticated:
+                abort(403)
+        return f(*args, **kwargs)
+    return decorated
 
 def get_routing_info(category, department='', brand='Myticas'):
     if brand == 'STSI':
@@ -143,12 +164,14 @@ def _serve_stsi_support_form():
 
 @support_request_bp.route('/support')
 @csrf.exempt
+@_support_access_required
 def support_form():
     return _serve_support_form()
 
 
 @support_request_bp.route('/support/stsi')
 @csrf.exempt
+@_support_access_required
 def support_form_stsi():
     return _serve_stsi_support_form()
 
@@ -192,32 +215,15 @@ def support_robots_txt():
 
 @support_request_bp.route('/support/contacts/search')
 @csrf.exempt
+@_support_access_required
 def search_support_contacts():
     query = request.args.get('q', '').strip()
     brand = request.args.get('brand', 'Myticas').strip()
-    debug = request.args.get('debug', '') == '1'
     if len(query) < 1:
-        if debug:
-            return jsonify({'version': 'v2', 'msg': 'empty query'})
         return jsonify([])
     try:
         from models import SupportContact
         q_lower = query.lower()
-
-        if debug:
-            raw_count = db.session.execute(db.text("SELECT COUNT(*) FROM support_contact")).scalar()
-            raw = db.session.execute(
-                db.text("SELECT id, first_name, last_name, email, brand, is_active FROM support_contact LIMIT 5")
-            ).fetchall()
-            return jsonify({
-                'version': 'v2',
-                'debug': True,
-                'raw_count': raw_count,
-                'sample': [{'id': r[0], 'first_name': r[1], 'last_name': r[2], 'email': r[3], 'brand': r[4], 'is_active': r[5]} for r in raw],
-                'query': q_lower,
-                'brand': brand
-            })
-
         contacts = SupportContact.query.filter(
             SupportContact.is_active == True,
             SupportContact.brand == brand,
@@ -230,11 +236,12 @@ def search_support_contacts():
         return jsonify([c.to_dict() for c in contacts])
     except Exception as e:
         logger.error(f"Error searching support contacts: {e}", exc_info=True)
-        return jsonify({'version': 'v2', 'error': str(e), 'type': type(e).__name__}), 500
+        return jsonify({'error': 'Search unavailable'}), 500
 
 
 @support_request_bp.route('/support/send-test-email')
 @csrf.exempt
+@_support_access_required
 def send_test_email():
     html_content = build_support_email_html(
         requester_name='Innocent Nangoma',
@@ -264,36 +271,9 @@ def send_test_email():
         return jsonify({'success': False, 'error': 'Failed to send test email'}), 500
 
 
-@support_request_bp.route('/support/test/')
-@csrf.exempt
-def support_form_test():
-    try:
-        from models import SupportContact
-        raw_count = db.session.execute(db.text("SELECT COUNT(*) FROM support_contact")).scalar()
-        contact_count = SupportContact.query.filter_by(brand='Myticas', is_active=True).count()
-        all_contacts = SupportContact.query.limit(5).all()
-        sample = [c.to_dict() for c in all_contacts]
-        test_query = SupportContact.query.filter(
-            SupportContact.is_active == True,
-            SupportContact.brand == 'Myticas',
-            func.lower(SupportContact.first_name).like('ky%')
-        ).all()
-        test_results = [c.to_dict() for c in test_query]
-        return jsonify({
-            'status': 'ok',
-            'raw_sql_count': raw_count,
-            'orm_count': contact_count,
-            'sample_5': sample,
-            'test_search_ky': test_results,
-            'table_exists': True,
-            'db_url_prefix': os.environ.get('DATABASE_URL', '')[:30]
-        })
-    except Exception as e:
-        return jsonify({'status': 'error', 'error': str(e), 'type': type(e).__name__}), 500
-
-
 @support_request_bp.route('/support/submit', methods=['POST'])
 @csrf.exempt
+@_support_access_required
 def submit_support_request():
     try:
         honeypot = request.form.get('website_url', '').strip()
