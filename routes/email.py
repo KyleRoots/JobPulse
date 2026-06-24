@@ -1,7 +1,9 @@
 import base64
+import hmac
 import io
 import json
 import logging
+import os
 import re
 import threading
 from datetime import datetime, timedelta, timezone
@@ -362,18 +364,93 @@ def _read_full_request_body(req):
     return b''.join(chunks)
 
 
+def _verify_inbound_webhook_secret():
+    """Authenticate inbound webhook POSTs via a shared-secret query parameter.
+
+    SendGrid Inbound Parse does not provide native request signing (unlike the
+    Event Webhook, which uses ECDSA).  The standard mitigation is to embed a
+    random secret token in the webhook URL that only SendGrid knows.
+
+    Configuration
+    -------------
+    1. Generate a token:  python3 -c "import secrets; print(secrets.token_hex(32))"
+    2. Set ``SENDGRID_INBOUND_WEBHOOK_SECRET`` in the app's environment secrets.
+    3. Update the SendGrid Inbound Parse URL to include the token as a query
+       parameter:
+           https://app.scoutgenius.ai/api/email/inbound?webhook_secret=<value>
+    4. Republish the app so the new env var is picked up in production.
+
+    Return value
+    ------------
+    Returns a Flask response tuple ``(body_dict, status_code)`` when the
+    request must be rejected, or ``None`` when the caller should proceed.
+
+    Rejection cases
+    ---------------
+    * Secret **not configured** → 503 Service Unavailable.  SendGrid retries
+      on 5xx, so no email is silently lost while the operator configures the
+      secret.  A CRITICAL log is emitted on every rejected request.
+    * ``webhook_secret`` param **missing** → 403 Forbidden.
+    * ``webhook_secret`` param **present but wrong** → 403 Forbidden.
+
+    The 403 path uses ``hmac.compare_digest`` (constant-time) to prevent
+    timing-based secret extraction.
+    """
+    expected = os.environ.get('SENDGRID_INBOUND_WEBHOOK_SECRET', '').strip()
+
+    if not expected:
+        logger.critical(
+            "🚨 SENDGRID_INBOUND_WEBHOOK_SECRET is NOT set — inbound webhook "
+            "POST rejected (503) until the secret is configured. Set this env "
+            "var and update the SendGrid Inbound Parse URL to include "
+            "?webhook_secret=<value>, then republish. "
+            "Until then ALL inbound email deliveries will fail and SendGrid "
+            "will retry them."
+        )
+        return (
+            {'success': False,
+             'error': 'misconfigured',
+             'message': ('Webhook secret not configured on server. '
+                         'Contact the platform administrator.')},
+            503,
+        )
+
+    provided = request.args.get('webhook_secret', '').strip()
+    if not provided:
+        logger.warning(
+            "📧 Inbound webhook POST rejected (403): missing webhook_secret "
+            "query param (remote_addr=%s user_agent=%r)",
+            request.remote_addr,
+            request.headers.get('User-Agent', '')[:120],
+        )
+        return ({'success': False, 'message': 'Unauthorized'}, 403)
+
+    if not hmac.compare_digest(provided, expected):
+        logger.warning(
+            "📧 Inbound webhook POST rejected (403): webhook_secret mismatch "
+            "(remote_addr=%s user_agent=%r)",
+            request.remote_addr,
+            request.headers.get('User-Agent', '')[:120],
+        )
+        return ({'success': False, 'message': 'Unauthorized'}, 403)
+
+    return None
+
+
 @email_bp.route('/api/email/inbound', methods=['GET', 'POST'])
 @csrf.exempt
 def email_inbound_webhook():
     """
     SendGrid Inbound Parse webhook endpoint
-    
+
     Receives forwarded emails from job boards (LinkedIn, Dice, etc.)
     and processes them to create/update candidates in Bullhorn.
-    
+
     This endpoint is public (no auth) because SendGrid needs to POST to it.
-    Security is via SendGrid's signature verification.
-    
+    Security is enforced via a shared-secret token embedded in the webhook URL
+    (SENDGRID_INBOUND_WEBHOOK_SECRET env var).  See _verify_inbound_webhook_secret
+    for configuration details.
+
     GET: Returns 200 OK for health checks / endpoint verification
     POST: Processes inbound email data from SendGrid
     """
@@ -384,7 +461,12 @@ def email_inbound_webhook():
             'methods': ['POST'],
             'message': 'Ready to receive emails'
         }), 200
-    
+
+    rejection = _verify_inbound_webhook_secret()
+    if rejection is not None:
+        body, status = rejection
+        return jsonify(body), status
+
     try:
         logger.info("📧 Received inbound email webhook")
 
