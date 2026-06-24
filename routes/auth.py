@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from urllib.parse import urlparse
 from flask import Blueprint, render_template, redirect, url_for, request, flash, session
 from flask_login import login_user, logout_user, current_user, login_required
+from extensions import limiter
 from routes import _get_user_landing
 
 logger = logging.getLogger(__name__)
@@ -44,7 +45,12 @@ def _is_safe_redirect_url(target):
     return True
 
 
+_LOGIN_MAX_ATTEMPTS = 10
+_LOGIN_LOCKOUT_MINUTES = 30
+
+
 @auth_bp.route('/login', methods=['GET', 'POST'])
+@limiter.limit("20 per minute", methods=["POST"])
 def login():
     """User login page"""
     # Import here to avoid circular imports
@@ -66,8 +72,21 @@ def login():
             (User.username == identifier) |
             (_db.func.lower(User.email) == identifier.lower())
         ).first()
+
+        # Per-account lockout check (persistent, survives restarts)
+        if user and user.locked_until and datetime.utcnow() < user.locked_until:
+            remaining = int((user.locked_until - datetime.utcnow()).total_seconds() // 60) + 1
+            flash(f'This account is temporarily locked. Try again in {remaining} minute(s).', 'error')
+            logger.warning(
+                f"Login attempt on locked account '{identifier}' from {request.remote_addr}"
+            )
+            return render_template('login.html')
+
         if user and user.check_password(password):
+            # Successful login — clear any failed-attempt state
             user.last_login = datetime.utcnow()
+            user.failed_login_attempts = 0
+            user.locked_until = None
             try:
                 db.session.commit()
             except Exception:
@@ -96,6 +115,21 @@ def login():
                 return redirect(next_page)
             return redirect(_get_user_landing())
         else:
+            # Increment per-account failure counter (only when the account exists)
+            if user is not None:
+                user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
+                if user.failed_login_attempts >= _LOGIN_MAX_ATTEMPTS:
+                    user.locked_until = datetime.utcnow() + timedelta(minutes=_LOGIN_LOCKOUT_MINUTES)
+                    logger.warning(
+                        f"Account '{user.username}' locked for {_LOGIN_LOCKOUT_MINUTES}m after "
+                        f"{user.failed_login_attempts} failed attempts from {request.remote_addr}"
+                    )
+                try:
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
+            else:
+                logger.info(f"Failed login for unknown identifier from {request.remote_addr}")
             flash('Invalid username or password.', 'error')
     
     return render_template('login.html')
@@ -139,6 +173,7 @@ def logout():
 
 
 @auth_bp.route('/forgot-password', methods=['GET', 'POST'])
+@limiter.limit("5 per hour", methods=["POST"])
 def forgot_password():
     """Send a password reset link to the user's email."""
     from extensions import db

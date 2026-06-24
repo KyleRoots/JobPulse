@@ -32,6 +32,8 @@ class User(UserMixin, db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime, nullable=True)
     last_active_at = db.Column(db.DateTime, nullable=True)
+    failed_login_attempts = db.Column(db.Integer, default=0, nullable=False, server_default='0')
+    locked_until = db.Column(db.DateTime, nullable=True)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)

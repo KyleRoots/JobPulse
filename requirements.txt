@@ -86,3 +86,4 @@ defusedxml
 reportlab
 jsonschema
 olefile
+flask-limiter

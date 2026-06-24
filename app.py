@@ -403,6 +403,18 @@ with app.app_context():
                 db.session.execute(text('ALTER TABLE candidate_vetting_log ADD COLUMN retry_block_reason VARCHAR(500)'))
                 db.session.commit()
                 app.logger.info('🔧 Migration: Added retry_block_reason column to candidate_vetting_log')
+
+        # Migration: Add login abuse-control columns to user table if missing
+        if 'user' in inspector.get_table_names():
+            user_cols = [col['name'] for col in inspector.get_columns('user')]
+            if 'failed_login_attempts' not in user_cols:
+                db.session.execute(text('ALTER TABLE "user" ADD COLUMN failed_login_attempts INTEGER NOT NULL DEFAULT 0'))
+                db.session.commit()
+                app.logger.info('🔧 Migration: Added failed_login_attempts column to user')
+            if 'locked_until' not in user_cols:
+                db.session.execute(text('ALTER TABLE "user" ADD COLUMN locked_until TIMESTAMP WITHOUT TIME ZONE'))
+                db.session.commit()
+                app.logger.info('🔧 Migration: Added locked_until column to user')
     except Exception as migrate_err:
         app.logger.warning(f'Migration check failed (may be first run): {migrate_err}')
 

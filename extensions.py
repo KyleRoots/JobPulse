@@ -6,6 +6,8 @@ from flask import Flask, jsonify, redirect, url_for, request
 from flask_login import LoginManager
 from flask_wtf.csrf import CSRFProtect
 from flask_sqlalchemy import SQLAlchemy
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from sqlalchemy.orm import DeclarativeBase
 from werkzeug.middleware.proxy_fix import ProxyFix
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -23,6 +25,12 @@ login_manager.login_view = 'auth.login'
 login_manager.login_message = 'Please log in to access the Job Feed Portal.'
 
 csrf = CSRFProtect()
+
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=[],
+    storage_uri="memory://",
+)
 
 PRODUCTION_DOMAINS = {'app.scoutgenius.ai', 'www.app.scoutgenius.ai', 'jobpulse.lyntrix.ai', 'www.jobpulse.lyntrix.ai'}
 
@@ -85,6 +93,8 @@ def create_app():
 
     login_manager.init_app(app)
     app.login_manager = login_manager
+
+    limiter.init_app(app)
 
     @login_manager.unauthorized_handler
     def handle_unauthorized():
