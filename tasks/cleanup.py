@@ -252,10 +252,21 @@ def email_parsing_timeout_cleanup():
                     f"backfill since {since_iso} (limit={backfill_limit}).")
 
                 from tasks import run_mailbox_backfill
-                summary = run_mailbox_backfill(
-                    app, since_iso, limit=backfill_limit)
-                app.logger.info(
-                    f"📥 Email auto-recovery backfill complete: {summary}")
+                try:
+                    summary = run_mailbox_backfill(
+                        app, since_iso, limit=backfill_limit)
+                    app.logger.info(
+                        f"📥 Email auto-recovery backfill complete: {summary}")
+                except Exception as bf_err:
+                    # Coerce a raised exception into a failure-signal summary so
+                    # the reconciliation block below always runs. Without this,
+                    # an exception here jumps directly to the outer except and
+                    # rows committed as recovery_superseded with message_id=NULL
+                    # can be permanently stranded (no reconciliation = no restore).
+                    summary = {'error': str(bf_err), 'fetched': 0}
+                    app.logger.error(
+                        f"📥 Email auto-recovery: backfill raised {bf_err!r}; "
+                        f"reconciling to restore stranded rows.")
 
                 # ── Reconcile: never strand a real applicant ─────────────────
                 # The backfill can error, fetch nothing, fail per-message, or hit

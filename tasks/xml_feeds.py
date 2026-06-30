@@ -195,9 +195,8 @@ def _upload_single_file(ftp_service, xml_content, remote_filename, app):
 
 def automated_upload():
     """Automatically upload fresh XML every 30 minutes if automation is enabled.
-    Generates two feeds:
-      - myticas-job-feed-v2.xml   — all tearsheets; STSI (1531) jobs WITHOUT #STSIVMS or #STSIEG tags
-      - myticas-job-feed-pando.xml — all tearsheets; ALL STSI (1531) jobs (no tag filter)
+    Generates a single v2 feed (myticas-job-feed-v2.xml) with all tearsheets and
+    all STSI (1531) jobs included (no tag filtering).
     """
     from app import app
     from extensions import db
@@ -216,24 +215,19 @@ def automated_upload():
                 app.logger.warning("Automated upload skipped: SFTP not enabled")
                 return
 
-            app.logger.info("Starting automated 30-minute dual-feed upload cycle...")
+            app.logger.info("Starting automated 30-minute upload cycle (single v2 feed)...")
 
             from simplified_xml_generator import SimplifiedXMLGenerator
             generator = SimplifiedXMLGenerator(db=db)
 
-            app.logger.info("[FEED 1/2] Generating pando feed (STSI: all jobs, no tag filter) — saves reference numbers...")
-            pando_xml, pando_stats = generator.generate_fresh_xml(stsi_tag_mode=None)
-            app.logger.info(f"pando feed: {pando_stats['job_count']} jobs, {pando_stats['xml_size_bytes']:,} bytes")
-
-            app.logger.info("[FEED 2/2] Generating v2 feed (STSI: untagged jobs only) — uses existing references...")
-            v2_xml, v2_stats = generator.generate_fresh_xml(stsi_tag_mode='exclude_tags')
+            app.logger.info("Generating v2 feed (all tearsheets, all STSI jobs)...")
+            v2_xml, v2_stats = generator.generate_fresh_xml()
             app.logger.info(f"v2 feed: {v2_stats['job_count']} jobs, {v2_stats['xml_size_bytes']:,} bytes")
 
-            app.logger.info("CHECKPOINT 1: Both XML feeds generated successfully")
+            app.logger.info("CHECKPOINT 1: v2 XML feed generated successfully")
             app.logger.info("Reference numbers loaded from DATABASE (database-first approach)")
 
             v2_upload_ok = False
-            pando_upload_ok = False
             upload_error_message = None
 
             try:
@@ -268,29 +262,18 @@ def automated_upload():
                         app.logger.error(f"Invalid environment '{current_env}' - defaulting to development for safety")
                         current_env = 'development'
 
-                    if current_env == 'production':
-                        v2_filename = "myticas-job-feed-v2.xml"
-                        pando_filename = "myticas-job-feed-pando.xml"
-                    else:
-                        v2_filename = "myticas-job-feed-v2-dev.xml"
-                        pando_filename = "myticas-job-feed-pando-dev.xml"
+                    v2_filename = "myticas-job-feed-v2.xml" if current_env == 'production' else "myticas-job-feed-v2-dev.xml"
 
-                    app.logger.info(f"{current_env.upper()}: uploading {v2_filename} + {pando_filename}")
+                    app.logger.info(f"{current_env.upper()}: uploading {v2_filename}")
 
                     v2_upload_ok, v2_err = _upload_single_file(ftp_service, v2_xml, v2_filename, app)
-                    pando_upload_ok, pando_err = _upload_single_file(ftp_service, pando_xml, pando_filename, app)
 
-                    if not v2_upload_ok or not pando_upload_ok:
-                        errors = []
-                        if not v2_upload_ok:
-                            errors.append(f"v2: {v2_err}")
-                        if not pando_upload_ok:
-                            errors.append(f"pando: {pando_err}")
-                        upload_error_message = "; ".join(errors)
+                    if not v2_upload_ok:
+                        upload_error_message = f"v2: {v2_err}"
 
-                    app.logger.info(f"ENVIRONMENT ISOLATION: {current_env} -> uploads ONLY to its designated files")
+                    app.logger.info(f"ENVIRONMENT ISOLATION: {current_env} -> uploads ONLY to its designated file")
 
-                    upload_success = v2_upload_ok and pando_upload_ok
+                    upload_success = v2_upload_ok
 
                     if upload_success:
                         try:
@@ -321,28 +304,26 @@ def automated_upload():
                                 )
                                 db.session.add(next_upload_setting)
 
-                            dual_feed_result = json.dumps({
+                            feed_result = json.dumps({
                                 'v2_jobs': v2_stats['job_count'],
-                                'pando_jobs': pando_stats['job_count'],
                                 'v2_size': v2_stats['xml_size_bytes'],
-                                'pando_size': pando_stats['xml_size_bytes'],
                                 'timestamp': upload_timestamp
                             })
                             feed_setting = GlobalSettings.query.filter_by(setting_key='dual_feed_last_result').first()
                             if feed_setting:
-                                feed_setting.setting_value = dual_feed_result
+                                feed_setting.setting_value = feed_result
                                 feed_setting.updated_at = now_utc
                             else:
                                 feed_setting = GlobalSettings(
                                     setting_key='dual_feed_last_result',
-                                    setting_value=dual_feed_result
+                                    setting_value=feed_result
                                 )
                                 db.session.add(feed_setting)
 
                             db.session.commit()
                             app.logger.info(f"Updated last upload timestamp: {upload_timestamp}")
                             app.logger.info(f"Updated next upload timestamp: {next_upload_timestamp}")
-                            app.logger.info(f"Dual feed stats saved: v2={v2_stats['job_count']} jobs, pando={pando_stats['job_count']} jobs")
+                            app.logger.info(f"Feed stats saved: v2={v2_stats['job_count']} jobs")
                         except Exception as ts_error:
                             app.logger.error(f"Failed to track upload timestamp: {str(ts_error)}")
                 else:
@@ -371,9 +352,6 @@ def automated_upload():
                             'upload_success': upload_success,
                             'upload_error': upload_error_message,
                             'next_upload': format_eastern_time(next_upload_time),
-                            'pando_jobs_count': pando_stats['job_count'],
-                            'pando_xml_size': f"{pando_stats['xml_size_bytes']:,} bytes",
-                            'dual_feed': True
                         }
 
                         status = "success" if upload_success else "error"

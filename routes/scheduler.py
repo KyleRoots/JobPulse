@@ -77,19 +77,18 @@ def scheduler_dashboard():
 
     if dual_feed_data:
         ts_str = dual_feed_data.get('timestamp', '')
-        for feed_key, label in [('v2', 'myticas-job-feed-v2.xml'), ('pando', 'myticas-job-feed-pando.xml')]:
-            size_bytes = dual_feed_data.get(f'{feed_key}_size', 0)
-            job_count = dual_feed_data.get(f'{feed_key}_jobs', 0)
-            display_size = f"{size_bytes / 1024:.1f} KB" if size_bytes else "—"
-            active_xml_files.append({
-                'filename': label,
-                'file_size': size_bytes,
-                'display_size': display_size,
-                'last_modified': None,
-                'server_time': ts_str,
-                'is_active': True,
-                'job_count': job_count
-            })
+        size_bytes = dual_feed_data.get('v2_size', 0)
+        job_count = dual_feed_data.get('v2_jobs', 0)
+        display_size = f"{size_bytes / 1024:.1f} KB" if size_bytes else "—"
+        active_xml_files.append({
+            'filename': 'myticas-job-feed-v2.xml',
+            'file_size': size_bytes,
+            'display_size': display_size,
+            'last_modified': None,
+            'server_time': ts_str,
+            'is_active': True,
+            'job_count': job_count
+        })
     else:
         for filename in ['myticas-job-feed.xml']:
             if os.path.exists(filename):

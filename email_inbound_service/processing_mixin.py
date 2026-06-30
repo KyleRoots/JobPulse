@@ -116,7 +116,7 @@ class ProcessingMixin:
         (including non-Postgres backends in tests): a locking problem must never
         block a real applicant from reaching Bullhorn.
         """
-        if not candidate_email or not self._cross_route_lock_enabled():
+        if not (candidate_email or '').strip() or not self._cross_route_lock_enabled():
             return
         try:
             from app import db
