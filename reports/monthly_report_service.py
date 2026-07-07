@@ -25,7 +25,6 @@ from sendgrid.helpers.mail import Mail, Email, To, Content, Attachment, FileCont
 
 from extensions import db
 from models.reporting import MonthlyReportRun
-from reports.generate_perf_report import render_report
 
 logger = logging.getLogger(__name__)
 
@@ -381,6 +380,7 @@ def finalize_and_send(run: MonthlyReportRun, placements_final: int,
     with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
         out_path = tmp.name
     try:
+        from reports.generate_perf_report import render_report
         render_report(metrics, out_path)
         fname = f"scout_genius_report_{run.period_start.strftime('%Y_%m')}.png"
         html = _final_email_html(run, was_auto_sent)

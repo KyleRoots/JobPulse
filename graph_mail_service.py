@@ -8,10 +8,9 @@ arrive 100% intact in the apply@myticas.com Office 365 mailbox, so we PULL them
 from there via Microsoft Graph and feed them into the EXISTING inbound pipeline
 (EmailInboundService.process_email) unchanged.
 
-Auth: Replit-managed Outlook connector (delegated OAuth), signed in AS the
-apply@myticas.com mailbox — so the mailbox is reachable via the /me endpoints
-with the plain Mail.Read / Mail.ReadWrite scopes the connector grants. Token
-management mirrors onedrive_service.py.
+Auth backends (see ``utils.graph_auth``):
+  * **replit** — Replit Outlook connector (delegated OAuth, ``/me`` endpoints)
+  * **entra**  — Entra app registration (client credentials, ``/users/{mailbox}``)
 
 This module ONLY fetches messages and adapts them into the SendGrid-shaped
 payload dict the existing pipeline already consumes. No résumé parsing, source
@@ -22,15 +21,20 @@ import base64
 import logging
 import os
 import time
-from datetime import datetime
 from typing import Dict, List, Optional
 
 import requests
 
+from utils.graph_auth import (
+    get_graph_access_token,
+    graph_user_base_path,
+    invalidate_graph_token_cache,
+    resolve_graph_auth_mode,
+)
+
 logger = logging.getLogger(__name__)
 
 GRAPH_BASE_URL = "https://graph.microsoft.com/v1.0"
-CONNECTOR_NAME = "outlook"
 
 # Fields we need to reconstruct the webhook payload. internetMessageId becomes
 # the Message-ID used for dedupe; body carries text/html; from/to/subject feed
@@ -48,71 +52,14 @@ class GraphMailService:
     message into the existing inbound-email payload shape."""
 
     def __init__(self):
-        self._cached_token = None
-        self._token_expires_at = 0
+        self._auth_mode = resolve_graph_auth_mode()
+
+    def _user_base(self) -> str:
+        return graph_user_base_path(self._auth_mode)
 
     # ── Auth ──────────────────────────────────────────────────────────────
     def _get_access_token(self) -> str:
-        now = time.time()
-        if self._cached_token and self._token_expires_at > now + 60:
-            return self._cached_token
-
-        hostname = os.environ.get('REPLIT_CONNECTORS_HOSTNAME')
-        repl_identity = os.environ.get('REPL_IDENTITY')
-        web_repl_renewal = os.environ.get('WEB_REPL_RENEWAL')
-
-        if repl_identity:
-            x_replit_token = f"repl {repl_identity}"
-        elif web_repl_renewal:
-            x_replit_token = f"depl {web_repl_renewal}"
-        else:
-            raise ConnectionError("GraphMail: No Replit identity token available")
-
-        if not hostname:
-            raise ConnectionError("GraphMail: REPLIT_CONNECTORS_HOSTNAME not set")
-
-        resp = requests.get(
-            f"https://{hostname}/api/v2/connection",
-            params={"include_secrets": "true", "connector_names": CONNECTOR_NAME},
-            headers={
-                "Accept": "application/json",
-                "X-Replit-Token": x_replit_token,
-            },
-            timeout=10,
-        )
-        resp.raise_for_status()
-
-        data = resp.json()
-        connection = data.get("items", [None])[0] if data.get("items") else None
-        if not connection:
-            raise ConnectionError(
-                "GraphMail: No Outlook connection found. Please connect the "
-                "Outlook mailbox (apply@) in Replit settings."
-            )
-
-        settings = connection.get("settings", {})
-        access_token = (
-            settings.get("access_token")
-            or settings.get("oauth", {}).get("credentials", {}).get("access_token")
-        )
-        if not access_token:
-            raise ConnectionError(
-                "GraphMail: No access token available. Please reconnect Outlook."
-            )
-
-        expires_at = settings.get("expires_at")
-        if expires_at:
-            try:
-                self._token_expires_at = datetime.fromisoformat(
-                    expires_at.replace("Z", "+00:00")
-                ).timestamp()
-            except (ValueError, TypeError):
-                self._token_expires_at = now + 3500
-        else:
-            self._token_expires_at = now + 3500
-
-        self._cached_token = access_token
-        return access_token
+        return get_graph_access_token()
 
     # ── HTTP helpers (401 refresh + 429 backoff) ──────────────────────────
     def _request(self, method: str, url: str, *, params: Optional[Dict] = None,
@@ -127,9 +74,7 @@ class GraphMailService:
                 method, url, headers=headers, params=params, timeout=60
             )
             if resp.status_code == 401:
-                # Force a token refresh once, then retry.
-                self._cached_token = None
-                self._token_expires_at = 0
+                invalidate_graph_token_cache()
                 token = self._get_access_token()
                 headers["Authorization"] = f"Bearer {token}"
                 resp = requests.request(
@@ -159,9 +104,10 @@ class GraphMailService:
 
     # ── Public API ────────────────────────────────────────────────────────
     def get_connected_address(self) -> Optional[str]:
-        """Return the userPrincipalName/mail of the connected account. Used to
-        confirm the connector is signed in as the applicant mailbox."""
+        """Return the mailbox address Graph is reading from."""
         try:
+            if self._auth_mode == "entra":
+                return os.environ.get("GRAPH_MAILBOX_UPN", "apply@myticas.com").strip()
             me = self._get_json("/me")
             return me.get("mail") or me.get("userPrincipalName")
         except Exception as e:  # noqa: BLE001
@@ -185,10 +131,10 @@ class GraphMailService:
             "$top": str(max(1, min(limit, 100))),
         }
         if since_iso:
-            # `ge` (not `gt`) so a message sharing the boundary second is never
-            # skipped; message_id dedupe makes the re-check harmless.
             params["$filter"] = f"receivedDateTime ge {since_iso}"
-        data = self._get_json("/me/mailFolders/inbox/messages", params=params)
+        data = self._get_json(
+            f"{self._user_base()}/mailFolders/inbox/messages", params=params
+        )
         return data.get("value", []) or []
 
     def list_messages_page(self, since_iso: Optional[str] = None,
@@ -213,7 +159,9 @@ class GraphMailService:
             }
             if since_iso:
                 params["$filter"] = f"receivedDateTime ge {since_iso}"
-            data = self._get_json("/me/mailFolders/inbox/messages", params=params)
+            data = self._get_json(
+                f"{self._user_base()}/mailFolders/inbox/messages", params=params
+            )
         return data.get("value", []) or [], data.get("@odata.nextLink")
 
     def get_message_by_internet_id(self, internet_message_id: str) -> Optional[Dict]:
@@ -231,23 +179,23 @@ class GraphMailService:
         """
         if not internet_message_id:
             return None
+        user_base = self._user_base()
         try:
             if internet_message_id.startswith("graph-id-"):
                 graph_id = internet_message_id[len("graph-id-"):]
                 if not graph_id:
                     return None
                 return self._get_json(
-                    f"/me/messages/{graph_id}",
+                    f"{user_base}/messages/{graph_id}",
                     params={"$select": _MESSAGE_SELECT},
                 )
-            # OData string literal: single quotes are escaped by doubling.
             safe = internet_message_id.replace("'", "''")
             params = {
                 "$select": _MESSAGE_SELECT,
                 "$filter": f"internetMessageId eq '{safe}'",
                 "$top": "1",
             }
-            data = self._get_json("/me/messages", params=params)
+            data = self._get_json(f"{user_base}/messages", params=params)
             items = data.get("value", []) or []
             return items[0] if items else None
         except Exception as e:  # noqa: BLE001
@@ -262,16 +210,9 @@ class GraphMailService:
         [{filename, content_b64, content_type}]. Handles large attachments by
         fetching raw bytes individually when contentBytes is absent."""
         out: List[Dict] = []
+        user_base = self._user_base()
         try:
-            # NOTE: do NOT use $select here. `contentBytes` exists only on the
-            # fileAttachment derived type, not the base attachment type, so
-            # selecting it on the polymorphic /attachments collection returns
-            # 400 Bad Request. Listing without $select returns the full
-            # attachment (incl. contentBytes for file attachments under the
-            # inline-size limit); larger ones fall through to the $value fetch.
-            data = self._get_json(
-                f"/me/messages/{message_id}/attachments",
-            )
+            data = self._get_json(f"{user_base}/messages/{message_id}/attachments")
         except Exception as e:  # noqa: BLE001
             logger.error(
                 f"GraphMail: failed to list attachments for {message_id[:40]}: {e}"
@@ -280,20 +221,17 @@ class GraphMailService:
 
         for att in data.get("value", []) or []:
             odata_type = att.get("@odata.type", "")
-            # Only real file attachments; skip itemAttachment / reference.
             if "fileAttachment" not in odata_type and att.get("contentBytes") is None:
-                # Could be an inline reference or item attachment; skip non-files.
                 if "fileAttachment" not in odata_type:
                     continue
             filename = att.get("name") or "attachment"
             content_type = att.get("contentType") or "application/octet-stream"
             content_b64 = att.get("contentBytes")
             if not content_b64:
-                # Large attachment: fetch raw bytes via $value.
                 try:
                     raw = self._request(
                         "GET",
-                        f"{GRAPH_BASE_URL}/me/messages/{message_id}/attachments/"
+                        f"{GRAPH_BASE_URL}{user_base}/messages/{message_id}/attachments/"
                         f"{att.get('id')}/$value",
                         accept_json=False,
                     ).content
@@ -351,12 +289,6 @@ class GraphMailService:
             text = body_content or message.get("bodyPreview") or ""
             html = ""
 
-        # internetMessageId is the canonical <...@...> Message-ID; the pipeline
-        # parses it out of the headers blob for its UNIQUE dedupe. If a message
-        # ever lacks it, fall back to the Graph message `id` (always present,
-        # stable per mailbox) so the pipeline ALWAYS has a dedupe key — otherwise
-        # a re-pull/backfill of that message could double-create a Bullhorn
-        # candidate.
         dedupe_id = message.get("internetMessageId") or ""
         if not dedupe_id:
             graph_id = message.get("id") or ""
