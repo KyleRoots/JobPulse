@@ -167,6 +167,8 @@ def vetting_settings():
         CandidateVettingLog.is_sandbox != True
     ).order_by(CandidateVettingLog.updated_at.desc()).limit(50).all()
 
+    from screening.compliance import SCREENING_RULES_VERSION
+
     return render_template('vetting_settings.html',
                           settings=settings,
                           stats=stats,
@@ -177,6 +179,7 @@ def vetting_settings():
                           recent_issues=recent_issues,
                           pending_candidates=pending_candidates,
                           recent_vetting=recent_vetting,
+                          compliance_rules_version=SCREENING_RULES_VERSION,
                           active_page='screening_config')
 
 
@@ -499,6 +502,25 @@ def save_vetting_settings():
         flash(f'Error saving settings: {str(e)}', 'error')
 
     return redirect(url_for('vetting.vetting_settings'))
+
+
+@vetting_bp.route('/screening/compliance-metrics')
+@login_required
+def screening_compliance_metrics():
+    """JSON snapshot for weekly bias/quality monitoring (Phase A)."""
+    from flask import jsonify
+    from screening.compliance import build_compliance_metrics, SCREENING_RULES_VERSION
+    try:
+        from utils.environment_context import get_current_environment
+        env = get_current_environment()
+        env_id = getattr(env, 'id', None) if env is not None else None
+    except Exception:
+        env_id = None
+
+    days = request.args.get('days', 7, type=int)
+    payload = build_compliance_metrics(days=days, environment_id=env_id)
+    payload['rules_version_current'] = SCREENING_RULES_VERSION
+    return jsonify(payload)
 
 
 @vetting_bp.route('/screening/health-check', methods=['POST'])

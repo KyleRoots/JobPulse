@@ -36,7 +36,11 @@ A comprehensive Flask-based web application that automates XML job feed processi
 - **Session Management**: Flask sessions with secure keys
 - **Proxy Support**: ProxyFix middleware for HTTPS
 - **File Handling**: Secure temporary storage with auto-cleanup
-- **Dual-Domain Setup**: app.scoutgenius.ai (main) + apply.myticas.com (applications)
+- **Production Hosting**: Railway (`scout-genius` project, JobPulse service)
+- **Dual-Domain Setup**:
+  - `app.scoutgenius.ai` — main Scout Genius app
+  - `apply.myticas.com` — Myticas job applications
+  - `apply.stsigroup.com` — STSI job applications
 
 ---
 
@@ -45,10 +49,17 @@ A comprehensive Flask-based web application that automates XML job feed processi
 ### 1. Automated Upload System (30-Minute Cycle) - Toggle-Based
 - **Scheduler-Backed Automation**: APScheduler runs upload cycle every 30 minutes when enabled
 - **Settings Control**: Requires BOTH `automated_uploads_enabled=true` AND `sftp_enabled=true`
-- **Fresh XML Generation**: Pulls from all Bullhorn tearsheets (1256, 1264, 1499, 1556)
+- **Fresh XML Generation**: Pulls from Bullhorn tearsheets (see `feeds/feed_config.py` and `tearsheet_config.py`)
+- **Tri-Feed STSI Output** (July 2026): LinkedIn (`myticas-job-feed-v2.xml`), Indeed (`stsi-job-feed-indeed.xml`), ZipRecruiter (`stsi-job-feed-ziprecruiter.xml`) — non-prod uses `-dev` suffix
 - **Reference Number Preservation**: Database-backed persistence ensures no reversion
 - **SFTP Upload**: Secure automated uploads to production server (when automation is enabled)
 - **Manual Workflow Alternative**: Can be disabled for manual-only downloads via settings toggle
+
+### 1b. Scout Screening (AI Candidate Vetting)
+- **Automated vetting cycle**: Scores inbound applicants against open jobs; recruiters make final decisions
+- **Cheap-first routing**: `screening_routing_mode` (`off` | `canary` | `enforce`) — Enforce skips GPT-5.4 on clear rejects
+- **Compliance (Phase A, July 2026)**: Apply-form AI notices, rules version stamping (`screening/compliance.py`), guardrailed global prompt, compliance metrics endpoint
+- **Rules changelog**: `config/SCREENING_RULES_CHANGELOG.md`
 
 ### 2. Database-Backed Reference Number System ✨ NEW
 **Problem Solved (October 2025)**: Live XML URL returns 403 Forbidden, causing reference numbers to revert to old values.
@@ -262,7 +273,13 @@ Navigate to Settings page and configure:
 3. Confirms JobReferenceNumber table is populated
 
 #### Step 4: Deploy Application
-Publish/Deploy via Replit to production environment
+Deploy to Railway production:
+
+```bash
+railway up --service JobPulse --environment production
+```
+
+Health check: `/health` (configured in `railway.toml`).
 
 #### Step 5: Verify Automation Status
 Check dashboard for automation status:
@@ -367,6 +384,13 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
+### July 2026: Railway Production, STSI Channel Feeds & Screening Compliance
+- **Railway deployment**: Production on Railway (`gunicorn` via `railway.toml`); Entra/Graph mailbox-pull auth for inbound applicants
+- **STSI channel feeds**: Separate Indeed (tearsheet 1640) and ZipRecruiter (1641) XML feeds; LinkedIn v2 unchanged (tearsheet 1531); apply URLs use `apply.stsigroup.com` with `?source=` params
+- **Feed config centralization**: `feeds/feed_config.py` for prod/dev filenames and channel constants
+- **Screening Phase A compliance**: AI disclosure on apply forms (Myticas + STSI), recruiter advisory policy in Screening Settings, `screening_rules_version` on vetting logs, compliance guardrails in global prompt, `/screening/compliance-metrics` endpoint
+- **Screening reactivation**: `vetting_enabled` with cheap-first **Enforce** routing for cost control
+
 ### October 2025: Database-Backed Reference Number Preservation ✨
 - **Problem Identified**: Live XML URL returns 403 Forbidden, causing reference number reversion
 - **Solution Implemented**: JobReferenceNumber database table for persistent storage
@@ -418,15 +442,16 @@ Check dashboard for automation status:
 - Critical system errors
 
 ### Application URLs
-- **Main Application**: jobpulse.lyntrix.ai
-- **Job Application Forms**: apply.myticas.com
+- **Main Application**: https://app.scoutgenius.ai
+- **Myticas Apply Forms**: https://apply.myticas.com
+- **STSI Apply Forms**: https://apply.stsigroup.com
 
 ### Health Monitoring
 Access health endpoints for status checks:
-- `https://jobpulse.lyntrix.ai/health`
-- `https://jobpulse.lyntrix.ai/ready`
-- `https://jobpulse.lyntrix.ai/alive`
-- `https://jobpulse.lyntrix.ai/ping`
+- `https://app.scoutgenius.ai/health`
+- `https://app.scoutgenius.ai/ready`
+- `https://app.scoutgenius.ai/alive`
+- `https://app.scoutgenius.ai/ping`
 
 ---
 
@@ -490,5 +515,5 @@ Access health endpoints for status checks:
 
 ---
 
-**Last Updated**: October 2025  
-**Version**: 2.0 (Database-Backed Reference Preservation)
+**Last Updated**: July 2026  
+**Version**: 2.1 (Railway production, STSI channel feeds, screening compliance Phase A)

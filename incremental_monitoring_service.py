@@ -661,7 +661,9 @@ This alert was triggered by the zero-job detection safeguard.
             MockMonitor('Sponsored - CLE', 1233),
             MockMonitor('Sponsored - VMS', 1239),
             MockMonitor('Sponsored - GR', 1474),
-            MockMonitor('Sponsored - STSI', 1531)
+            MockMonitor('Sponsored - STSI - LinkedIn', 1531),
+            MockMonitor('Sponsored - STSI - Indeed', 1640),
+            MockMonitor('Sponsored - STSI - Zip Recruiter', 1641),
         ]
         
         for monitor in monitors:
@@ -864,12 +866,19 @@ This alert was triggered by the zero-job detection safeguard.
         # Simplified mapping - could be expanded
         tags = {
             'Rachel Mann': '#LI-RM1',
+            'Rachel Johnson': '#LI-RJ1',
             'Mike Scalzitti': '#LI-MS2',
+            'Michael Scalzitti': '#LI-MS2',
             'Christine Carter': '#LI-CC1',
             'Runa Parmar': '#LI-RP1',
             'Dominic Scaletta': '#LI-DS2',
             'Ryan Oliver': '#LI-RO1',
-            'Michael Theodossiou': '#LI-MT2'
+            'Michael Theodossiou': '#LI-MT2',
+            'Sam Osman': '#LI-SO1',
+            'Dean Theodossiou': '#LI-DT1',
+            'Chris Halkai': '#LI-CH1',
+            'Tarra Dziurman': '#LI-TD1',
+            'Tarra Dziuman': '#LI-TD1',
         }
         return tags.get(name, '')
     

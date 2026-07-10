@@ -281,6 +281,32 @@
         .powered-by a:hover {
             color: #008080;
         }
+
+        .ai-screening-notice {
+            background: #f0f9f9;
+            border: 1px solid #b8e6e6;
+            border-radius: 8px;
+            padding: 1rem 1.1rem;
+            margin-bottom: 1.25rem;
+            font-size: 0.92rem;
+            color: #2c3e50;
+        }
+
+        .ai-screening-notice-title {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #006666;
+        }
+
+        .ai-screening-notice a {
+            color: #008080;
+            text-decoration: underline;
+        }
+
+        .ai-screening-notice-body {
+            margin-bottom: 0.35rem;
+            line-height: 1.45;
+        }
     </style>
 </head>
 
@@ -346,6 +372,8 @@
                             </div>
                         </div>
                     </div>
+
+                    {% include 'partials/ai_screening_notice.html' %}
 
                     <div class="text-center">
                         <button type="submit" class="btn btn-submit" id="submitBtn">

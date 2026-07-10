@@ -78,8 +78,8 @@ def main():
                 'company': 'Myticas Consulting'
             },
             {
-                'tearsheet_id': 1556,
-                'name': 'Sponsored - STSI',
+                'tearsheet_id': 1531,
+                'name': 'Sponsored - STSI - LinkedIn',
                 'company': 'STSI (Staffing Technical Services Inc.)'
             },
             {

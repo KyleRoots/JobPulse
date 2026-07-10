@@ -13,6 +13,9 @@ import hashlib
 from typing import Dict, Optional, Union
 from werkzeug.datastructures import FileStorage
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # OpenAI for AI-assisted formatting
 try:
     from openai import OpenAI
@@ -46,9 +49,6 @@ try:
 except ImportError:
     DOCX_AVAILABLE = False
     logger.warning("python-docx not available - DOCX parsing disabled")
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
 class ResumeParser:

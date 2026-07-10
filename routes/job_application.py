@@ -89,6 +89,9 @@ def job_application_form(job_id, job_title):
             db.session.rollback()
             logger.warning(f"ApplyPageVisit first-touch log failed (non-fatal): {touch_err}")
 
+        from screening.compliance import get_privacy_contact_for_host
+        privacy_contact_email = get_privacy_contact_for_host(host)
+
         response = make_response(render_template(template,
                              job_id=job_id,
                              job_title=decoded_title,
@@ -96,7 +99,8 @@ def job_application_form(job_id, job_title):
                              feed=feed,
                              visit_token=visit_token,
                              detected_referrer=referrer,
-                             utm_source=utm_source))
+                             utm_source=utm_source,
+                             privacy_contact_email=privacy_contact_email))
 
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         response.headers['Pragma'] = 'no-cache'

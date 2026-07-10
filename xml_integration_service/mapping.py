@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 class MappingMixin:
     """Mixin providing mapping-related XMLIntegrationService methods."""
 
-    def map_bullhorn_jobs_to_xml_batch(self, jobs_data: List[Dict], existing_references: Dict = None, enable_ai_classification: bool = False, monitor_names: Dict = None, feed_name: str = None) -> List[Dict]:
+    def map_bullhorn_jobs_to_xml_batch(self, jobs_data: List[Dict], existing_references: Dict = None, enable_ai_classification: bool = False, monitor_names: Dict = None, feed_name: str = None, source_channel: str = 'LinkedIn') -> List[Dict]:
         """
         Map multiple Bullhorn jobs to XML format with fast keyword-based classification
         
@@ -83,7 +83,8 @@ class MappingMixin:
                 existing_reference_number=existing_ref,
                 monitor_name=monitor_name,
                 classification_result=classification,
-                feed_name=feed_name
+                feed_name=feed_name,
+                source_channel=source_channel,
             )
             
             if xml_job:
@@ -91,7 +92,7 @@ class MappingMixin:
         
         self.logger.info(f"Mapped {len(xml_jobs)} jobs to XML format with keyword classification")
         return xml_jobs
-    def _map_single_job_with_classification_result(self, bullhorn_job: Dict, existing_reference_number: str = '', monitor_name: str = '', classification_result: Dict = None, feed_name: Optional[str] = None) -> Dict:
+    def _map_single_job_with_classification_result(self, bullhorn_job: Dict, existing_reference_number: str = '', monitor_name: str = '', classification_result: Dict = None, feed_name: Optional[str] = None, source_channel: str = 'LinkedIn') -> Dict:
         """
         Map a single job with a pre-computed keyword classification result
         This is used by the batch processing method to avoid individual classification calls
@@ -113,9 +114,10 @@ class MappingMixin:
             monitor_name=monitor_name,
             skip_ai_classification=True,  # Always skip AI (we use keywords only)
             existing_ai_fields=existing_classification_fields,
-            feed_name=feed_name
+            feed_name=feed_name,
+            source_channel=source_channel,
         )
-    def map_bullhorn_job_to_xml(self, bullhorn_job: Dict, existing_reference_number: Optional[str] = None, monitor_name: Optional[str] = None, skip_ai_classification: bool = False, existing_ai_fields: Optional[Dict] = None, feed_name: Optional[str] = None) -> Dict:
+    def map_bullhorn_job_to_xml(self, bullhorn_job: Dict, existing_reference_number: Optional[str] = None, monitor_name: Optional[str] = None, skip_ai_classification: bool = False, existing_ai_fields: Optional[Dict] = None, feed_name: Optional[str] = None, source_channel: str = 'LinkedIn') -> Dict:
         """
         Map Bullhorn job data to XML job structure
         
@@ -220,7 +222,7 @@ class MappingMixin:
             # routing flag (&feed=pando) so inbound-form submissions can be tagged
             # back to the originating feed for Bullhorn ownership routing.
             job_url = self._generate_job_application_url(
-                bhatsid, clean_title, company_name, feed_name=feed_name
+                bhatsid, clean_title, company_name, feed_name=feed_name, source_channel=source_channel
             )
             
             # Handle keyword classification - preserve existing values if provided, otherwise classify
@@ -274,7 +276,7 @@ class MappingMixin:
         except Exception as e:
             self.logger.error(f"Error mapping Bullhorn job to XML: {str(e)}")
             return {}
-    def _generate_job_application_url(self, bhatsid: str, clean_title: str, company_name: str = None, feed_name: str = None) -> str:
+    def _generate_job_application_url(self, bhatsid: str, clean_title: str, company_name: str = None, feed_name: str = None, source_channel: str = 'LinkedIn') -> str:
         """
         Generate unique job application URL for each job
         
@@ -282,11 +284,12 @@ class MappingMixin:
             bhatsid: Job ID from Bullhorn
             clean_title: Clean job title without ID
             company_name: Company name to determine domain (STSI vs Myticas)
+            source_channel: Channel for ?source= param (LinkedIn, Indeed, ZipRecruiter)
             
         Returns:
             str: Unique job application URL in format:
                  https://apply.myticas.com/[bhatsid]/[title]/?source=LinkedIn
-                 https://apply.stsi.com/[bhatsid]/[title]/?source=LinkedIn (for STSI jobs)
+                 https://apply.stsigroup.com/[bhatsid]/[title]/?source=Indeed (for STSI Indeed feed)
         """
         try:
             # Validate inputs to prevent fallback to generic URL
@@ -310,8 +313,8 @@ class MappingMixin:
             else:
                 base_url = 'https://apply.myticas.com'
             
-            # Generate the unique URL  
-            job_url = f"{base_url}/{str(bhatsid).strip()}/{encoded_title}/?source=LinkedIn"
+            source_param = (source_channel or 'LinkedIn').strip() or 'LinkedIn'
+            job_url = f"{base_url}/{str(bhatsid).strip()}/{encoded_title}/?source={urllib.parse.quote(source_param, safe='')}"
 
             # Append internal feed discriminator for Pando-routed jobs so the
             # apply-form -> inbound-parser pipeline can route ownership to the
@@ -335,7 +338,8 @@ class MappingMixin:
                         base_url = 'https://apply.stsigroup.com'
                     else:
                         base_url = 'https://apply.myticas.com'
-                    fallback_url = f"{base_url}/{str(bhatsid).strip()}/position/?source=LinkedIn"
+                    source_param = (source_channel or 'LinkedIn').strip() or 'LinkedIn'
+                    fallback_url = f"{base_url}/{str(bhatsid).strip()}/position/?source={urllib.parse.quote(source_param, safe='')}"
                     if feed_name == 'pando':
                         fallback_url = f"{fallback_url}&feed=pando"
                     self.logger.warning(f"Using fallback URL with job ID: {fallback_url}")

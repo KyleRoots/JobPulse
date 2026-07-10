@@ -18,7 +18,33 @@ class TearsheetConfig:
             'brand_name': 'Myticas'
         },
         
-        # New STSI tearsheet
+        # STSI tearsheets (channel-specific)
+        'Sponsored - STSI - LinkedIn': {
+            'company_name': 'STSI (Staffing Technical Services Inc.)',
+            'domain': 'apply.stsigroup.com',
+            'logo': '/static/images/stsi_logo.png',
+            'primary_color': '#00B5B5',
+            'secondary_color': '#6c757d',
+            'brand_name': 'STSI (Staffing Technical Services Inc.)'
+        },
+        'Sponsored - STSI - Indeed': {
+            'company_name': 'STSI (Staffing Technical Services Inc.)',
+            'domain': 'apply.stsigroup.com',
+            'logo': '/static/images/stsi_logo.png',
+            'primary_color': '#00B5B5',
+            'secondary_color': '#6c757d',
+            'brand_name': 'STSI (Staffing Technical Services Inc.)'
+        },
+        'Sponsored - STSI - Zip Recruiter': {
+            'company_name': 'STSI (Staffing Technical Services Inc.)',
+            'domain': 'apply.stsigroup.com',
+            'logo': '/static/images/stsi_logo.png',
+            'primary_color': '#00B5B5',
+            'secondary_color': '#6c757d',
+            'brand_name': 'STSI (Staffing Technical Services Inc.)'
+        },
+        
+        # Legacy alias (pre channel split)
         'Sponsored - STSI': {
             'company_name': 'STSI (Staffing Technical Services Inc.)',
             'domain': 'apply.stsigroup.com',
@@ -68,7 +94,7 @@ class TearsheetConfig:
         return config['company_name']
     
     @classmethod
-    def get_application_url(cls, tearsheet_name, job_id, job_title):
+    def get_application_url(cls, tearsheet_name, job_id, job_title, source='LinkedIn'):
         """
         Generate application URL based on tearsheet
         
@@ -76,6 +102,7 @@ class TearsheetConfig:
             tearsheet_name: Name of the tearsheet
             job_id: Bullhorn job ID
             job_title: Job title for URL encoding
+            source: Channel source param (LinkedIn, Indeed, ZipRecruiter)
             
         Returns:
             str: Full application URL
@@ -85,12 +112,11 @@ class TearsheetConfig:
         config = cls.get_config_for_tearsheet(tearsheet_name)
         domain = config['domain']
         
-        # URL encode the job title, replacing problematic characters
         safe_title = job_title.replace('/', '-').replace('\\', '-')
         encoded_title = urllib.parse.quote(safe_title)
+        source_param = urllib.parse.quote((source or 'LinkedIn').strip(), safe='')
         
-        # Generate URL with LinkedIn source parameter
-        return f"https://{domain}/{job_id}/{encoded_title}/?source=LinkedIn"
+        return f"https://{domain}/{job_id}/{encoded_title}/?source={source_param}"
     
     @classmethod
     def get_branding_for_domain(cls, domain):

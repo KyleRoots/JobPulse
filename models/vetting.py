@@ -57,6 +57,12 @@ class CandidateVettingLog(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # Compliance metadata (Phase A — rules/model snapshot per screening run)
+    screening_rules_version = db.Column(db.String(32), nullable=True)
+    screening_model_used = db.Column(db.String(64), nullable=True)
+    screening_prompt_profile = db.Column(db.String(50), nullable=True)
+    screening_rules_json = db.Column(db.Text, nullable=True)
+
     # Multi-tenant discriminator (Task #100): the connected Bullhorn instance
     # this row belongs to. Nullable + backfilled to the default (Myticas)
     # environment so single-tenant behavior is byte-for-byte unchanged.

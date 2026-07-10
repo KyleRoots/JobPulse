@@ -195,11 +195,17 @@ def _upload_single_file(ftp_service, xml_content, remote_filename, app):
 
 def automated_upload():
     """Automatically upload fresh XML every 30 minutes if automation is enabled.
-    Generates a single v2 feed (myticas-job-feed-v2.xml) with all tearsheets and
-    all STSI (1531) jobs included (no tag filtering).
+    Generates v2 feed (myticas-job-feed-v2.xml) plus STSI channel feeds for
+    Indeed and ZipRecruiter on the same cycle.
     """
     from app import app
     from extensions import db
+    from feeds.feed_config import (
+        CHANNEL_FEEDS,
+        V2_FILENAME,
+        V2_FILENAME_DEV,
+        SOURCE_LINKEDIN,
+    )
     with app.app_context():
         app.logger.info("AUTOMATED UPLOAD: Function invoked by scheduler")
         try:
@@ -215,19 +221,41 @@ def automated_upload():
                 app.logger.warning("Automated upload skipped: SFTP not enabled")
                 return
 
-            app.logger.info("Starting automated 30-minute upload cycle (single v2 feed)...")
+            app.logger.info("Starting automated 30-minute upload cycle (v2 + STSI channel feeds)...")
 
             from simplified_xml_generator import SimplifiedXMLGenerator
             generator = SimplifiedXMLGenerator(db=db)
 
-            app.logger.info("Generating v2 feed (all tearsheets, all STSI jobs)...")
-            v2_xml, v2_stats = generator.generate_fresh_xml()
+            app.logger.info("Generating v2 feed (Myticas tearsheets + STSI LinkedIn)...")
+            v2_xml, v2_stats = generator.generate_fresh_xml(source_channel=SOURCE_LINKEDIN)
             app.logger.info(f"v2 feed: {v2_stats['job_count']} jobs, {v2_stats['xml_size_bytes']:,} bytes")
 
-            app.logger.info("CHECKPOINT 1: v2 XML feed generated successfully")
+            channel_results = {}
+            for feed_cfg in CHANNEL_FEEDS:
+                key = feed_cfg['key']
+                app.logger.info(f"Generating {key} feed from tearsheets {feed_cfg['tearsheet_ids']}...")
+                xml_content, stats = generator.generate_fresh_xml(
+                    tearsheet_ids=feed_cfg['tearsheet_ids'],
+                    source_channel=feed_cfg['source_channel'],
+                    allow_empty=feed_cfg.get('allow_empty', False),
+                )
+                channel_results[key] = {
+                    'xml': xml_content,
+                    'stats': stats,
+                    'filenames': {
+                        'production': feed_cfg['filename'],
+                        'development': feed_cfg.get('filename_dev', feed_cfg['filename']),
+                    },
+                }
+                app.logger.info(
+                    f"{key} feed: {stats['job_count']} jobs, {stats['xml_size_bytes']:,} bytes"
+                )
+
+            app.logger.info("CHECKPOINT 1: All XML feeds generated successfully")
             app.logger.info("Reference numbers loaded from DATABASE (database-first approach)")
 
             v2_upload_ok = False
+            channel_upload_ok = {key: False for key in channel_results}
             upload_error_message = None
 
             try:
@@ -262,7 +290,7 @@ def automated_upload():
                         app.logger.error(f"Invalid environment '{current_env}' - defaulting to development for safety")
                         current_env = 'development'
 
-                    v2_filename = "myticas-job-feed-v2.xml" if current_env == 'production' else "myticas-job-feed-v2-dev.xml"
+                    v2_filename = V2_FILENAME if current_env == 'production' else V2_FILENAME_DEV
 
                     app.logger.info(f"{current_env.upper()}: uploading {v2_filename}")
 
@@ -271,9 +299,20 @@ def automated_upload():
                     if not v2_upload_ok:
                         upload_error_message = f"v2: {v2_err}"
 
-                    app.logger.info(f"ENVIRONMENT ISOLATION: {current_env} -> uploads ONLY to its designated file")
+                    for key, result in channel_results.items():
+                        remote_filename = result['filenames'][current_env]
+                        app.logger.info(f"{current_env.upper()}: uploading {remote_filename}")
+                        ok, err = _upload_single_file(
+                            ftp_service, result['xml'], remote_filename, app
+                        )
+                        channel_upload_ok[key] = ok
+                        if not ok:
+                            err_part = f"{key}: {err}"
+                            upload_error_message = f"{upload_error_message}; {err_part}" if upload_error_message else err_part
 
-                    upload_success = v2_upload_ok
+                    app.logger.info(f"ENVIRONMENT ISOLATION: {current_env} -> uploads ONLY to its designated files")
+
+                    upload_success = v2_upload_ok and all(channel_upload_ok.values())
 
                     if upload_success:
                         try:
@@ -307,6 +346,10 @@ def automated_upload():
                             feed_result = json.dumps({
                                 'v2_jobs': v2_stats['job_count'],
                                 'v2_size': v2_stats['xml_size_bytes'],
+                                'stsi_indeed_jobs': channel_results['stsi_indeed']['stats']['job_count'],
+                                'stsi_indeed_size': channel_results['stsi_indeed']['stats']['xml_size_bytes'],
+                                'stsi_ziprecruiter_jobs': channel_results['stsi_ziprecruiter']['stats']['job_count'],
+                                'stsi_ziprecruiter_size': channel_results['stsi_ziprecruiter']['stats']['xml_size_bytes'],
                                 'timestamp': upload_timestamp
                             })
                             feed_setting = GlobalSettings.query.filter_by(setting_key='dual_feed_last_result').first()
@@ -323,7 +366,11 @@ def automated_upload():
                             db.session.commit()
                             app.logger.info(f"Updated last upload timestamp: {upload_timestamp}")
                             app.logger.info(f"Updated next upload timestamp: {next_upload_timestamp}")
-                            app.logger.info(f"Feed stats saved: v2={v2_stats['job_count']} jobs")
+                            app.logger.info(
+                                f"Feed stats saved: v2={v2_stats['job_count']}, "
+                                f"indeed={channel_results['stsi_indeed']['stats']['job_count']}, "
+                                f"zip={channel_results['stsi_ziprecruiter']['stats']['job_count']} jobs"
+                            )
                         except Exception as ts_error:
                             app.logger.error(f"Failed to track upload timestamp: {str(ts_error)}")
                 else:
@@ -348,6 +395,10 @@ def automated_upload():
                             'execution_time': format_eastern_time(current_time),
                             'jobs_count': v2_stats['job_count'],
                             'xml_size': f"{v2_stats['xml_size_bytes']:,} bytes",
+                            'stsi_indeed_jobs_count': channel_results['stsi_indeed']['stats']['job_count'],
+                            'stsi_indeed_xml_size': f"{channel_results['stsi_indeed']['stats']['xml_size_bytes']:,} bytes",
+                            'stsi_ziprecruiter_jobs_count': channel_results['stsi_ziprecruiter']['stats']['job_count'],
+                            'stsi_ziprecruiter_xml_size': f"{channel_results['stsi_ziprecruiter']['stats']['xml_size_bytes']:,} bytes",
                             'upload_attempted': True,
                             'upload_success': upload_success,
                             'upload_error': upload_error_message,

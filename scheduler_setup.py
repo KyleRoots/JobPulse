@@ -123,7 +123,9 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
                         MockMonitor('Sponsored - VMS', 1264),
                         MockMonitor('Sponsored - GR', 1499),
                         MockMonitor('Sponsored - CHI', 1257),
-                        MockMonitor('Sponsored - STSI', 1556),
+                        MockMonitor('Sponsored - STSI - LinkedIn', 1531),
+                        MockMonitor('Sponsored - STSI - Indeed', 1640),
+                        MockMonitor('Sponsored - STSI - Zip Recruiter', 1641),
                     ]
                     app.logger.info(f"Using {len(db_monitors)} hardcoded tearsheet monitors (fallback)")
                 else:

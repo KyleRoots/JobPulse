@@ -399,11 +399,23 @@ def seed_bullhorn_monitors(db, BullhornMonitor):
                 'notification_email': 'apply@myticas.com'
             },
             {
-                'name': 'Sponsored - STSI',
+                'name': 'Sponsored - STSI - LinkedIn',
                 'tearsheet_id': 1531,
-                'tearsheet_name': 'Sponsored - STSI',
-                'notification_email': ''  # No email for STSI
-            }
+                'tearsheet_name': 'Sponsored - STSI - LinkedIn',
+                'notification_email': ''
+            },
+            {
+                'name': 'Sponsored - STSI - Indeed',
+                'tearsheet_id': 1640,
+                'tearsheet_name': 'Sponsored - STSI - Indeed',
+                'notification_email': ''
+            },
+            {
+                'name': 'Sponsored - STSI - Zip Recruiter',
+                'tearsheet_id': 1641,
+                'tearsheet_name': 'Sponsored - STSI - Zip Recruiter',
+                'notification_email': ''
+            },
         ]
 
         monitors_created = []
@@ -783,19 +795,25 @@ def seed_recruiter_mappings(db, RecruiterMapping):
         ('Michelle Corino', '#LI-MC1'),
         ('Mike Gebara', '#LI-MG1'),
         ('Mike Scalzitti', '#LI-MS2'),
+        ('Michael Scalzitti', '#LI-MS2'),
         ('Myticas Recruiter', '#LI-RS1'),
         ('Nick Theodossiou', '#LI-NT1'),
         ('Rachel Mann', '#LI-RM1'),
+        ('Rachel Johnson', '#LI-RJ1'),
         ('Rachelle Fite', '#LI-RF1'),
         ('Reena Setya', '#LI-RS2'),
         ('Runa Parmar', '#LI-RP1'),
         ('Ryan Green', '#LI-RG1'),
         ('Ryan Oliver', '#LI-RO1'),
+        ('Sam Osman', '#LI-SO1'),
         ('Sarah Ferris', '#LI-SF1'),
         ('Sarah Ferris CSP', '#LI-SF1'),
         ('Shikha Gurung', '#LI-SG1'),
         ('Tarra Dziurman', '#LI-TD1'),
+        ('Tarra Dziuman', '#LI-TD1'),
         ('Tray Prewitt', '#LI-TP1'),
+        ('Dean Theodossiou', '#LI-DT1'),
+        ('Chris Halkai', '#LI-CH1'),
     ]
 
     mappings_created = 0

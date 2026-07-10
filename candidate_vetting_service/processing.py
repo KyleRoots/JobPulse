@@ -784,6 +784,12 @@ class CandidateProcessingMixin:
             vetting_log.is_qualified = len(qualified_matches) > 0
             vetting_log.total_jobs_matched = len(qualified_matches)
 
+            try:
+                from screening.compliance import stamp_vetting_log_compliance
+                stamp_vetting_log_compliance(vetting_log, self)
+            except Exception as compliance_err:
+                logger.warning(f"Compliance metadata stamp failed (non-fatal): {compliance_err}")
+
             if all_match_results:
                 vetting_log.highest_match_score = max(m.match_score for m in all_match_results)
 

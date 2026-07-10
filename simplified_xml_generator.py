@@ -1,6 +1,6 @@
 """
 Simplified XML Generator for Bullhorn Job Feed
-Directly pulls from all tearsheets and generates clean XML with proper formatting
+Directly pulls from tearsheets and generates clean XML with proper formatting
 """
 
 import os
@@ -18,6 +18,11 @@ except ImportError:
 from bullhorn_service import BullhornService
 from xml_integration_service import XMLIntegrationService
 from xml_processor import XMLProcessor
+from feeds.feed_config import (
+    V2_TEARSHEET_IDS,
+    TEARSHEET_MONITOR_MAPPING,
+    SOURCE_LINKEDIN,
+)
 
 
 class SimplifiedXMLGenerator:
@@ -32,40 +37,32 @@ class SimplifiedXMLGenerator:
         self.xml_integration = XMLIntegrationService()
         self.xml_processor = XMLProcessor()
         
-        # Tearsheet IDs to pull from with monitor name mapping (Bullhorn One - January 2026)
-        self.tearsheet_ids = [1231, 1232, 1233, 1239, 1474, 1531]
-        
-        # Tearsheet ID to monitor name mapping (Bullhorn One IDs)
-        self.tearsheet_monitor_mapping = {
-            1231: 'Sponsored - OTT',
-            1232: 'Sponsored - CHI',
-            1233: 'Sponsored - CLE',
-            1239: 'Sponsored - VMS', 
-            1474: 'Sponsored - GR',
-            1531: 'Sponsored - STSI'
-        }
+        self.tearsheet_ids = list(V2_TEARSHEET_IDS)
+        self.tearsheet_monitor_mapping = dict(TEARSHEET_MONITOR_MAPPING)
         
         # File to persist reference number mappings
         self.snapshot_file = 'xml_snapshot.json'
         
         # Thread lock for preventing concurrent generation
         self._generation_lock = False
-    
-    # Tags that route STSI jobs to the pando feed instead of v2
-    STSI_PANDO_TAGS = {'#stsivms', '#stsieg'}
-    STSI_TEARSHEET_ID = 1531
 
-    def generate_fresh_xml(self, tearsheet_caps=None, stsi_tag_mode=None) -> tuple[str, dict]:
+    def generate_fresh_xml(
+        self,
+        tearsheet_caps=None,
+        tearsheet_ids: Optional[List[int]] = None,
+        source_channel: str = SOURCE_LINKEDIN,
+        allow_empty: bool = False,
+    ) -> tuple[str, dict]:
         """
-        Generate fresh XML by pulling directly from all Bullhorn tearsheets
+        Generate fresh XML by pulling directly from Bullhorn tearsheets.
 
         Args:
             tearsheet_caps: Optional dict of {tearsheet_id: max_jobs} to limit jobs
-                            per tearsheet (legacy, not used for STSI tag routing).
-            stsi_tag_mode: Controls STSI (tearsheet 1531) job routing by description tags.
-                'exclude_tags' — v2 feed: include only STSI jobs WITHOUT #STSIVMS or #STSIEG.
-                'only_tags'    — pando feed: include only STSI jobs WITH #STSIVMS or #STSIEG.
-                None           — no tag filtering applied (include all STSI jobs).
+                            per tearsheet (legacy).
+            tearsheet_ids: Optional override for which tearsheets to include.
+                           Defaults to V2 tearsheet set (Myticas + STSI LinkedIn).
+            source_channel: Value for ?source= in apply URLs (LinkedIn, Indeed, ZipRecruiter).
+            allow_empty: When True, return a valid empty <source> feed if no jobs found.
 
         Returns:
             tuple: (xml_content_string, stats_dict)
@@ -76,11 +73,15 @@ class SimplifiedXMLGenerator:
         if not etree:
             raise Exception("lxml not available, cannot generate XML")
         
+        active_tearsheet_ids = tearsheet_ids if tearsheet_ids is not None else self.tearsheet_ids
+        
         try:
             self._generation_lock = True
             cap_label = f" (caps: {tearsheet_caps})" if tearsheet_caps else ""
-            tag_label = f" (STSI tag mode: {stsi_tag_mode})" if stsi_tag_mode else ""
-            self.logger.info(f"🚀 Starting fresh XML generation from Bullhorn tearsheets{cap_label}{tag_label}")
+            self.logger.info(
+                f"🚀 Starting fresh XML generation from Bullhorn tearsheets"
+                f"{cap_label} (source={source_channel}, sheets={active_tearsheet_ids})"
+            )
             
             existing_references = self._load_references_from_database()
             
@@ -90,29 +91,30 @@ class SimplifiedXMLGenerator:
                 raise Exception("Failed to authenticate with Bullhorn")
             
             all_jobs_with_context = self._get_jobs_from_tearsheets(
-                bullhorn_service, self.tearsheet_ids,
+                bullhorn_service, active_tearsheet_ids,
                 tearsheet_caps=tearsheet_caps,
-                stsi_tag_mode=stsi_tag_mode
             )
             
             if not all_jobs_with_context:
-                raise Exception("No jobs found in any tearsheets")
+                if not allow_empty:
+                    raise Exception("No jobs found in any tearsheets")
+                self.logger.info("No jobs found — generating empty feed (allow_empty=True)")
             
-            # Derive feed_name from the STSI tag-routing mode so the apply URLs
-            # generated for Pando-fed jobs include the &feed=pando discriminator
-            # used by the inbound-form pipeline for Bullhorn ownership routing.
-            feed_name = 'pando' if stsi_tag_mode == 'only_tags' else None
             xml_content, updated_references = self._build_clean_xml(
-                all_jobs_with_context, existing_references, feed_name=feed_name
+                all_jobs_with_context,
+                existing_references,
+                source_channel=source_channel,
             )
             
-            self._save_references_to_database(xml_content)
+            if all_jobs_with_context:
+                self._save_references_to_database(xml_content)
             
             stats = {
                 'job_count': len(all_jobs_with_context),
-                'tearsheets_processed': len(self.tearsheet_ids),
+                'tearsheets_processed': len(active_tearsheet_ids),
                 'xml_size_bytes': len(xml_content.encode('utf-8')),
-                'generated_at': datetime.now().isoformat()
+                'generated_at': datetime.now().isoformat(),
+                'source_channel': source_channel,
             }
             
             self.logger.info(f"✅ Generated fresh XML: {stats['job_count']} jobs, {stats['xml_size_bytes']} bytes")
@@ -150,8 +152,6 @@ class SimplifiedXMLGenerator:
         )
     
     # Statuses that indicate a job should NOT be in the sponsored XML feed.
-    # Sourced from utils.job_status — single source of truth across screening,
-    # monitoring, dashboard, and feed generation.
     from utils.job_status import INELIGIBLE_STATUSES as _SHARED_INELIGIBLE_STATUSES
     INELIGIBLE_STATUSES = _SHARED_INELIGIBLE_STATUSES
 
@@ -185,35 +185,10 @@ class SimplifiedXMLGenerator:
             self.logger.error(f"Failed to query TearsheetJobHistory for cap on {tearsheet_id}: {e} — will fall back to job ID ordering")
             return None
 
-    def _job_has_stsi_pando_tag(self, job: Dict) -> bool:
-        """Return True if either description field contains any STSI pando routing tag (#STSIVMS or #STSIEG).
-        
-        Both fields are always combined before checking — avoids Python's `or` short-circuit
-        silently skipping publicDescription when description is non-empty but tag-free.
-        """
-        description = (job.get('description') or '').lower()
-        public_description = (job.get('publicDescription') or '').lower()
-        combined = description + ' ' + public_description
-        found_tag = next((tag for tag in self.STSI_PANDO_TAGS if tag in combined), None)
-        if found_tag:
-            field = 'description' if found_tag in description else 'publicDescription'
-            self.logger.debug(f"  🏷️ STSI tag '{found_tag}' found in {field} for job {job.get('id')}")
-        return found_tag is not None
-
     def _get_jobs_from_tearsheets(self, bullhorn_service: BullhornService, tearsheet_ids: List[int],
-                                  tearsheet_caps: Optional[Dict[int, int]] = None,
-                                  stsi_tag_mode: Optional[str] = None) -> List[Dict]:
+                                  tearsheet_caps: Optional[Dict[int, int]] = None) -> List[Dict]:
         """
         Pull jobs from all tearsheets using the same proven method as main monitoring system.
-
-        Args:
-            bullhorn_service: Authenticated Bullhorn service
-            tearsheet_ids: List of tearsheet IDs to process
-            tearsheet_caps: Optional dict of {tearsheet_id: max_jobs} to cap specific tearsheets
-            stsi_tag_mode: STSI (tearsheet 1531) tag-based routing.
-                'exclude_tags' — v2 feed: skip STSI jobs that contain #STSIVMS or #STSIEG.
-                'only_tags'    — pando feed: skip STSI jobs that do NOT contain those tags.
-                None           — include all STSI jobs (no tag filtering).
 
         Returns:
             List of job dictionaries with tearsheet_context added (ineligible jobs filtered out)
@@ -246,8 +221,6 @@ class SimplifiedXMLGenerator:
                 if use_id_fallback:
                     self.logger.info(f"📋 Tearsheet {tearsheet_id} cap: using job ID fallback (no TearsheetJobHistory data) — keeping top {cap_limit} by ID")
 
-                is_stsi = (tearsheet_id == self.STSI_TEARSHEET_ID)
-                tag_filtered_count = 0
                 filtered_count = 0
                 eligible_jobs_this_tearsheet = []
 
@@ -269,18 +242,6 @@ class SimplifiedXMLGenerator:
 
                         if allowed_ids is not None and str(job_id) not in allowed_ids:
                             continue
-
-                        # STSI tag-based routing (replaces cap logic for tearsheet 1531)
-                        if is_stsi and stsi_tag_mode:
-                            has_tag = self._job_has_stsi_pando_tag(job)
-                            if stsi_tag_mode == 'exclude_tags' and has_tag:
-                                self.logger.info(f"  📌 [v2] Routed job {job_id} to pando (has #STSIVMS/#STSIEG tag): {job.get('title', '?')[:50]}")
-                                tag_filtered_count += 1
-                                continue
-                            elif stsi_tag_mode == 'only_tags' and not has_tag:
-                                self.logger.info(f"  📌 [pando] Skipping job {job_id} — no #STSIVMS/#STSIEG tag: {job.get('title', '?')[:50]}")
-                                tag_filtered_count += 1
-                                continue
 
                         eligible_jobs_this_tearsheet.append(job)
 
@@ -306,8 +267,6 @@ class SimplifiedXMLGenerator:
                 if filtered_count > 0:
                     self.logger.info(f"  ⚠️ Filtered out {filtered_count} ineligible jobs from tearsheet {tearsheet_id}")
                     total_filtered += filtered_count
-                if tag_filtered_count > 0:
-                    self.logger.info(f"  🏷️ Tag-routed {tag_filtered_count} STSI jobs (mode={stsi_tag_mode}) from tearsheet {tearsheet_id}")
                 if capped_count > 0:
                     self.logger.info(f"  🔒 Capped: excluded {capped_count} older jobs from tearsheet {tearsheet_id} (cap={cap_limit})")
                     
@@ -321,24 +280,21 @@ class SimplifiedXMLGenerator:
             self.logger.info(f"Total unique jobs found: {len(all_jobs)}")
         return all_jobs
     
-    def _build_clean_xml(self, jobs: List[Dict], existing_references: Dict, feed_name: Optional[str] = None) -> tuple[str, Dict]:
+    def _build_clean_xml(
+        self,
+        jobs: List[Dict],
+        existing_references: Dict,
+        source_channel: str = SOURCE_LINKEDIN,
+        feed_name: Optional[str] = None,
+    ) -> tuple[str, Dict]:
         """
         Build clean XML from job data with proper CDATA wrapping
-        
-        Args:
-            jobs: List of Bullhorn job dictionaries
-            existing_references: Existing bhatsid -> reference_number mappings
-            
-        Returns:
-            tuple: (xml_string, updated_references_dict)
         """
         if not etree:
             raise Exception("lxml not available, cannot generate XML")
         
-        # Create root element
         root = etree.Element("source")
         
-        # Add header elements
         title_elem = etree.SubElement(root, "title")
         title_elem.text = "Myticas Consulting"
         
@@ -347,7 +303,15 @@ class SimplifiedXMLGenerator:
         
         updated_references = existing_references.copy()
         
-        # Prepare data for batch processing with enhanced keyword classifier
+        if not jobs:
+            xml_string = etree.tostring(
+                root,
+                encoding='UTF-8',
+                xml_declaration=True,
+                pretty_print=True
+            ).decode('utf-8')
+            return xml_string, updated_references
+        
         existing_ref_map = {}
         monitor_name_map = {}
         
@@ -357,35 +321,29 @@ class SimplifiedXMLGenerator:
             tearsheet_context = job_data.get('tearsheet_context', {})
             monitor_name_map[job_id] = tearsheet_context.get('monitor_name', 'default')
         
-        # Use batch processing with keyword classification (fast, no timeouts)
         self.logger.info(f"🔧 Processing {len(jobs)} jobs with enhanced keyword classifier...")
         
         try:
-            # Process all jobs with keyword classification in batches
             xml_jobs = self.xml_integration.map_bullhorn_jobs_to_xml_batch(
                 jobs_data=jobs,
                 existing_references=existing_ref_map,
-                enable_ai_classification=False,  # Keyword-only classification
+                enable_ai_classification=False,
                 monitor_names=monitor_name_map,
-                feed_name=feed_name
+                feed_name=feed_name,
+                source_channel=source_channel,
             )
             
-            # Add XML jobs to the root element
             for xml_job in xml_jobs:
                 job_id = xml_job.get('bhatsid', '')
                 
-                # Store reference number mapping
                 ref_number = xml_job.get('referencenumber')
                 if ref_number and job_id:
                     updated_references[job_id] = ref_number
                 
-                # Create job element with CDATA wrapping
                 job_elem = etree.SubElement(root, "job")
                 
-                # Add all fields with CDATA wrapping
                 for field_name, field_value in xml_job.items():
                     field_elem = etree.SubElement(job_elem, field_name)
-                    # Wrap all fields in CDATA for proper XML handling
                     field_elem.text = etree.CDATA(f" {field_value} ")
             
             self.logger.info(f"✅ Successfully processed {len(xml_jobs)} jobs with keyword classification")
@@ -394,7 +352,6 @@ class SimplifiedXMLGenerator:
             self.logger.error(f"Batch processing failed: {str(batch_error)}")
             self.logger.warning("⚠️ Falling back to individual processing")
             
-            # Fallback to individual processing without AI as safety measure
             for job_data in jobs:
                 try:
                     job_id = str(job_data.get('id', ''))
@@ -404,27 +361,24 @@ class SimplifiedXMLGenerator:
                     xml_job = self.xml_integration.map_bullhorn_job_to_xml(
                         job_data, 
                         existing_reference_number=existing_ref,
-                        skip_ai_classification=True,  # Fallback without AI
+                        skip_ai_classification=True,
                         monitor_name=monitor_name,
-                        feed_name=feed_name
+                        feed_name=feed_name,
+                        source_channel=source_channel,
                     )
                     
                     if not xml_job:
                         self.logger.warning(f"Failed to map job {job_id}, skipping")
                         continue
                     
-                    # Store reference number mapping
                     ref_number = xml_job.get('referencenumber')
                     if ref_number:
                         updated_references[job_id] = ref_number
                     
-                    # Create job element with CDATA wrapping
                     job_elem = etree.SubElement(root, "job")
                     
-                    # Add all fields with CDATA wrapping
                     for field_name, field_value in xml_job.items():
                         field_elem = etree.SubElement(job_elem, field_name)
-                        # Wrap all fields in CDATA for proper XML handling
                         field_elem.text = etree.CDATA(f" {field_value} ")
                     
                 except Exception as e:
@@ -433,7 +387,6 @@ class SimplifiedXMLGenerator:
                     self.logger.error(f"Error processing job {job_data.get('id', 'unknown')} from {monitor_name}: {str(e)}")
                     continue
         
-        # Convert to clean XML string
         xml_string = etree.tostring(
             root, 
             encoding='UTF-8', 
@@ -444,15 +397,10 @@ class SimplifiedXMLGenerator:
         return xml_string, updated_references
     
     def _load_references_from_database(self) -> Dict:
-        """
-        Load existing reference number mappings from DATABASE (database-first approach)
-        This ensures reference numbers persist across all automated uploads and refreshes
-        Database is the ONLY source of truth - no fallbacks
-        """
+        """Load existing reference number mappings from DATABASE (database-first approach)"""
         try:
             from lightweight_reference_refresh import get_existing_references_from_database
             
-            # Load from database - this is the ONLY source of truth
             existing_references = get_existing_references_from_database()
             
             self.logger.info(f"💾 DATABASE-FIRST: Loaded {len(existing_references)} reference numbers from DATABASE")
@@ -460,28 +408,21 @@ class SimplifiedXMLGenerator:
             
         except Exception as e:
             self.logger.critical(f"❌ CRITICAL: Failed to load references from database: {str(e)}")
-            # Database is required - raise exception instead of silent fallback
             raise Exception(f"Database-first architecture requires DB access: {str(e)}")
     
     def _load_reference_snapshot(self) -> Dict:
-        """
-        DEPRECATED: Load existing reference number mappings from snapshot file
-        This method is kept for backward compatibility but is no longer used
-        """
+        """DEPRECATED: Load existing reference number mappings from snapshot file"""
         try:
             if os.path.exists(self.snapshot_file):
                 with open(self.snapshot_file, 'r') as f:
                     data = json.load(f)
-                    # Check if it's the new format with jobs nested structure
                     if 'jobs' in data:
-                        # Extract reference numbers from jobs structure
                         reference_mapping = {}
                         for job_id, job_data in data['jobs'].items():
                             if isinstance(job_data, dict) and 'referencenumber' in job_data:
                                 reference_mapping[job_id] = job_data['referencenumber']
                         return reference_mapping
                     else:
-                        # Legacy format with direct reference_mapping
                         return data.get('reference_mapping', {})
         except Exception as e:
             self.logger.warning(f"Could not load reference snapshot: {str(e)}")
@@ -489,36 +430,25 @@ class SimplifiedXMLGenerator:
         return {}
     
     def _save_references_to_database(self, xml_content: str):
-        """
-        Save reference numbers to DATABASE (database-first approach)
-        This ensures reference numbers persist across all automated uploads and refreshes
-        Database is the ONLY source of truth - failures are critical
-        """
+        """Save reference numbers to DATABASE (database-first approach)"""
         try:
             from lightweight_reference_refresh import save_references_to_database
             
-            # Save to database - this is REQUIRED for database-first architecture
             success = save_references_to_database(xml_content)
             
             if success:
                 self.logger.info("💾 DATABASE-FIRST: Reference numbers saved to DATABASE successfully")
             else:
-                # Database save failure is CRITICAL in database-first architecture
                 self.logger.critical("❌ CRITICAL: Failed to save reference numbers to DATABASE")
                 raise Exception("Database-first architecture requires successful DB save")
                 
         except Exception as e:
             self.logger.critical(f"❌ CRITICAL: Error saving references to database: {str(e)}")
-            # Re-raise to ensure failures are not silent
             raise
     
     def _save_reference_snapshot(self, references: Dict):
-        """
-        DEPRECATED: Save reference number mappings to snapshot file
-        This method is kept for backward compatibility but database is now the primary storage
-        """
+        """DEPRECATED: Save reference number mappings to snapshot file"""
         try:
-            # Use simple format for reference mappings only
             snapshot_data = {
                 'reference_mapping': references,
                 'updated_at': datetime.now().isoformat(),

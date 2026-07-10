@@ -74,6 +74,11 @@ def run_schema_migrations(db):
         ("bullhorn_environment", "salesrep_sync_enabled", "BOOLEAN"),
         ("bullhorn_environment", "salesrep_source_field", "VARCHAR(50)"),
         ("bullhorn_environment", "salesrep_display_field", "VARCHAR(50)"),
+        # Screening compliance metadata (Phase A, July 2026)
+        ("candidate_vetting_log", "screening_rules_version", "VARCHAR(32)"),
+        ("candidate_vetting_log", "screening_model_used", "VARCHAR(64)"),
+        ("candidate_vetting_log", "screening_prompt_profile", "VARCHAR(50)"),
+        ("candidate_vetting_log", "screening_rules_json", "TEXT"),
     ]
 
     _SAFE_IDENTIFIER = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
@@ -659,3 +664,41 @@ def migrate_qualified_audit_sample_rate_to_zero(db):
     the Quality Auditor visibility dashboard (`/admin/ai-cost/auditor`).
     """
     return
+
+
+def migrate_screening_compliance_guardrails(db):
+    """Sync global screening prompt with compliance guardrails from version-controlled file.
+
+    VettingConfig seeding preserves existing ``global_custom_requirements`` values,
+    so production DBs may still hold the pre-compliance prompt after deploy. This
+    one-time migration replaces the stored prompt with ``config/global_screening_prompt.txt``
+    when the mandatory guardrails block is missing. Idempotent once the marker is present.
+    """
+    from models import VettingConfig
+    from seeding.settings import _load_global_screening_prompt
+
+    marker = 'COMPLIANCE GUARDRAILS (MANDATORY'
+    try:
+        row = VettingConfig.query.filter_by(setting_key='global_custom_requirements').first()
+        if not row or not (row.setting_value or '').strip():
+            logger.info("ℹ️ No global_custom_requirements row — seed will create from file")
+            return
+
+        if marker in (row.setting_value or ''):
+            logger.info("ℹ️ global_custom_requirements already includes compliance guardrails")
+            return
+
+        file_prompt = _load_global_screening_prompt()
+        if not file_prompt or marker not in file_prompt:
+            logger.warning("⚠️ Compliance prompt file missing guardrails — migration skipped")
+            return
+
+        row.setting_value = file_prompt
+        db.session.commit()
+        logger.info(
+            "✅ Synced global_custom_requirements with compliance guardrails "
+            f"({len(file_prompt)} chars)"
+        )
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ Screening compliance guardrails migration skipped: {str(e)}")
