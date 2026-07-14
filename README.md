@@ -390,6 +390,7 @@ Check dashboard for automation status:
 - **Feed config centralization**: `feeds/feed_config.py` for prod/dev filenames and channel constants
 - **Screening Phase A compliance**: AI disclosure on apply forms (Myticas + STSI), recruiter advisory policy in Screening Settings, `screening_rules_version` on vetting logs, compliance guardrails in global prompt, `/screening/compliance-metrics` endpoint
 - **Screening reactivation**: `vetting_enabled` with cheap-first **Enforce** routing for cost control
+- **Applied-job transparency (Jul 14)**: Always inject/score the job a candidate applied to, even when Bullhorn marks `isOpen=false` while status is still Accepting Candidates (prevents related-only notes missing APPLIED POSITION)
 
 ### October 2025: Database-Backed Reference Number Preservation ✨
 - **Problem Identified**: Live XML URL returns 403 Forbidden, causing reference number reversion

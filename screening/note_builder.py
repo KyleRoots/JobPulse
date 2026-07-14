@@ -560,7 +560,27 @@ class NoteBuilderMixin:
                 note_lines.append(f"")
                 note_lines.append(f"OTHER TOP MATCHES:")
             else:
-                note_lines.append(f"TOP ANALYSIS RESULTS:")
+                # Safety net: we know which job they applied to, but it never
+                # landed in CandidateJobMatch (historically: half-closed applied
+                # jobs skipped injection). Surfacing the ID prevents the note
+                # from looking like Scout screened the wrong role.
+                applied_job_id = getattr(vetting_log, 'applied_job_id', None)
+                applied_job_title = (
+                    getattr(vetting_log, 'applied_job_title', None) or ''
+                ).strip()
+                if applied_job_id:
+                    title_bit = f" - {applied_job_title}" if applied_job_title else ""
+                    note_lines += [
+                        f"📥 JOB ORIGINALLY APPLIED TO (NOT SCORED):",
+                        f"",
+                        f"• Job ID: {applied_job_id}{title_bit}",
+                        f"  Note: Scout could not score this job at analysis time "
+                        f"(job unavailable/ineligible for scoring). Related matches below.",
+                        f"",
+                        f"TOP ANALYSIS RESULTS (RELATED ROLES):",
+                    ]
+                else:
+                    note_lines.append(f"TOP ANALYSIS RESULTS:")
             
             for match in other_matches[:5]:
                 note_lines.append(f"")

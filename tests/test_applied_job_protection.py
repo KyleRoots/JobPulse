@@ -161,8 +161,8 @@ class TestAppliedJobInjection:
         assert result.get('_injected_applied_job') is True
     
     @patch('candidate_vetting_service.BullhornService')
-    def test_fetch_applied_job_returns_none_for_closed_job(self, mock_bullhorn_cls):
-        """_fetch_applied_job returns None for closed jobs."""
+    def test_fetch_applied_job_injects_closed_job(self, mock_bullhorn_cls):
+        """Applied-job path injects closed jobs so APPLIED POSITION is always scored."""
         from candidate_vetting_service import CandidateVettingService
         
         service = CandidateVettingService()
@@ -183,15 +183,22 @@ class TestAppliedJobInjection:
             }
         }
         mock_bullhorn.session.get.return_value = mock_response
+        mock_bullhorn.get_user_emails.return_value = {}
         
         result = service._fetch_applied_job(mock_bullhorn, 33615)
         
-        assert result is None, "Closed jobs should return None"
+        assert result is not None, "Closed applied jobs must still be injected for transparency"
+        assert result['id'] == 33615
+        assert result.get('_injected_applied_job') is True
 
     @patch('candidate_vetting_service.BullhornService')
-    def test_fetch_applied_job_rejects_half_closed_job(self, mock_bullhorn_cls):
-        """Regression for job 31896: isOpen=False but status left as
-        'Accepting Candidates' must still be rejected (OR-logic, not AND)."""
+    def test_fetch_applied_job_injects_half_closed_job(self, mock_bullhorn_cls):
+        """Regression for Zoya Zaidi / job 35421: isOpen=False but status left as
+        'Accepting Candidates' must still be injected on the applied-job path.
+
+        Tearsheet browsing continues to use strict is_job_eligible; only
+        applied-job injection is exempt so recruiters always see APPLIED POSITION.
+        """
         from candidate_vetting_service import CandidateVettingService
 
         service = CandidateVettingService()
@@ -204,21 +211,24 @@ class TestAppliedJobInjection:
         mock_response.status_code = 200
         mock_response.json.return_value = {
             'data': {
-                'id': 31896,
-                'title': 'Data Engineer',
+                'id': 35421,
+                'title': 'Talent Acquisition Partner',
                 'isOpen': False,
                 'status': 'Accepting Candidates',
                 'assignedUsers': {'data': []},
             }
         }
         mock_bullhorn.session.get.return_value = mock_response
+        mock_bullhorn.get_user_emails.return_value = {}
 
-        result = service._fetch_applied_job(mock_bullhorn, 31896)
-        assert result is None, "Half-closed jobs (isOpen=False, status stale) must be skipped"
+        result = service._fetch_applied_job(mock_bullhorn, 35421)
+        assert result is not None, "Half-closed applied jobs must be injected"
+        assert result['id'] == 35421
+        assert result.get('_injected_applied_job') is True
 
     @patch('candidate_vetting_service.BullhornService')
-    def test_fetch_applied_job_rejects_ineligible_status(self, mock_bullhorn_cls):
-        """isOpen=True but status in INELIGIBLE_STATUSES must be rejected."""
+    def test_fetch_applied_job_injects_ineligible_status(self, mock_bullhorn_cls):
+        """Applied-job path injects even when status is in INELIGIBLE_STATUSES."""
         from candidate_vetting_service import CandidateVettingService
 
         service = CandidateVettingService()
@@ -239,9 +249,11 @@ class TestAppliedJobInjection:
             }
         }
         mock_bullhorn.session.get.return_value = mock_response
+        mock_bullhorn.get_user_emails.return_value = {}
 
         result = service._fetch_applied_job(mock_bullhorn, 40000)
-        assert result is None, "Jobs in ineligible statuses must be skipped even if isOpen=True"
+        assert result is not None, "Filled applied jobs must still be injected for transparency"
+        assert result.get('_injected_applied_job') is True
 
     @patch('candidate_vetting_service.BullhornService')
     def test_fetch_applied_job_returns_none_for_invalid_id(self, mock_bullhorn_cls):

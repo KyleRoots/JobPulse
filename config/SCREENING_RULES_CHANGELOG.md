@@ -3,6 +3,23 @@
 Each production screening result stores `screening_rules_version` so audits can
 identify which rule set produced a score.
 
+## 2026.07.14 — Applied-job injection always scores the applied role
+
+- **Bug:** Candidates who applied to "half-closed" Bullhorn jobs (`isOpen=False`
+  while status remained `Accepting Candidates`) were never injected into the
+  analysis set. Scout then only scored related open tearsheet jobs — notes
+  showed **TOP ANALYSIS RESULTS** with no **APPLIED POSITION** (e.g. candidate
+  4671202 / job 35421 screened only against job 35261).
+- **Fix:** `_fetch_applied_job` always injects a fetchable JobOrder on the
+  applied-job path (with a warning when normally ineligible). Tearsheet
+  browsing still uses strict `is_job_eligible`.
+- **Note safety net:** Not-recommended notes list **JOB ORIGINALLY APPLIED TO
+  (NOT SCORED)** when `applied_job_id` is known but no applied match was stored.
+- **Models unchanged:** Layer 2 / Enforce routing unchanged.
+
+**Approved for:** Applied-job transparency fix  
+**Rules version:** still `2026.07.10` (prompt/guardrails unchanged; injection behavior only)
+
 ## 2026.07.10 — Phase A compliance hardening
 
 - Added apply-page AI screening notice (Myticas + STSI apply forms).

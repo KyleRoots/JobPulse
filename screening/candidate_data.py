@@ -191,15 +191,19 @@ class CandidateDataAccessMixin:
         job dict in the same format as get_active_jobs_from_tearsheets() so it
         can be seamlessly added to the job list.
 
-        Only returns jobs with status 'Accepting Candidates' or where isOpen=True.
-        Returns None for closed/deleted/invalid jobs.
+        Applied-job path ALWAYS injects when the JobOrder entity exists —
+        including "half-closed" Bullhorn records (``isOpen=False`` while status
+        remains ``Accepting Candidates``). Tearsheet browsing still uses the
+        strict ``is_job_eligible`` filter; the job a candidate actually applied
+        to must be scored so notes/emails can show APPLIED POSITION context.
+        Returns None only when the job cannot be fetched.
 
         Args:
             bullhorn: Authenticated Bullhorn service
             job_id: Bullhorn job order ID
 
         Returns:
-            Job dictionary matching tearsheet format, or None if closed/invalid
+            Job dictionary matching tearsheet format, or None if unfetchable
         """
         if not bullhorn or not bullhorn.rest_token:
             return None
@@ -231,14 +235,17 @@ class CandidateDataAccessMixin:
             if not job_data or not job_data.get('id'):
                 return None
 
+            # Tearsheet pools skip ineligible jobs; applied-job injection does not.
+            # Regression: candidate 4671202 applied to job 35421 (isOpen=False,
+            # status=Accepting Candidates) and was only scored against a related
+            # open role — recruiters lost APPLIED POSITION context.
             from utils.job_status import is_job_eligible
             if not is_job_eligible(job_data):
-                logger.info(
-                    f"Applied job {job_id} is closed "
-                    f"(isOpen={job_data.get('isOpen')}, "
-                    f"status={job_data.get('status')}) — skipping injection"
+                logger.warning(
+                    f"⚠️ Injecting applied job {job_id} despite ineligible flags "
+                    f"(isOpen={job_data.get('isOpen')}, status={job_data.get('status')}) "
+                    f"— applied-job analysis is required for recruiter transparency"
                 )
-                return None
 
             assigned_users = job_data.get('assignedUsers', {})
             if isinstance(assigned_users, dict):
