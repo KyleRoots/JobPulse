@@ -12,9 +12,132 @@ import logging
 logger = logging.getLogger(__name__)
 import json
 from datetime import datetime, timedelta
+from typing import Iterable, List, Optional, Sequence
 from app import db
 from models import CandidateJobMatch, CandidateVettingLog, JobVettingRequirements
 from screening.location_review import is_location_review_match, resolve_match_threshold
+
+# Outcome buckets used by the 6h Bullhorn note duplicate safeguard.
+# Same-outcome duplicates stay blocked; outcome flips must supersede so
+# recruiter emails and notes cannot diverge after auditor re-vets
+# (Femi Oyesanya / 4553046 — Not Qualified note + Qualified email).
+_NOTE_OUTCOME_QUALIFIED = 'qualified'
+_NOTE_OUTCOME_NOT_QUALIFIED = 'not_qualified'
+_NOTE_OUTCOME_LOCATION_REVIEW = 'location_review'
+_NOTE_OUTCOME_INCOMPLETE = 'incomplete'
+
+_INCOMPLETE_NOTE_ACTIONS = frozenset({
+    'Scout Screen - Incomplete',
+    'Scout Screening - Incomplete',
+    'AI Vetting - Incomplete',
+})
+
+_OUTCOME_LABELS = {
+    _NOTE_OUTCOME_QUALIFIED: 'Qualified',
+    _NOTE_OUTCOME_NOT_QUALIFIED: 'Not Qualified',
+    _NOTE_OUTCOME_LOCATION_REVIEW: 'Location Review',
+    _NOTE_OUTCOME_INCOMPLETE: 'Incomplete',
+}
+
+
+def classify_scout_note_action(action: Optional[str]) -> Optional[str]:
+    """Map a Bullhorn note action string to a screening outcome bucket."""
+    a = (action or '').strip().lower()
+    if not a:
+        return None
+    if 'incomplete' in a:
+        return _NOTE_OUTCOME_INCOMPLETE
+    if 'location review' in a or 'loc barrier' in a or 'location barrier' in a:
+        return _NOTE_OUTCOME_LOCATION_REVIEW
+    # Check negative forms before bare "qualified"
+    if 'not qualified' in a or 'not recommended' in a:
+        return _NOTE_OUTCOME_NOT_QUALIFIED
+    if 'qualified' in a:
+        return _NOTE_OUTCOME_QUALIFIED
+    return None
+
+
+def intended_scout_note_outcome(
+    matches: Sequence,
+    *,
+    job_threshold_map: Optional[dict] = None,
+    global_threshold: float = 80.0,
+) -> str:
+    """Derive the note outcome this create_candidate_note call would write."""
+    if not matches:
+        return _NOTE_OUTCOME_INCOMPLETE
+    # A full set of genuine 0% fits is still a not-qualified complete result;
+    # only treat as Incomplete when summaries show analysis failure.
+    if all((m.match_summary or '').startswith('Analysis failed') for m in matches):
+        return _NOTE_OUTCOME_INCOMPLETE
+
+    qualified = [m for m in matches if m.is_qualified]
+    if qualified:
+        return _NOTE_OUTCOME_QUALIFIED
+
+    thresholds = job_threshold_map or {}
+    location_review = [
+        m for m in matches
+        if is_location_review_match(
+            m, resolve_match_threshold(m, thresholds, global_threshold)
+        )
+    ]
+    if location_review:
+        return _NOTE_OUTCOME_LOCATION_REVIEW
+    return _NOTE_OUTCOME_NOT_QUALIFIED
+
+
+def existing_note_outcomes(existing_notes: Iterable[dict]) -> List[str]:
+    """Unique outcome buckets present on recent Scout/AI vetting notes."""
+    seen = []
+    for note in existing_notes:
+        outcome = classify_scout_note_action(note.get('action'))
+        if outcome and outcome not in seen:
+            seen.append(outcome)
+    return seen
+
+
+def should_supersede_existing_notes(
+    existing_notes: Sequence[dict],
+    intended_outcome: str,
+    *,
+    has_match_records: bool,
+) -> tuple[bool, str]:
+    """Return (allow_write, reason) for the 6h Bullhorn note safeguard.
+
+    Blocks true same-outcome duplicates. Allows write when prior notes are
+    incomplete/failed-analysis, or when the intended outcome differs from
+    every existing complete outcome (Qualified ↔ Not Qualified, etc.).
+    """
+    if not existing_notes:
+        return True, 'no_existing'
+
+    incomplete_actions = _INCOMPLETE_NOTE_ACTIONS
+    all_incomplete = all(
+        (n.get('action') or '') in incomplete_actions for n in existing_notes
+    )
+    all_failed_analysis = all(
+        'Analysis failed' in (n.get('comments') or '')
+        or 'Match Score: 0%' in (n.get('comments') or '')
+        for n in existing_notes
+    )
+    if (all_incomplete or all_failed_analysis) and has_match_records:
+        reason = 'incomplete' if all_incomplete else 'failed_analysis'
+        return True, reason
+
+    existing = existing_note_outcomes(existing_notes)
+    # Ignore incomplete leftovers when comparing outcome flips against a
+    # complete intended result (e.g. Incomplete + Not Qualified → Qualified).
+    complete_existing = [o for o in existing if o != _NOTE_OUTCOME_INCOMPLETE]
+    if not complete_existing:
+        return True, 'only_incomplete_existing'
+
+    if intended_outcome not in complete_existing:
+        prior = ', '.join(_OUTCOME_LABELS.get(o, o) for o in complete_existing)
+        new = _OUTCOME_LABELS.get(intended_outcome, intended_outcome)
+        return True, f'outcome_changed:{prior}->{new}'
+
+    return False, 'same_outcome'
 
 
 class NoteBuilderMixin:
@@ -185,16 +308,41 @@ class NoteBuilderMixin:
             return False
         
         # PRE-CREATION SAFEGUARD: Check Bullhorn for existing AI vetting notes (6h window)
-        # This prevents duplicate notes even if upstream dedup logic has a bug.
-        # "Incomplete" notes never block a new complete result — a successful re-screen
-        # must always be able to overwrite a prior failure.
+        # This prevents duplicate same-outcome notes even if upstream dedup has a bug.
+        # Incomplete/failed notes never block a new complete result. Outcome flips
+        # (Qualified ↔ Not Qualified / Location Review) also supersede so re-vets
+        # cannot leave recruiters with an email that contradicts the note.
         from datetime import timedelta
-        _INCOMPLETE_ACTIONS = {
-            "Scout Screen - Incomplete",
-            "Scout Screening - Incomplete",
-            "AI Vetting - Incomplete",
-        }
+        outcome_supersession_banner: List[str] = []
         try:
+            # Need matches before the safeguard so we know the intended outcome.
+            matches_for_outcome = CandidateJobMatch.query.filter_by(
+                vetting_log_id=vetting_log.id
+            ).order_by(CandidateJobMatch.match_score.desc()).all()
+            global_threshold_preview = self.get_threshold()
+            job_ids_preview = [
+                m.bullhorn_job_id for m in matches_for_outcome if m.bullhorn_job_id
+            ]
+            job_threshold_map_preview = {}
+            if job_ids_preview:
+                try:
+                    custom_reqs = JobVettingRequirements.query.filter(
+                        JobVettingRequirements.bullhorn_job_id.in_(job_ids_preview),
+                        JobVettingRequirements.vetting_threshold.isnot(None),
+                    ).all()
+                    for req in custom_reqs:
+                        job_threshold_map_preview[req.bullhorn_job_id] = float(
+                            req.vetting_threshold
+                        )
+                except Exception:
+                    job_threshold_map_preview = {}
+
+            intended_outcome = intended_scout_note_outcome(
+                matches_for_outcome,
+                job_threshold_map=job_threshold_map_preview,
+                global_threshold=global_threshold_preview,
+            )
+
             existing_notes = bullhorn.get_candidate_notes(
                 vetting_log.bullhorn_candidate_id,
                 action_filter=[
@@ -214,31 +362,30 @@ class NoteBuilderMixin:
                 since=datetime.utcnow() - timedelta(hours=6)
             )
             if existing_notes:
-                _all_incomplete = all(
-                    n.get('action', '') in _INCOMPLETE_ACTIONS for n in existing_notes
+                allow_write, reason = should_supersede_existing_notes(
+                    existing_notes,
+                    intended_outcome,
+                    has_match_records=bool(matches_for_outcome),
                 )
-                _all_failed_analysis = all(
-                    'Analysis failed' in (n.get('comments', '') or '')
-                    or 'Match Score: 0%' in (n.get('comments', '') or '')
-                    for n in existing_notes
-                )
-                _has_match_records = CandidateJobMatch.query.filter_by(
-                    vetting_log_id=vetting_log.id
-                ).count() > 0
-                _is_supersedable = (_all_incomplete or _all_failed_analysis) and _has_match_records
-                if _is_supersedable:
-                    override_reason = "Incomplete" if _all_incomplete else "failed analysis (0%)"
+                if allow_write:
                     logger.info(
-                        f"ℹ️ DUPLICATE SAFEGUARD OVERRIDE: Candidate {vetting_log.bullhorn_candidate_id} "
-                        f"has {len(existing_notes)} {override_reason} note(s) in Bullhorn from last 6h. "
-                        f"Allowing new complete result to supersede."
+                        f"ℹ️ DUPLICATE SAFEGUARD OVERRIDE: Candidate "
+                        f"{vetting_log.bullhorn_candidate_id} has "
+                        f"{len(existing_notes)} Scout note(s) in Bullhorn from last 6h. "
+                        f"Allowing write ({reason}). "
+                        f"event=note_dedupe_supersede intended={intended_outcome}"
                     )
+                    if reason.startswith('outcome_changed:'):
+                        change = reason.split(':', 1)[1]
+                        outcome_supersession_banner = [
+                            "⚠️ UPDATED SCOUT SCREENING RESULT",
+                            f"This note supersedes an earlier Scout note from the last 6 hours "
+                            f"because the outcome changed ({change}).",
+                            "Use this note (and any recruiter email from this re-screen) as the "
+                            "current Scout recommendation.",
+                            "",
+                        ]
                 else:
-                    # Visibility metric (May 2026) — track every dedupe rejection
-                    # so we can quantify how often the safeguard fires and whether
-                    # it correlates with upstream loop bugs. Module-level Counter
-                    # is checkpointed by app startup; survives gunicorn worker
-                    # restarts via aggregated logs (Sentry/Datadog grep).
                     try:
                         from screening import note_builder as _nb_mod
                         if not hasattr(_nb_mod, '_DEDUPE_REJECTION_COUNTER'):
@@ -253,7 +400,7 @@ class NoteBuilderMixin:
                     logger.warning(
                         f"⚠️ DUPLICATE SAFEGUARD: Candidate {vetting_log.bullhorn_candidate_id} already has "
                         f"{len(existing_notes)} AI vetting note(s) in Bullhorn from last 6h. "
-                        f"Skipping duplicate note creation. "
+                        f"Skipping duplicate note creation (same outcome={intended_outcome}). "
                         f"event=note_dedupe_blocked counter={_counter_val} "
                         f"vetting_log_id={vetting_log.id} candidate_id={vetting_log.bullhorn_candidate_id} "
                         f"existing_actions={_existing_actions}"
@@ -265,6 +412,9 @@ class NoteBuilderMixin:
         except Exception as e:
             # Don't block note creation if the safety check itself fails
             logger.warning(f"Pre-note duplicate check failed (proceeding with creation): {str(e)}")
+
+        def _compose_note_text(lines: List[str]) -> str:
+            return "\n".join(list(outcome_supersession_banner) + lines)
         
         # Get all match results for this candidate
         matches = CandidateJobMatch.query.filter_by(
@@ -317,7 +467,7 @@ class NoteBuilderMixin:
                 f"",
                 f"Please review manually if needed."
             ]
-            note_text = "\n".join(note_lines)
+            note_text = _compose_note_text(note_lines)
             action = "Scout Screen - Incomplete"
             
             note_id = bullhorn.create_candidate_note(
@@ -425,7 +575,7 @@ class NoteBuilderMixin:
                     note_lines.append(f"  Other Gaps: {' | '.join(non_loc_parts)}")
                 if loc_gap_text:
                     note_lines.append(f"  Location: {loc_gap_text}")
-            note_text = "\n".join(note_lines)
+            note_text = _compose_note_text(note_lines)
             action = "Scout Screen - Location Review"
 
             note_id = bullhorn.create_candidate_note(
@@ -586,7 +736,7 @@ class NoteBuilderMixin:
                 note_lines.append(f"")
                 note_lines += self._format_match_note_block(match, job_threshold_map, show_gaps=True, candidate_id=vetting_log.bullhorn_candidate_id)
         
-        note_text = "\n".join(note_lines)
+        note_text = _compose_note_text(note_lines)
         
         # Create the note
         action = "Scout Screen - Qualified" if vetting_log.is_qualified else "Scout Screen - Not Qualified"

@@ -3,6 +3,17 @@
 Each production screening result stores `screening_rules_version` so audits can
 identify which rule set produced a score.
 
+## 2026.07.15 — Note supersession on screening outcome change
+
+- **Bug:** After auditor re-vets, recruiter emails reflected the latest
+  Qualified/Not Qualified result, but Bullhorn notes stayed on the first
+  outcome because the 6h duplicate note safeguard blocked writes
+  (regression: candidate 4553046 — Not Qualified note + Qualified email).
+- **Fix:** Same-outcome Scout notes within 6h still dedupe. Outcome flips
+  (Qualified ↔ Not Qualified / Location Review / Incomplete → complete)
+  now supersede with an **UPDATED SCOUT SCREENING RESULT** banner.
+- **Models/prompts unchanged.**
+
 ## 2026.07.14 — Applied-job injection always scores the applied role
 
 - **Bug:** Candidates who applied to "half-closed" Bullhorn jobs (`isOpen=False`
