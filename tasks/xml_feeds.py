@@ -267,23 +267,46 @@ def automated_upload():
                 sftp_directory = GlobalSettings.query.filter_by(setting_key='sftp_directory').first()
                 sftp_port = GlobalSettings.query.filter_by(setting_key='sftp_port').first()
 
-                if (sftp_hostname and sftp_hostname.setting_value and
-                    sftp_username and sftp_username.setting_value and
-                    sftp_password and sftp_password.setting_value):
+                host_val = (sftp_hostname.setting_value or '').strip() if sftp_hostname else ''
+                user_val = (sftp_username.setting_value or '').strip() if sftp_username else ''
+                pass_val = (sftp_password.setting_value or '').strip() if sftp_password else ''
+                dir_val = (sftp_directory.setting_value or '/').strip() if sftp_directory else '/'
+                env_host = (os.environ.get('SFTP_HOSTNAME') or os.environ.get('SFTP_HOST') or '').strip()
+                if not host_val or host_val.startswith('{') or '.' not in host_val:
+                    if env_host:
+                        app.logger.warning(
+                            "sftp_hostname DB value looks invalid (%r); using SFTP_HOSTNAME env fallback",
+                            (host_val or '')[:80],
+                        )
+                        host_val = env_host
+                        try:
+                            GlobalSettings.set_value('sftp_hostname', env_host)
+                        except Exception:
+                            pass
+                user_val = user_val or (os.environ.get('SFTP_USERNAME') or '').strip()
+                pass_val = pass_val or (os.environ.get('SFTP_PASSWORD') or '').strip()
 
-                    target_directory = sftp_directory.setting_value if sftp_directory else "/"
+                if host_val and user_val and pass_val:
+
+                    target_directory = dir_val or "/"
                     app.logger.info(f"Uploading to configured directory: '{target_directory}'")
 
                     from ftp_service import FTPService
+                    try:
+                        port_value = int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222
+                    except ValueError:
+                        port_value = 2222
+                    if port_value == 22:
+                        port_value = 2222
                     ftp_service = FTPService(
-                        hostname=sftp_hostname.setting_value,
-                        username=sftp_username.setting_value,
-                        password=sftp_password.setting_value,
+                        hostname=host_val,
+                        username=user_val,
+                        password=pass_val,
                         target_directory=target_directory,
-                        port=int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222,
+                        port=port_value,
                         use_sftp=True
                     )
-                    app.logger.info(f"Using SFTP protocol for thread-safe uploads to {sftp_hostname.setting_value}:{ftp_service.port}")
+                    app.logger.info(f"Using SFTP protocol for thread-safe uploads to {host_val}:{ftp_service.port}")
 
                     current_env = (os.environ.get('APP_ENV') or os.environ.get('ENVIRONMENT') or 'production').lower()
                     app.logger.info(f"Environment: {current_env}")
