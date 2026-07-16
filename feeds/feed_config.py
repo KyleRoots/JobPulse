@@ -47,6 +47,12 @@ STSI_INDEED_FILENAME_DEV = 'stsi-job-feed-indeed-dev.xml'
 STSI_ZIPRECRUITER_FILENAME = 'stsi-job-feed-ziprecruiter.xml'
 STSI_ZIPRECRUITER_FILENAME_DEV = 'stsi-job-feed-ziprecruiter-dev.xml'
 
+# Publisher branding in feed <source> header (<title> / <link>)
+V2_PUBLISHER_TITLE = 'Myticas Consulting'
+V2_PUBLISHER_LINK = 'https://www.myticas.com'
+STSI_PUBLISHER_TITLE = 'STSI'
+STSI_PUBLISHER_LINK = 'https://www.stsigroup.com'
+
 CHANNEL_FEEDS = (
     {
         'key': 'stsi_indeed',
@@ -55,6 +61,8 @@ CHANNEL_FEEDS = (
         'filename': STSI_INDEED_FILENAME,
         'filename_dev': STSI_INDEED_FILENAME_DEV,
         'allow_empty': True,
+        'publisher_title': STSI_PUBLISHER_TITLE,
+        'publisher_link': STSI_PUBLISHER_LINK,
     },
     {
         'key': 'stsi_ziprecruiter',
@@ -63,5 +71,7 @@ CHANNEL_FEEDS = (
         'filename': STSI_ZIPRECRUITER_FILENAME,
         'filename_dev': STSI_ZIPRECRUITER_FILENAME_DEV,
         'allow_empty': True,
+        'publisher_title': STSI_PUBLISHER_TITLE,
+        'publisher_link': STSI_PUBLISHER_LINK,
     },
 )

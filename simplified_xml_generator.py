@@ -52,6 +52,8 @@ class SimplifiedXMLGenerator:
         tearsheet_ids: Optional[List[int]] = None,
         source_channel: str = SOURCE_LINKEDIN,
         allow_empty: bool = False,
+        publisher_title: Optional[str] = None,
+        publisher_link: Optional[str] = None,
     ) -> tuple[str, dict]:
         """
         Generate fresh XML by pulling directly from Bullhorn tearsheets.
@@ -63,6 +65,8 @@ class SimplifiedXMLGenerator:
                            Defaults to V2 tearsheet set (Myticas + STSI LinkedIn).
             source_channel: Value for ?source= in apply URLs (LinkedIn, Indeed, ZipRecruiter).
             allow_empty: When True, return a valid empty <source> feed if no jobs found.
+            publisher_title: Optional <source><title> override (STSI channel feeds).
+            publisher_link: Optional <source><link> override (STSI channel feeds).
 
         Returns:
             tuple: (xml_content_string, stats_dict)
@@ -104,6 +108,8 @@ class SimplifiedXMLGenerator:
                 all_jobs_with_context,
                 existing_references,
                 source_channel=source_channel,
+                publisher_title=publisher_title,
+                publisher_link=publisher_link,
             )
             
             if all_jobs_with_context:
@@ -286,20 +292,24 @@ class SimplifiedXMLGenerator:
         existing_references: Dict,
         source_channel: str = SOURCE_LINKEDIN,
         feed_name: Optional[str] = None,
+        publisher_title: Optional[str] = None,
+        publisher_link: Optional[str] = None,
     ) -> tuple[str, Dict]:
         """
         Build clean XML from job data with proper CDATA wrapping
         """
         if not etree:
             raise Exception("lxml not available, cannot generate XML")
+
+        from feeds.feed_config import V2_PUBLISHER_TITLE, V2_PUBLISHER_LINK
         
         root = etree.Element("source")
         
         title_elem = etree.SubElement(root, "title")
-        title_elem.text = "Myticas Consulting"
+        title_elem.text = (publisher_title or V2_PUBLISHER_TITLE).strip() or V2_PUBLISHER_TITLE
         
         link_elem = etree.SubElement(root, "link")
-        link_elem.text = "https://www.myticas.com"
+        link_elem.text = (publisher_link or V2_PUBLISHER_LINK).strip() or V2_PUBLISHER_LINK
         
         updated_references = existing_references.copy()
         

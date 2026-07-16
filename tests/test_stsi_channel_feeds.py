@@ -62,12 +62,27 @@ class TestApplicationUrlSourceChannel:
 class TestEmptyFeedGeneration:
     def test_build_clean_xml_empty_source(self):
         from simplified_xml_generator import SimplifiedXMLGenerator
+        from feeds.feed_config import STSI_PUBLISHER_TITLE, STSI_PUBLISHER_LINK
         gen = SimplifiedXMLGenerator(db=None)
-        xml, refs = gen._build_clean_xml([], {}, source_channel=SOURCE_INDEED)
+        xml, refs = gen._build_clean_xml(
+            [], {},
+            source_channel=SOURCE_INDEED,
+            publisher_title=STSI_PUBLISHER_TITLE,
+            publisher_link=STSI_PUBLISHER_LINK,
+        )
         assert '<?xml' in xml
         assert '<source>' in xml
+        assert '<title>STSI</title>' in xml
+        assert '<link>https://www.stsigroup.com</link>' in xml
         assert '<job>' not in xml
         assert refs == {}
+
+    def test_v2_feed_keeps_myticas_publisher(self):
+        from simplified_xml_generator import SimplifiedXMLGenerator
+        gen = SimplifiedXMLGenerator(db=None)
+        xml, _ = gen._build_clean_xml([], {}, source_channel=SOURCE_LINKEDIN)
+        assert '<title>Myticas Consulting</title>' in xml
+        assert '<link>https://www.myticas.com</link>' in xml
 
     def test_generate_fresh_xml_allow_empty(self):
         from simplified_xml_generator import SimplifiedXMLGenerator
@@ -82,9 +97,13 @@ class TestEmptyFeedGeneration:
                 tearsheet_ids=[TEARSHEET_STSI_INDEED],
                 source_channel=SOURCE_INDEED,
                 allow_empty=True,
+                publisher_title='STSI',
+                publisher_link='https://www.stsigroup.com',
             )
         assert stats['job_count'] == 0
         assert '<source>' in xml
+        assert '<title>STSI</title>' in xml
+        assert '<link>https://www.stsigroup.com</link>' in xml
         assert '<job>' not in xml
 
     def test_generate_fresh_xml_raises_without_allow_empty(self):

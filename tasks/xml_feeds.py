@@ -238,6 +238,8 @@ def automated_upload():
                     tearsheet_ids=feed_cfg['tearsheet_ids'],
                     source_channel=feed_cfg['source_channel'],
                     allow_empty=feed_cfg.get('allow_empty', False),
+                    publisher_title=feed_cfg.get('publisher_title'),
+                    publisher_link=feed_cfg.get('publisher_link'),
                 )
                 channel_results[key] = {
                     'xml': xml_content,

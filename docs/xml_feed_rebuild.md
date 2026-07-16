@@ -102,6 +102,8 @@ Each tearsheet triggers a rebuild when jobs are added, removed, or modified.
 
 ## XML Structure
 
+LinkedIn/v2 publisher header is Myticas. STSI Indeed/ZipRecruiter channel feeds use `<title>STSI</title>` and `<link>https://www.stsigroup.com</link>` instead.
+
 The feed follows this structure:
 ```xml
 <source>
