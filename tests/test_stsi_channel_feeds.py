@@ -84,6 +84,15 @@ class TestEmptyFeedGeneration:
         assert '<title>Myticas Consulting</title>' in xml
         assert '<link>https://www.myticas.com</link>' in xml
 
+    def test_channel_source_defaults_to_stsi_without_override(self):
+        """Indeed/Zip feeds get STSI branding from source_channel alone."""
+        from simplified_xml_generator import SimplifiedXMLGenerator
+        gen = SimplifiedXMLGenerator(db=None)
+        for channel in (SOURCE_INDEED, SOURCE_ZIPRECRUITER):
+            xml, _ = gen._build_clean_xml([], {}, source_channel=channel)
+            assert '<title>STSI</title>' in xml, channel
+            assert '<link>https://www.stsigroup.com</link>' in xml, channel
+
     def test_generate_fresh_xml_allow_empty(self):
         from simplified_xml_generator import SimplifiedXMLGenerator
         gen = SimplifiedXMLGenerator(db=MagicMock())

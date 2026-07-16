@@ -301,13 +301,27 @@ class SimplifiedXMLGenerator:
         if not etree:
             raise Exception("lxml not available, cannot generate XML")
 
-        from feeds.feed_config import V2_PUBLISHER_TITLE, V2_PUBLISHER_LINK
-        
+        from feeds.feed_config import (
+            V2_PUBLISHER_TITLE,
+            V2_PUBLISHER_LINK,
+            STSI_PUBLISHER_TITLE,
+            STSI_PUBLISHER_LINK,
+            SOURCE_INDEED,
+            SOURCE_ZIPRECRUITER,
+        )
+
+        # Channel feeds default to STSI branding even if callers omit overrides.
+        # LinkedIn/v2 stays Myticas unless explicitly overridden.
+        if publisher_title is None and source_channel in (SOURCE_INDEED, SOURCE_ZIPRECRUITER):
+            publisher_title = STSI_PUBLISHER_TITLE
+        if publisher_link is None and source_channel in (SOURCE_INDEED, SOURCE_ZIPRECRUITER):
+            publisher_link = STSI_PUBLISHER_LINK
+
         root = etree.Element("source")
-        
+
         title_elem = etree.SubElement(root, "title")
         title_elem.text = (publisher_title or V2_PUBLISHER_TITLE).strip() or V2_PUBLISHER_TITLE
-        
+
         link_elem = etree.SubElement(root, "link")
         link_elem.text = (publisher_link or V2_PUBLISHER_LINK).strip() or V2_PUBLISHER_LINK
         
