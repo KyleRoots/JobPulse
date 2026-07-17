@@ -143,13 +143,66 @@ def should_supersede_existing_notes(
 class NoteBuilderMixin:
     """Bullhorn note formatting and creation."""
 
-    def _build_revet_banner(self, candidate_id: int, applied_job_id):
+    @staticmethod
+    def _threshold_delta_phrase(original_score, threshold: float) -> str:
+        """Human-readable original-score vs threshold wording for note banners."""
+        try:
+            orig = float(original_score)
+            thr = float(threshold)
+        except (TypeError, ValueError):
+            return ''
+        delta = thr - orig
+        if abs(delta) < 0.5:
+            return f" (exactly at the {thr:.0f}% threshold)"
+        if delta > 0:
+            return f" (just {delta:.0f} points below the {thr:.0f}% threshold)"
+        return f" ({abs(delta):.0f} points above the {thr:.0f}% threshold)"
+
+    @staticmethod
+    def _score_change_phrase(original_score, new_score) -> Optional[str]:
+        """Return 'Score change: 80% → 57% (−23 pts)' or None if either score missing."""
+        try:
+            orig = float(original_score)
+            new = float(new_score)
+        except (TypeError, ValueError):
+            return None
+        delta_pts = new - orig
+        if abs(delta_pts) < 0.05:
+            return f"Score change: {orig:.0f}% → {new:.0f}% (unchanged)"
+        sign = f"+{delta_pts:.0f}" if delta_pts > 0 else f"{delta_pts:.0f}"
+        return f"Score change: {orig:.0f}% → {new:.0f}% ({sign} pts)"
+
+    @staticmethod
+    def _top_match_job(matches: Sequence):
+        """Return (job_id, job_title) for the highest-scoring match, if any."""
+        if not matches:
+            return None, None
+        ranked = sorted(
+            matches,
+            key=lambda m: (m.match_score is not None, m.match_score or 0),
+            reverse=True,
+        )
+        top = ranked[0]
+        return getattr(top, 'bullhorn_job_id', None), getattr(top, 'job_title', None)
+
+    def _build_revet_banner(
+        self,
+        candidate_id: int,
+        applied_job_id,
+        *,
+        new_score=None,
+        new_best_job_id=None,
+        new_best_job_title=None,
+    ):
         """Return banner lines explaining the AI Quality Auditor revet, if applicable.
 
         Fires when the most recent VettingAuditLog row for this (candidate, job)
         has action_taken='revet_triggered' AND revet_new_score IS NULL — meaning
         this screening cycle was queued by the auditor and the audit row hasn't
         been closed out yet (backfill runs AFTER note write, per cycle.py).
+
+        Layout separates historical auditor context from the current recommendation
+        so recruiters do not mistake pre-re-screen reasoning for the final call.
 
         Fully fail-soft: any DB error returns []. Banner never blocks note creation.
         """
@@ -181,16 +234,7 @@ class NoteBuilderMixin:
             except Exception:
                 threshold = 80.0
 
-            delta_txt = ''
-            if orig is not None:
-                try:
-                    delta = threshold - float(orig)
-                    if delta > 0:
-                        delta_txt = f" (just {delta:.0f} points below the {threshold:.0f}% threshold)"
-                    else:
-                        delta_txt = f" ({abs(delta):.0f} points above the {threshold:.0f}% threshold)"
-                except Exception:
-                    pass
+            delta_txt = self._threshold_delta_phrase(orig, threshold)
 
             finding = (row.audit_finding or '').strip()
             if len(finding) > 300:
@@ -207,21 +251,46 @@ class NoteBuilderMixin:
                 if row.created_at else 'n/a'
             )
 
-            return [
-                "🔁 SCOUT AI AUDITOR — SELF-CORRECTION RE-EVALUATION",
-                "─────────────────────────────────────────────────",
+            lines = [
+                "── WHY A SECOND LOOK HAPPENED (historical) ──",
                 "The Scout Quality Auditor flagged this candidate for a second look.",
+                "The block below is context from before the re-screen — not the final recommendation.",
                 "",
                 f"Original screening: {orig_str}{delta_txt}",
                 f"Flagged on: {orig_date}",
-                f"Auditor reasoning: {finding}",
-                "",
-                "Scout's quality auditor automatically re-evaluates borderline screenings",
-                "to catch cases where the original decision may have been too strict or",
-                "too lenient. The fresh evaluation result is below.",
-                "─────────────────────────────────────────────────",
-                "",
+                f"Historical auditor note (from before re-screen): {finding}",
             ]
+
+            score_change = self._score_change_phrase(orig, new_score)
+            if score_change:
+                lines.append(score_change)
+
+            orig_job_id = getattr(row, 'job_id', None)
+            orig_job_title = (getattr(row, 'job_title', None) or '').strip()
+            if orig_job_id:
+                title_bit = f" — {orig_job_title}" if orig_job_title else ""
+                lines.append(f"Best job on original screen: #{int(orig_job_id)}{title_bit}")
+
+            try:
+                new_jid = int(new_best_job_id) if new_best_job_id is not None else None
+            except (TypeError, ValueError):
+                new_jid = None
+            try:
+                orig_jid = int(orig_job_id) if orig_job_id is not None else None
+            except (TypeError, ValueError):
+                orig_jid = None
+
+            if new_jid is not None and new_jid != orig_jid:
+                new_title = (new_best_job_title or '').strip()
+                title_bit = f" — {new_title}" if new_title else ""
+                lines.append(f"Best job on re-screen: #{new_jid}{title_bit}")
+
+            lines.extend([
+                "",
+                "── CURRENT SCOUT RECOMMENDATION ──",
+                "",
+            ])
+            return lines
         except Exception as e:
             logger.warning(f"_build_revet_banner: failed for candidate {candidate_id}: {e!r}")
             return []
@@ -379,7 +448,7 @@ class NoteBuilderMixin:
                         change = reason.split(':', 1)[1]
                         outcome_supersession_banner = [
                             "⚠️ UPDATED SCOUT SCREENING RESULT",
-                            f"This note supersedes an earlier Scout note from the last 6 hours "
+                            f"This note replaces an earlier Scout note from the last 6 hours "
                             f"because the outcome changed ({change}).",
                             "Use this note (and any recruiter email from this re-screen) as the "
                             "current Scout recommendation.",
@@ -524,9 +593,13 @@ class NoteBuilderMixin:
                 or (_lr_applied.bullhorn_job_id if _lr_applied else None)
                 or (top_lr[0].bullhorn_job_id if top_lr else None)
             )
+            _new_best_id, _new_best_title = self._top_match_job(matches)
             _revet_banner_lines = self._build_revet_banner(
                 vetting_log.bullhorn_candidate_id,
                 _lr_job_id,
+                new_score=getattr(vetting_log, 'highest_match_score', None),
+                new_best_job_id=_new_best_id,
+                new_best_job_title=_new_best_title,
             )
             note_lines = list(_revet_banner_lines) + [
                 f"📍 SCOUT SCREENING - LOCATION REVIEW REQUIRED",
@@ -614,10 +687,14 @@ class NoteBuilderMixin:
                     break
             other_qualified = [m for m in qualified_matches if not m.is_applied_job]
 
+            _new_best_id, _new_best_title = self._top_match_job(matches)
             _revet_banner_lines = self._build_revet_banner(
                 vetting_log.bullhorn_candidate_id,
                 getattr(vetting_log, 'applied_job_id', None)
                     or (applied_match.bullhorn_job_id if applied_match else None),
+                new_score=getattr(vetting_log, 'highest_match_score', None),
+                new_best_job_id=_new_best_id,
+                new_best_job_title=_new_best_title,
             )
 
             note_lines = list(_revet_banner_lines) + [
@@ -683,10 +760,14 @@ class NoteBuilderMixin:
                 else:
                     other_matches.append(match)
 
+            _new_best_id, _new_best_title = self._top_match_job(matches)
             _revet_banner_lines = self._build_revet_banner(
                 vetting_log.bullhorn_candidate_id,
                 getattr(vetting_log, 'applied_job_id', None)
                     or (applied_match.bullhorn_job_id if applied_match else None),
+                new_score=getattr(vetting_log, 'highest_match_score', None),
+                new_best_job_id=_new_best_id,
+                new_best_job_title=_new_best_title,
             )
 
             note_lines = list(_revet_banner_lines) + [
