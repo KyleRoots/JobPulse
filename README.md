@@ -393,6 +393,7 @@ Check dashboard for automation status:
 - **Applied-job transparency (Jul 14)**: Always inject/score the job a candidate applied to, even when Bullhorn marks `isOpen=false` while status is still Accepting Candidates (prevents related-only notes missing APPLIED POSITION)
 - **Note/email outcome sync (Jul 15)**: Re-screens that flip Qualified ↔ Not Qualified supersede the prior 6h Scout note so Bullhorn notes match recruiter emails after auditor re-vets
 - **Re-vet note clarity (Jul 17)**: Auditor re-screen notes now separate historical “why second look” context from the current recommendation, include score deltas, fix at-threshold wording, and call out best-job changes when the top match shifts
+- **LinkedIn seat mapping sync (Jul 22)**: Recruiter→`#LI-*` mappings aligned to LinkedIn seat report; Reena/`Myticas Recruiter`→`#LI-RS1`; Lisa aliases→`#LI-LM1`; Rachel→`#LI-RM1`; obsolete seats pruned on seed
 
 ### October 2025: Database-Backed Reference Number Preservation ✨
 - **Problem Identified**: Live XML URL returns 403 Forbidden, causing reference number reversion

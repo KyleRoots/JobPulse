@@ -760,81 +760,84 @@ def seed_reference_refresh_log(db):
 
 def seed_recruiter_mappings(db, RecruiterMapping):
     """
-    Seed recruiter to LinkedIn tag mappings (idempotent)
+    Seed recruiter to LinkedIn tag mappings (idempotent).
 
-    Args:
-        db: SQLAlchemy database instance
-        RecruiterMapping: RecruiterMapping model class
+    Source of truth: LinkedIn seat report (seat-report.csv) plus Bullhorn
+    name aliases. Rows not in this master list are pruned so departed seats
+    and stale tags cannot keep attributing jobs incorrectly.
     """
-    # Master list of recruiter name to LinkedIn tag mappings
+    # Master list: (Bullhorn display name, LinkedIn seat tag)
+    # CSV seats + aliases for spelling variants / service accounts.
     recruiter_mappings = [
+        # --- Active LinkedIn seats (from seat-report.csv) ---
         ('Adam Gebara', '#LI-AG1'),
-        ('Amanda Messina', '#LI-AM1'),
-        ('Amanda Messina (Smith)', '#LI-AM1'),
-        ('Austin Zachrich', '#LI-AZ1'),
+        ('Anna Wujciak-Flynn', '#LI-AW1'),
         ('Bryan Chinzorig', '#LI-BC1'),
         ('Chris Carter', '#LI-CC1'),
-        ('Christine Carter', '#LI-CC1'),
-        ('Dan Sifer', '#LI-DS1'),
+        ('Christine Carter', '#LI-CC1'),  # Bullhorn alias
         ('Daniel Sifer', '#LI-DS1'),
+        ('Dan Sifer', '#LI-DS1'),  # Bullhorn alias
         ('Dawn Geistert-Dixon', '#LI-DG1'),
         ('Dominic Scaletta', '#LI-DS2'),
-        ('Innocent Nangoma', '#LI-IN1'),
-        ('Jayne Kritschgau', '#LI-JK1'),
+        ('Doug Billot', '#LI-DB1'),
+        ('Jasmine Harvey', '#LI-JH1'),
         ('Julie Johnson', '#LI-JJ1'),
-        ('Kaniz Abedin', '#LI-KA1'),
-        ('Kyle Roots', '#LI-KR1'),
         ('Kellie Miller', '#LI-KM1'),
-        ('Lisa Keirsted', '#LI-DS1'),
+        ('Kyle Roots', '#LI-KR1'),
+        ('Lisa Keirsted', '#LI-LM1'),  # alias — must NOT map to #LI-DS1
         ('Lisa Mattis-Keirsted', '#LI-LM1'),
-        ('Maddie Lewis', '#LI-ML1'),
         ('Madhu Sinha', '#LI-MS1'),
         ('Matheo Theodossiou', '#LI-MT1'),
-        ('Michael Billiu', '#LI-MB1'),
         ('Michael Theodossiou', '#LI-MT2'),
-        ('Michelle Corino', '#LI-MC1'),
-        ('Mike Gebara', '#LI-MG1'),
         ('Mike Scalzitti', '#LI-MS2'),
-        ('Michael Scalzitti', '#LI-MS2'),
-        ('Myticas Recruiter', '#LI-RS1'),
-        ('Nick Theodossiou', '#LI-NT1'),
-        ('Rachel Mann', '#LI-RM1'),
-        ('Rachel Johnson', '#LI-RJ1'),
+        ('Michael Scalzitti', '#LI-MS2'),  # Bullhorn alias
+        ('Myticas Recruiter', '#LI-RS1'),  # service account → Reena's seat
+        ('Rachel Johnson', '#LI-RM1'),
+        ('Rachel Mann', '#LI-RM1'),  # same person / email rmann@
         ('Rachelle Fite', '#LI-RF1'),
-        ('Reena Setya', '#LI-RS2'),
+        ('Reena Setya', '#LI-RS1'),
         ('Runa Parmar', '#LI-RP1'),
-        ('Ryan Green', '#LI-RG1'),
         ('Ryan Oliver', '#LI-RO1'),
-        ('Sam Osman', '#LI-SO1'),
         ('Sarah Ferris', '#LI-SF1'),
         ('Sarah Ferris CSP', '#LI-SF1'),
         ('Shikha Gurung', '#LI-SG1'),
         ('Tarra Dziurman', '#LI-TD1'),
-        ('Tarra Dziuman', '#LI-TD1'),
+        ('Tarra Dziuman', '#LI-TD1'),  # Bullhorn spelling variant
         ('Tray Prewitt', '#LI-TP1'),
-        ('Dean Theodossiou', '#LI-DT1'),
-        ('Chris Halkai', '#LI-CH1'),
     ]
 
+    keep_names = {name for name, _ in recruiter_mappings}
     mappings_created = 0
     mappings_updated = 0
+    mappings_removed = 0
 
     for recruiter_name, linkedin_tag in recruiter_mappings:
         existing_mapping = RecruiterMapping.query.filter_by(recruiter_name=recruiter_name).first()
 
         if existing_mapping:
-            # Update if tag changed
             if existing_mapping.linkedin_tag != linkedin_tag:
                 existing_mapping.linkedin_tag = linkedin_tag
                 mappings_updated += 1
         else:
-            # Create new mapping
-            new_mapping = RecruiterMapping(
+            db.session.add(RecruiterMapping(
                 recruiter_name=recruiter_name,
-                linkedin_tag=linkedin_tag
-            )
-            db.session.add(new_mapping)
+                linkedin_tag=linkedin_tag,
+            ))
             mappings_created += 1
+
+    # Full cleanup: drop seats/aliases no longer in the LinkedIn seat report.
+    stale = (
+        RecruiterMapping.query
+        .filter(~RecruiterMapping.recruiter_name.in_(keep_names))
+        .all()
+    )
+    for row in stale:
+        logger.info(
+            f"🧹 Removing obsolete recruiter mapping: "
+            f"{row.recruiter_name} → {row.linkedin_tag}"
+        )
+        db.session.delete(row)
+        mappings_removed += 1
 
     db.session.commit()
 
@@ -842,7 +845,9 @@ def seed_recruiter_mappings(db, RecruiterMapping):
         logger.info(f"✅ Created {mappings_created} new recruiter mappings")
     if mappings_updated > 0:
         logger.info(f"🔄 Updated {mappings_updated} recruiter mappings")
-    if mappings_created == 0 and mappings_updated == 0:
+    if mappings_removed > 0:
+        logger.info(f"🧹 Removed {mappings_removed} obsolete recruiter mappings")
+    if mappings_created == 0 and mappings_updated == 0 and mappings_removed == 0:
         logger.info(f"✅ All {len(recruiter_mappings)} recruiter mappings already up to date")
 
 

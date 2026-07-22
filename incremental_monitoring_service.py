@@ -862,23 +862,46 @@ This alert was triggered by the zero-job detection safeguard.
         return linkedin_tag_only
     
     def _get_recruiter_tag(self, name: str) -> str:
-        """Get LinkedIn recruiter tag for name"""
-        # Simplified mapping - could be expanded
+        """Legacy inline map — prefer RecruiterMapping via XMLIntegrationService.
+
+        Kept only as a last-resort fallback for names that appear in monitoring
+        rebuilds; kept in sync with seeding/settings.py seat-report list.
+        """
         tags = {
-            'Rachel Mann': '#LI-RM1',
-            'Rachel Johnson': '#LI-RJ1',
+            'Adam Gebara': '#LI-AG1',
+            'Anna Wujciak-Flynn': '#LI-AW1',
+            'Bryan Chinzorig': '#LI-BC1',
+            'Chris Carter': '#LI-CC1',
+            'Christine Carter': '#LI-CC1',
+            'Daniel Sifer': '#LI-DS1',
+            'Dan Sifer': '#LI-DS1',
+            'Dawn Geistert-Dixon': '#LI-DG1',
+            'Dominic Scaletta': '#LI-DS2',
+            'Doug Billot': '#LI-DB1',
+            'Jasmine Harvey': '#LI-JH1',
+            'Julie Johnson': '#LI-JJ1',
+            'Kellie Miller': '#LI-KM1',
+            'Kyle Roots': '#LI-KR1',
+            'Lisa Keirsted': '#LI-LM1',
+            'Lisa Mattis-Keirsted': '#LI-LM1',
+            'Madhu Sinha': '#LI-MS1',
+            'Matheo Theodossiou': '#LI-MT1',
+            'Michael Theodossiou': '#LI-MT2',
             'Mike Scalzitti': '#LI-MS2',
             'Michael Scalzitti': '#LI-MS2',
-            'Christine Carter': '#LI-CC1',
+            'Myticas Recruiter': '#LI-RS1',
+            'Rachel Johnson': '#LI-RM1',
+            'Rachel Mann': '#LI-RM1',
+            'Rachelle Fite': '#LI-RF1',
+            'Reena Setya': '#LI-RS1',
             'Runa Parmar': '#LI-RP1',
-            'Dominic Scaletta': '#LI-DS2',
             'Ryan Oliver': '#LI-RO1',
-            'Michael Theodossiou': '#LI-MT2',
-            'Sam Osman': '#LI-SO1',
-            'Dean Theodossiou': '#LI-DT1',
-            'Chris Halkai': '#LI-CH1',
+            'Sarah Ferris': '#LI-SF1',
+            'Sarah Ferris CSP': '#LI-SF1',
+            'Shikha Gurung': '#LI-SG1',
             'Tarra Dziurman': '#LI-TD1',
             'Tarra Dziuman': '#LI-TD1',
+            'Tray Prewitt': '#LI-TP1',
         }
         return tags.get(name, '')
     
