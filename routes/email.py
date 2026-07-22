@@ -364,6 +364,12 @@ def _read_full_request_body(req):
     return b''.join(chunks)
 
 
+def _inbound_parse_explicitly_disabled() -> bool:
+    """True when SENDGRID_INBOUND_PARSE_ENABLED is an explicit off value."""
+    raw = os.environ.get('SENDGRID_INBOUND_PARSE_ENABLED', '').strip().lower()
+    return raw in ('0', 'false', 'no', 'off', 'disabled')
+
+
 def _verify_inbound_webhook_secret():
     """Authenticate inbound webhook POSTs via a shared-secret query parameter.
 
@@ -371,48 +377,76 @@ def _verify_inbound_webhook_secret():
     Event Webhook, which uses ECDSA).  The standard mitigation is to embed a
     random secret token in the webhook URL that only SendGrid knows.
 
-    Configuration
-    -------------
+    Authoritative intake today is Graph **mailbox-pull** on apply@.  The
+    SendGrid Inbound Parse door is optional backup and is often left unset to
+    avoid dual-door duplicate Bullhorn submissions.
+
+    Configuration (to re-enable the webhook door)
+    ---------------------------------------------
     1. Generate a token:  python3 -c "import secrets; print(secrets.token_hex(32))"
     2. Set ``SENDGRID_INBOUND_WEBHOOK_SECRET`` in the app's environment secrets.
-    3. Update the SendGrid Inbound Parse URL to include the token as a query
-       parameter:
+    3. Ensure ``SENDGRID_INBOUND_PARSE_ENABLED`` is not ``false``/``0``/``off``.
+    4. Update the SendGrid Inbound Parse URL to include the token:
            https://app.scoutgenius.ai/api/email/inbound?webhook_secret=<value>
-    4. Republish the app so the new env var is picked up in production.
+    5. Republish so the env vars are live.
 
     Return value
     ------------
     Returns a Flask response tuple ``(body_dict, status_code)`` when the
-    request must be rejected, or ``None`` when the caller should proceed.
+    request must stop here, or ``None`` when the caller should proceed.
 
-    Rejection cases
-    ---------------
-    * Secret **not configured** → 503 Service Unavailable.  SendGrid retries
-      on 5xx, so no email is silently lost while the operator configures the
-      secret.  A CRITICAL log is emitted on every rejected request.
-    * ``webhook_secret`` param **missing** → 403 Forbidden.
-    * ``webhook_secret`` param **present but wrong** → 403 Forbidden.
+    Stop cases
+    ----------
+    * Parse **disabled** (``SENDGRID_INBOUND_PARSE_ENABLED`` off) **or** secret
+      **not configured** → **200** with ``status=disabled``.  SendGrid treats
+      2xx as delivered and stops retrying.  We do **not** process the payload;
+      mailbox-pull remains authoritative.  (A 503 here used to cause an
+      endless retry storm + CRITICAL log spam.)
+    * Secret configured but ``webhook_secret`` param **missing** → 403.
+    * Secret configured but param **wrong** → 403.
 
     The 403 path uses ``hmac.compare_digest`` (constant-time) to prevent
     timing-based secret extraction.
     """
+    if _inbound_parse_explicitly_disabled():
+        logger.info(
+            "📧 Inbound Parse webhook disabled via SENDGRID_INBOUND_PARSE_ENABLED — "
+            "acknowledging POST without processing (mailbox-pull is authoritative)"
+        )
+        return (
+            {
+                'success': True,
+                'status': 'disabled',
+                'message': (
+                    'SendGrid Inbound Parse is disabled; '
+                    'applicant intake uses mailbox-pull.'
+                ),
+            },
+            200,
+        )
+
     expected = os.environ.get('SENDGRID_INBOUND_WEBHOOK_SECRET', '').strip()
 
     if not expected:
-        logger.critical(
-            "🚨 SENDGRID_INBOUND_WEBHOOK_SECRET is NOT set — inbound webhook "
-            "POST rejected (503) until the secret is configured. Set this env "
-            "var and update the SendGrid Inbound Parse URL to include "
-            "?webhook_secret=<value>, then republish. "
-            "Until then ALL inbound email deliveries will fail and SendGrid "
-            "will retry them."
+        # No secret = door closed. Acknowledge so SendGrid stops 5xx retries;
+        # Graph mailbox-pull on apply@ continues to ingest applicants.
+        logger.info(
+            "📧 SENDGRID_INBOUND_WEBHOOK_SECRET unset — acknowledging Inbound Parse "
+            "POST without processing (mailbox-pull is authoritative). To re-enable "
+            "this door, set the secret, put ?webhook_secret= on the SendGrid URL, "
+            "and leave SENDGRID_INBOUND_PARSE_ENABLED enabled."
         )
         return (
-            {'success': False,
-             'error': 'misconfigured',
-             'message': ('Webhook secret not configured on server. '
-                         'Contact the platform administrator.')},
-            503,
+            {
+                'success': True,
+                'status': 'disabled',
+                'error': 'misconfigured',
+                'message': (
+                    'Inbound Parse webhook is not configured; '
+                    'applicant intake uses mailbox-pull.'
+                ),
+            },
+            200,
         )
 
     provided = request.args.get('webhook_secret', '').strip()
@@ -455,11 +489,22 @@ def email_inbound_webhook():
     POST: Processes inbound email data from SendGrid
     """
     if request.method == 'GET':
+        secret_configured = bool(
+            os.environ.get('SENDGRID_INBOUND_WEBHOOK_SECRET', '').strip()
+        )
+        parse_enabled = (
+            secret_configured and not _inbound_parse_explicitly_disabled()
+        )
         return jsonify({
             'status': 'ok',
             'endpoint': 'SendGrid Inbound Parse webhook',
             'methods': ['POST'],
-            'message': 'Ready to receive emails'
+            'parse_enabled': parse_enabled,
+            'message': (
+                'Ready to receive emails'
+                if parse_enabled
+                else 'Disabled — applicant intake uses mailbox-pull'
+            ),
         }), 200
 
     rejection = _verify_inbound_webhook_secret()

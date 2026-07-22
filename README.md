@@ -394,6 +394,7 @@ Check dashboard for automation status:
 - **Note/email outcome sync (Jul 15)**: Re-screens that flip Qualified ↔ Not Qualified supersede the prior 6h Scout note so Bullhorn notes match recruiter emails after auditor re-vets
 - **Re-vet note clarity (Jul 17)**: Auditor re-screen notes now separate historical “why second look” context from the current recommendation, include score deltas, fix at-threshold wording, and call out best-job changes when the top match shifts
 - **LinkedIn seat mapping sync (Jul 22)**: Recruiter→`#LI-*` mappings aligned to LinkedIn seat report; Reena/`Myticas Recruiter`→`#LI-RS1`; Lisa aliases→`#LI-LM1`; Rachel→`#LI-RM1`; obsolete seats pruned on seed
+- **Inbound Parse door quieted (Jul 22)**: Unconfigured SendGrid Inbound Parse webhook now returns **200 disabled** (stops retry storms) instead of 503; Graph mailbox-pull remains the authoritative apply@ intake path. Re-enable with `SENDGRID_INBOUND_WEBHOOK_SECRET` + optional `SENDGRID_INBOUND_PARSE_ENABLED`
 
 ### October 2025: Database-Backed Reference Number Preservation ✨
 - **Problem Identified**: Live XML URL returns 403 Forbidden, causing reference number reversion
