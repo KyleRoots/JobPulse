@@ -203,6 +203,64 @@ def is_valid_name_token(token: str) -> bool:
     return True
 
 
+# Domains / local-parts that appear in job-board notification HTML but are
+# never the candidate's real contact address (Easy Apply / digest emails).
+JOB_BOARD_RELAY_DOMAINS = frozenset({
+    'ziprecruiter.com',
+    'indeed.com',
+    'indeedemail.com',
+    'linkedin.com',
+    'lnkd.in',
+    'dice.com',
+    'glassdoor.com',
+    'monster.com',
+    'careerbuilder.com',
+})
+
+JOB_BOARD_RELAY_LOCALPARTS = frozenset({
+    'noreply', 'no-reply', 'donotreply', 'do-not-reply',
+    'mailer-daemon', 'notifications', 'notify', 'bounce',
+})
+
+
+def is_job_board_relay_email(email: Optional[str]) -> bool:
+    """True for board/ops addresses that must not become Bullhorn candidate email.
+
+    Easy Apply notifications often embed ``noreply@ziprecruiter.com`` (etc.) in
+    the HTML. Generic body scrapers would otherwise prefer that over the real
+    address recovered from the résumé.
+    """
+    if not email or not isinstance(email, str):
+        return False
+    value = email.strip().lower()
+    if '@' not in value:
+        return False
+    local, _, domain = value.partition('@')
+    if not local or not domain:
+        return False
+    if local in JOB_BOARD_RELAY_LOCALPARTS:
+        return True
+    # Strip one subdomain level for match (e.g. mail.ziprecruiter.com)
+    parts = domain.split('.')
+    for i in range(len(parts) - 1):
+        candidate = '.'.join(parts[i:])
+        if candidate in JOB_BOARD_RELAY_DOMAINS:
+            return True
+    return False
+
+
+def coalesce_candidate_email(*candidates: Optional[str]) -> Optional[str]:
+    """Return the first usable candidate email, skipping board/relay addresses."""
+    for raw in candidates:
+        if not raw or not str(raw).strip():
+            continue
+        value = str(raw).strip().lower()
+        if is_job_board_relay_email(value):
+            continue
+        return value
+    return None
+
+
 def is_work_auth_phrase(text: Optional[str]) -> bool:
     """Return True if ``text`` is a work-authorization / citizenship phrase.
 

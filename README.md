@@ -396,6 +396,7 @@ Check dashboard for automation status:
 - **LinkedIn seat mapping sync (Jul 22)**: Recruiter→`#LI-*` mappings aligned to LinkedIn seat report; Reena/`Myticas Recruiter`→`#LI-RS1`; Lisa aliases→`#LI-LM1`; Rachel→`#LI-RM1`; obsolete seats pruned on seed
 - **Inbound Parse door quieted (Jul 22)**: Unconfigured SendGrid Inbound Parse webhook now returns **200 disabled** (stops retry storms) instead of 503; Graph mailbox-pull remains the authoritative apply@ intake path. Re-enable with `SENDGRID_INBOUND_WEBHOOK_SECRET` + optional `SENDGRID_INBOUND_PARSE_ENABLED`
 - **Inbound enrich / phone-dedupe harden (Jul 22)**: Blank primary `email` is now filled on returning-applicant enrich; phone-only duplicate hits with conflicting names require AI identity confirmation (blocks junk-shell collisions like Happy Friday vs a real applicant)
+- **Zip Easy Apply email integrity (Jul 23)**: Board/relay addresses (`noreply@ziprecruiter.com`, `@indeedemail.com`, …) are skipped when choosing candidate email; Zip `Great Match:` / `New candidate:` subjects yield the applicant name so Easy Apply → apply@ stays closer to apply-form data quality
 
 ### October 2025: Database-Backed Reference Number Preservation ✨
 - **Problem Identified**: Live XML URL returns 403 Forbidden, causing reference number reversion

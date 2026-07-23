@@ -38,7 +38,12 @@ class ResumeMixin:
         candidate['lastName'] = last_name
         candidate['name'] = f"{first_name} {last_name}".strip()
 
-        candidate['email'] = email_data.get('email') or resume_data.get('email')
+        from utils.candidate_name_extraction import coalesce_candidate_email
+
+        candidate['email'] = coalesce_candidate_email(
+            email_data.get('email'),
+            resume_data.get('email'),
+        )
         candidate['phone'] = email_data.get('phone') or resume_data.get('phone')
 
         candidate['address'] = {}

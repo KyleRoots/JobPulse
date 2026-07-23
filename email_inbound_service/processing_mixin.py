@@ -4,6 +4,7 @@ from typing import Dict, Any
 
 from utils.candidate_name_extraction import (
     build_extraction_summary,
+    coalesce_candidate_email,
     is_cta_phrase,
     is_valid_name,
     parse_name_from_email_address,
@@ -250,7 +251,12 @@ class ProcessingMixin:
 
             db.session.commit()
 
-            candidate_email = email_candidate.get('email') or resume_data.get('email')
+            # Prefer résumé contact when the body scrape only found a board
+            # relay (noreply@ziprecruiter.com, etc.) — Easy Apply integrity.
+            candidate_email = coalesce_candidate_email(
+                email_candidate.get('email'),
+                resume_data.get('email'),
+            )
             candidate_phone = email_candidate.get('phone') or resume_data.get('phone')
             first_name = email_candidate.get('first_name') or resume_data.get('first_name')
             last_name = email_candidate.get('last_name') or resume_data.get('last_name')
@@ -353,6 +359,12 @@ class ProcessingMixin:
             resume_data['first_name'] = first_name
             email_candidate['last_name'] = last_name
             resume_data['last_name'] = last_name
+            email_candidate['email'] = candidate_email
+            resume_data['email'] = resume_data.get('email') or candidate_email
+            parsed_email.candidate_email = candidate_email
+            parsed_email.candidate_phone = candidate_phone
+            if first_name or last_name:
+                parsed_email.candidate_name = f"{first_name or ''} {last_name or ''}".strip()
 
             extraction_summary = build_extraction_summary(
                 resume_data=resume_data or {},
