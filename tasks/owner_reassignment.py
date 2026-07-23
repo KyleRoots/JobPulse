@@ -1000,18 +1000,27 @@ def preview_reassign_candidates(limit: int = 5) -> dict:
             query = f'{owner_clause} AND dateLastModified:[{since_ts} TO *]'
 
             search_url = f"{base_url}search/Candidate"
+            search_params = {
+                'query': query,
+                'fields': _CANDIDATE_FIELDS,
+                'count': max(limit, 10),
+                'start': 0,
+                'sort': '-dateLastModified',
+            }
             resp = _requests.get(
                 search_url,
                 headers=headers,
-                params={
-                    'query': query,
-                    'fields': _CANDIDATE_FIELDS,
-                    'count': max(limit, 10),
-                    'start': 0,
-                    'sort': '-dateLastModified',
-                },
+                params=search_params,
                 timeout=30,
             )
+            if resp.status_code == 401 and bh.authenticate():
+                headers['BhRestToken'] = bh.rest_token
+                resp = _requests.get(
+                    search_url,
+                    headers=headers,
+                    params=search_params,
+                    timeout=30,
+                )
 
             if resp.status_code != 200:
                 return {
@@ -1256,6 +1265,20 @@ def _reassign_api_user_candidates_locked(
                 resp = _requests.get(
                     search_url, headers=headers, params=search_params, timeout=30
                 )
+                # Concurrent Bullhorn REST logins (other scheduler jobs) can
+                # invalidate a just-issued BhRestToken. One re-auth + retry
+                # clears the common transient 401 without alarming ops.
+                if resp.status_code == 401:
+                    logger.warning(
+                        "owner_reassignment: candidate search HTTP 401 — "
+                        "re-authenticating and retrying once"
+                    )
+                    if bh.authenticate():
+                        rest_token = bh.rest_token
+                        headers['BhRestToken'] = rest_token
+                        resp = _requests.get(
+                            search_url, headers=headers, params=search_params, timeout=30
+                        )
                 if resp.status_code != 200:
                     logger.error(
                         f"owner_reassignment: candidate search failed "
