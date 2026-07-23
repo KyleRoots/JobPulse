@@ -533,6 +533,18 @@ This alert was triggered by the zero-job detection safeguard.
             
             if success:
                 self.logger.info(f"    🗑️ AUTO-REMOVED job {job_id} from tearsheet {tearsheet_id}: {reason}")
+
+                # Plan B: leaving Sponsored - STSI - Indeed also full-unpublishes
+                # portal + native Indeed syndication (best-effort, feature-flagged).
+                try:
+                    from feeds.feed_config import TEARSHEET_STSI_INDEED
+                    if int(tearsheet_id) == int(TEARSHEET_STSI_INDEED):
+                        from indeed_publish import unpublish_job_after_tearsheet_remove
+                        unpublish_job_after_tearsheet_remove(int(job_id), int(tearsheet_id))
+                except Exception as unpublish_err:
+                    self.logger.warning(
+                        f"    ⚠️ Indeed auto-unpublish after remove failed for job {job_id}: {unpublish_err}"
+                    )
                 
                 # Track for activity logging
                 self.auto_removed_jobs.append({

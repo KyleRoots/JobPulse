@@ -205,6 +205,18 @@ DATABASE_URL=postgresql://user:pass@host:port/dbname
 SESSION_SECRET=your-secret-key
 BULLHORN_PASSWORD=your-bullhorn-password
 SENDGRID_API_KEY=your-sendgrid-key
+
+# Indeed native publish (Plan B) — tearsheet 1640 → Bullhorn JobBoard CFC
+# Keep DISABLED until UI login + a single test job (e.g. 35233) is verified.
+INDEED_TEARSHEET_PUBLISH_ENABLED=false
+BH_UI_USERNAME=service.user
+BH_UI_PASSWORD=...
+BH_UI_BASE_URL=https://cls45.bullhornstaffing.com
+BH_UI_PRIVATE_LABEL_ID=52989
+BH_UI_ENCRYPTION_KEY=novo
+BH_UI_CURRENT_USER_ID=   # optional; auto-resolved when possible
+BH_CAREER_PORTAL_JOB_URL_TEMPLATE=https://myticas.com/jobs/{job_id}
+INDEED_TEARSHEET_PUBLISH_NOTIFY_EMAIL=kroots@myticas.com
 ```
 
 ### Python Dependencies
@@ -397,6 +409,7 @@ Check dashboard for automation status:
 - **Inbound Parse door quieted (Jul 22)**: Unconfigured SendGrid Inbound Parse webhook now returns **200 disabled** (stops retry storms) instead of 503; Graph mailbox-pull remains the authoritative apply@ intake path. Re-enable with `SENDGRID_INBOUND_WEBHOOK_SECRET` + optional `SENDGRID_INBOUND_PARSE_ENABLED`
 - **Inbound enrich / phone-dedupe harden (Jul 22)**: Blank primary `email` is now filled on returning-applicant enrich; phone-only duplicate hits with conflicting names require AI identity confirmation (blocks junk-shell collisions like Happy Friday vs a real applicant)
 - **Zip Easy Apply email integrity (Jul 23)**: Board/relay addresses (`noreply@ziprecruiter.com`, `@indeedemail.com`, …) are skipped when choosing candidate email; Zip `Great Match:` / `New candidate:` subjects yield the applicant name so Easy Apply → apply@ stays closer to apply-form data quality
+- **Indeed native Publish Plan B (Jul 23)**: Tearsheet **1640** (`Sponsored - STSI - Indeed`) can drive Bullhorn’s JobBoard CFC Publish/Unpublish (Corporate + Indeed) — category fuzzy-map, first assigned recruiter as Published Contact, auto-republish on relevant edits, full unpublish on remove (including monitor auto-remove). **Off by default** (`INDEED_TEARSHEET_PUBLISH_ENABLED=false`) until UI login is verified. Requires `BH_UI_USERNAME` / `BH_UI_PASSWORD` (and related `BH_UI_*` vars). Failures email `INDEED_TEARSHEET_PUBLISH_NOTIFY_EMAIL` (default `kroots@myticas.com`). XML Indeed feed remains separate — avoid dual syndication once native is live.
 
 ### October 2025: Database-Backed Reference Number Preservation ✨
 - **Problem Identified**: Live XML URL returns 403 Forbidden, causing reference number reversion
@@ -522,5 +535,5 @@ Access health endpoints for status checks:
 
 ---
 
-**Last Updated**: July 2026  
-**Version**: 2.1 (Railway production, STSI channel feeds, screening compliance Phase A)
+**Last Updated**: July 23, 2026
+**Version**: 2.2 (Railway production, STSI channel feeds, Indeed native publish Plan B)

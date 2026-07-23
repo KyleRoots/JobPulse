@@ -42,7 +42,8 @@ from tasks import (check_monitor_health, check_environment_status, send_environm
                    run_data_retention_cleanup, run_vetting_health_check, send_vetting_health_alert,
                    run_candidate_vetting_cycle, reference_number_refresh, automated_upload,
                    run_xml_change_monitor, start_scheduler_manual, cleanup_linkedin_source,
-                   enforce_tearsheet_jobs_public, run_requirements_maintenance)
+                   enforce_tearsheet_jobs_public, sync_indeed_tearsheet_publish,
+                   run_requirements_maintenance)
 
 # Configure logging for debugging account manager extraction
 logging.basicConfig(

@@ -429,6 +429,23 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
         )
         app.logger.info("🌐 Enforce tearsheet jobs public enabled — runs every 30 minutes to set isPublic=true on all active tearsheet jobs")
 
+    # ── Indeed Tearsheet Native Publish (every 5 minutes, feature-flagged) ───
+    if is_primary_worker:
+        from tasks import sync_indeed_tearsheet_publish
+        scheduler.add_job(
+            func=sync_indeed_tearsheet_publish,
+            trigger=IntervalTrigger(minutes=5),
+            id='indeed_tearsheet_publish',
+            name='Indeed Tearsheet Native Publish (1640)',
+            replace_existing=True,
+            misfire_grace_time=300,
+            coalesce=True,
+        )
+        app.logger.info(
+            "📣 Indeed tearsheet publish sync registered — runs every 5 minutes "
+            "(gated by INDEED_TEARSHEET_PUBLISH_ENABLED)"
+        )
+
     # ── Ownership Reassignment (every 5 minutes) ─────────────────────────────
     if is_primary_worker:
         from tasks import reassign_api_user_candidates
