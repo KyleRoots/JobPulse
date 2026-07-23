@@ -307,11 +307,15 @@ class IndeedTearsheetPublishService:
         # Publish new members
         for jid in sorted(to_add):
             job = jobs_by_id[jid]
-            try:
-                fp = self._publish_one(ui, bh, job, result, operation='PUBLISH')
-                if fp:
-                    fingerprints[str(jid)] = fp
-                    result['published'].append(jid)
+        # Bullhorn JobBoard CFC: after an Unpublish (or from Not Published),
+        # operation=PUBLISH returns "will be removed…" and leaves the job
+        # unpublished. operation=REPUBLISH is what actually publishes/republishes
+        # (matches the live UI network capture). Always use REPUBLISH here.
+        try:
+            fp = self._publish_one(ui, bh, job, result, operation='REPUBLISH')
+            if fp:
+                fingerprints[str(jid)] = fp
+                result['published'].append(jid)
             except Exception as exc:
                 msg = f'publish {jid}: {exc}'
                 result['errors'].append(msg)

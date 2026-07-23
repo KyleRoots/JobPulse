@@ -113,13 +113,13 @@ class TestSyncService:
         )
         result = {'skipped': [], 'errors': [], 'published': []}
         try:
-            svc._publish_one(ui, bh, job, result, operation='PUBLISH')
+            svc._publish_one(ui, bh, job, result, operation='REPUBLISH')
             assert False, 'expected error'
         except Exception as exc:
             assert 'email' in str(exc).lower() or 'recruiter' in str(exc).lower()
         ui.publish_boards.assert_not_called()
 
-    def test_membership_add_calls_publish(self):
+    def test_membership_add_calls_republish_operation(self):
         ui = MagicMock()
         ui.current_user_id = '25'
         bh = MagicMock()
@@ -157,6 +157,7 @@ class TestSyncService:
 
         assert 35233 in result['published']
         ui.publish_boards.assert_called()
+        assert ui.publish_boards.call_args.kwargs.get('operation') == 'REPUBLISH'
         save_state.assert_called()
         saved = save_state.call_args[0][0]
         assert 35233 in saved['job_ids']
