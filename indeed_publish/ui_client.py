@@ -234,11 +234,13 @@ class BullhornUIClient:
                 'currentUserID unknown — set BH_UI_CURRENT_USER_ID after first login'
             )
 
+        # Bullhorn UI uses the same CFC `method=Publish` with operation=UNPUBLISH
+        # (method=Unpublish returns HTTP 500). Confirmed Jul 2026 on cls45.
         results = {}
         for board in boards:
             results[board] = self._post_cfc(
                 board=board,
-                method='Unpublish',
+                method='Publish',
                 operation='UNPUBLISH',
                 job_id=job_id,
                 published_category_id=published_category_id or 0,

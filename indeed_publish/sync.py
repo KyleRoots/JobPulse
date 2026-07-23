@@ -47,13 +47,14 @@ def _first_assigned_recruiter(job: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
 
 def _fingerprint(job: Dict[str, Any], category_id: int, response_user_id: int) -> str:
+    # Do NOT include dateLastModified — Publish itself bumps that field and
+    # would cause every member to REPUBLISH on every sync cycle.
     payload = '|'.join([
         str(job.get('id') or ''),
         str(job.get('title') or ''),
         _job_description_html(job),
         str(category_id),
         str(response_user_id),
-        str(job.get('dateLastModified') or ''),
     ])
     return hashlib.sha256(payload.encode('utf-8', errors='ignore')).hexdigest()
 

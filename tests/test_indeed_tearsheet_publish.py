@@ -61,6 +61,11 @@ class TestRecruiterAndFingerprint:
         user = _first_assigned_recruiter(job)
         assert user['id'] == 10
 
+    def test_fingerprint_stable_without_date(self):
+        job_a = {'id': 1, 'title': 'T', 'description': 'A', 'publicDescription': '', 'dateLastModified': 1}
+        job_b = {'id': 1, 'title': 'T', 'description': 'A', 'publicDescription': '', 'dateLastModified': 999}
+        assert _fingerprint(job_a, 1, 2) == _fingerprint(job_b, 1, 2)
+
     def test_fingerprint_changes_with_description(self):
         job_a = {'id': 1, 'title': 'T', 'description': 'A', 'publicDescription': '', 'dateLastModified': 1}
         job_b = {'id': 1, 'title': 'T', 'description': 'B', 'publicDescription': '', 'dateLastModified': 1}
