@@ -411,6 +411,7 @@ Check dashboard for automation status:
 - **Zip Easy Apply email integrity (Jul 23)**: Board/relay addresses (`noreply@ziprecruiter.com`, `@indeedemail.com`, …) are skipped when choosing candidate email; Zip `Great Match:` / `New candidate:` subjects yield the applicant name so Easy Apply → apply@ stays closer to apply-form data quality
 - **Indeed native Publish Plan B (Jul 23)**: Tearsheet **1640** (`Sponsored - STSI - Indeed`) can drive Bullhorn’s JobBoard CFC Publish/Unpublish (Corporate + Indeed) — category fuzzy-map, first assigned recruiter as Published Contact, auto-republish on relevant edits, full unpublish on remove (including monitor auto-remove). **Off by default** (`INDEED_TEARSHEET_PUBLISH_ENABLED=false`) until UI login is verified. Requires `BH_UI_USERNAME` / `BH_UI_PASSWORD` (and related `BH_UI_*` vars). Failures email `INDEED_TEARSHEET_PUBLISH_NOTIFY_EMAIL` (default `kroots@myticas.com`). XML Indeed feed remains separate — avoid dual syndication once native is live.
 - **Indeed Unpublish fix (Jul 23)**: Native unpublish now uses CFC `method=Publish` + `operation=UNPUBLISH` (the UI’s real shape); fingerprints no longer include `dateLastModified` (stops every-cycle republish thrash). Tearsheet **adds** use `operation=REPUBLISH` — Bullhorn’s `PUBLISH` operation can return “will be removed…” and leave the job unpublished after a prior Unpublish.
+- **Garbled PDF extract / location false DQ (Jul 24)**: Detect broken-font / ToUnicode PDF gibberish (`utils/resume_text_quality.py`), force vision OCR on inbound + vetting extract, and skip garbled Bullhorn `description` during screening so location (e.g. Atlanta, GA) is read from the real résumé. Area-code examples now include 404/470/678 → Atlanta.
 
 ### October 2025: Database-Backed Reference Number Preservation ✨
 - **Problem Identified**: Live XML URL returns 403 Forbidden, causing reference number reversion
@@ -536,5 +537,5 @@ Access health endpoints for status checks:
 
 ---
 
-**Last Updated**: July 23, 2026
-**Version**: 2.2 (Railway production, STSI channel feeds, Indeed native publish Plan B)
+**Last Updated**: July 24, 2026
+**Version**: 2.3 (Railway production, Indeed Plan B, garbled-resume OCR/screening harden)

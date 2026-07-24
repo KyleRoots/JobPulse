@@ -188,9 +188,15 @@ class CandidateProcessingMixin:
 
                 logger.info(f"📄 After cleaning: {len(description)} chars, first 200: {description[:200]}")
 
-                if len(description) >= 100:
+                from utils.resume_text_quality import is_garbled_resume_text
+                if len(description) >= 100 and not is_garbled_resume_text(description):
                     resume_text = sanitize_text(description)
                     logger.info(f"📄 Using candidate description field: {len(resume_text)} chars")
+                elif is_garbled_resume_text(description):
+                    logger.warning(
+                        f"📄 Candidate description looks garbled ({len(description)} chars) — "
+                        f"ignoring Overview text and re-extracting from resume file"
+                    )
                 else:
                     logger.info(f"Description too short ({len(description)} chars), will try file download")
             else:
@@ -203,6 +209,12 @@ class CandidateProcessingMixin:
                 if file_content and filename:
                     resume_text = self.extract_resume_text(file_content, filename)
                     if resume_text:
+                        from utils.resume_text_quality import is_garbled_resume_text
+                        if is_garbled_resume_text(resume_text):
+                            logger.warning(
+                                f"Extracted resume text still looks garbled for {filename} "
+                                f"({len(resume_text)} chars) — screening may be unreliable"
+                            )
                         logger.info(f"Extracted {len(resume_text)} characters from resume file")
                     else:
                         logger.warning(f"Could not extract text from resume: {filename}")

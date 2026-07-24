@@ -683,6 +683,34 @@ OUTPUT: Return ONLY the formatted HTML, nothing else. No explanation, no markdow
                 else:
                     if not raw_text:
                         return "", ""
+
+            # Broken ToUnicode / custom-font PDFs yield long ASCII gibberish that
+            # bypasses the empty-text OCR gate. Force vision OCR when detected.
+            try:
+                from utils.resume_text_quality import is_garbled_resume_text
+                if is_garbled_resume_text(raw_text):
+                    file_size = os.path.getsize(file_path) if os.path.exists(file_path) else 0
+                    logger.warning(
+                        f"🧩 Garbled PDF text extract detected ({len(raw_text)} chars, "
+                        f"file={file_size} bytes) — forcing AI vision OCR"
+                    )
+                    from vetting.resume_utils import _ocr_pdf_with_vision
+                    with open(file_path, 'rb') as f:
+                        pdf_bytes = f.read()
+                    ocr_text = _ocr_pdf_with_vision(pdf_bytes)
+                    if ocr_text and not is_garbled_resume_text(ocr_text) and len(ocr_text.strip()) >= 50:
+                        raw_text = ocr_text
+                        logger.info(
+                            f"📸 AI vision OCR replaced garbled extract "
+                            f"({len(raw_text)} chars)"
+                        )
+                    else:
+                        logger.warning(
+                            "AI vision OCR did not yield clean text after garbled extract; "
+                            "keeping original extract for downstream fail-soft handling"
+                        )
+            except Exception as garbled_err:
+                logger.warning(f"Garbled-extract OCR fallback failed: {garbled_err}")
             
             # Apply deterministic text normalization to fix common PDF extraction issues
             # This handles Unicode whitespace, non-breaking spaces, and attempts to repair

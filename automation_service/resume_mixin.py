@@ -18,13 +18,9 @@ logger = logging.getLogger(__name__)
 
 
 class ResumeMixin:
-    _GARBLED_PATTERNS = ["WW8Num", "OJQJ", "^J ", "phOJQJ", "OJQJo", "Num1z", "OJQJ^J"]
-
     def _is_garbled_description(self, text):
-        if not text:
-            return False
-        matches = sum(1 for p in self._GARBLED_PATTERNS if p in text)
-        return matches >= 3
+        from utils.resume_text_quality import is_garbled_resume_text
+        return is_garbled_resume_text(text)
 
     def _builtin_resume_reparser(self, params):
         dry_run = params.get("dry_run", True)
