@@ -251,11 +251,13 @@ class ProcessingMixin:
 
             db.session.commit()
 
-            # Prefer résumé contact when the body scrape only found a board
-            # relay (noreply@ziprecruiter.com, etc.) — Easy Apply integrity.
+            # Prefer résumé contact over body scrape. Zip Easy Apply greets
+            # ``Hi apply@myticas.com`` and embeds noreply@ — those are skipped by
+            # coalesce_candidate_email, but résumé-first still wins when both are
+            # present (real LinkedIn/apply-form body emails remain valid fallbacks).
             candidate_email = coalesce_candidate_email(
-                email_candidate.get('email'),
                 resume_data.get('email'),
+                email_candidate.get('email'),
             )
             candidate_phone = email_candidate.get('phone') or resume_data.get('phone')
             first_name = email_candidate.get('first_name') or resume_data.get('first_name')

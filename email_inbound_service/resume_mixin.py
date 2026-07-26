@@ -40,9 +40,12 @@ class ResumeMixin:
 
         from utils.candidate_name_extraction import coalesce_candidate_email
 
+        # Résumé-first: board notification bodies often greet our apply@ mailbox
+        # or embed noreply@; those are filtered by coalesce, and a real résumé
+        # address must win when both exist.
         candidate['email'] = coalesce_candidate_email(
-            email_data.get('email'),
             resume_data.get('email'),
+            email_data.get('email'),
         )
         candidate['phone'] = email_data.get('phone') or resume_data.get('phone')
 

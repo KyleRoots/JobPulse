@@ -222,6 +222,51 @@ JOB_BOARD_RELAY_LOCALPARTS = frozenset({
     'mailer-daemon', 'notifications', 'notify', 'bounce',
 })
 
+# Our own intake / ops mailboxes. Zip/Indeed Easy Apply bodies greet
+# ``Hi apply@myticas.com`` — a generic body scrape would treat that as the
+# candidate email and collapse every applicant onto the Bullhorn record that
+# already owns apply@ (prod incident: Candidate 4380273 "ISMS SME").
+OWNED_INTAKE_DOMAINS = frozenset({
+    'myticas.com',
+    'stsigroup.com',
+    'scoutgenius.ai',
+})
+
+OWNED_INTAKE_LOCALPARTS = frozenset({
+    'apply', 'info', 'jobs', 'careers', 'noreply', 'no-reply',
+    'donotreply', 'do-not-reply', 'parser', 'notifications',
+})
+
+# Exact addresses always treated as non-candidate (even if domain list drifts).
+OWNED_INTAKE_ADDRESSES = frozenset({
+    'apply@myticas.com',
+    'apply@stsigroup.com',
+    'info@myticas.com',
+    'info@stsigroup.com',
+})
+
+
+def is_owned_intake_mailbox(email: Optional[str]) -> bool:
+    """True for our apply/info mailboxes that must never be a candidate email."""
+    if not email or not isinstance(email, str):
+        return False
+    value = email.strip().lower()
+    if '@' not in value:
+        return False
+    if value in OWNED_INTAKE_ADDRESSES:
+        return True
+    # GRAPH_MAILBOX_UPN (and similar) — whatever mailbox we poll is never the applicant.
+    for env_key in ('GRAPH_MAILBOX_UPN', 'APPLY_EMAIL'):
+        configured = (os.environ.get(env_key) or '').strip().lower()
+        if configured and value == configured:
+            return True
+    local, _, domain = value.partition('@')
+    if not local or not domain:
+        return False
+    if local in OWNED_INTAKE_LOCALPARTS and domain in OWNED_INTAKE_DOMAINS:
+        return True
+    return False
+
 
 def is_job_board_relay_email(email: Optional[str]) -> bool:
     """True for board/ops addresses that must not become Bullhorn candidate email.
@@ -229,12 +274,17 @@ def is_job_board_relay_email(email: Optional[str]) -> bool:
     Easy Apply notifications often embed ``noreply@ziprecruiter.com`` (etc.) in
     the HTML. Generic body scrapers would otherwise prefer that over the real
     address recovered from the résumé.
+
+    Also rejects our own intake mailboxes (``apply@myticas.com`` etc.) which
+    appear in ZipRecruiter greeting lines and must never win contact coalesce.
     """
     if not email or not isinstance(email, str):
         return False
     value = email.strip().lower()
     if '@' not in value:
         return False
+    if is_owned_intake_mailbox(value):
+        return True
     local, _, domain = value.partition('@')
     if not local or not domain:
         return False
@@ -250,7 +300,7 @@ def is_job_board_relay_email(email: Optional[str]) -> bool:
 
 
 def coalesce_candidate_email(*candidates: Optional[str]) -> Optional[str]:
-    """Return the first usable candidate email, skipping board/relay addresses."""
+    """Return the first usable candidate email, skipping board/relay/intake addresses."""
     for raw in candidates:
         if not raw or not str(raw).strip():
             continue
