@@ -93,7 +93,12 @@ class CandidateProcessingMixin:
 
     def process_candidate(self, candidate: Dict, cached_jobs: Optional[List[Dict]] = None) -> Optional[CandidateVettingLog]:
         """
-        Process a single candidate through the full vetting pipeline.
+        Process a single candidate through the scoring pipeline (resume + matches).
+
+        Does NOT create the Bullhorn note or send recruiter emails — those run in
+        ``run_vetting_cycle`` post-processing (``create_candidate_note`` then
+        ``send_recruiter_notifications``). Callers that invoke this method outside
+        the cycle must run those steps themselves for qualified candidates.
 
         Args:
             candidate: Candidate dictionary from Bullhorn
