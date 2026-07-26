@@ -311,6 +311,44 @@ def coalesce_candidate_email(*candidates: Optional[str]) -> Optional[str]:
     return None
 
 
+def resolve_linkedin_profile_url(*sources: Optional[str]) -> Optional[str]:
+    """Return a clickable LinkedIn ``/in/`` profile URL from résumé/body text.
+
+    Used as a third contact channel (alongside email/phone) so name + LinkedIn
+    alone can still create a Bullhorn candidate. Maps to Bullhorn ``customText9``.
+    Returns ``None`` when no personal ``/in/`` profile is found (company pages
+    and empty sources are ignored).
+    """
+    try:
+        from fraud_detection.signals import extract_linkedin_url
+    except ImportError:  # pragma: no cover — package always present in app
+        return None
+    canonical = extract_linkedin_url(*sources)
+    if not canonical:
+        return None
+    # extract_linkedin_url returns ``linkedin.com/in/<slug>``; store absolute URL
+    # so recruiters can open it from the Bullhorn LinkedIn field in one click.
+    if canonical.startswith("http://") or canonical.startswith("https://"):
+        return canonical
+    return f"https://www.{canonical}"
+
+
+def has_candidate_contact(
+    email: Optional[str] = None,
+    phone: Optional[str] = None,
+    linkedin_url: Optional[str] = None,
+) -> bool:
+    """True when at least one recruiter-reachable contact channel is present."""
+    if email and str(email).strip() and not is_job_board_relay_email(email):
+        return True
+    if phone and str(phone).strip():
+        return True
+    if linkedin_url and str(linkedin_url).strip():
+        return True
+    return False
+
+
+
 def is_work_auth_phrase(text: Optional[str]) -> bool:
     """Return True if ``text`` is a work-authorization / citizenship phrase.
 

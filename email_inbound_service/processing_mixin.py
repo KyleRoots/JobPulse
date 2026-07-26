@@ -263,6 +263,25 @@ class ProcessingMixin:
             first_name = email_candidate.get('first_name') or resume_data.get('first_name')
             last_name = email_candidate.get('last_name') or resume_data.get('last_name')
 
+            # LinkedIn /in/ URL counts as recruiter-reachable contact when
+            # email/phone are missing. Also mapped to Bullhorn customText9.
+            from utils.candidate_name_extraction import (
+                resolve_linkedin_profile_url,
+                has_candidate_contact,
+            )
+            candidate_linkedin = resolve_linkedin_profile_url(
+                resume_data.get('linkedin_url'),
+                email_candidate.get('linkedin_url'),
+                resume_text,
+                resume_data.get('raw_text'),
+                resume_data.get('formatted_html'),
+                body,
+            )
+            if candidate_linkedin:
+                resume_data['linkedin_url'] = candidate_linkedin
+                email_candidate['linkedin_url'] = candidate_linkedin
+                self.logger.info(f"LinkedIn profile contact resolved: {candidate_linkedin}")
+
             # CTA-Reject Guard: if the resolved (first, last) pair is a
             # job-board call-to-action phrase ("Invite Friend", "Apply
             # Now", "View Profile", etc.), drop it and let the recovery
@@ -292,7 +311,9 @@ class ProcessingMixin:
                     last_name = None
 
             has_name = is_valid_name(first_name, last_name)
-            has_contact = bool(candidate_email or candidate_phone)
+            has_contact = has_candidate_contact(
+                candidate_email, candidate_phone, candidate_linkedin,
+            )
             has_email_data = bool(email_candidate.get('first_name') or email_candidate.get('email'))
 
             if not is_valid_name(first_name, last_name) and parsed_email.resume_filename:
@@ -345,11 +366,25 @@ class ProcessingMixin:
                         candidate_phone = ai_recovered['phone'].strip()
                         parsed_email.candidate_phone = candidate_phone
                         self.logger.info(f"Layer 5 recovered phone: {candidate_phone}")
-                    has_contact = bool(candidate_email or candidate_phone)
+                    if not candidate_linkedin and ai_recovered.get('linkedin_url'):
+                        candidate_linkedin = resolve_linkedin_profile_url(
+                            ai_recovered.get('linkedin_url'),
+                        )
+                        if candidate_linkedin:
+                            resume_data['linkedin_url'] = candidate_linkedin
+                            email_candidate['linkedin_url'] = candidate_linkedin
+                            self.logger.info(
+                                f"Layer 5 recovered LinkedIn: {candidate_linkedin}"
+                            )
+                    has_contact = has_candidate_contact(
+                        candidate_email, candidate_phone, candidate_linkedin,
+                    )
                     db.session.commit()
 
             has_name = bool(first_name or last_name)
-            has_contact = bool(candidate_email or candidate_phone)
+            has_contact = has_candidate_contact(
+                candidate_email, candidate_phone, candidate_linkedin,
+            )
 
             # Always overwrite source dicts — including to None when the
             # CTA-Reject Guard above (or any other recovery layer) ended
@@ -426,7 +461,11 @@ class ProcessingMixin:
                 elif not resume_data or len(resume_data) == 0:
                     error_msg = "AI could not extract any information from resume and no candidate info in email body"
                 else:
-                    error_msg = "Could not extract candidate name or contact information from email or resume (all 5 fallback layers exhausted)"
+                    error_msg = (
+                        "Could not extract candidate name or contact information "
+                        "(email, phone, or LinkedIn profile) from email or resume "
+                        "(all 5 fallback layers exhausted)"
+                    )
 
                 self.logger.warning(f"Early validation failed: {error_msg}")
                 parsed_email.status = 'failed'

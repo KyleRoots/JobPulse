@@ -542,12 +542,14 @@ Consider: name spelling variations, nicknames, contact info matches.
                 return {'description': new_data['description']}
             return {}
 
-        enrichable_fields = [
+            enrichable_fields = [
             # Primary email when blank — avoids leaving returning applicants on
             # empty email shells after a phone-matched enrich (email2/email3 alone
             # are not enough for recruiters or later email-based dedupe).
             'email', 'phone', 'mobile', 'occupation', 'companyName', 'skillSet',
             'employmentPreference', 'email2', 'email3',
+            # LinkedIn profile URL (Bullhorn LinkedIn custom field)
+            'customText9',
         ]
 
         enriched = {}

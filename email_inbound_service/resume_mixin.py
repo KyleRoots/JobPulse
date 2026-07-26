@@ -49,6 +49,19 @@ class ResumeMixin:
         )
         candidate['phone'] = email_data.get('phone') or resume_data.get('phone')
 
+        from utils.candidate_name_extraction import resolve_linkedin_profile_url
+        linkedin_url = resolve_linkedin_profile_url(
+            resume_data.get('linkedin_url'),
+            email_data.get('linkedin_url'),
+            resume_data.get('raw_text'),
+            resume_data.get('formatted_html'),
+            resume_data.get('summary'),
+        )
+        if linkedin_url:
+            # Bullhorn LinkedIn / profile URL custom field
+            candidate['customText9'] = linkedin_url
+            resume_data['linkedin_url'] = linkedin_url
+
         candidate['address'] = {}
         if email_data.get('city') or resume_data.get('city'):
             candidate['address']['city'] = email_data.get('city') or resume_data.get('city')
@@ -114,8 +127,7 @@ class ResumeMixin:
         elif resume_data.get('summary'):
             candidate['description'] = resume_data['summary']
 
-        if resume_data.get('linkedin_url'):
-            candidate['customText9'] = resume_data['linkedin_url']
+        # customText9 already set above when a LinkedIn /in/ URL was resolved
 
         return candidate
 
