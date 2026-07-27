@@ -13,6 +13,7 @@ from feeds.feed_config import (
     SOURCE_LINKEDIN,
     STSI_INDEED_FILENAME_DEV,
     STSI_ZIPRECRUITER_FILENAME_DEV,
+    all_xml_feed_tearsheet_ids,
 )
 from xml_integration_service import XMLIntegrationService
 
@@ -30,6 +31,14 @@ class TestFeedConfig:
         assert CHANNEL_FEEDS[1]['source_channel'] == SOURCE_ZIPRECRUITER
         assert CHANNEL_FEEDS[0]['filename_dev'] == STSI_INDEED_FILENAME_DEV
         assert CHANNEL_FEEDS[1]['filename_dev'] == STSI_ZIPRECRUITER_FILENAME_DEV
+
+    def test_all_xml_feed_tearsheet_ids_covers_v2_and_channels(self):
+        ids = all_xml_feed_tearsheet_ids()
+        for tid in V2_TEARSHEET_IDS:
+            assert tid in ids
+        assert TEARSHEET_STSI_INDEED in ids
+        assert TEARSHEET_STSI_ZIPRECRUITER in ids
+        assert len(ids) == len(set(ids))
 
 
 class TestApplicationUrlSourceChannel:

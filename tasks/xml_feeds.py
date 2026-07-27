@@ -7,7 +7,12 @@ logger = logging.getLogger(__name__)
 
 
 def reference_number_refresh():
-    """Automatic refresh of all reference numbers every 120 hours while preserving all other XML data"""
+    """Automatic refresh of all reference numbers every 120 hours while preserving all other XML data.
+
+    Covers every published XML feed tearsheet set (v2 + STSI Indeed + ZipRecruiter),
+    persists rotated refs to JobReferenceNumber, and relies on the 30-minute upload
+    cycle to republish each feed file with the new values.
+    """
     from app import app
     from extensions import db
     with app.app_context():
@@ -21,21 +26,23 @@ def reference_number_refresh():
                 app.logger.info(f"Reference refresh already completed today at {existing_refresh.refresh_time}")
                 return
 
-            app.logger.info("Starting 120-hour reference number refresh...")
+            app.logger.info(
+                "Starting 120-hour reference number refresh across all XML feeds "
+                "(v2 + STSI Indeed + ZipRecruiter)..."
+            )
 
             from simplified_xml_generator import SimplifiedXMLGenerator
+            from lightweight_reference_refresh import refresh_all_feed_references
 
             generator = SimplifiedXMLGenerator(db=db)
-
-            xml_content, stats = generator.generate_fresh_xml()
-            app.logger.info(f"Generated fresh XML: {stats['job_count']} jobs, {stats['xml_size_bytes']} bytes")
-
-            from lightweight_reference_refresh import lightweight_refresh_references_from_content
-
-            result = lightweight_refresh_references_from_content(xml_content)
+            result = refresh_all_feed_references(generator)
 
             if result['success']:
-                app.logger.info(f"Reference refresh complete: {result['jobs_updated']} jobs updated in {result['time_seconds']:.2f} seconds")
+                app.logger.info(
+                    f"Reference refresh complete: {result['jobs_updated']} jobs updated "
+                    f"across feeds {result.get('feeds_covered')} "
+                    f"in {result['time_seconds']:.2f} seconds"
+                )
 
                 try:
                     refresh_log = RefreshLog(
@@ -52,16 +59,16 @@ def reference_number_refresh():
                     app.logger.error(f"Failed to log refresh completion: {str(log_error)}")
                     db.session.rollback()
 
-                from lightweight_reference_refresh import save_references_to_database
-                db_save_success = save_references_to_database(result['xml_content'])
-
-                if not db_save_success:
+                if not result.get('database_saved'):
                     error_msg = "Database-first architecture requires successful DB save - 120-hour refresh FAILED"
                     app.logger.critical(f"CRITICAL: {error_msg}")
                     raise Exception(error_msg)
 
                 app.logger.info("DATABASE-FIRST: Reference numbers successfully saved to database")
-                app.logger.info("Reference refresh complete: Reference numbers updated in database (30-minute upload cycle will use these values)")
+                app.logger.info(
+                    "Reference refresh complete: refs updated for all feed tearsheets "
+                    "(30-minute upload cycle will publish v2 + Indeed + ZipRecruiter)"
+                )
 
                 try:
                     from email_service import EmailService
@@ -77,13 +84,18 @@ def reference_number_refresh():
                             'execution_time': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
                             'processing_time': result['time_seconds'],
                             'jobs_updated': result['jobs_updated'],
-                            'database_saved': db_save_success,
-                            'note': 'Reference numbers saved to database - 30-minute upload cycle will use these values'
+                            'database_saved': result.get('database_saved'),
+                            'feeds_covered': ', '.join(result.get('feeds_covered') or []),
+                            'tearsheet_ids': result.get('tearsheet_ids'),
+                            'note': (
+                                'Reference numbers saved for v2 + STSI Indeed + ZipRecruiter — '
+                                '30-minute upload cycle will publish all three feeds'
+                            ),
                         }
 
                         email_sent = email_service.send_reference_number_refresh_notification(
                             to_email=email_setting.setting_value,
-                            schedule_name="120-Hour Reference Number Refresh",
+                            schedule_name="120-Hour Reference Number Refresh (All Feeds)",
                             total_jobs=result['jobs_updated'],
                             refresh_details=refresh_details,
                             status="success"
@@ -104,10 +116,14 @@ def reference_number_refresh():
                     app.logger.error(f"Failed to send refresh confirmation email: {str(email_error)}")
 
                 try:
+                    feeds = ', '.join(result.get('feeds_covered') or [])
                     activity = BullhornActivity(
                         monitor_id=None,
                         activity_type='reference_refresh',
-                        details=f'Daily automatic refresh: {result["jobs_updated"]} reference numbers updated',
+                        details=(
+                            f'Daily automatic refresh (all feeds: {feeds}): '
+                            f'{result["jobs_updated"]} reference numbers updated'
+                        ),
                         notification_sent=True,
                         created_at=datetime.utcnow()
                     )
@@ -136,7 +152,7 @@ def reference_number_refresh():
 
                         email_sent = email_service.send_reference_number_refresh_notification(
                             to_email=email_setting.setting_value,
-                            schedule_name="120-Hour Reference Number Refresh",
+                            schedule_name="120-Hour Reference Number Refresh (All Feeds)",
                             total_jobs=0,
                             refresh_details=refresh_details,
                             status="error",

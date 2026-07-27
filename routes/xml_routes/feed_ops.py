@@ -16,26 +16,29 @@ logger = logging.getLogger(__name__)
 @xml_routes_bp.route('/api/refresh-reference-numbers', methods=['POST'])
 @login_required
 def refresh_reference_numbers():
-    """Ad-hoc refresh of all reference numbers using fresh Bullhorn data"""
+    """Ad-hoc refresh of all reference numbers across every published XML feed."""
     try:
-        from app import get_xml_filename
-        from xml_processor import XMLProcessor
         from email_service import EmailService
         from ftp_service import FTPService
         from models import GlobalSettings, RefreshLog
+        from feeds.feed_config import (
+            CHANNEL_FEEDS,
+            V2_FILENAME,
+            V2_FILENAME_DEV,
+            SOURCE_LINKEDIN,
+        )
+        from tasks.xml_feeds import _upload_single_file
 
-        logger.info("🔄 AD-HOC REFERENCE NUMBER REFRESH: Starting manual refresh with fresh Bullhorn data")
+        logger.info(
+            "🔄 AD-HOC REFERENCE NUMBER REFRESH: Starting manual refresh across "
+            "all XML feeds (v2 + STSI Indeed + ZipRecruiter)"
+        )
 
         from simplified_xml_generator import SimplifiedXMLGenerator
+        from lightweight_reference_refresh import refresh_all_feed_references
 
         generator = SimplifiedXMLGenerator(db=db)
-
-        xml_content, stats = generator.generate_fresh_xml()
-        logger.info(f"📊 Generated fresh XML: {stats['job_count']} jobs, {stats['xml_size_bytes']} bytes")
-
-        from lightweight_reference_refresh import lightweight_refresh_references_from_content
-
-        result = lightweight_refresh_references_from_content(xml_content)
+        result = refresh_all_feed_references(generator)
 
         if not result['success']:
             return jsonify({
@@ -43,12 +46,12 @@ def refresh_reference_numbers():
                 'error': f"Failed to refresh reference numbers: {result.get('error', 'Unknown error')}"
             }), 500
 
-        logger.info(f"✅ Reference refresh complete: {result['jobs_updated']} jobs updated in {result['time_seconds']:.2f} seconds")
+        logger.info(
+            f"✅ Reference refresh complete: {result['jobs_updated']} jobs updated "
+            f"across {result.get('feeds_covered')} in {result['time_seconds']:.2f} seconds"
+        )
 
-        from lightweight_reference_refresh import save_references_to_database
-        db_save_success = save_references_to_database(result['xml_content'])
-
-        if not db_save_success:
+        if not result.get('database_saved'):
             error_msg = "Database-first architecture requires successful DB save - manual refresh aborted"
             logger.critical(f"❌ CRITICAL: {error_msg}")
             return jsonify({
@@ -69,18 +72,11 @@ def refresh_reference_numbers():
 
         upload_success = False
         upload_error_message = None
+        uploaded_files = []
 
         if (sftp_hostname and sftp_hostname.setting_value and
             sftp_username and sftp_username.setting_value and
             sftp_password and sftp_password.setting_value):
-
-            temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False, encoding='utf-8')
-            try:
-                temp_file.write(result['xml_content'])
-                temp_file.flush()
-                temp_file_path = temp_file.name
-            finally:
-                temp_file.close()
 
             try:
                 ftp_service = FTPService(
@@ -92,29 +88,73 @@ def refresh_reference_numbers():
                     use_sftp=True
                 )
 
-                remote_filename = get_xml_filename()
-                upload_result = ftp_service.upload_file(temp_file_path, remote_filename)
+                current_env = (
+                    os.environ.get('APP_ENV')
+                    or os.environ.get('ENVIRONMENT')
+                    or 'production'
+                ).lower()
+                if current_env not in ('production', 'development'):
+                    current_env = 'development'
 
-                if upload_result:
-                    upload_success = True
-                    logger.info(f"📤 Successfully uploaded refreshed XML as {remote_filename} to server")
+                # Regenerate each feed separately so apply URLs / publisher
+                # headers stay correct — combined refresh XML must not be uploaded as v2.
+                v2_xml, v2_stats = generator.generate_fresh_xml(source_channel=SOURCE_LINKEDIN)
+                v2_filename = V2_FILENAME if current_env == 'production' else V2_FILENAME_DEV
+                v2_ok, v2_err = _upload_single_file(
+                    ftp_service, v2_xml, v2_filename, current_app
+                )
+                if v2_ok:
+                    uploaded_files.append(v2_filename)
+                    logger.info(
+                        f"📤 Uploaded {v2_filename} ({v2_stats['job_count']} jobs)"
+                    )
                 else:
-                    upload_error_message = "Upload failed: FTP service returned False"
-                    logger.error(upload_error_message)
+                    upload_error_message = f"v2: {v2_err}"
+
+                channel_ok = True
+                for feed_cfg in CHANNEL_FEEDS:
+                    xml_content, stats = generator.generate_fresh_xml(
+                        tearsheet_ids=feed_cfg['tearsheet_ids'],
+                        source_channel=feed_cfg['source_channel'],
+                        allow_empty=feed_cfg.get('allow_empty', False),
+                        publisher_title=feed_cfg.get('publisher_title'),
+                        publisher_link=feed_cfg.get('publisher_link'),
+                    )
+                    remote_filename = (
+                        feed_cfg['filename']
+                        if current_env == 'production'
+                        else feed_cfg.get('filename_dev', feed_cfg['filename'])
+                    )
+                    ok, err = _upload_single_file(
+                        ftp_service, xml_content, remote_filename, current_app
+                    )
+                    if ok:
+                        uploaded_files.append(remote_filename)
+                        logger.info(
+                            f"📤 Uploaded {remote_filename} ({stats['job_count']} jobs)"
+                        )
+                    else:
+                        channel_ok = False
+                        err_part = f"{feed_cfg['key']}: {err}"
+                        upload_error_message = (
+                            f"{upload_error_message}; {err_part}"
+                            if upload_error_message else err_part
+                        )
+
+                upload_success = v2_ok and channel_ok
 
             except Exception as upload_error:
                 upload_error_message = str(upload_error)
                 logger.error(f"Upload failed: {upload_error_message}")
-            finally:
-                try:
-                    os.remove(temp_file_path)
-                except Exception:
-                    pass
         else:
             upload_error_message = "SFTP credentials not configured"
             logger.warning("SFTP not configured - skipping upload")
 
-        logger.info(f"🔄 MANUAL REFRESH COMPLETE: User {current_user.username} refreshed {result['jobs_updated']} reference numbers")
+        logger.info(
+            f"🔄 MANUAL REFRESH COMPLETE: User {current_user.username} refreshed "
+            f"{result['jobs_updated']} reference numbers "
+            f"(feeds={result.get('feeds_covered')}, uploaded={uploaded_files})"
+        )
 
         try:
             today = date.today()
@@ -137,10 +177,12 @@ def refresh_reference_numbers():
             if notification_email_setting and notification_email_setting.setting_value:
                 email_result = email_service.send_reference_number_refresh_notification(
                     to_email=notification_email_setting.setting_value,
-                    schedule_name="Manual Refresh",
+                    schedule_name="Manual Refresh (All Feeds)",
                     total_jobs=result['jobs_updated'],
                     refresh_details={
                         'jobs_updated': result['jobs_updated'],
+                        'feeds_covered': ', '.join(result.get('feeds_covered') or []),
+                        'uploaded_files': ', '.join(uploaded_files) if uploaded_files else 'none',
                         'upload_status': 'Success' if upload_success else f'Failed: {upload_error_message}',
                         'processing_time': result['time_seconds']
                     },
@@ -157,9 +199,14 @@ def refresh_reference_numbers():
         return jsonify({
             'success': True,
             'jobs_processed': result['jobs_updated'],
+            'feeds_covered': result.get('feeds_covered'),
+            'uploaded_files': uploaded_files,
             'upload_success': upload_success,
             'upload_error': upload_error_message if not upload_success else None,
-            'message': f'Successfully refreshed {result["jobs_updated"]} reference numbers using fresh Bullhorn data'
+            'message': (
+                f'Successfully refreshed {result["jobs_updated"]} reference numbers '
+                f'across v2 + Indeed + ZipRecruiter'
+            ),
         })
 
     except Exception as e:

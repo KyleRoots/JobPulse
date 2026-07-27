@@ -3,6 +3,9 @@ XML feed configuration — tearsheet sets, filenames, and apply URL source param
 
 v2 (myticas-job-feed-v2.xml): Myticas sponsored tearsheets + STSI LinkedIn (1531).
 Channel feeds: STSI Indeed (1640) and ZipRecruiter (1641) only.
+
+Reference-number refresh uses ``all_xml_feed_tearsheet_ids()`` so v2 and both
+channel feeds rotate together on the 120-hour cycle.
 """
 
 # Bullhorn tearsheet IDs
@@ -75,3 +78,17 @@ CHANNEL_FEEDS = (
         'publisher_link': STSI_PUBLISHER_LINK,
     },
 )
+
+
+def all_xml_feed_tearsheet_ids():
+    """Tearsheets covered by every published XML feed (v2 + STSI channels).
+
+    Used by the 120-hour reference-number refresh so Indeed/Zip-only jobs
+    rotate refs alongside LinkedIn/v2 — not only the default V2 set.
+    """
+    ids = list(V2_TEARSHEET_IDS)
+    for feed_cfg in CHANNEL_FEEDS:
+        for tid in feed_cfg['tearsheet_ids']:
+            if tid not in ids:
+                ids.append(tid)
+    return ids
