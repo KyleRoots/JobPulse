@@ -59,6 +59,10 @@ def run_schema_migrations(db):
         ("parsed_email", "recovery_message_id", "VARCHAR(255)"),
         ("bullhorn_monitor", "environment_id", "INTEGER"),
         ("candidate_fraud_assessment", "environment_id", "INTEGER"),
+        # Fraud notifier differentiators (July 2026)
+        ("candidate_fraud_assessment", "calibration_label", "VARCHAR(20)"),
+        ("candidate_fraud_assessment", "calibration_notes", "TEXT"),
+        ("candidate_fraud_assessment", "calibration_labeled_at", "TIMESTAMP"),
         ("job_embedding", "environment_id", "INTEGER"),
         ("candidate_profile_embedding", "environment_id", "INTEGER"),
         ("recruiter_notification_ledger", "environment_id", "INTEGER"),

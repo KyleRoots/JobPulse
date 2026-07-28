@@ -96,7 +96,11 @@ from models.openai_telemetry import OpenAICallLog
 from models.cost_forecast import CostForecastOverride, CostForecastScenario
 from models.placement_margin import PlacementMarginCalcLog
 from models.reporting import MonthlyReportRun
-from models.fraud import CandidateFraudAssessment
+from models.fraud import (
+    CandidateFraudAssessment,
+    ResumeDocumentFingerprint,
+    ContactValidationCache,
+)
 from models.environment import BullhornEnvironment, Brand
 
 __all__ = [
@@ -134,6 +138,8 @@ __all__ = [
     'MonthlyReportRun',
     # fraud detection
     'CandidateFraudAssessment',
+    'ResumeDocumentFingerprint',
+    'ContactValidationCache',
     # multi-tenant
     'BullhornEnvironment', 'Brand',
 ]

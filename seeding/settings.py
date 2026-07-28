@@ -619,6 +619,10 @@ def seed_vetting_config(db, VettingConfig):
             # High-Risk. Requires fraud_bullhorn_note_enabled to also be on.
             # Default OFF so the historical High-Risk-only behavior is preserved.
             'fraud_note_all_bands_enabled': 'false',
+            # NeverBounce + Twilio Lookup (requires Railway secrets). Default OFF.
+            'fraud_contact_validation_enabled': 'false',
+            # Soft public LinkedIn URL check (URL on résumé only). Default ON.
+            'fraud_linkedin_crosscheck_enabled': 'true',
             # Banding thresholds (risk score 0-100). High-Risk >= high; Review
             # in [review, high); Clear < review.
             'fraud_review_threshold': '40',

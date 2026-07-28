@@ -200,11 +200,17 @@ Manages scheduled upload configurations
 - Bullhorn credentials
 
 ### Environment Variables
+
 ```bash
 DATABASE_URL=postgresql://user:pass@host:port/dbname
 SESSION_SECRET=your-secret-key
 BULLHORN_PASSWORD=your-bullhorn-password
 SENDGRID_API_KEY=your-sendgrid-key
+
+# Optional fraud contact validation (Screening Config toggle OFF until smoke-tested)
+NEVERBOUNCE_API_KEY=
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
 
 # Indeed native publish (Plan B) — tearsheet 1640 → Bullhorn JobBoard CFC
 # Keep DISABLED until UI login + a single test job (e.g. 35233) is verified.
@@ -218,6 +224,8 @@ BH_UI_CURRENT_USER_ID=   # optional; auto-resolved when possible
 BH_CAREER_PORTAL_JOB_URL_TEMPLATE=https://myticas.com/jobs/{job_id}
 INDEED_TEARSHEET_PUBLISH_NOTIFY_EMAIL=kroots@myticas.com
 ```
+
+Optional overrides: `ENVIRONMENT_HEALTH_URL` / `SCOUTGENIUS_PUBLIC_URL` for env-monitor probe URL.
 
 ### Python Dependencies
 ```bash
@@ -418,6 +426,7 @@ Check dashboard for automation status:
 - **Rule 14 soft-relevance tighten (Jul 27/28)**: Soft CS/communication alone no longer marks a current role domain-relevant (Debbie James Crossing Guard → Admin Assistant). Justification enforcer requires a concrete duty/tool; rules version `2026.07.28` then `2026.07.29`.
 - **Ops hardening (Jul 28)**: OpenAI auth failures → incomplete retry (not fake 0% NQ); auditor no longer crashes after re-vet deletes the vetting log; undated-tenure years gaps use UNVERIFIED TENURE wording; Indeed XML parks empty while native Plan B is on; Sales Rep `_get_headers` restored; environment_status duplicate rows deduped.
 - **Env monitor + Sales Rep (Jul 28)**: Environment monitor probes `https://app.scoutgenius.ai` (auto-migrates stale lyntrix URLs — domain was never moved). Sales Rep Sync uses Bullhorn **search** (not query) for ClientCorporation `customText` fields — BQL `<> ''` caused residual HTTP 400 after BhRestToken fix; scan errors no longer log the full request URL/token.
+- **Fraud notifier differentiators (Jul 28)**: Multi-submission claim drift; suggested verification questions on Review/High-Risk emails + Bullhorn notes; PDF Author/Producer fingerprint reuse; optional NeverBounce/Twilio contact validation (toggle + env keys); soft LinkedIn URL cross-check (never High-Risk alone); weekly calibration sample API + `scripts/fraud_calibration_report.py`.
 - **Rule 14 soft-skill relevance bar (Jul 28)**: Soft communication / generic customer-service overlap alone no longer counts as domain-relevant for recency (Debbie James / Crossing Guard → Admin Assistant regression). Prompt + justification enforcer require a concrete functional duty/tool; rules version `2026.07.28`.
 
 ### October 2025: Database-Backed Reference Number Preservation ✨

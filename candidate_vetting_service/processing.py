@@ -23,7 +23,12 @@ logger = logging.getLogger('candidate_vetting_service')
 class CandidateProcessingMixin:
     """Mixin implementing the single-candidate vetting pipeline."""
 
-    def _run_fraud_assessment(self, candidate: Dict, vetting_log: CandidateVettingLog) -> None:
+    def _run_fraud_assessment(
+        self,
+        candidate: Dict,
+        vetting_log: CandidateVettingLog,
+        pdf_metadata: Optional[Dict] = None,
+    ) -> None:
         """Run the advisory fraud assessment for a candidate (fail-soft).
 
         Gated by the ``fraud_detection_enabled`` config flag. Wrapped so that
@@ -78,6 +83,7 @@ class CandidateProcessingMixin:
                 applied_job_description=applied_job_description,
                 candidate_country=candidate_country,
                 job_country=job_country,
+                pdf_metadata=pdf_metadata,
             )
             if assessment is not None:
                 logger.info(
@@ -184,6 +190,7 @@ class CandidateProcessingMixin:
                 vetting_log.applied_job_title = sanitize_text(job_order.get('title'))
 
             resume_text = None
+            pdf_metadata = {}
 
             raw_description = candidate.get('description') if candidate else None
             logger.info(f"📄 Candidate description field present: {bool(raw_description)}, type: {type(raw_description).__name__}, length: {len(str(raw_description)) if raw_description else 0}")
@@ -227,6 +234,12 @@ class CandidateProcessingMixin:
                         logger.info(f"Extracted {len(resume_text)} characters from resume file")
                     else:
                         logger.warning(f"Could not extract text from resume: {filename}")
+                    # Capture PDF metadata for fraud forensics before bytes discard.
+                    try:
+                        from fraud_detection.pdf_meta import extract_pdf_metadata
+                        pdf_metadata = extract_pdf_metadata(file_content)
+                    except Exception:
+                        logger.debug("PDF metadata capture skipped", exc_info=True)
                 else:
                     logger.warning(f"No resume file found for candidate {candidate_id}")
 
@@ -251,8 +264,11 @@ class CandidateProcessingMixin:
             # --- Fraud / fake-candidate detection (advisory, non-blocking) ---
             # Runs BEFORE screening so recruiters see the risk badge alongside
             # match results. Fully gated + fail-soft: it can NEVER break the
-            # screening pipeline. Deterministic signals only — zero AI cost.
-            self._run_fraud_assessment(candidate, vetting_log)
+            # screening pipeline. Deterministic signals only — zero AI cost
+            # (optional contact/LinkedIn checks are separately gated).
+            self._run_fraud_assessment(
+                candidate, vetting_log, pdf_metadata=pdf_metadata or None,
+            )
 
             if cached_jobs is not None:
                 jobs = list(cached_jobs)

@@ -53,6 +53,11 @@ class CandidateFraudAssessment(db.Model):
     # Captured if the assessment itself errored (fail-soft — never raises).
     evaluation_error = db.Column(db.Text, nullable=True)
 
+    # Weekly calibration label: 'tp' | 'fp' | 'nudge' | 'ignore' (nullable).
+    calibration_label = db.Column(db.String(20), nullable=True, index=True)
+    calibration_notes = db.Column(db.Text, nullable=True)
+    calibration_labeled_at = db.Column(db.DateTime, nullable=True)
+
     # Multi-tenant discriminator (Task #100): the connected Bullhorn instance
     # this row belongs to. Nullable + backfilled to the default (Myticas)
     # environment so single-tenant behavior is byte-for-byte unchanged.
@@ -77,3 +82,62 @@ class CandidateFraudAssessment(db.Model):
             f"<CandidateFraudAssessment {self.id}: cand={self.bullhorn_candidate_id} "
             f"{self.risk_band} ({self.risk_score})>"
         )
+
+
+class ResumeDocumentFingerprint(db.Model):
+    """PDF Author/Creator/Producer signature seen on a candidate résumé."""
+
+    __tablename__ = "resume_document_fingerprint"
+
+    id = db.Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        primary_key=True, autoincrement=True,
+    )
+    created_at = db.Column(
+        db.DateTime, default=datetime.utcnow, nullable=False, index=True,
+    )
+    signature = db.Column(db.String(240), nullable=False, index=True)
+    author = db.Column(db.String(200), nullable=True)
+    creator = db.Column(db.String(200), nullable=True)
+    producer = db.Column(db.String(200), nullable=True)
+    mod_date = db.Column(db.String(64), nullable=True)
+    content_md5 = db.Column(db.String(32), nullable=True)
+    bullhorn_candidate_id = db.Column(db.Integer, nullable=True, index=True)
+    candidate_name = db.Column(db.String(200), nullable=True)
+    vetting_log_id = db.Column(db.Integer, nullable=True)
+    environment_id = db.Column(
+        db.Integer, db.ForeignKey('bullhorn_environment.id'),
+        nullable=True, index=True,
+    )
+
+    def __repr__(self):
+        return f"<ResumeDocumentFingerprint {self.id} sig={self.signature[:40]}>"
+
+
+class ContactValidationCache(db.Model):
+    """Cached NeverBounce / Twilio Lookup results (hashed contact keys)."""
+
+    __tablename__ = "contact_validation_cache"
+
+    id = db.Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        primary_key=True, autoincrement=True,
+    )
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    # 'email' | 'phone'
+    contact_type = db.Column(db.String(16), nullable=False)
+    contact_hash = db.Column(db.String(64), nullable=False)
+    result_json = db.Column(db.Text, nullable=True)
+    expires_at = db.Column(db.DateTime, nullable=True, index=True)
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            "contact_type", "contact_hash",
+            name="uq_contact_validation_type_hash",
+        ),
+    )
+
+    def __repr__(self):
+        return f"<ContactValidationCache {self.contact_type}:{self.contact_hash[:8]}>"
+

@@ -1206,3 +1206,112 @@ def test_fraud_banner_tiebreak_by_id_when_same_created_at(_fraud_db):
     assert 'Review Recommended' in html
     assert 'Newer signal' in html
     assert 'High Fraud Risk' not in html
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase A/B/C differentiator signals
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_submission_drift_years_inflation():
+    sig = fsig.evaluate_submission_drift([
+        {
+            "kind": "years_inflation",
+            "summary": "Claimed years rose from ~3 to ~8 since 2026-01-01",
+            "prior_date": "2026-01-01",
+        }
+    ])
+    assert sig is not None
+    assert sig.code == "submission_drift"
+    assert sig.points == fsig.POINTS_SUBMISSION_DRIFT_MODERATE
+
+
+def test_submission_drift_empty():
+    assert fsig.evaluate_submission_drift([]) is None
+    assert fsig.evaluate_submission_drift(None) is None
+
+
+def test_pdf_author_reuse_and_recent():
+    sigs = fsig.evaluate_pdf_author_reuse(
+        "jane|word|adobe", other_identities=2, recent_mod=True,
+    )
+    codes = {s.code for s in sigs}
+    assert "pdf_author_reuse" in codes
+    assert "pdf_recent_reskin" in codes
+    assert fsig.evaluate_pdf_author_reuse("", 5) == []
+
+
+def test_email_undeliverable_and_phone_voip():
+    assert fsig.evaluate_email_undeliverable("a@b.com", "valid") is None
+    sig = fsig.evaluate_email_undeliverable("a@b.com", "invalid")
+    assert sig and sig.code == "email_undeliverable"
+    voip = fsig.evaluate_phone_validation("4165551234", valid=True, line_type="voip")
+    assert any(s.code == "phone_voip" for s in voip)
+    bad = fsig.evaluate_phone_validation("4165551234", valid=False)
+    assert any(s.code == "phone_invalid" for s in bad)
+
+
+def test_linkedin_soft_dead_and_cap_below_high_risk():
+    sigs = fsig.evaluate_linkedin_url_status(
+        "linkedin.com/in/x", status="dead",
+    )
+    assert any(s.code == "linkedin_url_dead" for s in sigs)
+    res = fsig.aggregate(sigs, review_threshold=40, high_risk_threshold=75)
+    assert res.risk_band == fsig.FraudRiskBand.REVIEW
+    assert res.risk_score < 75
+
+
+def test_linkedin_name_mismatch():
+    sigs = fsig.evaluate_linkedin_url_status(
+        "linkedin.com/in/x",
+        status="ok",
+        profile_name="Alice Smith",
+        resume_name="Bob Jones",
+    )
+    assert any(s.code == "linkedin_name_mismatch" for s in sigs)
+
+
+def test_suggested_questions_capped():
+    signals = [
+        fsig.FraudSignal("resume_reuse", "Resume reused", 40, "x"),
+        fsig.FraudSignal("jd_mirror", "JD mirror", 40, "y"),
+        fsig.FraudSignal(
+            "submission_drift", "Drift", 40, "z",
+            details={"prior_date": "2026-02-01"},
+        ),
+        fsig.FraudSignal("linkedin_reuse", "LI reuse", 35, "w"),
+    ]
+    qs = fsig.suggested_questions_for_signals(signals, limit=3)
+    assert len(qs) == 3
+    assert any("2026-02-01" in q for q in qs)
+
+
+def test_pdf_signature_skips_generic():
+    from fraud_detection.pdf_meta import pdf_signature
+    assert pdf_signature({"author": "", "creator": "Microsoft Word"}) == ""
+    assert "jane" in pdf_signature({"author": "Jane Doe", "creator": "Word"})
+
+
+def test_extract_max_years_claim():
+    assert fsig.extract_max_years_claim("10+ years of Python and 3 years Java") == 10
+    assert fsig.extract_max_years_claim("no years here") is None
+
+
+def test_fraud_banner_includes_suggested_questions(_fraud_db):
+    db, Assessment, VettingLog, VettingConfig = _fraud_db
+    _set_config(db, VettingConfig, fraud_detection_enabled='true')
+    _make_assessment(db, Assessment, 9401, 'review', 50, [
+        {"code": "resume_reuse", "label": "Resume reused across identities",
+         "points": 40, "evidence": "2 other identities", "details": {}},
+    ])
+    html = _banner_service()._build_fraud_banner_html(9401)
+    assert 'Suggested verification questions' in html
+    assert 'authorize other identities' in html
+
+
+def test_note_text_includes_questions():
+    from fraud_detection.engine import FraudSignalEngine
+    result = fsig.aggregate([
+        fsig.FraudSignal("resume_reuse", "Resume reused", 40, "x"),
+    ])
+    note = FraudSignalEngine._build_note_text(result)
+    assert "Suggested verification questions" in note

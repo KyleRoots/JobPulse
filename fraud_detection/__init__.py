@@ -1,16 +1,3 @@
-"""Fraud / fake-candidate detection package.
-
-Phase 1 is a deterministic, advisory-only risk layer that scores incoming
-candidates using signals Scout Genius already captures (resume hashes, contact
-fields, work history, identity reuse, profile embeddings, application velocity).
-It NEVER blocks the screening pipeline — it flags risk in the recruiter portal
-and, on High-Risk, writes a vendor-neutral note to Bullhorn.
-
-The pure signal evaluators (`fraud_detection.signals`) are dependency-free and
-unit-testable in isolation. The engine (`fraud_detection.engine`) gathers DB /
-Bullhorn facts and orchestrates persistence + notification.
-"""
-
 from fraud_detection.signals import (
     FraudSignal,
     FraudRiskBand,
@@ -28,6 +15,12 @@ from fraud_detection.signals import (
     evaluate_third_party_submission,
     evaluate_jd_mirror,
     evaluate_ai_style_markers,
+    evaluate_submission_drift,
+    evaluate_pdf_author_reuse,
+    evaluate_email_undeliverable,
+    evaluate_phone_validation,
+    evaluate_linkedin_url_status,
+    suggested_questions_for_signals,
     extract_linkedin_url,
     is_incomplete_name,
     is_personal_email,
@@ -50,6 +43,12 @@ __all__ = [
     "evaluate_third_party_submission",
     "evaluate_jd_mirror",
     "evaluate_ai_style_markers",
+    "evaluate_submission_drift",
+    "evaluate_pdf_author_reuse",
+    "evaluate_email_undeliverable",
+    "evaluate_phone_validation",
+    "evaluate_linkedin_url_status",
+    "suggested_questions_for_signals",
     "extract_linkedin_url",
     "is_incomplete_name",
     "is_personal_email",
