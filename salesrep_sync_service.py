@@ -25,15 +25,26 @@ def _is_numeric_id(value):
     return bool(re.match(r'^\d+$', value.strip()))
 
 
-def _resolve_user(rest_url, headers, user_id):
+def _auth_params(bullhorn_service, **extra):
+    """Bullhorn REST expects BhRestToken as a query param, not only a header.
+
+    Putting the token only in headers produced HTTP 400 on query/ClientCorporation
+    (URL had no BhRestToken). Matches bullhorn_service.query_entity / entity calls.
+    """
+    params = {'BhRestToken': bullhorn_service.rest_token}
+    params.update(extra)
+    return params
+
+
+def _resolve_user(rest_url, bullhorn_service, user_id):
     global _user_cache
     if user_id in _user_cache:
         return _user_cache[user_id]
 
     try:
         url = f"{rest_url}entity/CorporateUser/{user_id}"
-        params = {"fields": "id,firstName,lastName,name"}
-        resp = requests.get(url, headers=headers, params=params, timeout=15)
+        params = _auth_params(bullhorn_service, fields="id,firstName,lastName,name")
+        resp = requests.get(url, params=params, timeout=15)
         resp.raise_for_status()
         user = resp.json().get("data", {})
 
@@ -76,7 +87,8 @@ def run_salesrep_sync(bullhorn_service, source_field=None, display_field=None):
             bullhorn_service.base_url = None
             bullhorn_service.authenticate()
         rest_url = bullhorn_service.base_url
-        headers = bullhorn_service._get_headers()
+        if not rest_url.endswith('/'):
+            rest_url = rest_url + '/'
     except Exception as e:
         logger.error(f"Sales Rep Sync: Failed to get Bullhorn connection: {e}")
         return {"success": False, "error": str(e)}
@@ -92,15 +104,16 @@ def run_salesrep_sync(bullhorn_service, source_field=None, display_field=None):
     try:
         while True:
             url = f"{rest_url}query/ClientCorporation"
-            params = {
-                "where": f"{source_field} IS NOT NULL AND {source_field} <> ''",
-                "fields": fields,
-                "count": batch_size,
-                "start": start_idx,
-                "orderBy": "id"
-            }
+            params = _auth_params(
+                bullhorn_service,
+                where=f"{source_field} IS NOT NULL AND {source_field} <> ''",
+                fields=fields,
+                count=batch_size,
+                start=start_idx,
+                orderBy="id",
+            )
 
-            resp = requests.get(url, headers=headers, params=params, timeout=30)
+            resp = requests.get(url, params=params, timeout=30)
             resp.raise_for_status()
             data = resp.json()
             companies = data.get("data", [])
@@ -118,7 +131,7 @@ def run_salesrep_sync(bullhorn_service, source_field=None, display_field=None):
                 if not _is_numeric_id(source_val):
                     continue
 
-                resolved_name = _resolve_user(rest_url, headers, source_val)
+                resolved_name = _resolve_user(rest_url, bullhorn_service, source_val)
                 if not resolved_name:
                     continue
 
@@ -137,7 +150,8 @@ def run_salesrep_sync(bullhorn_service, source_field=None, display_field=None):
                     update_url = f"{rest_url}entity/ClientCorporation/{company_id}"
                     update_resp = requests.post(
                         update_url,
-                        headers={**headers, "Content-Type": "application/json"},
+                        params=_auth_params(bullhorn_service),
+                        headers={"Content-Type": "application/json", "Accept": "application/json"},
                         json={display_field: resolved_name},
                         timeout=15
                     )

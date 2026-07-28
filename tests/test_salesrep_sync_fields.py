@@ -112,8 +112,9 @@ def _fake_requests(captured, company):
             return _Resp({"data": {}})
 
         @staticmethod
-        def post(url, headers=None, json=None, timeout=None):
+        def post(url, headers=None, params=None, json=None, timeout=None):
             captured["post_url"] = url
+            captured["post_params"] = params
             captured["post_json"] = json
             return _Resp({"data": {}})
 
@@ -137,9 +138,11 @@ class TestSalesRepFieldParameterization:
 
         assert result["success"] is True
         assert result["updated"] == 1
+        assert captured["query_params"]["BhRestToken"] == "tok"
         assert "customText10" in captured["query_params"]["where"]
         assert "customText10" in captured["query_params"]["fields"]
         assert "customText11" in captured["query_params"]["fields"]
+        assert captured["post_params"]["BhRestToken"] == "tok"
         assert captured["post_json"] == {"customText11": "Jane Doe"}
 
     def test_defaults_to_standard_fields(self, monkeypatch):

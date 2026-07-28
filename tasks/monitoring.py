@@ -47,12 +47,36 @@ def check_monitor_health():
             app.logger.error(traceback.format_exc())
 
 
+# Canonical public health URL for production monitoring.
+# ScoutGenius is the live brand domain; lyntrix was never migrated and is not reachable.
+PRODUCTION_HEALTH_BASE_URL = 'https://app.scoutgenius.ai'
+
+
+def _resolve_production_health_url(current_url: str = None) -> str:
+    """Return the URL we should probe for production up/down monitoring.
+
+    Prefer ScoutGenius. Migrate off stale lyntrix / unset rows. Keep an explicit
+    non-lyntrix override if an operator already set one (e.g. railway.app).
+    """
+    current = (current_url or '').strip().rstrip('/')
+    if current and 'lyntrix' not in current.lower():
+        return current
+
+    for key in ('ENVIRONMENT_HEALTH_URL', 'SCOUTGENIUS_PUBLIC_URL'):
+        configured = (os.environ.get(key) or '').strip()
+        if configured:
+            if not configured.startswith('http'):
+                configured = f'https://{configured}'
+            return configured.rstrip('/')
+
+    return PRODUCTION_HEALTH_BASE_URL
+
+
 def check_environment_status():
     """Check production environment status and send alerts on status changes"""
     from app import app
     from extensions import db
     import requests
-    import os
     with app.app_context():
         try:
             from models import EnvironmentStatus, EnvironmentAlert
@@ -87,16 +111,9 @@ def check_environment_status():
                 .all()
             )
             if not prod_rows:
-                default_url = (
-                    os.environ.get('RAILWAY_PUBLIC_DOMAIN')
-                    or os.environ.get('RAILWAY_STATIC_URL')
-                    or 'https://jobpulse.lyntrix.ai'
-                )
-                if default_url and not default_url.startswith('http'):
-                    default_url = f'https://{default_url}'
                 env_status = EnvironmentStatus(
                     environment_name='production',
-                    environment_url=default_url.rstrip('/'),
+                    environment_url=_resolve_production_health_url(),
                     current_status='unknown',
                     alert_email='kroots@myticas.com'
                 )
@@ -105,19 +122,13 @@ def check_environment_status():
                 app.logger.info("Created initial environment status record for production monitoring")
             else:
                 env_status = prod_rows[0]
-                # Prefer the live Railway/custom domain when the row still
-                # points at a stale hostname that is no longer the primary app.
-                preferred = (
-                    os.environ.get('RAILWAY_PUBLIC_DOMAIN')
-                    or os.environ.get('RAILWAY_STATIC_URL')
-                    or ''
-                ).strip()
-                if preferred:
-                    if not preferred.startswith('http'):
-                        preferred = f'https://{preferred}'
-                    preferred = preferred.rstrip('/')
-                    if env_status.environment_url and 'scoutgenius.ai' in env_status.environment_url:
-                        env_status.environment_url = preferred
+                resolved = _resolve_production_health_url(env_status.environment_url)
+                if resolved != (env_status.environment_url or '').rstrip('/'):
+                    app.logger.info(
+                        f"Updating environment monitor URL: "
+                        f"{env_status.environment_url!r} → {resolved!r}"
+                    )
+                    env_status.environment_url = resolved
 
             previous_status = env_status.current_status
             current_time = datetime.utcnow()
