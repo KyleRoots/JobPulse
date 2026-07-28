@@ -3,6 +3,20 @@
 Each production screening result stores `screening_rules_version` so audits can
 identify which rule set produced a score.
 
+## 2026.07.28 — Rule 14 soft-skill relevance bar
+
+- **Bug:** Candidates with stale domain experience (e.g. admin work ending
+  2020) could still clear Qualified when their current unrelated role was
+  marked `relevant=yes` on soft communication / generic customer-service
+  overlap alone (regression: Debbie James 4672817 / Admin Assistant 35531 —
+  School Crossing Guard counted as relevant → 82% Qualified, no recency gate).
+- **Fix:** Rule 14 prompt now states soft CS/communication alone is not
+  domain-relevant (even when the JD mentions customer service among other
+  duties). Justification enforcer treats soft-only justifications as weak
+  unless a concrete functional duty/tool is also cited
+  (`relevance_justification_is_weak` in `screening/post_processing.py`).
+- **Rules version:** `2026.07.28`
+
 ## 2026.07.15 — Note supersession on screening outcome change
 
 - **Bug:** After auditor re-vets, recruiter emails reflected the latest

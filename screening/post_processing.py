@@ -222,6 +222,78 @@ def enforce_years_hard_gate(result, job_id, job_title, resume_text, recheck_fn):
             result['gaps_identified'] = gap_suffix
 
 
+# Phrases that always invalidate a relevance=True justification (generic soft skills).
+_ALWAYS_WEAK_JUSTIFICATION_PHRASES = (
+    'transferable skills', 'transferable',
+    'general experience', 'general work experience',
+    'work ethic', 'reliable', 'reliability',
+    'communication skills', 'teamwork',
+    'soft skills', 'people skills',
+    'has work experience', 'has experience',
+)
+
+# Soft communication / generic CS language that alone does NOT prove domain relevance
+# (Debbie James regression: Crossing Guard marked relevant via "professional communication").
+_SOFT_SKILL_ONLY_MARKERS = (
+    'professional communication',
+    'communicated professionally',
+    'communicates professionally',
+    'communication with',
+    'customer service',
+    'customer-facing',
+    'customer facing',
+    'people skills',
+    'soft skills',
+    'communication skills',
+    'teamwork',
+)
+
+# Concrete duty/tool/domain markers — presence rescues a soft-skill-heavy justification.
+_FUNCTIONAL_DUTY_MARKERS = (
+    # Admin / office / clerical
+    'excel', 'spreadsheet', 'data entry', 'administrative', 'admin support',
+    'admin assistant', 'clerical', 'filing', 'office support', 'office administration',
+    'scheduling', 'calendar', 'correspondence', 'mail processing', 'receptionist',
+    'microsoft office', 'ms office', 'word processing', 'powerpoint', 'outlook',
+    'typing', 'records management', 'invoicing', 'bookkeeping', 'payroll',
+    'document management', 'data reporting', 'report preparation',
+    # Customer-service-primary roles (true CSR/contact-center still pass)
+    'call center', 'contact center', 'help desk', 'service desk', 'crm',
+    'zendesk', 'inbound call', 'outbound call', 'ticket', 'escalation',
+    'phone support', 'chat support',
+    # Tech / engineering
+    'azure', 'aws', 'gcp', 'python', 'java', 'sql', 'etl', 'pipeline',
+    'active directory', 'group policy', 'kubernetes', 'docker', 'databricks',
+    'spark', 'snowflake', 'devops', 'ci/cd', 'terraform', 'linux',
+    'power bi', 'tableau', 'machine learning', 'software engineer',
+    # Clinical / trades examples from Rule 14 prompt
+    'patient triage', 'clinical documentation', 'plc', 'allen bradley',
+)
+
+
+def relevance_justification_is_weak(justification) -> bool:
+    """Return True when a relevance=True justification should be overridden.
+
+    Soft communication / generic customer-service overlap alone is not enough —
+    the justification must also cite a concrete shared duty, tool, or domain
+    responsibility (see Rule 14).
+    """
+    text = str(justification or '').strip()
+    if not text or text.upper() == 'N/A' or len(text) < 15:
+        return True
+
+    lower = text.lower()
+    if any(wp in lower for wp in _ALWAYS_WEAK_JUSTIFICATION_PHRASES):
+        return True
+
+    has_soft = any(m in lower for m in _SOFT_SKILL_ONLY_MARKERS)
+    has_functional = any(m in lower for m in _FUNCTIONAL_DUTY_MARKERS)
+    if has_soft and not has_functional:
+        return True
+
+    return False
+
+
 def enforce_recency_hard_gate(result, job_id):
     recency_analysis = result.get('recency_analysis', {})
     if not isinstance(recency_analysis, dict) or not recency_analysis:
@@ -242,22 +314,7 @@ def enforce_recency_hard_gate(result, job_id):
 
     if most_recent_relevant:
         _justification = str(recency_analysis.get('relevance_justification', '') or '').strip()
-        _WEAK_INDICATORS = [
-            'transferable skills', 'transferable',
-            'general experience', 'general work experience',
-            'work ethic', 'reliable', 'reliability',
-            'communication skills', 'teamwork',
-            'soft skills', 'people skills',
-            'has work experience', 'has experience',
-        ]
-        _justification_lower = _justification.lower()
-        _is_invalid = (
-            not _justification
-            or _justification == 'N/A'
-            or len(_justification) < 15
-            or any(wp in _justification_lower for wp in _WEAK_INDICATORS)
-        )
-        if _is_invalid:
+        if relevance_justification_is_weak(_justification):
             logger.warning(
                 f"🔍 JUSTIFICATION ENFORCER: AI marked most_recent_role_relevant=True "
                 f"for job {job_id} but justification is missing/weak: '{_justification[:100]}'. "

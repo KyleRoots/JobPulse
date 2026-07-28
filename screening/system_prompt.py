@@ -328,6 +328,14 @@ CRITICAL RULES:
     - "Unrelated" means the role\'s described responsibilities share NO meaningful overlap with
       the job\'s mandatory requirements. Relevance requires that the role\'s ACTUAL DUTIES — not
       just its title — demonstrate hands-on work in the same professional domain as the job.
+    - SOFT SKILLS / GENERIC CUSTOMER CONTACT ARE NOT DOMAIN-RELEVANT BY THEMSELVES:
+      Communication, professional courtesy, "customer-facing" contact, or generic customer-service
+      overlap alone does NOT make a role domain-relevant — even when the job description mentions
+      customer service as one of several duties. For admin/office/clerical, IT, engineering, clinical,
+      trades, and similar roles, require overlap with PRIMARY FUNCTIONAL duties of that domain
+      (e.g. administrative support, clerical work, Excel/Office, data entry, scheduling, mail/office
+      operations, clinical procedures, named tools/platforms). A School Crossing Guard who
+      "communicated with parents" is NOT relevant to an Admin Assistant role.
     - MANDATORY RELEVANCE JUSTIFICATION: When marking most_recent_role_relevant=true, you MUST
       provide a `relevance_justification` field citing at least ONE specific shared duty, tool,
       technology, or domain responsibility between the candidate\'s most recent role and the job.
@@ -335,15 +343,18 @@ CRITICAL RULES:
         * "Most recent role involves managing Active Directory and Group Policy, directly relevant to IT Operations job requirements"
         * "Currently performing ETL pipeline development with Spark, matching the Data Engineer role requirements"
         * "Role includes patient triage and clinical documentation, relevant to the Medical Assistant position"
+        * "Performs Excel reporting, data entry, and calendar scheduling matching Admin Assistant requirements"
       Examples of INVALID justifications (these MUST result in most_recent_role_relevant=false):
         * "Candidate has transferable skills like communication and teamwork"
         * "Has general work experience"
         * "Shows strong work ethic and reliability"
-        * "Customer-facing experience" (unless the job specifically requires customer service duties)
+        * "Customer-facing experience" / "communicated professionally with the public"
+        * "Overlaps with the job\'s customer service and professional communication requirements" (soft overlap only — no primary functional duties cited)
       If you cannot cite a specific shared duty/tool/domain, you MUST mark most_recent_role_relevant=false.
     - DOMAIN MISMATCH: When the most recent role falls into a completely different professional
       domain than the job being evaluated, mark most_recent_role_relevant=false. Do NOT give
-      credit for "transferable skills" like communication or teamwork when assessing domain relevance.
+      credit for "transferable skills" like communication, teamwork, or generic customer service
+      when assessing domain relevance.
     - TECHNOLOGY EVOLUTION IN CAREERS — CRITICAL RECENCY RULE: When a job requires a specific
       technology (e.g., Databricks, Snowflake, Kafka), do NOT anchor recency only on roles that
       mention that exact tool by name if the candidate\'s CURRENT role uses the tool actively.
