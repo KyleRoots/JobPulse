@@ -1062,12 +1062,26 @@ GLOBAL SCREENING INSTRUCTIONS (apply to all jobs):
             return result
 
         except Exception as e:
-            logger.error(f"AI analysis error for job {job_id}: {str(e)}")
+            error_str = str(e)
+            logger.error(f"AI analysis error for job {job_id}: {error_str}")
+            # Auth / permission failures must NOT become fake 0% NQ screens —
+            # mark as infra failure so the cycle can retry without writing a
+            # permanent Not Qualified note.
+            _lower = error_str.lower()
+            _infra = (
+                '401' in error_str
+                or '403' in error_str
+                or 'insufficient permissions' in _lower
+                or 'authentication' in _lower
+                or 'invalid_api_key' in _lower
+                or 'incorrect api key' in _lower
+            )
             return {
                 'match_score': 0,
-                'match_summary': f'Analysis failed: {str(e)}',
+                'match_summary': f'Analysis failed: {error_str}',
                 'skills_match': '',
                 'experience_match': '',
                 'gaps_identified': '',
-                'key_requirements': ''
+                'key_requirements': '',
+                '_infra_failure': _infra,
             }

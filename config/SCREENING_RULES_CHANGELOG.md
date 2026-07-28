@@ -3,6 +3,21 @@
 Each production screening result stores `screening_rules_version` so audits can
 identify which rule set produced a score.
 
+## 2026.07.29 — Ops hardening + undated-tenure wording
+
+- **OpenAI auth/permission failures**: analysis no longer lands as permanent
+  0% NQ; logs stay `incomplete` for retry.
+- **Auditor ObjectDeletedError**: snapshot vetting-log scalars before
+  `_trigger_revet` deletes the log.
+- **Undated tenure gaps**: years hard-gate uses `UNVERIFIED TENURE` /
+  `TRANSFERABLE` instead of misleading `CRITICAL: … ~0.0yr` when role dates
+  are missing (Pavani Kota).
+- **Indeed dual syndication**: when `INDEED_TEARSHEET_PUBLISH_ENABLED`, Indeed
+  XML upload is forced empty so Plan B CFC is the sole Indeed path.
+- **Sales Rep Sync**: restored `BullhornService._get_headers`.
+- **Environment monitor**: dedupe duplicate `environment_status` production rows.
+- **Rules version:** `2026.07.29`
+
 ## 2026.07.28 — Rule 14 soft-skill relevance bar
 
 - **Bug:** Candidates with stale domain experience (e.g. admin work ending

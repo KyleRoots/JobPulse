@@ -18,7 +18,7 @@ def _manual_upload_all_feeds():
     from simplified_xml_generator import SimplifiedXMLGenerator
     from tasks.xml_feeds import _upload_single_file
     from feeds.feed_config import (
-        CHANNEL_FEEDS,
+        channel_feeds_for_upload,
         SOURCE_LINKEDIN,
         V2_FILENAME,
         V2_FILENAME_DEV,
@@ -62,12 +62,13 @@ def _manual_upload_all_feeds():
     v2_xml, v2_stats = generator.generate_fresh_xml(source_channel=SOURCE_LINKEDIN)
 
     channel_results = {}
-    for feed_cfg in CHANNEL_FEEDS:
+    for feed_cfg in channel_feeds_for_upload():
         key = feed_cfg['key']
+        tearsheet_ids = [] if feed_cfg.get('force_empty') else feed_cfg['tearsheet_ids']
         xml_content, stats = generator.generate_fresh_xml(
-            tearsheet_ids=feed_cfg['tearsheet_ids'],
+            tearsheet_ids=tearsheet_ids,
             source_channel=feed_cfg['source_channel'],
-            allow_empty=feed_cfg.get('allow_empty', False),
+            allow_empty=True if feed_cfg.get('force_empty') else feed_cfg.get('allow_empty', False),
             publisher_title=feed_cfg.get('publisher_title'),
             publisher_link=feed_cfg.get('publisher_link'),
         )

@@ -7,6 +7,7 @@ Channel feeds: STSI Indeed (1640) and ZipRecruiter (1641) only.
 Reference-number refresh uses ``all_xml_feed_tearsheet_ids()`` so v2 and both
 channel feeds rotate together on the 120-hour cycle.
 """
+import os
 
 # Bullhorn tearsheet IDs
 TEARSHEET_OTT = 1231
@@ -80,11 +81,41 @@ CHANNEL_FEEDS = (
 )
 
 
+def indeed_native_publish_enabled() -> bool:
+    """True when Indeed tearsheet Plan B (native CFC Publish) is live.
+
+    When enabled, the Indeed XML channel feed must not also syndicate the same
+    tearsheet jobs — dual listing causes conflicting Indeed presence.
+    """
+    return os.environ.get('INDEED_TEARSHEET_PUBLISH_ENABLED', 'false').lower() in (
+        '1', 'true', 'yes', 'on',
+    )
+
+
+def channel_feeds_for_upload():
+    """Channel feeds to generate/upload this cycle.
+
+    When Indeed native Plan B is enabled, the Indeed XML feed is still uploaded
+    but forced empty so XML syndication retires without leaving a stale file
+    that dual-lists against CFC Publish.
+    """
+    out = []
+    park_indeed = indeed_native_publish_enabled()
+    for cfg in CHANNEL_FEEDS:
+        item = dict(cfg)
+        if park_indeed and cfg.get('key') == 'stsi_indeed':
+            item['force_empty'] = True
+        out.append(item)
+    return tuple(out)
+
+
 def all_xml_feed_tearsheet_ids():
     """Tearsheets covered by every published XML feed (v2 + STSI channels).
 
     Used by the 120-hour reference-number refresh so Indeed/Zip-only jobs
     rotate refs alongside LinkedIn/v2 — not only the default V2 set.
+    When Indeed native Plan B is enabled, tearsheet 1640 is still included
+    here so reference numbers keep rotating for CFC-published jobs.
     """
     ids = list(V2_TEARSHEET_IDS)
     for feed_cfg in CHANNEL_FEEDS:

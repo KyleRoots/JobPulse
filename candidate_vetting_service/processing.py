@@ -145,10 +145,14 @@ class CandidateProcessingMixin:
                     bullhorn_candidate_id=candidate_id
                 ).first()
                 if existing_log:
-                    if existing_log.highest_match_score == 0 and existing_log.status == 'completed':
+                    if (
+                        existing_log.status == 'incomplete'
+                        or (existing_log.highest_match_score == 0 and existing_log.status == 'completed')
+                    ):
                         logger.info(
                             f"🔄 Re-analyzing candidate {candidate_id} ({candidate_name}) — "
-                            f"previous vetting had 0% scores (likely from aggressive filter threshold)"
+                            f"previous vetting status={existing_log.status} "
+                            f"score={existing_log.highest_match_score}%"
                         )
                         CandidateJobMatch.query.filter_by(vetting_log_id=existing_log.id).delete()
                         existing_log.status = 'processing'
@@ -587,10 +591,23 @@ class CandidateProcessingMixin:
                     logger.error(f"Error analyzing job {job_id}: {error_str}")
                     if '429' in error_str and 'quota' in error_str.lower():
                         type(self)._consecutive_quota_errors += 1
+                    _lower = error_str.lower()
+                    _infra = (
+                        '401' in error_str
+                        or '403' in error_str
+                        or 'insufficient permissions' in _lower
+                        or 'authentication' in _lower
+                        or 'invalid_api_key' in _lower
+                        or 'incorrect api key' in _lower
+                    )
                     return {
                         'job': job,
                         'job_id': job_id,
-                        'analysis': {'match_score': 0, 'match_summary': f'Analysis failed: {error_str}'},
+                        'analysis': {
+                            'match_score': 0,
+                            'match_summary': f'Analysis failed: {error_str}',
+                            '_infra_failure': _infra,
+                        },
                         'error': error_str
                     }
 
@@ -611,6 +628,25 @@ class CandidateProcessingMixin:
                     analysis_results.append(result)
 
             logger.info(f"✅ Parallel analysis complete: {len(analysis_results)} jobs processed")
+
+            # OpenAI auth / permission outages: do not permanently NQ the candidate
+            # on fake 0% diagnostics. Leave the log incomplete so the next cycle retries.
+            infra_failures = [
+                r for r in analysis_results
+                if (r.get('analysis') or {}).get('_infra_failure')
+            ]
+            if infra_failures and len(infra_failures) == len(analysis_results):
+                sample = (infra_failures[0].get('analysis') or {}).get('match_summary', '')[:240]
+                logger.error(
+                    f"🚫 Infra failure on ALL {len(infra_failures)} job analyses for "
+                    f"candidate {candidate_id} — aborting without NQ note. Sample: {sample}"
+                )
+                vetting_log.status = 'incomplete'
+                vetting_log.error_message = sanitize_text(
+                    f"OpenAI infra failure (auth/permissions) — will retry. {sample}"
+                )[:500]
+                db.session.commit()
+                return vetting_log
 
             for result in analysis_results:
                 job = result['job']
@@ -646,6 +682,15 @@ class CandidateProcessingMixin:
                 recruiter_id = int(recruiter_ids[0]) if recruiter_ids else None
 
                 is_applied_job = vetting_log.applied_job_id == job_id if vetting_log.applied_job_id else False
+
+                # Skip persisting individual infra-failed analyses when mixed with
+                # successful scores — they are not real 0% matches.
+                if analysis.get('_infra_failure'):
+                    logger.warning(
+                        f"  🚫 Skipping infra-failed analysis for job {job_id}: "
+                        f"{(analysis.get('match_summary') or '')[:160]}"
+                    )
+                    continue
 
                 job_threshold = job_threshold_cache.get(job_id, global_threshold)
 

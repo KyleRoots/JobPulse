@@ -22,7 +22,7 @@ def refresh_reference_numbers():
         from ftp_service import FTPService
         from models import GlobalSettings, RefreshLog
         from feeds.feed_config import (
-            CHANNEL_FEEDS,
+            channel_feeds_for_upload,
             V2_FILENAME,
             V2_FILENAME_DEV,
             SOURCE_LINKEDIN,
@@ -112,11 +112,12 @@ def refresh_reference_numbers():
                     upload_error_message = f"v2: {v2_err}"
 
                 channel_ok = True
-                for feed_cfg in CHANNEL_FEEDS:
+                for feed_cfg in channel_feeds_for_upload():
+                    tearsheet_ids = [] if feed_cfg.get('force_empty') else feed_cfg['tearsheet_ids']
                     xml_content, stats = generator.generate_fresh_xml(
-                        tearsheet_ids=feed_cfg['tearsheet_ids'],
+                        tearsheet_ids=tearsheet_ids,
                         source_channel=feed_cfg['source_channel'],
-                        allow_empty=feed_cfg.get('allow_empty', False),
+                        allow_empty=True if feed_cfg.get('force_empty') else feed_cfg.get('allow_empty', False),
                         publisher_title=feed_cfg.get('publisher_title'),
                         publisher_link=feed_cfg.get('publisher_link'),
                     )

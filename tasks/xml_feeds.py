@@ -217,7 +217,7 @@ def automated_upload():
     from app import app
     from extensions import db
     from feeds.feed_config import (
-        CHANNEL_FEEDS,
+        channel_feeds_for_upload,
         V2_FILENAME,
         V2_FILENAME_DEV,
         SOURCE_LINKEDIN,
@@ -247,13 +247,21 @@ def automated_upload():
             app.logger.info(f"v2 feed: {v2_stats['job_count']} jobs, {v2_stats['xml_size_bytes']:,} bytes")
 
             channel_results = {}
-            for feed_cfg in CHANNEL_FEEDS:
+            for feed_cfg in channel_feeds_for_upload():
                 key = feed_cfg['key']
-                app.logger.info(f"Generating {key} feed from tearsheets {feed_cfg['tearsheet_ids']}...")
+                if feed_cfg.get('force_empty'):
+                    app.logger.info(
+                        f"Parking {key} XML feed (Indeed native Plan B enabled) — "
+                        f"uploading empty feed to retire XML syndication"
+                    )
+                    tearsheet_ids = []
+                else:
+                    tearsheet_ids = feed_cfg['tearsheet_ids']
+                    app.logger.info(f"Generating {key} feed from tearsheets {tearsheet_ids}...")
                 xml_content, stats = generator.generate_fresh_xml(
-                    tearsheet_ids=feed_cfg['tearsheet_ids'],
+                    tearsheet_ids=tearsheet_ids,
                     source_channel=feed_cfg['source_channel'],
-                    allow_empty=feed_cfg.get('allow_empty', False),
+                    allow_empty=True if feed_cfg.get('force_empty') else feed_cfg.get('allow_empty', False),
                     publisher_title=feed_cfg.get('publisher_title'),
                     publisher_link=feed_cfg.get('publisher_link'),
                 )

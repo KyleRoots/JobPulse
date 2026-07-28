@@ -81,6 +81,20 @@ class _BullhornCore:
         # Only load from DB if no credentials provided
         if not any([client_id, client_secret, username, password]):
             self._load_credentials()
+
+    def _get_headers(self) -> Dict[str, str]:
+        """REST headers used by callers that put BhRestToken in the header.
+
+        Most BullhornService methods pass BhRestToken as a query param; Sales
+        Rep Sync (and a few older helpers) expect this header form.
+        """
+        return {
+            'BhRestToken': self.rest_token or '',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'User-Agent': 'MyticasJobFeedAutomation/1.0',
+        }
+
     def _safe_json_parse(self, response):
         """
         Safely parse JSON response and detect HTML error pages

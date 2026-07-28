@@ -52,21 +52,53 @@ def check_environment_status():
     from app import app
     from extensions import db
     import requests
+    import os
     with app.app_context():
         try:
             from models import EnvironmentStatus, EnvironmentAlert
 
-            env_status = EnvironmentStatus.query.filter_by(environment_name='production').first()
-            if not env_status:
+            # Dedupe: historical seeds left multiple 'production' rows which
+            # caused StaleDataError (UPDATE expected 1 row, matched 2).
+            prod_rows = (
+                EnvironmentStatus.query
+                .filter_by(environment_name='production')
+                .order_by(EnvironmentStatus.id.asc())
+                .all()
+            )
+            if not prod_rows:
+                default_url = (
+                    os.environ.get('RAILWAY_PUBLIC_DOMAIN')
+                    or os.environ.get('RAILWAY_STATIC_URL')
+                    or 'https://app.scoutgenius.ai'
+                )
+                if default_url and not default_url.startswith('http'):
+                    default_url = f'https://{default_url}'
                 env_status = EnvironmentStatus(
                     environment_name='production',
-                    environment_url='https://app.scoutgenius.ai',
+                    environment_url=default_url.rstrip('/'),
                     current_status='unknown',
                     alert_email='kroots@myticas.com'
                 )
                 db.session.add(env_status)
                 db.session.commit()
                 app.logger.info("Created initial environment status record for production monitoring")
+            else:
+                env_status = prod_rows[0]
+                if len(prod_rows) > 1:
+                    keep_id = env_status.id
+                    for dup in prod_rows[1:]:
+                        EnvironmentAlert.query.filter_by(
+                            environment_status_id=dup.id
+                        ).update(
+                            {'environment_status_id': keep_id},
+                            synchronize_session=False,
+                        )
+                        db.session.delete(dup)
+                    db.session.commit()
+                    app.logger.warning(
+                        f"Deduped {len(prod_rows) - 1} duplicate environment_status "
+                        f"'production' row(s); kept id={keep_id}"
+                    )
 
             previous_status = env_status.current_status
             current_time = datetime.utcnow()
