@@ -9,18 +9,49 @@ logger = logging.getLogger(__name__)
 
 support_auth_bp = Blueprint('support_auth', __name__)
 
-_CLIENT_ID = os.environ.get('MICROSOFT_CLIENT_ID', '')
-_TENANT_ID = os.environ.get('MICROSOFT_TENANT_ID', '')
-_CLIENT_SECRET = os.environ.get('MICROSOFT_CLIENT_SECRET', '')
+# Prefer dedicated Support Portal SSO credentials so Graph mailbox-pull can keep
+# using MICROSOFT_CLIENT_* (application Mail.Read) without colliding.
+def _support_client_id() -> str:
+    return (
+        os.environ.get('SUPPORT_MICROSOFT_CLIENT_ID')
+        or os.environ.get('MICROSOFT_CLIENT_ID')
+        or ''
+    ).strip()
 
-_AUTHORITY = f'https://login.microsoftonline.com/{_TENANT_ID}'
-_AUTH_ENDPOINT = f'{_AUTHORITY}/oauth2/v2.0/authorize'
-_TOKEN_ENDPOINT = f'{_AUTHORITY}/oauth2/v2.0/token'
+
+def _support_tenant_id() -> str:
+    return (
+        os.environ.get('SUPPORT_MICROSOFT_TENANT_ID')
+        or os.environ.get('MICROSOFT_TENANT_ID')
+        or ''
+    ).strip()
+
+
+def _support_client_secret() -> str:
+    return (
+        os.environ.get('SUPPORT_MICROSOFT_CLIENT_SECRET')
+        or os.environ.get('MICROSOFT_CLIENT_SECRET')
+        or ''
+    ).strip()
+
+
+_REDIRECT_PATH = '/support/auth/callback'
 _GRAPH_ME = 'https://graph.microsoft.com/v1.0/me'
 _SCOPES = 'openid email profile User.Read'
-_REDIRECT_PATH = '/support/auth/callback'
 
 SESSION_TIMEOUT = 4 * 60 * 60
+
+
+def _authority() -> str:
+    return f'https://login.microsoftonline.com/{_support_tenant_id()}'
+
+
+def _auth_endpoint() -> str:
+    return f'{_authority()}/oauth2/v2.0/authorize'
+
+
+def _token_endpoint() -> str:
+    return f'{_authority()}/oauth2/v2.0/token'
 
 
 def _redirect_uri():
@@ -52,15 +83,16 @@ def support_login():
     import secrets
     state = secrets.token_urlsafe(16)
     session['support_oauth_state'] = state
+    client_id = _support_client_id()
     params = (
-        f'?client_id={_CLIENT_ID}'
+        f'?client_id={client_id}'
         f'&response_type=code'
         f'&redirect_uri={_redirect_uri()}'
         f'&scope={_SCOPES.replace(" ", "%20")}'
         f'&state={state}'
         f'&response_mode=query'
     )
-    return redirect(_AUTH_ENDPOINT + params)
+    return redirect(_auth_endpoint() + params)
 
 
 @support_auth_bp.route('/support/auth/callback')
@@ -79,9 +111,9 @@ def support_callback():
 
     session.pop('support_oauth_state', None)
 
-    token_resp = requests.post(_TOKEN_ENDPOINT, data={
-        'client_id': _CLIENT_ID,
-        'client_secret': _CLIENT_SECRET,
+    token_resp = requests.post(_token_endpoint(), data={
+        'client_id': _support_client_id(),
+        'client_secret': _support_client_secret(),
         'code': code,
         'redirect_uri': _redirect_uri(),
         'grant_type': 'authorization_code',
@@ -123,8 +155,9 @@ def support_logout():
     session.pop('support_user', None)
     session.pop('support_last_active', None)
     logger.info(f'Support portal logout: {name}')
+    tenant = _support_tenant_id()
     ms_logout = (
-        f'https://login.microsoftonline.com/{_TENANT_ID}/oauth2/v2.0/logout'
+        f'https://login.microsoftonline.com/{tenant}/oauth2/v2.0/logout'
         f'?post_logout_redirect_uri=https://support.myticas.com/support/auth/signed-out'
     )
     return redirect(ms_logout)

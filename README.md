@@ -406,6 +406,7 @@ Check dashboard for automation status:
 
 ### July 2026: Railway Production, STSI Channel Feeds & Screening Compliance
 - **Railway deployment**: Production on Railway (`gunicorn` via `railway.toml`); Entra/Graph mailbox-pull auth for inbound applicants
+- **Split Microsoft Entra credentials (Jul 28)**: Support Portal SSO uses `SUPPORT_MICROSOFT_CLIENT_ID` / `SUPPORT_MICROSOFT_CLIENT_SECRET` / `SUPPORT_MICROSOFT_TENANT_ID` (Myticas Support Portal app). Graph mailbox-pull keeps `MICROSOFT_CLIENT_*` + `MICROSOFT_TENANT_ID` on the **mail** app (`Mail.Read` application permission for `Apply@myticas.com`). Do not point both at the Support Portal app — that yields Graph `403` and stops applicant intake.
 - **STSI channel feeds**: Separate Indeed (tearsheet 1640) and ZipRecruiter (1641) XML feeds; LinkedIn v2 unchanged (tearsheet 1531); apply URLs use `apply.stsigroup.com` with `?source=` params; channel feed publisher header is **STSI** / `https://www.stsigroup.com`
 - **120h reference refresh covers all feeds (Jul 27)**: The scheduled reference-number refresh (and manual “Refresh All Reference Numbers”) now rotates refs across **v2 + Indeed + ZipRecruiter** tearsheets into `JobReferenceNumber` — not v2-only. The 30-minute upload cycle still publishes each file; manual refresh regenerates and uploads all three feed files after the DB save.
 - **Feed config centralization**: `feeds/feed_config.py` for prod/dev filenames and channel constants
