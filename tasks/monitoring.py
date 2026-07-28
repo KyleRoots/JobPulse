@@ -58,7 +58,28 @@ def check_environment_status():
             from models import EnvironmentStatus, EnvironmentAlert
 
             # Dedupe: historical seeds left multiple 'production' rows which
-            # caused StaleDataError (UPDATE expected 1 row, matched 2).
+            # caused StaleDataError (UPDATE expected 1 row, matched 2). Some
+            # corrupted rows even share the same PK id — use ctid-based SQL
+            # delete so SQLAlchemy's identity map cannot collapse them.
+            try:
+                from sqlalchemy import text
+                deleted = db.session.execute(text(
+                    """
+                    DELETE FROM environment_status a
+                    USING environment_status b
+                    WHERE a.environment_name = b.environment_name
+                      AND a.ctid < b.ctid
+                    """
+                )).rowcount
+                if deleted:
+                    db.session.commit()
+                    app.logger.warning(
+                        f"Deduped {deleted} duplicate environment_status row(s) via ctid"
+                    )
+            except Exception as dedupe_err:
+                db.session.rollback()
+                app.logger.warning(f"environment_status dedupe skipped: {dedupe_err}")
+
             prod_rows = (
                 EnvironmentStatus.query
                 .filter_by(environment_name='production')
@@ -69,7 +90,7 @@ def check_environment_status():
                 default_url = (
                     os.environ.get('RAILWAY_PUBLIC_DOMAIN')
                     or os.environ.get('RAILWAY_STATIC_URL')
-                    or 'https://app.scoutgenius.ai'
+                    or 'https://jobpulse.lyntrix.ai'
                 )
                 if default_url and not default_url.startswith('http'):
                     default_url = f'https://{default_url}'
@@ -84,21 +105,19 @@ def check_environment_status():
                 app.logger.info("Created initial environment status record for production monitoring")
             else:
                 env_status = prod_rows[0]
-                if len(prod_rows) > 1:
-                    keep_id = env_status.id
-                    for dup in prod_rows[1:]:
-                        EnvironmentAlert.query.filter_by(
-                            environment_status_id=dup.id
-                        ).update(
-                            {'environment_status_id': keep_id},
-                            synchronize_session=False,
-                        )
-                        db.session.delete(dup)
-                    db.session.commit()
-                    app.logger.warning(
-                        f"Deduped {len(prod_rows) - 1} duplicate environment_status "
-                        f"'production' row(s); kept id={keep_id}"
-                    )
+                # Prefer the live Railway/custom domain when the row still
+                # points at a stale hostname that is no longer the primary app.
+                preferred = (
+                    os.environ.get('RAILWAY_PUBLIC_DOMAIN')
+                    or os.environ.get('RAILWAY_STATIC_URL')
+                    or ''
+                ).strip()
+                if preferred:
+                    if not preferred.startswith('http'):
+                        preferred = f'https://{preferred}'
+                    preferred = preferred.rstrip('/')
+                    if env_status.environment_url and 'scoutgenius.ai' in env_status.environment_url:
+                        env_status.environment_url = preferred
 
             previous_status = env_status.current_status
             current_time = datetime.utcnow()
