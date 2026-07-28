@@ -665,13 +665,17 @@ class JobManagementMixin:
                 logger.warning(f"⚠️ Empty requirements string for job {job_id_int}, skipping save")
                 return
             
-            requirements = str(requirements).strip()
+            from utils.requirements_format import normalize_requirements_to_bullets
+            requirements = normalize_requirements_to_bullets(str(requirements))
+            if not requirements:
+                logger.warning(f"⚠️ Empty requirements after bullet normalize for job {job_id_int}, skipping save")
+                return
                 
             logger.info(f"💾 Saving AI requirements for job {job_id_int}: {job_title[:50] if job_title else 'No title'}")
             
             job_req = JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id_int).first()
             if job_req:
-                job_req.ai_interpreted_requirements = requirements.strip()
+                job_req.ai_interpreted_requirements = requirements
                 job_req.last_ai_interpretation = datetime.utcnow()
                 if job_title:
                     job_req.job_title = job_title
@@ -686,7 +690,7 @@ class JobManagementMixin:
                     job_title=job_title,
                     job_location=job_location,
                     job_work_type=job_work_type,
-                    ai_interpreted_requirements=requirements.strip(),
+                    ai_interpreted_requirements=requirements,
                     last_ai_interpretation=datetime.utcnow()
                 )
                 db.session.add(job_req)

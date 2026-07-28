@@ -412,8 +412,13 @@ def save_job_settings(job_id):
         edit_action = None
         new_edited = None
         if not is_ajax_threshold_save:
-            submitted_edit = (request.form.get('edited_requirements', '') or '').strip()
-            ai_baseline = ((job_req.ai_interpreted_requirements if job_req else '') or '').strip()
+            from utils.requirements_format import normalize_requirements_to_bullets
+            submitted_edit = normalize_requirements_to_bullets(
+                request.form.get('edited_requirements', '') or ''
+            ).strip()
+            ai_baseline = normalize_requirements_to_bullets(
+                (job_req.ai_interpreted_requirements if job_req else '') or ''
+            ).strip()
 
             if not submitted_edit or submitted_edit == ai_baseline:
                 new_edited = None
@@ -543,10 +548,13 @@ def reset_job_requirements(job_id):
             logger.warning(f"Failed to write reset audit log: {log_err}")
 
         db.session.commit()
+        from utils.requirements_format import normalize_requirements_to_bullets
         return jsonify({
             'success': True,
             'had_edits': had_edits,
-            'ai_requirements': job_req.ai_interpreted_requirements or '',
+            'ai_requirements': normalize_requirements_to_bullets(
+                job_req.ai_interpreted_requirements or ''
+            ),
         })
     except Exception as e:
         db.session.rollback()
@@ -580,7 +588,8 @@ def optimize_job_requirements(job_id):
             "4. For eligibility or work-authorization requirements, add OR clauses for equivalent qualifications "
             "(e.g. 'Canadian citizen OR permanent resident', 'degree OR equivalent professional experience').\n"
             "5. Distinguish between required and preferred where inferable from context.\n"
-            "6. If there are multiple requirements, number them for clarity.\n"
+            "6. If there are multiple requirements, output them as a bullet list — one requirement per line, "
+            "each line starting with '- ' (hyphen + space). Do not number them.\n"
             "7. Use present-tense active language: 'Candidate must have…' or 'Candidate should demonstrate…'.\n"
             "8. Output ONLY the optimized requirements text — no explanations, no commentary, no preamble.\n"
             "9. Keep the output concise — clear and structured, not a lengthy essay."
@@ -598,7 +607,10 @@ def optimize_job_requirements(job_id):
         )
         log_call('scout_screening.optimize_reqs', _model, response, entity_type='Job', entity_id=job_id)
 
-        optimized = response.choices[0].message.content.strip()
+        from utils.requirements_format import normalize_requirements_to_bullets
+        optimized = normalize_requirements_to_bullets(
+            response.choices[0].message.content.strip()
+        )
         logger.info(f"Optimized requirements for job {job_id} ({len(raw)} → {len(optimized)} chars)")
         return jsonify({'success': True, 'optimized': optimized})
 

@@ -687,8 +687,8 @@
                     <a href="javascript:void(0)" class="sc-link open-config-link"
                        data-job-id="{{ job_id }}"
                        data-job-title="{{ job.title|e }}"
-                       data-ai-req="{{ (req.ai_interpreted_requirements if req and req.ai_interpreted_requirements else '')|e }}"
-                       data-edited="{{ (req.edited_requirements if req and req.edited_requirements else '')|e }}"
+                       data-ai-req="{{ ((req.ai_interpreted_requirements if req and req.ai_interpreted_requirements else '')|replace('\n', '&#10;'))|e }}"
+                       data-edited="{{ ((req.edited_requirements if req and req.edited_requirements else '')|replace('\n', '&#10;'))|e }}"
                        data-edited-by="{{ (req.requirements_edited_by if req and req.requirements_edited_by else '')|e }}"
                        data-edited-at="{{ (req.requirements_edited_at.strftime('%b %-d, %Y at %H:%M UTC') if req and req.requirements_edited_at else '')|e }}"
                        data-threshold="{{ (req.vetting_threshold if req and req.vetting_threshold else '')|e }}"
@@ -1464,7 +1464,32 @@ let currentModalJobId = null;
 var currentModalAiReq = '';
 
 function _normalizeReqText(s) {
-    return (s || '').replace(/\.\. /g, '\n');
+    if (!s) return '';
+    var t = String(s).replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+    // Legacy double-dot separator + HTML attribute newline collapse (&#10;)
+    t = t.replace(/\.\. /g, '\n').replace(/&#10;/g, '\n');
+    var rawLines;
+    if (t.indexOf('\n') !== -1) {
+        rawLines = t.split('\n');
+    } else if ((t.match(/\|/g) || []).length >= 1) {
+        rawLines = t.split(/\s*\|\s*/);
+    } else {
+        rawLines = t.split(/(?<=[.!?])\s+(?=[A-Z0-9])/);
+        if (rawLines.length < 2) rawLines = [t];
+    }
+    var out = [];
+    var seen = {};
+    for (var i = 0; i < rawLines.length; i++) {
+        var line = (rawLines[i] || '').trim();
+        if (!line) continue;
+        line = line.replace(/^[-*•]+\s+/, '').replace(/^\d+[.)]\s+/, '').trim();
+        if (!line) continue;
+        var key = line.toLowerCase();
+        if (seen[key]) continue;
+        seen[key] = true;
+        out.push('- ' + line);
+    }
+    return out.join('\n');
 }
 
 function _refreshEditedBadge(textValue) {
@@ -1610,11 +1635,12 @@ document.getElementById('optimizeReqBtn').addEventListener('click', function () 
     .then(function (r) { return r.json(); })
     .then(function (data) {
         if (data.success) {
-            textarea.value = data.optimized;
+            var refined = _normalizeReqText(data.optimized || '');
+            textarea.value = refined;
             textarea.style.transition = 'border-color 0.3s';
             textarea.style.borderColor = 'rgba(74,222,128,0.6)';
             setTimeout(function () { textarea.style.borderColor = 'rgba(155,127,212,0.22)'; }, 1800);
-            _refreshEditedBadge(data.optimized);
+            _refreshEditedBadge(refined);
             status.style.color = 'rgba(74,222,128,0.75)';
             status.innerHTML = '<i class="fas fa-check me-1"></i>Refined \u2014 review and save when ready.';
         } else {
