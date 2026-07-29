@@ -105,6 +105,15 @@ def _run_requirements_maintenance_for_env(env, CandidateVettingService, JobVetti
         if not active_jobs:
             return
 
+        # Defense in depth: Bullhorn's Search index can retain stale
+        # tearsheet associations after a closed/on-hold job was removed.
+        # Never spend AI extraction tokens on an ineligible job even if that
+        # stale membership slips past the lower-level reconciliation.
+        from utils.job_status import is_job_eligible
+        active_jobs = [job for job in active_jobs if is_job_eligible(job)]
+        if not active_jobs:
+            return
+
         # These jobs are demonstrably active, so drop any absence stamp the
         # auto-removal path left on them. The two paths disagree about the same
         # jobs every cycle; this is the side that has just proven them present.
