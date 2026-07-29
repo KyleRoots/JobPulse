@@ -544,3 +544,24 @@ def send_vetting_health_alert(health_check):
 
     except Exception as e:
         app.logger.error(f"Failed to send health alert: {str(e)}")
+
+
+def run_ai_cost_alert():
+    """Alert when 24h OpenAI spend crosses a threshold.
+
+    The vetting health check above only verifies connectivity, so a runaway
+    loop making *successful* API calls keeps it green the whole time. This
+    covers the spend dimension it cannot see.
+    """
+    from app import app
+    with app.app_context():
+        try:
+            from services.ai_cost_monitor import run_ai_cost_alert_check
+            result = run_ai_cost_alert_check()
+            if result.get('alert_sent'):
+                app.logger.warning(
+                    f"AI cost alert dispatched: {result['severity']} at "
+                    f"${result['total_usd']:,.2f}/24h"
+                )
+        except Exception as e:
+            app.logger.error(f"AI cost alert task error: {str(e)}")

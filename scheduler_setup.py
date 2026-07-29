@@ -344,6 +344,23 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
         )
         app.logger.info("🩺 Scheduled vetting system health check (every 10 minutes)")
 
+    # ── OpenAI Spend Alert (every 30 minutes) ─────────────────────────────────
+    # The health check above only tests connectivity, so a runaway loop making
+    # successful calls keeps it green. This is the spend dimension it misses.
+    if is_primary_worker:
+        from tasks import run_ai_cost_alert
+        scheduler.add_job(
+            func=run_ai_cost_alert,
+            trigger='interval',
+            minutes=30,
+            id='ai_cost_alert',
+            name='OpenAI Spend Alert (24h rolling)',
+            replace_existing=True,
+            misfire_grace_time=600,
+            coalesce=True
+        )
+        app.logger.info("💸 Scheduled OpenAI spend alert (24h rolling, every 30 minutes)")
+
     # ── AI Candidate Vetting Cycle (every 1 minute) ───────────────────────────
     if is_primary_worker:
         from tasks import run_candidate_vetting_cycle

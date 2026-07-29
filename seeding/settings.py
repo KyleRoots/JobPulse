@@ -525,6 +525,16 @@ def seed_vetting_config(db, VettingConfig):
             'admin_notification_email': 'kroots@myticas.com',
             'health_alert_email': 'kroots@myticas.com',
             'send_recruiter_emails': 'false',      # Always off by default; user enables via UI
+            # OpenAI spend alerting (Jul 2026). The vetting health check only
+            # tests connectivity, so runaway loops making successful calls kept
+            # it green while burning ~$6.4k/mo. Thresholds are sized against a
+            # clean run rate of ~$50-90/day: warn at ~2x a busy day, critical at
+            # ~3x. Empty ai_cost_alert_email falls back to health_alert_email.
+            'ai_cost_alert_enabled': 'true',
+            'ai_cost_alert_warn_usd_24h': '150',
+            'ai_cost_alert_critical_usd_24h': '250',
+            'ai_cost_alert_cooldown_hours': '6',
+            'ai_cost_alert_email': '',
             # Embedding pre-filter settings (Layer 1)
             'embedding_filter_enabled': 'true',    # Killswitch: set to 'false' to bypass filter
             'embedding_similarity_threshold': '0.25',  # Conservative default; user tightens via UI
