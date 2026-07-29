@@ -429,6 +429,7 @@ Check dashboard for automation status:
 - **Env monitor + Sales Rep (Jul 28)**: Environment monitor probes `https://app.scoutgenius.ai` (auto-migrates stale lyntrix URLs — domain was never moved). Sales Rep Sync uses Bullhorn **search** (not query) for ClientCorporation `customText` fields — BQL `<> ''` caused residual HTTP 400 after BhRestToken fix; scan errors no longer log the full request URL/token.
 - **Fraud notifier differentiators (Jul 28)**: Multi-submission claim drift; suggested verification questions on Review/High-Risk emails + Bullhorn notes; PDF Author/Producer fingerprint reuse; optional NeverBounce/Twilio contact validation (toggle + env keys); soft LinkedIn URL cross-check (never High-Risk alone); weekly calibration sample API + `scripts/fraud_calibration_report.py`.
 - **Rule 14 soft-skill relevance bar (Jul 28)**: Soft communication / generic customer-service overlap alone no longer counts as domain-relevant for recency (Debbie James / Crossing Guard → Admin Assistant regression). Prompt + justification enforcer require a concrete functional duty/tool; rules version `2026.07.28`.
+- **Requirements re-extract cost fix (Jul 29)**: Job-requirements maintenance now gates AI re-extraction on a SHA-256 of the Bullhorn job description (`source_description_hash`), not only `dateLastModified`. Metadata-only Bullhorn bumps (recruiter assignment, status flips) no longer re-burn gpt-5.4 extraction tokens every 5-minute cycle.
 
 ### October 2025: Database-Backed Reference Number Preservation ✨
 - **Problem Identified**: Live XML URL returns 403 Forbidden, causing reference number reversion
@@ -554,5 +555,5 @@ Access health endpoints for status checks:
 
 ---
 
-**Last Updated**: July 26, 2026
+**Last Updated**: July 29, 2026
 **Version**: 2.3 (Railway production, Indeed Plan B, garbled-resume OCR/screening harden)

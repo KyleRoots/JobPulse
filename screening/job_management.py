@@ -304,46 +304,54 @@ class JobManagementMixin:
         """
         Check for jobs that have been modified in Bullhorn since last AI interpretation.
         Triggers re-extraction for changed jobs while preserving custom overrides.
-        
+
+        Re-extraction is gated on *description content*, not solely on
+        ``dateLastModified``. Bullhorn often bumps that timestamp for non-JD
+        edits (recruiter assignment, status, etc.); without a content hash those
+        bumps re-burn gpt-5.4 extraction tokens every maintenance cycle.
+
         Args:
             jobs: Optional list of job dicts from tearsheets. If None, fetches from tearsheets.
-            
+
         Returns:
             Summary dict with refresh counts
         """
+        from embedding_service import EmbeddingService
+
         results = {
             'jobs_checked': 0,
             'jobs_refreshed': 0,
             'jobs_skipped': 0,
+            'jobs_skipped_unchanged_text': 0,
             'errors': []
         }
-        
+
         try:
             # Get jobs if not provided
             if jobs is None:
                 jobs = self.get_active_jobs_from_tearsheets()
-            
+
             results['jobs_checked'] = len(jobs)
             logger.info(f"🔄 Checking {len(jobs)} jobs for modifications...")
-            
+
             for job in jobs:
                 job_id = job.get('id')
                 if not job_id:
                     continue
-                    
+
                 try:
                     # Get existing requirements record
                     existing = JobVettingRequirements.query.filter_by(bullhorn_job_id=int(job_id)).first()
-                    
+
                     if not existing or not existing.last_ai_interpretation:
                         # No existing interpretation - will be extracted when needed
                         continue
-                    
+
                     # Get job's dateLastModified from Bullhorn
                     date_last_modified = job.get('dateLastModified')
                     if not date_last_modified:
                         continue
-                    
+
                     # Convert Bullhorn timestamp (milliseconds) to datetime
                     if isinstance(date_last_modified, (int, float)):
                         job_modified_at = datetime.utcfromtimestamp(date_last_modified / 1000)
@@ -353,29 +361,67 @@ class JobManagementMixin:
                             job_modified_at = datetime.fromisoformat(str(date_last_modified).replace('Z', '+00:00'))
                         except Exception:
                             continue
-                    
+
                     # Compare with our last interpretation timestamp
                     if job_modified_at > existing.last_ai_interpretation:
-                        # Job was modified - refresh the interpretation
                         job_title = job.get('title', '')
                         job_description = job.get('description', '') or job.get('publicDescription', '')
-                        
+
                         # Extract location data
                         job_address = job.get('address', {}) if isinstance(job.get('address'), dict) else {}
                         job_city = job_address.get('city', '')
                         job_state = job_address.get('state', '')
                         job_country = job_address.get('countryName', '') or job_address.get('country', '')
                         job_location = ', '.join(filter(None, [job_city, job_state, job_country]))
-                        
+
                         job_work_type = map_work_type(job.get('onSite', 1))
-                        
-                        logger.info(f"📝 Job {job_id} modified (Bullhorn: {job_modified_at}, Last AI: {existing.last_ai_interpretation}) - refreshing...")
-                        
+
+                        # Content-hash gate: if the JD text is unchanged, bump the
+                        # interpretation timestamp (so the next cycle stops
+                        # re-checking) and skip the AI call.
+                        desc_hash = EmbeddingService.compute_description_hash(job_description)
+                        stored_hash = existing.source_description_hash
+                        if stored_hash and stored_hash == desc_hash:
+                            existing.job_title = job_title
+                            existing.job_location = job_location
+                            existing.job_work_type = job_work_type
+                            existing.last_ai_interpretation = datetime.utcnow()
+                            db.session.commit()
+                            logger.info(
+                                f"📝 Job {job_id} dateLastModified advanced but JD text "
+                                f"unchanged — skipped AI re-extract"
+                            )
+                            results['jobs_skipped_unchanged_text'] += 1
+                            continue
+
+                        # First cycle after the hash column ships: we already have
+                        # AI requirements, so record the current JD hash without
+                        # re-burning extraction tokens. A real JD edit later will
+                        # produce a different hash and re-extract normally.
+                        if not stored_hash and existing.ai_interpreted_requirements:
+                            existing.job_title = job_title
+                            existing.job_location = job_location
+                            existing.job_work_type = job_work_type
+                            existing.source_description_hash = desc_hash
+                            existing.last_ai_interpretation = datetime.utcnow()
+                            db.session.commit()
+                            logger.info(
+                                f"📝 Job {job_id} backfilled source_description_hash "
+                                f"— skipped AI re-extract"
+                            )
+                            results['jobs_skipped_unchanged_text'] += 1
+                            continue
+
+                        logger.info(
+                            f"📝 Job {job_id} modified (Bullhorn: {job_modified_at}, "
+                            f"Last AI: {existing.last_ai_interpretation}) - refreshing..."
+                        )
+
                         # Update title and location (always)
                         existing.job_title = job_title
                         existing.job_location = job_location
                         existing.job_work_type = job_work_type
-                        
+
                         # ALWAYS re-extract AI interpretation, even with custom override
                         # Custom Override supplements AI interpretation, doesn't replace it
                         extracted = self.extract_job_requirements(
@@ -385,29 +431,34 @@ class JobManagementMixin:
                         if extracted:
                             self._save_ai_interpreted_requirements(
                                 int(job_id), job_title, extracted,
-                                job_location, job_work_type
+                                job_location, job_work_type,
+                                description_hash=desc_hash,
                             )
                             logger.info(f"  ✅ Refreshed AI interpretation for job {job_id}")
                         else:
                             logger.warning(f"  ⚠️ Could not refresh AI interpretation for job {job_id}")
-                        
+
                         results['jobs_refreshed'] += 1
                     else:
                         results['jobs_skipped'] += 1
-                        
+
                 except Exception as e:
                     # Rollback to recover from failed transaction state
                     db.session.rollback()
                     logger.error(f"Error checking job {job_id} for changes: {str(e)}")
                     results['errors'].append(f"Job {job_id}: {str(e)}")
-            
-            if results['jobs_refreshed'] > 0:
-                logger.info(f"🔄 Job change detection complete: {results['jobs_refreshed']} refreshed, {results['jobs_skipped']} unchanged")
-            
+
+            if results['jobs_refreshed'] > 0 or results['jobs_skipped_unchanged_text'] > 0:
+                logger.info(
+                    f"🔄 Job change detection complete: {results['jobs_refreshed']} refreshed, "
+                    f"{results['jobs_skipped']} unchanged, "
+                    f"{results['jobs_skipped_unchanged_text']} skipped (JD text unchanged)"
+                )
+
         except Exception as e:
             logger.error(f"Error in job change detection: {str(e)}")
             results['errors'].append(str(e))
-            
+
         return results
     
     def sync_job_recruiter_assignments(self, jobs: list = None) -> dict:
@@ -579,7 +630,9 @@ class JobManagementMixin:
             'skipped': 0,
             'failed': 0
         }
-        
+
+        from embedding_service import EmbeddingService
+
         # BATCH: Pre-fetch all existing requirements in one query instead of per-job
         job_ids = [int(j.get('id')) for j in jobs if j.get('id')]
         existing_reqs = {}
@@ -627,7 +680,9 @@ class JobManagementMixin:
                     # loop must explicitly save it or the row never lands in the DB and the
                     # job stays "Pending" forever (re-extracted every cycle, burning tokens).
                     self._save_ai_interpreted_requirements(
-                        int(job_id), job_title, extracted, job_location, job_work_type
+                        int(job_id), job_title, extracted, job_location, job_work_type,
+                        description_hash=EmbeddingService.compute_description_hash(job_description)
+                        if job_description is not None else None,
                     )
                     results['extracted'] += 1
                 else:
@@ -639,15 +694,22 @@ class JobManagementMixin:
         logger.info(f"📋 Job requirements extraction: {results['extracted']} extracted, {results['skipped']} skipped, {results['failed']} failed")
         return results
     
-    def _save_ai_interpreted_requirements(self, job_id, job_title: str, requirements: str, 
-                                          job_location: str = None, job_work_type: str = None):
-        """Save the AI-interpreted requirements for a job for user review"""
+    def _save_ai_interpreted_requirements(self, job_id, job_title: str, requirements: str,
+                                          job_location: str = None, job_work_type: str = None,
+                                          description_hash: str = None):
+        """Save the AI-interpreted requirements for a job for user review.
+
+        ``description_hash`` is the SHA-256 of the Bullhorn job description that
+        produced ``requirements``. When present it is stored so subsequent
+        maintenance cycles can skip re-extraction when only ``dateLastModified``
+        has moved.
+        """
         try:
             # Normalize job_id - handle strings, whitespace, and invalid values
             if job_id is None or str(job_id).strip() in ('', 'N/A', 'None'):
                 logger.warning(f"⚠️ Cannot save requirements - invalid job_id: {job_id}")
                 return
-            
+
             # Strip whitespace and convert to int
             job_id_str = str(job_id).strip()
             try:
@@ -655,28 +717,30 @@ class JobManagementMixin:
             except ValueError:
                 logger.error(f"⚠️ Cannot convert job_id to integer: '{job_id}' (stripped: '{job_id_str}')")
                 return
-            
+
             # Handle case where AI returns a list instead of string
             if isinstance(requirements, list):
                 requirements = '\n'.join(str(r) for r in requirements)
-            
+
             # Validate requirements content
             if not requirements or not str(requirements).strip():
                 logger.warning(f"⚠️ Empty requirements string for job {job_id_int}, skipping save")
                 return
-            
+
             from utils.requirements_format import normalize_requirements_to_bullets
             requirements = normalize_requirements_to_bullets(str(requirements))
             if not requirements:
                 logger.warning(f"⚠️ Empty requirements after bullet normalize for job {job_id_int}, skipping save")
                 return
-                
+
             logger.info(f"💾 Saving AI requirements for job {job_id_int}: {job_title[:50] if job_title else 'No title'}")
-            
+
             job_req = JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id_int).first()
             if job_req:
                 job_req.ai_interpreted_requirements = requirements
                 job_req.last_ai_interpretation = datetime.utcnow()
+                if description_hash:
+                    job_req.source_description_hash = description_hash
                 if job_title:
                     job_req.job_title = job_title
                 if job_location:
@@ -691,7 +755,8 @@ class JobManagementMixin:
                     job_location=job_location,
                     job_work_type=job_work_type,
                     ai_interpreted_requirements=requirements,
-                    last_ai_interpretation=datetime.utcnow()
+                    last_ai_interpretation=datetime.utcnow(),
+                    source_description_hash=description_hash,
                 )
                 db.session.add(job_req)
                 logger.info(f"✅ Created new requirements record for job {job_id_int}")

@@ -164,6 +164,11 @@ class JobVettingRequirements(db.Model):
     scout_vetting_enabled = db.Column(db.Boolean, nullable=True)  # null = follow global, True/False = per-job override
     employer_prestige_boost = db.Column(db.Boolean, default=False)  # Per-job toggle for prestige employer scoring boost
     last_ai_interpretation = db.Column(db.DateTime, nullable=True)
+    # SHA-256 of the Bullhorn job description that produced ai_interpreted_requirements.
+    # Used by check_and_refresh_changed_jobs so Bullhorn dateLastModified bumps that do
+    # not change the description text (recruiter reassignment, status flips, etc.) do
+    # not re-burn gpt-5.4 extraction tokens every maintenance cycle.
+    source_description_hash = db.Column(db.String(64), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

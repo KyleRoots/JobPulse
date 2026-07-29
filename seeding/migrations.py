@@ -83,6 +83,9 @@ def run_schema_migrations(db):
         ("candidate_vetting_log", "screening_model_used", "VARCHAR(64)"),
         ("candidate_vetting_log", "screening_prompt_profile", "VARCHAR(50)"),
         ("candidate_vetting_log", "screening_rules_json", "TEXT"),
+        # Job-description content hash — skip AI re-extract when Bullhorn's
+        # dateLastModified advances without the JD text changing (Jul 2026).
+        ("job_vetting_requirements", "source_description_hash", "VARCHAR(64)"),
     ]
 
     _SAFE_IDENTIFIER = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')

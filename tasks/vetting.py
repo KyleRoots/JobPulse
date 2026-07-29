@@ -44,8 +44,9 @@ def run_requirements_maintenance():
 
     Two responsibilities:
       A) Re-interpret modified jobs — calls check_and_refresh_changed_jobs() which compares
-         Bullhorn dateLastModified vs last_ai_interpretation and re-runs AI extraction
-         for any job whose description has changed since the last interpretation.
+         Bullhorn dateLastModified vs last_ai_interpretation, then gates AI re-extraction
+         on a SHA-256 of the job description text (source_description_hash) so metadata-only
+         Bullhorn bumps do not re-burn extraction tokens.
       B) Extract for new jobs — finds any jobs currently in monitored tearsheets that have
          no JobVettingRequirements record yet and extracts requirements via AI.
 
