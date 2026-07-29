@@ -1965,6 +1965,7 @@ class TestRevetNewScoreBackfill:
         full vetting pipeline is too heavy to drive in this test module."""
         import candidate_vetting_service as cvs_module
         import os
+        import re
         pkg_dir = os.path.dirname(cvs_module.__file__)
         parts = []
         for fn in sorted(os.listdir(pkg_dir)):
@@ -1975,7 +1976,14 @@ class TestRevetNewScoreBackfill:
         assert 'from vetting_audit_service import backfill_revet_new_score' in src, (
             'CandidateVettingService must import backfill_revet_new_score'
         )
-        assert 'backfill_revet_new_score(candidate_id' in src, (
+        # Accept either the bare `candidate_id` local or the attribute form
+        # the cycle module actually uses; the contract being guarded is that
+        # the helper is called with the candidate id, not how it is spelled.
+        assert re.search(
+            r'backfill_revet_new_score\(\s*'
+            r'(candidate_id|[\w.]*\.bullhorn_candidate_id)',
+            src,
+        ), (
             'CandidateVettingService must call backfill_revet_new_score '
             'after committing the new vetting log + matches'
         )
