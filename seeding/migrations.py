@@ -86,6 +86,10 @@ def run_schema_migrations(db):
         # Job-description content hash — skip AI re-extract when Bullhorn's
         # dateLastModified advances without the JD text changing (Jul 2026).
         ("job_vetting_requirements", "source_description_hash", "VARCHAR(64)"),
+        # Debounce marker for tearsheet-absence cleanup — stops the
+        # delete/re-extract churn between auto-removal and requirements
+        # maintenance (Jul 2026).
+        ("job_vetting_requirements", "tearsheet_absent_since", "TIMESTAMP"),
     ]
 
     _SAFE_IDENTIFIER = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')

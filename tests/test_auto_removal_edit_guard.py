@@ -11,17 +11,30 @@ Two paths can delete `JobVettingRequirements` rows during a monitoring cycle:
 Both paths must now skip rows with non-empty `edited_requirements`.
 """
 import pytest
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest.mock import patch
 from app import app, db
 from models import JobVettingRequirements
 from incremental_monitoring_service import IncrementalMonitoringService
+from utils.requirements_pruning import ABSENCE_GRACE_HOURS, clear_absence_marks
 
 
 @pytest.fixture
 def app_ctx():
     with app.app_context():
         yield
+
+
+@pytest.fixture(autouse=True)
+def _isolate_requirements(app_ctx):
+    """`sync_requirements_with_active_jobs` scans the whole table, so rows left
+    behind by a sibling test change its counts. Debounced cleanup keeps rows
+    alive across a test, which makes that bleed easy to hit."""
+    JobVettingRequirements.query.delete()
+    db.session.commit()
+    yield
+    JobVettingRequirements.query.delete()
+    db.session.commit()
 
 
 def _mk_row(job_id, *, edited=None, ai="AI baseline reqs"):
@@ -65,10 +78,15 @@ def test_auto_removal_preserves_edited_rows(app_ctx, caplog):
 
     assert JobVettingRequirements.query.filter_by(bullhorn_job_id=edited_id).first() is not None, \
         "Edited row must be preserved across auto-removal cleanup"
-    assert JobVettingRequirements.query.filter_by(bullhorn_job_id=plain_id).first() is None, \
-        "Non-edited row must be deleted"
-    assert JobVettingRequirements.query.filter_by(bullhorn_job_id=other_id).first() is not None, \
-        "Unrelated row must not be touched"
+
+    plain_row = JobVettingRequirements.query.filter_by(bullhorn_job_id=plain_id).first()
+    assert plain_row is not None, "Non-edited row is debounced, not deleted on first miss"
+    assert plain_row.tearsheet_absent_since is not None, "Non-edited row must be stamped"
+
+    other_row = JobVettingRequirements.query.filter_by(bullhorn_job_id=other_id).first()
+    assert other_row is not None, "Unrelated row must not be touched"
+    assert other_row.tearsheet_absent_since is None, \
+        "Unrelated row must not be stamped absent"
 
     protected_log = [r for r in caplog.records if "auto_removal_edit_protected" in r.message]
     assert any(str(edited_id) in r.message for r in protected_log), \
@@ -102,23 +120,76 @@ def test_auto_removal_with_only_edited_rows_deletes_nothing(app_ctx):
     db.session.commit()
 
 
-def test_auto_removal_deletes_when_no_edits_present(app_ctx):
-    """Vanilla case: no edits → cleanup proceeds normally."""
+def _run_auto_removal(job_id, title="Plain"):
+    svc = IncrementalMonitoringService.__new__(IncrementalMonitoringService)
+    svc.logger = __import__("logging").getLogger("test_auto_removal_guard")
+    svc.auto_removed_jobs = [
+        {"job_id": job_id, "job_title": title, "tearsheet_id": 1, "reason": "test"},
+    ]
+    svc._log_auto_removal_activity()
+
+
+def test_auto_removal_first_miss_only_marks(app_ctx):
+    """Debounce: one absence does not delete. Deleting on the first miss is
+    what let this path and requirements maintenance churn a job every 5
+    minutes, re-extracting it with gpt-5.4 each time."""
     job_id = 9_999_020
     JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).delete(synchronize_session=False)
     db.session.commit()
     _mk_row(job_id, edited=None)
     db.session.commit()
 
-    svc = IncrementalMonitoringService.__new__(IncrementalMonitoringService)
-    svc.logger = __import__("logging").getLogger("test_auto_removal_guard")
-    svc.auto_removed_jobs = [
-        {"job_id": job_id, "job_title": "Plain", "tearsheet_id": 1, "reason": "test"},
-    ]
+    _run_auto_removal(job_id)
 
-    svc._log_auto_removal_activity()
+    row = JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).first()
+    assert row is not None, "First absence must not delete the row"
+    assert row.tearsheet_absent_since is not None, "First absence must stamp the row"
 
-    assert JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).first() is None
+    JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).delete(synchronize_session=False)
+    db.session.commit()
+
+
+def test_auto_removal_deletes_after_grace_window(app_ctx):
+    """A job absent past the grace window is still cleaned up."""
+    job_id = 9_999_021
+    JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).delete(synchronize_session=False)
+    db.session.commit()
+    _mk_row(job_id, edited=None)
+    db.session.commit()
+
+    _run_auto_removal(job_id)
+
+    row = JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).first()
+    row.tearsheet_absent_since = datetime.utcnow() - timedelta(hours=ABSENCE_GRACE_HOURS + 1)
+    db.session.commit()
+
+    _run_auto_removal(job_id)
+
+    assert JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).first() is None, \
+        "Row absent beyond the grace window must be deleted"
+
+
+def test_returning_job_loses_its_absence_stamp(app_ctx):
+    """A job seen active again must not carry an old stamp into the next
+    grace-window check, otherwise it would be deleted despite being active."""
+    job_id = 9_999_022
+    JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).delete(synchronize_session=False)
+    db.session.commit()
+    _mk_row(job_id, edited=None)
+    db.session.commit()
+
+    _run_auto_removal(job_id)
+    assert JobVettingRequirements.query.filter_by(
+        bullhorn_job_id=job_id
+    ).first().tearsheet_absent_since is not None
+
+    clear_absence_marks([job_id])
+
+    row = JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).first()
+    assert row.tearsheet_absent_since is None, "Returning job must lose its stamp"
+
+    JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).delete(synchronize_session=False)
+    db.session.commit()
 
 
 # -----------------------------------------------------------------------------
@@ -161,15 +232,29 @@ def test_sync_orphan_cleanup_preserves_edited_rows(app_ctx, caplog):
             results = svc.sync_requirements_with_active_jobs()
 
     assert results["success"] is True
-    assert results["removed"] == 1, "exactly one un-edited orphan should be deleted"
+    assert results["removed"] == 0, "first absence is debounced, not deleted"
+    assert results["marked_absent"] == 1, "the un-edited orphan should be stamped"
     assert results["preserved_edits"] == 1, "one edited orphan should be preserved"
 
     assert JobVettingRequirements.query.filter_by(bullhorn_job_id=edited_id).first() is not None, \
         "Edited orphan must be preserved across orphan cleanup"
-    assert JobVettingRequirements.query.filter_by(bullhorn_job_id=plain_id).first() is None, \
-        "Plain orphan must be deleted"
     assert JobVettingRequirements.query.filter_by(bullhorn_job_id=active_id).first() is not None, \
         "Active row must not be touched"
+
+    # Once the grace window has elapsed the orphan is genuinely removed.
+    plain_row = JobVettingRequirements.query.filter_by(bullhorn_job_id=plain_id).first()
+    assert plain_row is not None, "Plain orphan survives the first pass"
+    plain_row.tearsheet_absent_since = datetime.utcnow() - timedelta(
+        hours=ABSENCE_GRACE_HOURS + 1
+    )
+    db.session.commit()
+
+    with patch.object(svc, "get_active_jobs_from_tearsheets", return_value=[{"id": active_id}]):
+        results = svc.sync_requirements_with_active_jobs()
+
+    assert results["removed"] == 1, "orphan past the grace window should be deleted"
+    assert JobVettingRequirements.query.filter_by(bullhorn_job_id=plain_id).first() is None, \
+        "Plain orphan must be deleted once continuously absent past the window"
 
     protected_log = [r for r in caplog.records if "sync_orphan_edit_protected" in r.message]
     assert any(str(edited_id) in r.message for r in protected_log), \

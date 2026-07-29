@@ -105,6 +105,14 @@ def _run_requirements_maintenance_for_env(env, CandidateVettingService, JobVetti
         if not active_jobs:
             return
 
+        # These jobs are demonstrably active, so drop any absence stamp the
+        # auto-removal path left on them. The two paths disagree about the same
+        # jobs every cycle; this is the side that has just proven them present.
+        from utils.requirements_pruning import clear_absence_marks
+        clear_absence_marks(
+            [int(j['id']) for j in active_jobs if j.get('id')]
+        )
+
         existing_query = JobVettingRequirements.query.filter(
             JobVettingRequirements.ai_interpreted_requirements.isnot(None)
         )

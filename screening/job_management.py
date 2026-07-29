@@ -44,6 +44,7 @@ class JobManagementMixin:
             'active_jobs': 0,
             'requirements_before': 0,
             'removed': 0,
+            'marked_absent': 0,
             'preserved_edits': 0,
             'success': False,
             'error': None
@@ -71,7 +72,18 @@ class JobManagementMixin:
             # represents recruiter tuning that the audit log cannot reconstruct. Never
             # delete it just because the job temporarily fell off active tearsheets.
             # Companion guard exists in incremental_monitoring_service._log_auto_removal_activity.
+            from utils.requirements_pruning import (
+                clear_absence_marks,
+                mark_or_delete_absent_requirements,
+            )
+
+            # A job that reappeared must lose its absence stamp, otherwise a
+            # brief disappearance months ago would still expire the grace
+            # window and delete a row for a job that is currently active.
+            clear_absence_marks(active_job_ids)
+
             preserved_ids = []
+            absent_ids = []
             for req in all_requirements:
                 if req.bullhorn_job_id in active_job_ids:
                     continue
@@ -85,9 +97,19 @@ class JobManagementMixin:
                         f"orphan row will NOT be deleted"
                     )
                     continue
-                db.session.delete(req)
-                results['removed'] += 1
-            
+                absent_ids.append(req.bullhorn_job_id)
+
+            # Debounced so a job flapping out of the tearsheet for one cycle
+            # does not lose requirements that immediately get re-extracted.
+            prune_stats = mark_or_delete_absent_requirements(
+                absent_ids, logger=logger, source='sync_active_jobs',
+            )
+            results['removed'] = prune_stats['deleted']
+            results['marked_absent'] = prune_stats['marked']
+
+            if results['marked_absent'] > 0:
+                db.session.commit()
+
             if results['removed'] > 0 or results['preserved_edits'] > 0:
                 db.session.commit()
                 logger.info(f"🧹 Synced AI requirements: removed {results['removed']} orphaned entries (not in active tearsheets)")

@@ -632,11 +632,18 @@ This alert was triggered by the zero-job detection safeguard.
 
                     deletable_ids = [jid for jid in valid_job_ids if jid not in protected_ids]
                     if deletable_ids:
-                        removed_reqs = JobVettingRequirements.query.filter(
-                            JobVettingRequirements.bullhorn_job_id.in_(deletable_ids)
-                        ).delete(synchronize_session=False)
-                        if removed_reqs > 0:
-                            self.logger.info(f"🧹 Cleaned up {removed_reqs} AI requirements for removed jobs")
+                        # Debounced: the first miss only stamps the row. This
+                        # path and requirements maintenance disagreed about the
+                        # same jobs every 5 minutes, so deleting immediately
+                        # meant a fresh gpt-5.4 extraction every cycle.
+                        from utils.requirements_pruning import (
+                            mark_or_delete_absent_requirements,
+                        )
+                        mark_or_delete_absent_requirements(
+                            deletable_ids,
+                            logger=self.logger,
+                            source='auto_removal',
+                        )
                     if protected_ids:
                         self.logger.info(
                             f"🛡️ Edit-preserving guard kept {len(protected_ids)} requirement row(s) "

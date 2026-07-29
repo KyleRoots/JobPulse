@@ -169,6 +169,13 @@ class JobVettingRequirements(db.Model):
     # not change the description text (recruiter reassignment, status flips, etc.) do
     # not re-burn gpt-5.4 extraction tokens every maintenance cycle.
     source_description_hash = db.Column(db.String(64), nullable=True)
+    # First time this job was observed missing from the active tearsheet set.
+    # Cleanup debounces on this instead of deleting on the first miss: the
+    # auto-removal path and the requirements maintenance path disagreed about
+    # the same jobs every 5 minutes, so each delete was immediately followed by
+    # a fresh gpt-5.4 extraction (~$275/mo of churn, Jul 2026). Cleared as soon
+    # as the job is seen active again.
+    tearsheet_absent_since = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
