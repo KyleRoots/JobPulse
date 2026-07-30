@@ -28,7 +28,7 @@ class _BullhornCore:
         'JobSubmissionHistory', 'NoteEntity',
     }
     ENTITY_DEFAULT_FIELDS = {
-        'Candidate': 'id,firstName,lastName,email,phone,mobile,status,source,occupation,companyName,skillSet,owner(id,firstName,lastName),address(address1,city,state,zip,countryName)',
+        'Candidate': 'id,firstName,lastName,email,phone,mobile,status,source,occupation,companyName,skillSet,owner(id,firstName,lastName),address(address1,address2,city,state,zip,countryID,countryCode,countryName)',
         'JobOrder': 'id,title,status,isOpen,isDeleted,isPublic,employmentType,salary,salaryUnit,skillList,clientCorporation(id,name),owner(id,firstName,lastName),address(city,state,countryName)',
         'Placement': 'id,status,dateBegin,dateEnd,salary,payRate,billingFrequency,candidate(id,firstName,lastName),jobOrder(id,title),approvingClientContact(id,firstName,lastName)',
         'JobSubmission': 'id,status,dateWebResponse,source,candidate(id,firstName,lastName),jobOrder(id,title),sendingUser(id,firstName,lastName)',

@@ -63,6 +63,7 @@ from models.vetting import (
 )
 from models.candidate import (
     ParsedResumeCache,
+    CandidateCountryCorrectionLog,
     CandidateMergeLog,
     CandidateProfileEmbedding,
     FuzzyEvaluationQueue,
@@ -120,7 +121,8 @@ __all__ = [
     'VettingConfig', 'EscalationLog', 'ScoutVettingSession',
     'VettingConversationTurn', 'VettingAuditLog', 'RecruiterNotificationPref', 'RecruiterNotificationLedger',
     # candidate
-    'ParsedResumeCache', 'CandidateMergeLog', 'CandidateProfileEmbedding', 'FuzzyEvaluationQueue',
+    'ParsedResumeCache', 'CandidateCountryCorrectionLog', 'CandidateMergeLog',
+    'CandidateProfileEmbedding', 'FuzzyEvaluationQueue',
     # embedding
     'JobEmbedding', 'EmbeddingFilterLog', 'EmbeddingABLog', 'ScreeningABLog',
     # automation

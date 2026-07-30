@@ -91,6 +91,32 @@ The AI Candidate Vetting Module is an advanced feature of Scout Genius™ that a
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
+### Candidate Country Integrity
+
+Bullhorn native search relies on `Candidate.address.countryID`. Some external
+job boards send city/state but omit country, leaving Bullhorn's United States
+default even for records such as Toronto, ON.
+
+The `candidate_country_normalization` job runs every 15 minutes and reviews a
+bounded set of candidates added in the prior 48 hours. It writes a country only
+when the parsed resume itself corroborates the candidate's city/state and that
+region maps unambiguously to one supported country. Citizenship, passport,
+employer, and education references are not treated as residence. Ambiguous
+region codes require an explicit country on the same resume location line.
+
+Each correction:
+
+- preserves populated city, state, street, and postal fields;
+- writes Bullhorn's canonical country entity ID;
+- reads the record back to verify the searchable value changed; and
+- records the before/after values and evidence in
+  `candidate_country_correction_log`.
+
+The automation is controlled by
+`candidate_country_normalization_enabled`,
+`candidate_country_normalization_lookback_hours`, and
+`candidate_country_normalization_batch_size`.
+
 ### AI Prompt Strategy
 
 The GPT-4o prompt is carefully engineered to:

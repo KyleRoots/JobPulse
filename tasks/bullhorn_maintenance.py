@@ -6,6 +6,102 @@ from datetime import datetime, timedelta
 logger = logging.getLogger(__name__)
 
 
+def normalize_candidate_countries():
+    """Correct recent Candidate countries from high-confidence resume evidence."""
+    from app import app
+
+    with app.app_context():
+        try:
+            from models import VettingConfig
+            from services.candidate_country_normalizer import (
+                run_candidate_country_normalization,
+            )
+
+            enabled = str(
+                VettingConfig.get_value(
+                    "candidate_country_normalization_enabled",
+                    "true",
+                )
+            ).strip().lower() == "true"
+            if not enabled:
+                return
+
+            try:
+                lookback_hours = float(
+                    VettingConfig.get_value(
+                        "candidate_country_normalization_lookback_hours",
+                        "48",
+                    )
+                )
+            except (TypeError, ValueError):
+                lookback_hours = 48.0
+            try:
+                batch_size = int(
+                    VettingConfig.get_value(
+                        "candidate_country_normalization_batch_size",
+                        "1000",
+                    )
+                )
+            except (TypeError, ValueError):
+                batch_size = 1000
+
+            from utils.environment_runner import for_each_active_environment
+
+            def _run(environment):
+                env_key = getattr(environment, "key", "default")
+                cursor_key = (
+                    f"candidate_country_normalization_cursor_ms_{env_key}"
+                )[:100]
+                cursor_raw = VettingConfig.get_value(cursor_key, "")
+                try:
+                    cursor_ms = int(cursor_raw) if cursor_raw else None
+                except (TypeError, ValueError):
+                    cursor_ms = None
+
+                result = run_candidate_country_normalization(
+                    lookback_hours=max(1.0, min(lookback_hours, 720.0)),
+                    limit=max(1, min(batch_size, 2000)),
+                    trigger="scheduled",
+                    environment=environment,
+                    since_ms=cursor_ms,
+                )
+                # Advance only after a fully successful bounded page. If any
+                # remote write or audit fails, the next cycle retries from the
+                # same cursor; already-corrected rows are idempotent.
+                max_seen = result.get("max_date_added_ms") or 0
+                if (
+                    max_seen
+                    and result["failed"] == 0
+                    and result["corrected_unlogged"] == 0
+                ):
+                    VettingConfig.set_value(
+                        cursor_key,
+                        max_seen,
+                        "High-water mark for candidate country normalization",
+                    )
+                app.logger.info(
+                    "🌎 Candidate country normalization [%s]: scanned=%s "
+                    "corrected=%s unchanged=%s skipped=%s failed=%s "
+                    "corrected_unlogged=%s",
+                    env_key,
+                    result["scanned"],
+                    result["corrected"],
+                    result["unchanged"],
+                    result["skipped"],
+                    result["failed"],
+                    result["corrected_unlogged"],
+                )
+                return result
+
+            for_each_active_environment(
+                "candidate_country_normalization",
+                _run,
+                app.logger,
+            )
+        except Exception:
+            app.logger.exception("Candidate country normalization cycle failed")
+
+
 def start_scheduler_manual():
     """Manually start the scheduler and trigger monitoring"""
     from app import app, lazy_start_scheduler, process_bullhorn_monitors, scheduler

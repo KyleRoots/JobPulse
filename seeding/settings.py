@@ -535,6 +535,12 @@ def seed_vetting_config(db, VettingConfig):
             'ai_cost_alert_critical_usd_24h': '250',
             'ai_cost_alert_cooldown_hours': '6',
             'ai_cost_alert_email': '',
+            # Correct Bullhorn's US default when recent candidate resume
+            # location evidence uniquely maps city/state to another country.
+            # Explicitly enabled for the Jul 30 2026 production rollout.
+            'candidate_country_normalization_enabled': 'true',
+            'candidate_country_normalization_lookback_hours': '48',
+            'candidate_country_normalization_batch_size': '1000',
             # Embedding pre-filter settings (Layer 1)
             'embedding_filter_enabled': 'true',    # Killswitch: set to 'false' to bypass filter
             'embedding_similarity_threshold': '0.25',  # Conservative default; user tightens via UI

@@ -1,4 +1,4 @@
-"""Candidate-side models: parsed-resume cache, profile embedding, merge log, fuzzy queue."""
+"""Candidate-side models: resume data, normalization audit, merge log, fuzzy queue."""
 import json
 from datetime import datetime
 from extensions import db
@@ -62,6 +62,46 @@ class ParsedResumeCache(db.Model):
         db.session.add(cached)
         db.session.commit()
         return cached
+
+
+class CandidateCountryCorrectionLog(db.Model):
+    """Permanent audit trail for automated Bullhorn country corrections."""
+
+    __tablename__ = 'candidate_country_correction_log'
+
+    id = db.Column(db.Integer, primary_key=True)
+    environment_id = db.Column(
+        db.Integer,
+        db.ForeignKey('bullhorn_environment.id'),
+        nullable=True,
+        default=default_environment_id,
+        index=True,
+    )
+    bullhorn_candidate_id = db.Column(db.Integer, nullable=False, index=True)
+    state = db.Column(db.String(255), nullable=True)
+    previous_country_name = db.Column(db.String(255), nullable=True)
+    previous_country_id = db.Column(db.Integer, nullable=True)
+    corrected_country_name = db.Column(db.String(255), nullable=False)
+    corrected_country_id = db.Column(db.Integer, nullable=False)
+    confidence = db.Column(db.String(20), nullable=False)
+    evidence = db.Column(db.Text, nullable=False)
+    trigger = db.Column(db.String(50), nullable=False, default='scheduled')
+    status = db.Column(db.String(30), nullable=False, default='corrected', index=True)
+    error_message = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+
+    __table_args__ = (
+        db.Index(
+            'idx_country_correction_candidate_created',
+            'bullhorn_candidate_id',
+            'created_at',
+        ),
+        db.Index(
+            'idx_country_correction_env_candidate',
+            'environment_id',
+            'bullhorn_candidate_id',
+        ),
+    )
 
 
 class CandidateMergeLog(db.Model):

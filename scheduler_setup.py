@@ -420,6 +420,24 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
             print(f"❌ SCHEDULER INIT: Failed to register automated upload job: {e}", flush=True)
             app.logger.error(f"Failed to register automated upload job: {e}")
 
+    # ── Candidate Country Normalization (every 15 minutes) ───────────────────
+    # Job boards can create Toronto, ON candidates with Bullhorn's US country
+    # default when the upstream payload omits country. The normalizer only
+    # writes when parsed-resume location evidence uniquely corroborates the
+    # city/state association, then records and verifies every correction.
+    if is_primary_worker:
+        from tasks import normalize_candidate_countries
+        scheduler.add_job(
+            func=normalize_candidate_countries,
+            trigger=IntervalTrigger(minutes=15),
+            id='candidate_country_normalization',
+            name='Candidate Country Normalization (15 min)',
+            replace_existing=True,
+            misfire_grace_time=300,
+            coalesce=True,
+        )
+        app.logger.info("🌎 Candidate country normalization scheduled (every 15 minutes)")
+
     # ── LinkedIn Source Cleanup (hourly) ──────────────────────────────────────
     if is_primary_worker:
         from tasks import cleanup_linkedin_source

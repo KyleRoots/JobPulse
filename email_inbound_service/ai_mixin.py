@@ -571,6 +571,28 @@ Consider: name spelling variations, nicknames, contact info matches.
                 if new_addr_val and not existing_addr_val:
                     addr_update[addr_field] = new_addr_val
                     self.logger.info(f"  Enriching blank address.{addr_field} with: {new_addr_val}")
+
+            # Country is the one address field that may be corrected even when
+            # populated: external boards often leave Bullhorn's US default
+            # while supplying Toronto, ON. Require the same deterministic,
+            # resume-correlated evidence as the scheduled normalizer; never
+            # overwrite from the AI country value alone.
+            from utils.candidate_country import infer_country_from_resume
+            country_resolution = infer_country_from_resume(
+                new_addr.get('city') or existing_addr.get('city'),
+                new_addr.get('state') or existing_addr.get('state'),
+                new_data.get('description'),
+            )
+            if country_resolution:
+                target_country_id = country_resolution.country.bullhorn_id
+                if existing_addr.get('countryID') != target_country_id:
+                    addr_update['countryID'] = target_country_id
+                    self.logger.info(
+                        "  Correcting address.countryID %r -> %r from "
+                        "resume-correlated city/state evidence",
+                        existing_addr.get('countryID'),
+                        target_country_id,
+                    )
             if addr_update:
                 enriched['address'] = addr_update
 

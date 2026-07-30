@@ -23,6 +23,7 @@ from .vetting import (
 )
 from .bullhorn_maintenance import (
     start_scheduler_manual,
+    normalize_candidate_countries,
     cleanup_linkedin_source,
     enforce_tearsheet_jobs_public,
 )
@@ -51,6 +52,7 @@ __all__ = [
     "automated_upload",
     "run_xml_change_monitor",
     "start_scheduler_manual",
+    "normalize_candidate_countries",
     "cleanup_linkedin_source",
     "enforce_tearsheet_jobs_public",
     "sync_indeed_tearsheet_publish",

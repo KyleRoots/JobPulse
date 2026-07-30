@@ -67,8 +67,29 @@ class ResumeMixin:
             candidate['address']['city'] = email_data.get('city') or resume_data.get('city')
         if email_data.get('state') or resume_data.get('state'):
             candidate['address']['state'] = email_data.get('state') or resume_data.get('state')
-        if resume_data.get('country'):
-            candidate['address']['countryName'] = resume_data.get('country')
+        # Resolve from deterministic resume-correlated location evidence before
+        # trusting the AI country field. This catches Toronto/ON even if the AI
+        # emits United States or omits country. Unknown country names are not
+        # sent name-only because Bullhorn can silently retain its US default.
+        from utils.candidate_country import (
+            bullhorn_country_payload,
+            infer_country_from_resume,
+        )
+        country_resolution = infer_country_from_resume(
+            candidate['address'].get('city'),
+            candidate['address'].get('state'),
+            resume_data.get('raw_text')
+            or resume_data.get('formatted_html')
+            or resume_data.get('summary'),
+        )
+        country_value = (
+            country_resolution.country.name
+            if country_resolution
+            else resume_data.get('country')
+        )
+        country_payload = bullhorn_country_payload(country_value)
+        if country_payload:
+            candidate['address'].update(country_payload)
 
         bullhorn_source = self.SOURCE_TO_BULLHORN.get(source, 'Other')
         candidate['source'] = bullhorn_source
