@@ -912,15 +912,31 @@ GLOBAL SCREENING INSTRUCTIONS (apply to all jobs):
             system_message = build_system_message(global_reqs_section, profile=_profile)
 
             from services.openai_helper import resolve_model, log_call
+            from screening.output_schema import build_response_format
             _model = resolve_model('screening.scoring', model_override or self.model)
+            # Compact json_schema output (Task #99 cutover, Jul 30 2026):
+            # drops unread requirement_evidence / work_auth / clearance blocks
+            # and pairs with CLEAR-REJECT BREVITY in the system prompt. Scores
+            # and post-processing enforcers are unchanged; only output tokens.
+            _compact = os.environ.get(
+                'SCREENING_COMPACT_OUTPUT', 'true'
+            ).lower() in ('true', '1', 'yes')
+            _response_format = (
+                build_response_format(strict=False)
+                if _compact
+                else {"type": "json_object"}
+            )
+            # Soft ceiling: clear rejects write far less; keep headroom for
+            # near-qualify / qualify write-ups without allowing 3.7k-token essays.
+            _max_out = 2200 if _compact else 3750
             response = self.openai_client.chat.completions.create(
                 model=_model,
                 messages=[
                     {"role": "system", "content": system_message},
                     {"role": "user", "content": prompt}
                 ],
-                response_format={"type": "json_object"},
-                max_completion_tokens=3750
+                response_format=_response_format,
+                max_completion_tokens=_max_out
             )
             log_call('screening.scoring', _model, response)
 

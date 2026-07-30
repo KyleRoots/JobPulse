@@ -143,7 +143,7 @@ _STANDARD_RULE_13B = """13b. INDUSTRIAL/COMMERCIAL/SKILLED-TRADES SENIORITY INFE
        subcontractor coordination, materials staging, inspection sign-offs, commissioning/
        start-up support, drawing/spec interpretation, OSHA compliance routines, lockout/tagout,
        PPE enforcement, JHA/JSA reviews).
-   When inferring, cite evidence in requirement_evidence as
+   When inferring, note in match_summary
    "Inferred from {N}+ years senior {domain} experience — standard practice for this role"
    and apply PARTIAL credit (not full credit). Note the inference in match_summary so the
    recruiter knows which requirements were credited by inference vs explicit resume mention.
@@ -189,7 +189,7 @@ _LIGHT_INDUSTRIAL_RULE_13B = """13b. COMMERCIAL / LIGHT-INDUSTRIAL STANDARD-PRAC
        cycle counts, pallet jack / forklift operation, staging/loading, line changeovers, basic
        PM/maintenance routines, safety toolbox talks, PPE use, lockout/tagout, JHA/JSA reviews,
        RFIs, submittals, punch lists, daily logs, inspection sign-offs, drawing/spec reading).
-   When inferring, cite evidence in requirement_evidence as
+   When inferring, note in match_summary
    "Inferred from in-domain {domain} experience — standard practice for this role"
    and apply PARTIAL credit (not full credit). Note the inference in match_summary so the
    recruiter knows which requirements were credited by inference vs explicit resume mention.
@@ -265,13 +265,13 @@ CRITICAL RULES:
    - If the job specifies a field (e.g., "Bachelor\'s in Computer Science") and the candidate has a higher degree in an unrelated field, acknowledge the higher degree but note the field mismatch as a separate gap.
 9. YEARS OF EXPERIENCE MATTER: If a job requires "3+ years of Python" and the candidate has only used Python for 6 months based on resume dates, that is a CRITICAL GAP that MUST significantly reduce the score. Do NOT treat skills learned in brief internships, bootcamps, or university coursework as equivalent to years of professional experience. A 4-month internship using React does NOT satisfy a "3+ years of React" requirement.
 10. DISTINGUISH PROFESSIONAL VS ACADEMIC EXPERIENCE: Full-time professional roles count fully. Internships and part-time roles count at 50%. University projects, coursework, capstone projects, and personal side projects count as ZERO professional years. A recent graduate with only coursework experience CANNOT meet a "3+ years" requirement.
-11. WORK AUTHORIZATION & CLEARANCE EVIDENCE: When a job requires US citizenship, W2 only, or similar work authorization, you MUST populate the work_authorization_analysis section with ALL US roles enumerated from the resume. DO NOT simply flag "citizenship not mentioned" as a gap without first performing the mandatory work history enumeration from the Global Screening Instructions. If the candidate has 5+ years of US work experience, apply NO score penalty per the inference tier rules. SIMILARLY, when a job requires a Canadian security clearance (Reliability, Enhanced Reliability, Secret, Top Secret, Controlled Goods, PWGSC, or "clearance eligible"), you MUST populate the canadian_clearance_analysis section with ALL Canadian roles enumerated. DO NOT flag "no clearance shown on resume" as a gap without first applying the clearance inference tier rules — most Canadian residents with sufficient Canadian work history are sponsorable for the lower clearance levels even when no clearance is mentioned on the resume. TRANSPARENCY REQUIREMENT: For ANY job that triggers a work-authorization or security-clearance rule (US or Canadian), you MUST state the resulting eligibility verdict explicitly in BOTH the match_summary AND the gaps_identified fields — in every case, including when the verdict is favorable and no penalty applies. When the candidate does not hold and cannot be inferred eligible for a required clearance, gaps_identified MUST document that as an explicit reason the candidate may not qualify. A verdict placed in only one field is invisible to one recruiter surface (the email shows only match_summary; the Bullhorn note shows both). This is a documentation requirement and does NOT change any scoring.
-12. EVIDENCE-FIRST SCORING: You MUST complete the requirement_evidence array BEFORE determining the match_score. Your score must be mathematically derivable from the evidence you cited — do not assign a holistic impression score that contradicts the per-requirement evidence.
+11. WORK AUTHORIZATION & CLEARANCE EVIDENCE: When a job requires US citizenship, W2 only, or similar work authorization, you MUST internally enumerate US-based roles from the resume before scoring and apply the Global Screening Instructions inference tiers. DO NOT simply flag "citizenship not mentioned" as a gap without that enumeration. If the candidate has 5+ years of US work experience, apply NO score penalty per the inference tier rules. SIMILARLY, when a job requires a Canadian security clearance (Reliability, Enhanced Reliability, Secret, Top Secret, Controlled Goods, PWGSC, or "clearance eligible"), you MUST internally enumerate Canadian roles and apply the clearance inference tier rules — most Canadian residents with sufficient Canadian work history are sponsorable for the lower clearance levels even when no clearance is mentioned on the resume. Do NOT emit separate work_authorization_analysis or canadian_clearance_analysis JSON blocks — fold the eligibility verdict into match_summary and gaps_identified only. TRANSPARENCY REQUIREMENT: For ANY job that triggers a work-authorization or security-clearance rule (US or Canadian), you MUST state the resulting eligibility verdict explicitly in BOTH the match_summary AND the gaps_identified fields — in every case, including when the verdict is favorable and no penalty applies. When the candidate does not hold and cannot be inferred eligible for a required clearance, gaps_identified MUST document that as an explicit reason the candidate may not qualify. A verdict placed in only one field is invisible to one recruiter surface (the email shows only match_summary; the Bullhorn note shows both). This is a documentation requirement and does NOT change any scoring.
+12. EVIDENCE-FIRST SCORING: Before assigning match_score, internally evaluate each top mandatory requirement against resume evidence. Your score must be mathematically consistent with those findings — do not assign a holistic impression score that contradicts the gaps you report. Do NOT emit a requirement_evidence array in the JSON response.
 13. EXPERIENCE DEPTH & DOMAIN RELEVANCE: When evaluating whether a candidate\'s experience satisfies a requirement, assess the NATURE of the experience, not just keyword overlap. Specifically:
    - AUDIT/ASSESSMENT experience (e.g., "audited cybersecurity controls using NIST") does NOT satisfy a requirement for HANDS-ON DELIVERY/OPERATIONS (e.g., "ensure reliable, secure delivery of IT systems"). Auditing a system ≠ building or operating that system.
    - GOVERNANCE/COMPLIANCE/STANDARDS experience does NOT satisfy a requirement for TECHNOLOGY IMPLEMENTATION/OPERATIONS. Setting conformance standards ≠ delivering technology solutions.
    - A candidate who EVALUATED, ASSESSED, or REVIEWED a system is NOT equivalent to one who BUILT, OPERATED, MANAGED, or DELIVERED that system.
-   - When citing evidence in requirement_evidence, explicitly note whether the experience is ADVISORY/AUDIT or DELIVERY/OPERATIONAL — and apply a score penalty (10-15 pts per affected requirement) when advisory experience is cited against a delivery requirement.
+   - When citing advisory vs delivery experience in gaps_identified or match_summary, explicitly note whether the experience is ADVISORY/AUDIT or DELIVERY/OPERATIONAL — and apply a score penalty (10-15 pts per affected requirement) when advisory experience is cited against a delivery requirement.
    - Budget experience from audit engagements (managing engagement budgets at a consulting firm) is NOT equivalent to owning a technology department budget ($5M+). Note the distinction.
    - CONTEXTUAL INTERPRETATION OF JOB TERMS: Interpret job requirements in the context of the role\'s domain, not literally or narrowly. For example:
      * "Implementation" in infrastructure/DBA roles means deploying, configuring, migrating, and operationalizing systems (e.g., implementing failover clusters, implementing Always On AGs, implementing migrations). Do NOT interpret this narrowly as only software project delivery with requirements gathering and go-live milestones.
@@ -297,7 +297,7 @@ CRITICAL RULES:
        subcontractor coordination, materials staging, inspection sign-offs, commissioning/
        start-up support, drawing/spec interpretation, OSHA compliance routines, lockout/tagout,
        PPE enforcement, JHA/JSA reviews).
-   When inferring, cite evidence in requirement_evidence as
+   When inferring, note in match_summary
    "Inferred from {{N}}+ years senior {{domain}} experience — standard practice for this role"
    and apply PARTIAL credit (not full credit). Note the inference in match_summary so the
    recruiter knows which requirements were credited by inference vs explicit resume mention.
@@ -515,12 +515,12 @@ CRITICAL INSTRUCTIONS — READ CAREFULLY:
 7. LOCATION CHECK: If the job has a location requirement, verify candidate location matches. For remote jobs, same country is required. For on-site/hybrid, proximity to job location matters.
 
 MANDATORY EVIDENCE EXTRACTION (you MUST complete this before assigning a score):
-1. Identify the TOP 5-7 most critical MANDATORY requirements from the job description. If the JD lists more than 7, consolidate related items (e.g. merge multiple similar bullet points into one requirement). Do NOT create more than 7 entries in requirement_evidence.
+1. Identify the TOP 5-7 most critical MANDATORY requirements from the job description. If the JD lists more than 7, consolidate related items.
 2. For EACH requirement, search the ENTIRE resume for matching evidence — check all roles, skills sections, summary, certifications, and education.
-3. Quote the EXACT resume text that satisfies each requirement, or state "No evidence found after full resume search".
-4. The overall match_score MUST be mathematically consistent with the per-requirement evidence — if most requirements are met with strong evidence, the score must reflect that; if you cite a gap, the score must reflect the penalty.
-5. If you claim a gap exists, you MUST have searched for ALL synonyms, dollar amounts, quantified achievements, and related terms for that requirement. For example, "budget management" evidence includes dollar amounts ("$8M budget"), revenue figures, P&L ownership, financial planning mentions, etc.
-6. DO NOT flag a requirement as "No evidence found" if the resume contains clear evidence under different wording or in a different section.
+3. The overall match_score MUST be mathematically consistent with those findings — if most requirements are met with strong evidence, the score must reflect that; if you cite a gap, the score must reflect the penalty.
+4. If you claim a gap exists, you MUST have searched for ALL synonyms, dollar amounts, quantified achievements, and related terms for that requirement.
+5. DO NOT flag a requirement as "No evidence found" if the resume contains clear evidence under different wording or in a different section.
+6. Do NOT emit a requirement_evidence JSON array — put unmet requirements into gaps_identified only.
 
 GAP DESCRIPTION PRECISION (MANDATORY):
 When writing gaps_identified, you MUST distinguish between these two cases:
@@ -530,93 +530,60 @@ NEVER describe existing experience as "no evidence" or "no specific evidence." I
 
 WORK AUTHORIZATION EVIDENCE EXTRACTION (when applicable):
 If the job description contains US work authorization language ("US citizen", "W2 only", "no sponsorship", etc.):
-1. You MUST populate the "work_authorization_analysis" section below.
-2. You MUST enumerate ALL US-based roles from the resume with dates and locations.
-3. You MUST sum total months and apply the inference tier from the Global Screening Instructions.
-4. DO NOT flag "US citizenship not mentioned" as a gap if the candidate has 5+ years of US work experience — instead apply the inference tier (no penalty for 5+ years).
-5. If the candidate has an explicit authorization statement on their resume (e.g., "Green Card", "US Citizen"), note it and apply no penalty per Rule 0.
+1. Internally enumerate US-based roles from the resume with dates and locations.
+2. Sum total months and apply the inference tier from the Global Screening Instructions.
+3. DO NOT flag "US citizenship not mentioned" as a gap if the candidate has 5+ years of US work experience — instead apply the inference tier (no penalty for 5+ years).
+4. If the candidate has an explicit authorization statement on their resume (e.g., "Green Card", "US Citizen"), note it and apply no penalty per Rule 0.
+5. Document the eligibility verdict in match_summary AND gaps_identified — do NOT emit a work_authorization_analysis JSON block.
 
 CANADIAN SECURITY CLEARANCE EVIDENCE EXTRACTION (when applicable):
 If the job description requires any Canadian Government security clearance — including "Reliability", "Reliability Status", "Enhanced Reliability", "Secret", "Top Secret", "Controlled Goods", "PWGSC", "Canadian Government clearance", "must be eligible to obtain clearance", or similar trigger language listed in RULE 2 of the Global Screening Instructions:
-1. You MUST populate the "canadian_clearance_analysis" section below.
-2. You MUST enumerate ALL Canadian-based roles from the resume with dates and locations (Toronto, Vancouver, Montreal, Ottawa, Calgary, Edmonton, Winnipeg, Halifax, Quebec, ON, BC, AB, QC, NS, MB, SK, NB, NL, PE, YT, NT, NU, etc.).
-3. You MUST sum total Canadian months following the Step 1-5 enumeration procedure in RULE 2.
-4. You MUST apply the inference tier rules from RULE 2 of the Global Screening Instructions — the Global Instructions are AUTHORITATIVE for tier thresholds (default 5/10/15 years for Reliability/Secret/Top Secret) and JD-specified threshold overrides. Do NOT invent your own thresholds; do NOT round down; do NOT skip the JD-override check.
-5. DO NOT flag "no clearance shown on resume" as a critical gap when RULE 2 inference applies. Most clearances are NOT held by candidates personally — they are sponsored by the hiring employer for eligible candidates. Recruiters need to know "is this candidate eligible to obtain it", not "did they bring one with them".
-6. If the candidate has an explicit clearance statement on their resume (e.g., "Holds Enhanced Reliability clearance", "Active Secret clearance"), note it verbatim in explicit_clearance_statement and apply no penalty per RULE 0.
-7. The canadian_clearance_analysis JSON block is MANDATORY whenever the trigger fires — even if you conclude no penalty applies. Recruiters rely on this structured output to see your reasoning.
+1. Internally enumerate Canadian-based roles from the resume with dates and locations.
+2. Sum total Canadian months following the Step 1-5 enumeration procedure in RULE 2.
+3. Apply the inference tier rules from RULE 2 of the Global Screening Instructions — the Global Instructions are AUTHORITATIVE for tier thresholds.
+4. DO NOT flag "no clearance shown on resume" as a critical gap when RULE 2 inference applies.
+5. Document the eligibility verdict in match_summary AND gaps_identified — do NOT emit a canadian_clearance_analysis JSON block.
 
-Respond in JSON format with these exact fields:
+CLEAR-REJECT BREVITY (cost control — does NOT change scoring arithmetic):
+If your intended match_score is BELOW 50 (clear reject), keep prose SHORT:
+- match_summary: ONE sentence
+- gaps_identified: at most TWO short bullets (use " | " separators), naming only the decisive gaps
+- skills_match / experience_match: one short phrase each (or "N/A — insufficient overlap")
+- key_requirements: top 3 mandatory items only
+- relevance_justification: "N/A" when most_recent_role_relevant is false; otherwise one short clause
+Do NOT reduce the thoroughness of your scoring arithmetic, years_analysis estimates, or penalty application — only the written prose verbosity. For match_score >= 50, keep the normal recruiter-facing detail.
+
+Respond in JSON format with these exact fields only (do not add other top-level keys):
 {{{{
-    "requirement_evidence": [
-        {{{{
-            "requirement": "<the specific job requirement being evaluated>",
-            "evidence_found": "<EXACT quoted text from resume that matches this requirement, or \'No evidence found after full resume search\'>",
-            "meets_requirement": true/false,
-            "score_impact": "<\'no penalty\', \'minor gap (-3 to -5 pts)\', \'significant gap (-10 to -15 pts)\', or \'critical gap (-20+ pts)\'>"
-        }}}}
-    ],
-    "work_authorization_analysis": {{{{
-        "triggered": true/false,
-        "trigger_reason": "<which rule was triggered and why, or \'No work authorization language in job description\'>",
-        "explicit_statement": "<quote exact authorization text from resume if found, or \'None found\'>",
-        "roles_enumerated": [
-            {{{{"title": "<role title>", "company": "<company>", "dates": "<start - end>", "location": "<city, state/country>", "months": 0}}}}
-        ],
-        "total_months": 0,
-        "total_years": 0.0,
-        "inference_tier": "<e.g. \'5+ years - strong likelihood, no penalty\' or \'3-4 years - minor penalty (3-5 pts)\' or \'Under 3 years - standard gap scoring\' or \'N/A - not triggered\'>",
-        "score_adjustment": "<e.g. \'No penalty applied per Rule 1 Tier 1\' or \'Minor reduction (3-5 pts) applied\' or \'N/A\'>"
-    }}}},
-    "canadian_clearance_analysis": {{{{
-        "triggered": true/false,
-        "trigger_reason": "<which clearance language was found in the JD, or \'No Canadian clearance language in job description\'>",
-        "clearance_level_required": "<\'Reliability\' or \'Enhanced Reliability\' or \'Secret\' or \'Top Secret\' or \'Controlled Goods\' or \'Other\' or \'N/A\'>",
-        "explicit_clearance_statement": "<quote exact clearance text from resume if found, or \'None found\'>",
-        "canadian_roles_enumerated": [
-            {{{{"title": "<role title>", "company": "<company>", "dates": "<start - end>", "location": "<city, province>", "months": 0}}}}
-        ],
-        "total_canadian_months": 0,
-        "total_canadian_years": 0.0,
-        "residency_indicators": "<e.g. \'Canadian education at University of Toronto\', \'15+ years continuous Canadian employment\', \'Toronto area code 416\', or \'None found\'>",
-        "inference_tier": "<MUST cite the tier from RULE 2 of the Global Screening Instructions, e.g. \'Reliability/Enhanced Reliability - 5+ yrs Canadian work history, no penalty\' or \'Secret - 10+ yrs Canadian work history, no penalty\' or \'Top Secret - 15+ yrs Canadian work history, no penalty\' or \'Below threshold - soft gap (3-5 pt reduction)\' or \'JD-specified threshold of [N] yrs - candidate has [X] yrs - meets/falls short\' or \'N/A - not triggered\'>",
-        "score_adjustment": "<e.g. \'No penalty applied per RULE 2 default tier\' or \'No penalty applied per JD-specified threshold\' or \'Minor reduction (3-5 pts) applied - below threshold\' or \'N/A\'>"
-    }}}},
     "technical_score": 0,
     "match_score": 0,
-    "match_summary": "<2-3 sentence summary of overall fit. IMPORTANT: If there is a country mismatch, say \'The candidate is based in [country] but the job requires [work type] work from [job country], creating a location compliance issue.\' Do NOT use contradictory phrasing like \'mismatch which matches\'.>",
-    "skills_match": "<ONLY list skills from the resume that directly match job requirements - quote from resume>",
-    "experience_match": "<ONLY list experience from the resume that is relevant to the job - be specific>",
-    "gaps_identified": "<Describe in natural prose ALL mandatory requirements NOT found in the resume INCLUDING location mismatches AND years-of-experience shortfalls. Separate multiple gaps with periods or semicolons. Return as a single cohesive string, NOT as a JSON array - this is critical>",
+    "match_summary": "<overall fit summary — 2-3 sentences when score >= 50; ONE sentence when score < 50. If there is a country mismatch, say \'The candidate is based in [country] but the job requires [work type] work from [job country], creating a location compliance issue.\'>",
+    "skills_match": "<skills from the resume that match job requirements>",
+    "experience_match": "<experience from the resume relevant to the job>",
+    "gaps_identified": "<mandatory gaps as a single string — use \' | \' between gaps. Not a JSON array.>",
     "key_requirements": "<bullet list of the top 3-5 MANDATORY requirements from the job description>",
     "years_analysis": {{{{
         "<skill_name>": {{{{
             "required_years": 0,
             "estimated_years": 0.0,
-            "meets_requirement": true,
-            "calculation": "<step-by-step month arithmetic, e.g. \'Role1: (2023-2020)×12+(8-1)=43mo + Role2: (2021-2018)×12+(6-7)=35mo = 78mo/12 = 6.5yr\'>"
+            "meets_requirement": true
         }}}}
     }}}},
     "recency_analysis": {{{{
         "most_recent_role": "<title> at <company> (<start> – <end>)",
         "most_recent_role_relevant": true,
-        "relevance_justification": "<cite specific shared duty/tool/domain overlap — required when most_recent_role_relevant=true, set to 'N/A' when false>",
-        "second_recent_role": "<title> at <company> (<start> – <end>)",
+        "relevance_justification": "<cite specific shared duty/tool/domain overlap — required when most_recent_role_relevant=true, set to \'N/A\' when false>",
         "second_recent_role_relevant": true,
-        "last_relevant_role_ended": "<date or \'current\'>",
         "months_since_relevant_work": 0,
-        "penalty_applied": 0,
-        "reasoning": "<brief explanation of why roles are or are not relevant>"
+        "penalty_applied": 0
     }}}},
     "employment_gap_analysis": {{{{
-        "is_currently_employed": true,
         "last_role_end_date": "<\'present\' | \'YYYY-MM\' | \'unknown\' if no dates on resume>",
         "gap_months": 0,
         "penalty_applied": 0,
         "largest_midcareer_gap_months": 0,
         "midcareer_gap_between": "<\'Role A (end) → Role B (start)\' | \'none\'>",
-        "midcareer_gap_penalty_applied": 0,
-        "note": "<e.g. \'Currently employed — no penalty\' | \'Gap of 14 months — penalty -8pts\' | \'No employment dates found — soft note only\' | \'Mid-career gap: 18 months between X and Y — penalty -4pts\'>"
+        "midcareer_gap_penalty_applied": 0
     }}}},
     "experience_level_classification": {{{{
         "classification": "<FRESH_GRAD | ENTRY | MID | SENIOR>",
@@ -651,10 +618,11 @@ You MUST produce TWO scores:
    - Same city/metro: 0 — match_score = technical_score
 When a location penalty is applied, you MUST document it explicitly in gaps_identified:
    "Location mismatch: candidate in [X], job requires [work type] in [Y]. Technical fit: [technical_score]%. Location penalty: -[N] pts."
-IMPORTANT: You MUST complete the full technical assessment (all requirement_evidence entries, years_analysis, skills_match, experience_match) BEFORE considering location. A location mismatch must NEVER cause you to skip or abbreviate the technical analysis.
+IMPORTANT: You MUST complete the full technical assessment (years_analysis, skills_match, experience_match, gaps) BEFORE considering location. A location mismatch must NEVER cause you to skip or abbreviate the technical analysis.
 
 NOTES QUALITY (MANDATORY):
-Your gaps_identified and match_summary fields must provide enough reasoning for a recruiter who has NOT read the resume to understand exactly why the candidate scored as they did. When more than one gap exists, use bullet-point format (separate with " | "). Each gap must state: (1) what is required, (2) what was found in the resume (or "not found"), and (3) why it does not satisfy the requirement.
+For match_score >= 50, gaps_identified and match_summary must provide enough reasoning for a recruiter who has NOT read the resume to understand why the candidate scored as they did. When more than one gap exists, use bullet-point format (separate with " | "). Each gap must state: (1) what is required, (2) what was found in the resume (or "not found"), and (3) why it does not satisfy the requirement.
+For match_score < 50 (clear reject), follow CLEAR-REJECT BREVITY above — one-sentence summary and at most two decisive gaps. Do not pad prose.
 
 SCORING GUIDELINES (apply to technical_score — location penalty adjusts match_score separately):
 - 85-100: Candidate meets ALL mandatory requirements with explicit evidence in resume, meets or exceeds ALL required years of experience per skill, AND has practiced relevant skills in a recent role (within last 12 months)
