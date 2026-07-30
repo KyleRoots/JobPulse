@@ -4,7 +4,10 @@ from unittest.mock import MagicMock, patch
 from email_inbound_service.resume_mixin import ResumeMixin
 from email_inbound_service.ai_mixin import AIMixin
 from services.candidate_country_normalizer import (
+    _backfill_candidates,
+    _canada_backfill_query,
     _country_ids_for_environment,
+    _historical_backfill_query,
     _recent_candidates,
     normalize_candidate_country,
     normalize_candidates,
@@ -516,6 +519,70 @@ class TestRecentCandidateCollection:
             f"dateAdded:[{floor_ms} TO *]"
             in get.call_args_list[1].kwargs["params"]["query"]
         )
+
+
+class TestPhasedBackfillCollection:
+    def test_canada_query_targets_us_default_with_canadian_provinces(self):
+        query = _canada_backfill_query(after_id=100)
+        assert "address.countryID:1" in query
+        assert "address.state:ON" in query
+        assert "address.state:BC" in query
+        assert "id:[101 TO *]" in query
+        assert "-status:Archive" in query
+
+    def test_historical_query_excludes_canadian_provinces(self):
+        query = _historical_backfill_query(before_ms=1_785_000_000_000, after_ms=0)
+        assert "address.countryID:1" in query
+        assert "-address.state:ON" in query
+        assert "dateAdded:[0 TO 1785000000000]" in query
+
+    @patch("services.candidate_country_normalizer.requests.get")
+    def test_canada_backfill_pages_by_ascending_id(self, get):
+        response = MagicMock(status_code=200)
+        response.raise_for_status.return_value = None
+        response.json.return_value = {
+            "total": 1,
+            "data": [{"id": 200, "dateAdded": 1_780_000_000_000}],
+        }
+        get.return_value = response
+        bh = MagicMock(base_url="https://rest.example/", rest_token="token")
+
+        rows = _backfill_candidates(
+            bh,
+            phase="canada",
+            limit=200,
+            after_id=150,
+        )
+
+        assert rows == [{"id": 200, "dateAdded": 1_780_000_000_000}]
+        params = get.call_args.kwargs["params"]
+        assert params["sort"] == "id"
+        assert "id:[151 TO *]" in params["query"]
+        assert "address.state:ON" in params["query"]
+
+    @patch("services.candidate_country_normalizer.requests.get")
+    def test_historical_backfill_is_newest_first(self, get):
+        response = MagicMock(status_code=200)
+        response.raise_for_status.return_value = None
+        response.json.return_value = {
+            "total": 1,
+            "data": [{"id": 9, "dateAdded": 1_700_000_000_000}],
+        }
+        get.return_value = response
+        bh = MagicMock(base_url="https://rest.example/", rest_token="token")
+
+        rows = _backfill_candidates(
+            bh,
+            phase="historical",
+            limit=50,
+            before_ms=1_785_000_000_000,
+            after_ms=0,
+        )
+
+        assert len(rows) == 1
+        params = get.call_args.kwargs["params"]
+        assert params["sort"] == "-dateAdded"
+        assert "-address.state:ON" in params["query"]
 
 
 class TestEnvironmentCountryIds:

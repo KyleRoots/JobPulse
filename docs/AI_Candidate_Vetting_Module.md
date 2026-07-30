@@ -108,6 +108,19 @@ The job clamps its high-water cursor to the live lookback window. Cursors older
 than that window are discarded so a bad mark cannot permanently empty the
 search (observed when a year-2000 cursor made Bullhorn return zero hits).
 
+A phased backfill also runs inside the same 15-minute job when enabled:
+
+1. **canada** — non-archived candidates with `countryID=1` and a Canadian
+   province/territory code (ON, BC, AB, …), walked by ascending Bullhorn id
+2. **historical** — older US-default candidates outside the live lookback
+   window (Canadian-province rows excluded), newest-first, for overseas and
+   other high-confidence résumé mappings already in the supported set
+3. **done** — backfill complete; live 48-hour normalization continues
+
+Country entity IDs come from verified defaults overlaid with this tenant's
+Bullhorn `/options/Country` list. Association rules stay curated; the options
+list is used for ID resolution, not for inventing new city/province mappings.
+
 Each correction:
 
 - preserves populated city, state, street, and postal fields;
@@ -118,8 +131,11 @@ Each correction:
 
 The automation is controlled by
 `candidate_country_normalization_enabled`,
-`candidate_country_normalization_lookback_hours`, and
-`candidate_country_normalization_batch_size`.
+`candidate_country_normalization_lookback_hours`,
+`candidate_country_normalization_batch_size`,
+`candidate_country_backfill_enabled`,
+`candidate_country_backfill_phase`, and
+`candidate_country_backfill_batch_size`.
 
 ### AI Prompt Strategy
 

@@ -541,6 +541,12 @@ def seed_vetting_config(db, VettingConfig):
             'candidate_country_normalization_enabled': 'true',
             'candidate_country_normalization_lookback_hours': '48',
             'candidate_country_normalization_batch_size': '1000',
+            # Phased backfill: canada province wrong-US first, then older
+            # US-default records outside the live 48h window. Same high-
+            # confidence résumé gates; Bullhorn Country options supply IDs.
+            'candidate_country_backfill_enabled': 'true',
+            'candidate_country_backfill_phase': 'canada',
+            'candidate_country_backfill_batch_size': '200',
             # Embedding pre-filter settings (Layer 1)
             'embedding_filter_enabled': 'true',    # Killswitch: set to 'false' to bypass filter
             'embedding_similarity_threshold': '0.25',  # Conservative default; user tightens via UI

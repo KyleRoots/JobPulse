@@ -23,6 +23,14 @@ SEARCH_FIELDS = (
 )
 ADDRESS_WRITE_FIELDS = ("address1", "address2", "city", "state", "zip")
 
+# Canadian provinces/territories that are not US state codes. Used only to
+# prioritize the high-ROI wrong-US cohort; inference still requires résumé
+# corroboration before any write.
+CANADA_BACKFILL_STATES = (
+    "ON", "BC", "AB", "QC", "NS", "MB", "SK", "NB", "NL", "PE", "NU", "YT",
+)
+BACKFILL_PHASES = ("canada", "historical", "done")
+
 
 def _country_ids_for_environment(bullhorn) -> Dict[str, int]:
     """Overlay verified static IDs with this environment's Country options."""
@@ -81,23 +89,50 @@ def _candidate_date_added_ms(candidate: Dict) -> int:
         return 0
 
 
+def _canada_backfill_query(*, after_id: int = 0) -> str:
+    """Lucene query for US-default candidates with Canadian province codes."""
+    state_clause = " OR ".join(
+        f"address.state:{state}" for state in CANADA_BACKFILL_STATES
+    )
+    return (
+        "isDeleted:0 AND -status:Archive AND address.countryID:1 "
+        f"AND ({state_clause}) AND id:[{max(0, int(after_id)) + 1} TO *]"
+    )
+
+
+def _historical_backfill_query(
+    *,
+    before_ms: int,
+    after_ms: int = 0,
+) -> str:
+    """Lucene query for older US-default candidates outside the live window.
+
+    Canadian-province rows are excluded so the canada phase owns that cohort.
+    Inference still decides whether any overseas/other mapping is safe.
+    """
+    excluded = " AND ".join(
+        f"-address.state:{state}" for state in CANADA_BACKFILL_STATES
+    )
+    lower = max(0, int(after_ms))
+    upper = max(lower, int(before_ms))
+    return (
+        "isDeleted:0 AND -status:Archive AND address.countryID:1 "
+        f"AND {excluded} AND dateAdded:[{lower} TO {upper}]"
+    )
+
+
 def _search_candidates(
     bullhorn,
     *,
-    since_ms: int,
+    query: str,
     limit: int,
     sort: str,
 ) -> List[Dict]:
     """Page a bounded Candidate search, re-authenticating once on 401."""
     url = f"{bullhorn.base_url}search/Candidate"
     maximum = max(1, min(int(limit), 2000))
-    # Match working Bullhorn searches elsewhere: explicit isDeleted + Lucene
-    # exclusion syntax. Ascending dateAdded is only safe inside a fresh
-    # lookback window; callers clamp since_ms before invoking this.
     params = {
-        "query": (
-            f"isDeleted:0 AND -status:Archive AND dateAdded:[{since_ms} TO *]"
-        ),
+        "query": query,
         "fields": SEARCH_FIELDS,
         "count": min(maximum, 500),
         "start": 0,
@@ -161,9 +196,12 @@ def _recent_candidates(
         effective_since = int(since_ms) + 1
         sort = "dateAdded"
 
+    recent_query = (
+        f"isDeleted:0 AND -status:Archive AND dateAdded:[{effective_since} TO *]"
+    )
     candidates = _search_candidates(
         bullhorn,
-        since_ms=effective_since,
+        query=recent_query,
         limit=limit,
         sort=sort,
     )
@@ -184,7 +222,10 @@ def _recent_candidates(
         )
         candidates = _search_candidates(
             bullhorn,
-            since_ms=floor_ms,
+            query=(
+                "isDeleted:0 AND -status:Archive "
+                f"AND dateAdded:[{floor_ms} TO *]"
+            ),
             limit=limit,
             sort="-dateAdded",
         )
@@ -201,6 +242,48 @@ def _recent_candidates(
             floor_ms,
         )
     return in_window
+
+
+def _candidate_id(candidate: Dict) -> int:
+    try:
+        return int(candidate.get("id") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _backfill_candidates(
+    bullhorn,
+    *,
+    phase: str,
+    limit: int,
+    after_id: int = 0,
+    before_ms: Optional[int] = None,
+    after_ms: int = 0,
+) -> List[Dict]:
+    """Fetch one bounded backfill page for the active phase."""
+    normalized_phase = (phase or "").strip().lower()
+    if normalized_phase == "canada":
+        return _search_candidates(
+            bullhorn,
+            query=_canada_backfill_query(after_id=after_id),
+            limit=limit,
+            sort="id",
+        )
+    if normalized_phase == "historical":
+        if before_ms is None:
+            before_ms = _lookback_floor_ms(48.0) - 1
+        return _search_candidates(
+            bullhorn,
+            query=_historical_backfill_query(
+                before_ms=before_ms,
+                after_ms=after_ms,
+            ),
+            limit=limit,
+            # Newest-first inside the historical window so recent overseas
+            # wrong-US defaults are repaired before ancient noise.
+            sort="-dateAdded",
+        )
+    return []
 
 
 def _audit(
@@ -489,5 +572,96 @@ def run_candidate_country_normalization(
         floor_ms,
         result["max_date_added_ms"],
         since_ms,
+    )
+    return result
+
+
+def run_candidate_country_backfill(
+    *,
+    phase: str = "canada",
+    limit: int = 200,
+    dry_run: bool = False,
+    trigger: str = "backfill",
+    environment=None,
+    after_id: int = 0,
+    before_ms: Optional[int] = None,
+    after_ms: int = 0,
+    live_lookback_hours: float = 48.0,
+) -> Dict:
+    """Run one bounded phased backfill page using the same write gates."""
+    from utils.bullhorn_helpers import get_bullhorn_service
+
+    normalized_phase = (phase or "").strip().lower()
+    if normalized_phase not in BACKFILL_PHASES:
+        raise ValueError(f"Unsupported backfill phase: {phase!r}")
+    if normalized_phase == "done":
+        return {
+            "scanned": 0,
+            "corrected": 0,
+            "unchanged": 0,
+            "skipped": 0,
+            "failed": 0,
+            "corrected_unlogged": 0,
+            "dry_run": 0,
+            "changes": [],
+            "phase": "done",
+            "phase_complete": True,
+            "max_candidate_id": 0,
+            "min_date_added_ms": 0,
+            "lookback_floor_ms": _lookback_floor_ms(live_lookback_hours),
+        }
+
+    bullhorn = get_bullhorn_service(environment)
+    if not bullhorn:
+        raise RuntimeError("Bullhorn service is unavailable for environment")
+    if not bullhorn.authenticate():
+        raise RuntimeError("Bullhorn authentication failed")
+    if not dry_run:
+        _require_audit_table()
+
+    floor_ms = _lookback_floor_ms(live_lookback_hours)
+    if before_ms is None:
+        before_ms = max(0, floor_ms - 1)
+
+    candidates = _backfill_candidates(
+        bullhorn,
+        phase=normalized_phase,
+        limit=limit,
+        after_id=after_id,
+        before_ms=before_ms,
+        after_ms=after_ms,
+    )
+    result = normalize_candidates(
+        candidates,
+        bullhorn,
+        dry_run=dry_run,
+        trigger=f"{trigger}:{normalized_phase}",
+        environment_id=(environment.id if environment else None),
+        country_ids=_country_ids_for_environment(bullhorn),
+    )
+    result["phase"] = normalized_phase
+    result["lookback_floor_ms"] = floor_ms
+    result["max_candidate_id"] = max(
+        (_candidate_id(candidate) for candidate in candidates),
+        default=0,
+    )
+    result["min_date_added_ms"] = min(
+        (
+            _candidate_date_added_ms(candidate)
+            for candidate in candidates
+            if _candidate_date_added_ms(candidate) > 0
+        ),
+        default=0,
+    )
+    # Empty page or short final page means this phase has no more work.
+    result["phase_complete"] = len(candidates) < max(1, int(limit))
+    logger.info(
+        "candidate_country_normalizer: backfill phase=%s collected=%s "
+        "max_candidate_id=%s min_date_added_ms=%s phase_complete=%s",
+        normalized_phase,
+        len(candidates),
+        result["max_candidate_id"],
+        result["min_date_added_ms"],
+        result["phase_complete"],
     )
     return result
