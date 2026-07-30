@@ -361,20 +361,30 @@ class TestNormalizerWrites:
 class TestRecentCandidateCollection:
     @patch("services.candidate_country_normalizer.requests.get")
     def test_search_is_bounded_and_excludes_archived_records(self, get):
+        now_ms = 1_785_400_000_000
         response = MagicMock(status_code=200)
         response.raise_for_status.return_value = None
-        response.json.return_value = {"data": [{"id": 1}]}
+        response.json.return_value = {
+            "data": [{"id": 1, "dateAdded": now_ms}],
+            "total": 1,
+        }
         get.return_value = response
         bh = MagicMock(base_url="https://rest.example/")
         bh.rest_token = "token"
 
-        rows = _recent_candidates(bh, lookback_hours=48, limit=5000)
+        with patch(
+            "services.candidate_country_normalizer._lookback_floor_ms",
+            return_value=now_ms - 86_400_000,
+        ):
+            rows = _recent_candidates(bh, lookback_hours=48, limit=5000)
 
-        assert rows == [{"id": 1}]
+        assert rows == [{"id": 1, "dateAdded": now_ms}]
         params = get.call_args.kwargs["params"]
         assert params["count"] == 500
         assert "dateAdded:[" in params["query"]
-        assert "NOT status:Archive" in params["query"]
+        assert "-status:Archive" in params["query"]
+        assert "isDeleted:0" in params["query"]
+        assert params["sort"] == "-dateAdded"
         assert "description" in params["fields"]
 
     @patch("services.candidate_country_normalizer.requests.get")
@@ -382,7 +392,7 @@ class TestRecentCandidateCollection:
         rejected = MagicMock(status_code=401)
         accepted = MagicMock(status_code=200)
         accepted.raise_for_status.return_value = None
-        accepted.json.return_value = {"data": []}
+        accepted.json.return_value = {"data": [], "total": 0}
         get.side_effect = [rejected, accepted]
         bh = MagicMock(base_url="https://rest.example/")
         bh.rest_token = "rejected-token"
@@ -392,7 +402,11 @@ class TestRecentCandidateCollection:
             return True
 
         bh.authenticate.side_effect = authenticate
-        assert _recent_candidates(bh, lookback_hours=24, limit=10) == []
+        with patch(
+            "services.candidate_country_normalizer._lookback_floor_ms",
+            return_value=1_785_000_000_000,
+        ):
+            assert _recent_candidates(bh, lookback_hours=24, limit=10) == []
 
         assert get.call_count == 2
         bh.authenticate.assert_called_once()
@@ -400,27 +414,108 @@ class TestRecentCandidateCollection:
 
     @patch("services.candidate_country_normalizer.requests.get")
     def test_search_pages_so_older_candidates_are_not_starved(self, get):
+        floor_ms = 1_785_000_000_000
         first = MagicMock(status_code=200)
         first.raise_for_status.return_value = None
         first.json.return_value = {
             "total": 600,
-            "data": [{"id": value} for value in range(500)],
+            "data": [
+                {"id": value, "dateAdded": floor_ms + value}
+                for value in range(500)
+            ],
         }
         second = MagicMock(status_code=200)
         second.raise_for_status.return_value = None
         second.json.return_value = {
             "total": 600,
-            "data": [{"id": value} for value in range(500, 600)],
+            "data": [
+                {"id": value, "dateAdded": floor_ms + value}
+                for value in range(500, 600)
+            ],
         }
         get.side_effect = [first, second]
         bh = MagicMock(base_url="https://rest.example/", rest_token="token")
 
-        rows = _recent_candidates(bh, lookback_hours=48, limit=1000)
+        with patch(
+            "services.candidate_country_normalizer._lookback_floor_ms",
+            return_value=floor_ms,
+        ):
+            # In-window cursor forces ascending catch-up pagination.
+            rows = _recent_candidates(
+                bh,
+                lookback_hours=48,
+                limit=1000,
+                since_ms=floor_ms + 10,
+            )
 
         assert len(rows) == 600
         assert get.call_count == 2
+        assert get.call_args_list[0].kwargs["params"]["sort"] == "dateAdded"
         assert get.call_args_list[0].kwargs["params"]["start"] == 0
         assert get.call_args_list[1].kwargs["params"]["start"] == 500
+
+    @patch("services.candidate_country_normalizer.requests.get")
+    def test_stale_pre_lookback_cursor_is_ignored(self, get):
+        floor_ms = 1_785_000_000_000
+        response = MagicMock(status_code=200)
+        response.raise_for_status.return_value = None
+        response.json.return_value = {
+            "total": 1,
+            "data": [{"id": 42, "dateAdded": floor_ms + 5}],
+        }
+        get.return_value = response
+        bh = MagicMock(base_url="https://rest.example/", rest_token="token")
+
+        with patch(
+            "services.candidate_country_normalizer._lookback_floor_ms",
+            return_value=floor_ms,
+        ):
+            rows = _recent_candidates(
+                bh,
+                lookback_hours=48,
+                limit=100,
+                since_ms=950_162_400_000,  # year 2000 poison cursor
+            )
+
+        assert rows == [{"id": 42, "dateAdded": floor_ms + 5}]
+        params = get.call_args.kwargs["params"]
+        assert params["sort"] == "-dateAdded"
+        assert f"dateAdded:[{floor_ms} TO *]" in params["query"]
+
+    @patch("services.candidate_country_normalizer.requests.get")
+    def test_out_of_window_rows_trigger_newest_first_fallback(self, get):
+        floor_ms = 1_785_000_000_000
+        ancient = MagicMock(status_code=200)
+        ancient.raise_for_status.return_value = None
+        ancient.json.return_value = {
+            "total": 1000,
+            "data": [
+                {"id": 1, "dateAdded": 950_162_400_000},
+                {"id": 2, "dateAdded": 950_162_401_000},
+            ],
+        }
+        recent = MagicMock(status_code=200)
+        recent.raise_for_status.return_value = None
+        recent.json.return_value = {
+            "total": 1,
+            "data": [{"id": 99, "dateAdded": floor_ms + 100}],
+        }
+        get.side_effect = [ancient, recent]
+        bh = MagicMock(base_url="https://rest.example/", rest_token="token")
+
+        with patch(
+            "services.candidate_country_normalizer._lookback_floor_ms",
+            return_value=floor_ms,
+        ):
+            rows = _recent_candidates(bh, lookback_hours=48, limit=100)
+
+        assert rows == [{"id": 99, "dateAdded": floor_ms + 100}]
+        assert get.call_count == 2
+        assert get.call_args_list[1].kwargs["params"]["sort"] == "-dateAdded"
+        assert (
+            f"dateAdded:[{floor_ms} TO *]"
+            in get.call_args_list[1].kwargs["params"]["query"]
+        )
 
 
 class TestEnvironmentCountryIds:

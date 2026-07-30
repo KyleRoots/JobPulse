@@ -14,6 +14,7 @@ def normalize_candidate_countries():
         try:
             from models import VettingConfig
             from services.candidate_country_normalizer import (
+                _lookback_floor_ms,
                 run_candidate_country_normalization,
             )
 
@@ -52,14 +53,29 @@ def normalize_candidate_countries():
                 cursor_key = (
                     f"candidate_country_normalization_cursor_ms_{env_key}"
                 )[:100]
+                safe_lookback = max(1.0, min(lookback_hours, 720.0))
                 cursor_raw = VettingConfig.get_value(cursor_key, "")
                 try:
                     cursor_ms = int(cursor_raw) if cursor_raw else None
                 except (TypeError, ValueError):
                     cursor_ms = None
 
+                # Ignore cursors older than the live lookback window. A stale
+                # year-2000 high-water mark made Bullhorn return zero hits and
+                # permanently skipped every later correction cycle.
+                floor_ms = _lookback_floor_ms(safe_lookback)
+                if cursor_ms is not None and cursor_ms < floor_ms:
+                    app.logger.warning(
+                        "🌎 Candidate country normalization [%s]: "
+                        "discarding stale cursor_ms=%s below floor_ms=%s",
+                        env_key,
+                        cursor_ms,
+                        floor_ms,
+                    )
+                    cursor_ms = None
+
                 result = run_candidate_country_normalization(
-                    lookback_hours=max(1.0, min(lookback_hours, 720.0)),
+                    lookback_hours=safe_lookback,
                     limit=max(1, min(batch_size, 2000)),
                     trigger="scheduled",
                     environment=environment,
@@ -70,7 +86,7 @@ def normalize_candidate_countries():
                 # same cursor; already-corrected rows are idempotent.
                 max_seen = result.get("max_date_added_ms") or 0
                 if (
-                    max_seen
+                    max_seen >= floor_ms
                     and result["failed"] == 0
                     and result["corrected_unlogged"] == 0
                 ):
@@ -79,10 +95,18 @@ def normalize_candidate_countries():
                         max_seen,
                         "High-water mark for candidate country normalization",
                     )
+                elif cursor_ms is None and cursor_raw:
+                    # Clear the poisoned cursor so operators see a healthy
+                    # config even when this cycle found nothing to advance.
+                    VettingConfig.set_value(
+                        cursor_key,
+                        "",
+                        "High-water mark for candidate country normalization",
+                    )
                 app.logger.info(
                     "🌎 Candidate country normalization [%s]: scanned=%s "
                     "corrected=%s unchanged=%s skipped=%s failed=%s "
-                    "corrected_unlogged=%s",
+                    "corrected_unlogged=%s floor_ms=%s max_date_added_ms=%s",
                     env_key,
                     result["scanned"],
                     result["corrected"],
@@ -90,6 +114,8 @@ def normalize_candidate_countries():
                     result["skipped"],
                     result["failed"],
                     result["corrected_unlogged"],
+                    result.get("lookback_floor_ms"),
+                    max_seen,
                 )
                 return result
 

@@ -67,29 +67,41 @@ def _require_audit_table() -> None:
     ).limit(1).all()
 
 
-def _recent_candidates(
+def _lookback_floor_ms(lookback_hours: float) -> int:
+    """Epoch-ms floor for the configured lookback window."""
+    since = datetime.utcnow() - timedelta(hours=max(1.0, lookback_hours))
+    return int(since.timestamp() * 1000)
+
+
+def _candidate_date_added_ms(candidate: Dict) -> int:
+    """Best-effort Candidate dateAdded as epoch milliseconds."""
+    try:
+        return int(candidate.get("dateAdded") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _search_candidates(
     bullhorn,
     *,
-    lookback_hours: float,
+    since_ms: int,
     limit: int,
-    since_ms: Optional[int] = None,
+    sort: str,
 ) -> List[Dict]:
-    """Fetch a bounded batch of recent, non-archived candidates."""
-    if since_ms is None:
-        since = datetime.utcnow() - timedelta(hours=max(1.0, lookback_hours))
-        since_ms = int(since.timestamp() * 1000)
-    else:
-        since_ms = max(0, int(since_ms) + 1)
+    """Page a bounded Candidate search, re-authenticating once on 401."""
     url = f"{bullhorn.base_url}search/Candidate"
     maximum = max(1, min(int(limit), 2000))
+    # Match working Bullhorn searches elsewhere: explicit isDeleted + Lucene
+    # exclusion syntax. Ascending dateAdded is only safe inside a fresh
+    # lookback window; callers clamp since_ms before invoking this.
     params = {
-        "query": f"dateAdded:[{since_ms} TO *] AND NOT status:Archive",
+        "query": (
+            f"isDeleted:0 AND -status:Archive AND dateAdded:[{since_ms} TO *]"
+        ),
         "fields": SEARCH_FIELDS,
         "count": min(maximum, 500),
         "start": 0,
-        # Ascending + a persisted high-water mark means a volume spike cannot
-        # permanently starve candidates beyond this cycle's bounded limit.
-        "sort": "dateAdded",
+        "sort": sort,
     }
 
     def request():
@@ -122,6 +134,73 @@ def _recent_candidates(
         if not page or len(candidates) >= total:
             break
     return candidates[:maximum]
+
+
+def _recent_candidates(
+    bullhorn,
+    *,
+    lookback_hours: float,
+    limit: int,
+    since_ms: Optional[int] = None,
+) -> List[Dict]:
+    """Fetch a bounded batch of recent, non-archived candidates.
+
+    Production incident (Jul 30 2026): an ascending search briefly returned
+    ancient rows, the high-water cursor parked at year 2000, and later cycles
+    queried ``dateAdded:[950162400000 TO *]`` which Bullhorn answered with
+    zero hits — permanently disabling corrections. Always clamp the cursor to
+    the lookback floor and discard out-of-window rows before processing.
+    """
+    floor_ms = _lookback_floor_ms(lookback_hours)
+    if since_ms is None or int(since_ms) < floor_ms:
+        effective_since = floor_ms
+        sort = "-dateAdded"
+    else:
+        # Resume inside the live window so a volume spike cannot starve older
+        # in-window candidates forever.
+        effective_since = int(since_ms) + 1
+        sort = "dateAdded"
+
+    candidates = _search_candidates(
+        bullhorn,
+        since_ms=effective_since,
+        limit=limit,
+        sort=sort,
+    )
+    in_window = [
+        candidate
+        for candidate in candidates
+        if _candidate_date_added_ms(candidate) >= floor_ms
+    ]
+    if candidates and not in_window:
+        logger.error(
+            "candidate_country_normalizer: Bullhorn returned %s candidates "
+            "older than lookback floor_ms=%s (since_ms=%s sort=%s); "
+            "retrying newest-first inside the lookback window",
+            len(candidates),
+            floor_ms,
+            effective_since,
+            sort,
+        )
+        candidates = _search_candidates(
+            bullhorn,
+            since_ms=floor_ms,
+            limit=limit,
+            sort="-dateAdded",
+        )
+        in_window = [
+            candidate
+            for candidate in candidates
+            if _candidate_date_added_ms(candidate) >= floor_ms
+        ]
+    elif len(in_window) != len(candidates):
+        logger.warning(
+            "candidate_country_normalizer: dropped %s out-of-window "
+            "candidates (floor_ms=%s)",
+            len(candidates) - len(in_window),
+            floor_ms,
+        )
+    return in_window
 
 
 def _audit(
@@ -393,11 +472,22 @@ def run_candidate_country_normalization(
         environment_id=(environment.id if environment else None),
         country_ids=_country_ids_for_environment(bullhorn),
     )
+    floor_ms = _lookback_floor_ms(lookback_hours)
+    result["lookback_floor_ms"] = floor_ms
     result["max_date_added_ms"] = max(
         (
-            int(candidate.get("dateAdded") or 0)
+            _candidate_date_added_ms(candidate)
             for candidate in candidates
+            if _candidate_date_added_ms(candidate) >= floor_ms
         ),
         default=0,
+    )
+    logger.info(
+        "candidate_country_normalizer: collected=%s floor_ms=%s "
+        "max_date_added_ms=%s since_ms=%s",
+        len(candidates),
+        floor_ms,
+        result["max_date_added_ms"],
+        since_ms,
     )
     return result

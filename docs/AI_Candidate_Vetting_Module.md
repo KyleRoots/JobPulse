@@ -104,6 +104,10 @@ region maps unambiguously to one supported country. Citizenship, passport,
 employer, and education references are not treated as residence. Ambiguous
 region codes require an explicit country on the same resume location line.
 
+The job clamps its high-water cursor to the live lookback window. Cursors older
+than that window are discarded so a bad mark cannot permanently empty the
+search (observed when a year-2000 cursor made Bullhorn return zero hits).
+
 Each correction:
 
 - preserves populated city, state, street, and postal fields;
