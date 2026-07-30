@@ -1273,6 +1273,10 @@ def _reassign_api_user_candidates_locked(
                         "owner_reassignment: candidate search HTTP 401 — "
                         "re-authenticating and retrying once"
                     )
+                    # authenticate() returns True immediately when a token is
+                    # already set, so the token must be dropped first or the
+                    # retry re-sends the same rejected one.
+                    bh.rest_token = None
                     if bh.authenticate():
                         rest_token = bh.rest_token
                         headers['BhRestToken'] = rest_token
