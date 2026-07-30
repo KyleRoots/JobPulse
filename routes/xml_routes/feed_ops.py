@@ -100,47 +100,53 @@ def refresh_reference_numbers():
                 # headers stay correct — combined refresh XML must not be uploaded as v2.
                 v2_xml, v2_stats = generator.generate_fresh_xml(source_channel=SOURCE_LINKEDIN)
                 v2_filename = V2_FILENAME if current_env == 'production' else V2_FILENAME_DEV
-                v2_ok, v2_err = _upload_single_file(
-                    ftp_service, v2_xml, v2_filename, current_app
-                )
-                if v2_ok:
-                    uploaded_files.append(v2_filename)
-                    logger.info(
-                        f"📤 Uploaded {v2_filename} ({v2_stats['job_count']} jobs)"
-                    )
-                else:
-                    upload_error_message = f"v2: {v2_err}"
 
-                channel_ok = True
-                for feed_cfg in channel_feeds_for_upload():
-                    tearsheet_ids = [] if feed_cfg.get('force_empty') else feed_cfg['tearsheet_ids']
-                    xml_content, stats = generator.generate_fresh_xml(
-                        tearsheet_ids=tearsheet_ids,
-                        source_channel=feed_cfg['source_channel'],
-                        allow_empty=True if feed_cfg.get('force_empty') else feed_cfg.get('allow_empty', False),
-                        publisher_title=feed_cfg.get('publisher_title'),
-                        publisher_link=feed_cfg.get('publisher_link'),
+                v2_ok = False
+                channel_ok = False
+                # One authenticated connection for all feeds; see
+                # FTPService.sftp_session.
+                with ftp_service.sftp_session():
+                    v2_ok, v2_err = _upload_single_file(
+                        ftp_service, v2_xml, v2_filename, current_app
                     )
-                    remote_filename = (
-                        feed_cfg['filename']
-                        if current_env == 'production'
-                        else feed_cfg.get('filename_dev', feed_cfg['filename'])
-                    )
-                    ok, err = _upload_single_file(
-                        ftp_service, xml_content, remote_filename, current_app
-                    )
-                    if ok:
-                        uploaded_files.append(remote_filename)
+                    if v2_ok:
+                        uploaded_files.append(v2_filename)
                         logger.info(
-                            f"📤 Uploaded {remote_filename} ({stats['job_count']} jobs)"
+                            f"📤 Uploaded {v2_filename} ({v2_stats['job_count']} jobs)"
                         )
                     else:
-                        channel_ok = False
-                        err_part = f"{feed_cfg['key']}: {err}"
-                        upload_error_message = (
-                            f"{upload_error_message}; {err_part}"
-                            if upload_error_message else err_part
+                        upload_error_message = f"v2: {v2_err}"
+
+                    channel_ok = True
+                    for feed_cfg in channel_feeds_for_upload():
+                        tearsheet_ids = [] if feed_cfg.get('force_empty') else feed_cfg['tearsheet_ids']
+                        xml_content, stats = generator.generate_fresh_xml(
+                            tearsheet_ids=tearsheet_ids,
+                            source_channel=feed_cfg['source_channel'],
+                            allow_empty=True if feed_cfg.get('force_empty') else feed_cfg.get('allow_empty', False),
+                            publisher_title=feed_cfg.get('publisher_title'),
+                            publisher_link=feed_cfg.get('publisher_link'),
                         )
+                        remote_filename = (
+                            feed_cfg['filename']
+                            if current_env == 'production'
+                            else feed_cfg.get('filename_dev', feed_cfg['filename'])
+                        )
+                        ok, err = _upload_single_file(
+                            ftp_service, xml_content, remote_filename, current_app
+                        )
+                        if ok:
+                            uploaded_files.append(remote_filename)
+                            logger.info(
+                                f"📤 Uploaded {remote_filename} ({stats['job_count']} jobs)"
+                            )
+                        else:
+                            channel_ok = False
+                            err_part = f"{feed_cfg['key']}: {err}"
+                            upload_error_message = (
+                                f"{upload_error_message}; {err_part}"
+                                if upload_error_message else err_part
+                            )
 
                 upload_success = v2_ok and channel_ok
 

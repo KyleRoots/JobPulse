@@ -111,29 +111,38 @@ def _manual_upload_all_feeds():
 
     log_context = SimpleNamespace(logger=logger)
 
-    v2_ok, v2_err = _upload_single_file(ftp_service, v2_xml, v2_filename, log_context)
-    if v2_ok:
-        uploaded_files.append({
-            'key': 'v2',
-            'filename': v2_filename,
-            'job_count': v2_stats['job_count'],
-            'xml_size_bytes': v2_stats['xml_size_bytes'],
-        })
-    else:
-        upload_errors.append(f"v2: {v2_err}")
+    # One authenticated connection for all feeds; see FTPService.sftp_session.
+    try:
+        with ftp_service.sftp_session():
+            v2_ok, v2_err = _upload_single_file(ftp_service, v2_xml, v2_filename, log_context)
+            if v2_ok:
+                uploaded_files.append({
+                    'key': 'v2',
+                    'filename': v2_filename,
+                    'job_count': v2_stats['job_count'],
+                    'xml_size_bytes': v2_stats['xml_size_bytes'],
+                })
+            else:
+                upload_errors.append(f"v2: {v2_err}")
 
-    for key, result in channel_results.items():
-        remote_filename = result['filenames'][current_env]
-        ok, err = _upload_single_file(ftp_service, result['xml'], remote_filename, log_context)
-        if ok:
-            uploaded_files.append({
-                'key': key,
-                'filename': remote_filename,
-                'job_count': result['stats']['job_count'],
-                'xml_size_bytes': result['stats']['xml_size_bytes'],
-            })
-        else:
-            upload_errors.append(f"{key}: {err}")
+            for key, result in channel_results.items():
+                remote_filename = result['filenames'][current_env]
+                ok, err = _upload_single_file(ftp_service, result['xml'], remote_filename, log_context)
+                if ok:
+                    uploaded_files.append({
+                        'key': key,
+                        'filename': remote_filename,
+                        'job_count': result['stats']['job_count'],
+                        'xml_size_bytes': result['stats']['xml_size_bytes'],
+                    })
+                else:
+                    upload_errors.append(f"{key}: {err}")
+    except Exception as conn_error:
+        upload_errors.append(
+            f"SFTP connection failed, no feeds uploaded "
+            f"({type(conn_error).__name__}: {conn_error})"
+        )
+        logger.error("SFTP connection failed for manual upload: %s", conn_error)
 
     return {
         'success': not upload_errors,

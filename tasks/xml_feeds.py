@@ -196,8 +196,12 @@ def _upload_single_file(ftp_service, xml_content, remote_filename, app):
             app.logger.info(f"'{remote_filename}' uploaded successfully")
             return True, None
         else:
-            app.logger.error(f"'{remote_filename}' upload failed")
-            return False, "Upload returned False"
+            # Surface why it failed. The service records the underlying reason
+            # (auth rejected, timeout, bad path); without it the failure e-mail
+            # only says "returned False", which tells an operator nothing.
+            err = getattr(ftp_service, 'last_error', None) or "Upload returned False"
+            app.logger.error(f"'{remote_filename}' upload failed: {err}")
+            return False, err
     except Exception as e:
         app.logger.error(f"'{remote_filename}' upload error: {e}")
         return False, str(e)
@@ -343,21 +347,35 @@ def automated_upload():
 
                     app.logger.info(f"{current_env.upper()}: uploading {v2_filename}")
 
-                    v2_upload_ok, v2_err = _upload_single_file(ftp_service, v2_xml, v2_filename, app)
+                    # One authenticated connection for all feeds in the cycle.
+                    try:
+                        with ftp_service.sftp_session():
+                            v2_upload_ok, v2_err = _upload_single_file(
+                                ftp_service, v2_xml, v2_filename, app
+                            )
 
-                    if not v2_upload_ok:
-                        upload_error_message = f"v2: {v2_err}"
+                            if not v2_upload_ok:
+                                upload_error_message = f"v2: {v2_err}"
 
-                    for key, result in channel_results.items():
-                        remote_filename = result['filenames'][current_env]
-                        app.logger.info(f"{current_env.upper()}: uploading {remote_filename}")
-                        ok, err = _upload_single_file(
-                            ftp_service, result['xml'], remote_filename, app
+                            for key, result in channel_results.items():
+                                remote_filename = result['filenames'][current_env]
+                                app.logger.info(f"{current_env.upper()}: uploading {remote_filename}")
+                                ok, err = _upload_single_file(
+                                    ftp_service, result['xml'], remote_filename, app
+                                )
+                                channel_upload_ok[key] = ok
+                                if not ok:
+                                    err_part = f"{key}: {err}"
+                                    upload_error_message = f"{upload_error_message}; {err_part}" if upload_error_message else err_part
+                    except Exception as conn_error:
+                        # Connection could not be established even after retries,
+                        # so no feed was attempted. Report that plainly rather
+                        # than letting it surface as a generic task crash.
+                        upload_error_message = (
+                            f"SFTP connection failed, no feeds uploaded "
+                            f"({type(conn_error).__name__}: {conn_error})"
                         )
-                        channel_upload_ok[key] = ok
-                        if not ok:
-                            err_part = f"{key}: {err}"
-                            upload_error_message = f"{upload_error_message}; {err_part}" if upload_error_message else err_part
+                        app.logger.error(upload_error_message)
 
                     app.logger.info(f"ENVIRONMENT ISOLATION: {current_env} -> uploads ONLY to its designated files")
 
