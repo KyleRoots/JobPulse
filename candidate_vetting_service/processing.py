@@ -561,12 +561,19 @@ class CandidateProcessingMixin:
                 job = job_with_req['job']
                 prefetched_req = job_with_req['requirements']
                 job_id = job.get('id')
+                # Related (non-applied) tearsheet matches use short prose to
+                # cut output tokens; applied role keeps full near-miss detail.
+                _applied_id = getattr(vetting_log, 'applied_job_id', None)
+                _related_brief = bool(
+                    _applied_id is not None and job_id != _applied_id
+                )
                 try:
                     analysis = self.analyze_candidate_job_match(
                         cached_resume_text, job, candidate_location,
                         prefetched_requirements=prefetched_req,
                         prefetched_global_requirements=prefetched_global_reqs,
-                        screening_profile=screening_profile
+                        screening_profile=screening_profile,
+                        related_job_brief=_related_brief,
                     )
 
                     mini_score = analysis.get('match_score', 0)
@@ -599,7 +606,8 @@ class CandidateProcessingMixin:
                                 prefetched_requirements=prefetched_req,
                                 model_override='gpt-5.4',
                                 prefetched_global_requirements=prefetched_global_reqs,
-                                screening_profile=screening_profile
+                                screening_profile=screening_profile,
+                                related_job_brief=_related_brief,
                             )
 
                             gpt4o_score = escalated_analysis.get('match_score', 0)

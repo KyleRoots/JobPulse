@@ -418,15 +418,131 @@ def test_compact_scoring_uses_json_schema_and_lower_token_cap(monkeypatch):
     assert captured["kwargs"]["max_completion_tokens"] == 2200
 
 
+def test_related_job_brief_uses_lower_token_cap(monkeypatch):
+    """Non-applied related roles use a tighter completion-token ceiling."""
+    import importlib
+    import screening.prompt_builder as pb
+
+    importlib.reload(pb)
+    monkeypatch.setenv("SCREENING_COMPACT_OUTPUT", "true")
+
+    captured = {}
+
+    class _Usage:
+        prompt_tokens = 100
+        prompt_tokens_details = None
+
+    class _Choice:
+        message = type("M", (), {"content": json.dumps({
+            "match_score": 55,
+            "technical_score": 55,
+            "match_summary": "Partial related overlap.",
+            "skills_match": "Python",
+            "experience_match": "2 years",
+            "gaps_identified": "Missing Kubernetes.",
+            "key_requirements": "K8s",
+            "years_analysis": {},
+            "recency_analysis": {
+                "most_recent_role_relevant": False,
+                "relevance_justification": "N/A",
+                "months_since_relevant_work": 0,
+                "penalty_applied": 0,
+            },
+            "employment_gap_analysis": {
+                "gap_months": 0,
+                "penalty_applied": 0,
+                "largest_midcareer_gap_months": 0,
+                "midcareer_gap_penalty_applied": 0,
+            },
+            "experience_level_classification": {
+                "classification": "MID",
+                "total_professional_years": 4.0,
+                "highest_role_type": "PROFESSIONAL_FULLTIME",
+            },
+        })})()
+        finish_reason = "stop"
+
+    class _Resp:
+        choices = [_Choice()]
+        usage = _Usage()
+
+    class _StubClient:
+        class chat:
+            class completions:
+                @staticmethod
+                def create(**kwargs):
+                    captured["kwargs"] = kwargs
+                    return _Resp()
+
+    class _Service:
+        openai_client = _StubClient()
+        model = "gpt-4.1-mini"
+
+        def _get_screening_profile(self):
+            return "standard"
+
+        def _get_job_custom_requirements(self, job_id):
+            return ""
+
+        def _get_global_requirements(self):
+            return ""
+
+        def _recheck_years_calculation(self, *args, **kwargs):
+            return None
+
+    monkeypatch.setattr(
+        "services.openai_helper.resolve_model",
+        lambda site, default: default,
+    )
+    monkeypatch.setattr(
+        "services.openai_helper.log_call",
+        lambda *a, **k: None,
+    )
+
+    result = pb.PromptBuilderMixin.analyze_candidate_job_match(
+        _Service(),
+        resume_text="Python developer.",
+        job={
+            "id": 2,
+            "title": "Platform Engineer",
+            "description": "Need Kubernetes",
+            "address": {"city": "Toronto", "state": "ON", "countryName": "Canada"},
+        },
+        candidate_location={
+            "city": "Toronto",
+            "state": "ON",
+            "countryName": "Canada",
+        },
+        prefetched_requirements="",
+        prefetched_global_requirements="",
+        screening_profile="standard",
+        related_job_brief=True,
+    )
+    assert int(result["match_score"]) == 55
+    assert captured["kwargs"]["max_completion_tokens"] == 1400
+    system_msg = captured["kwargs"]["messages"][0]["content"]
+    assert "RELATED-JOB BREVITY" in system_msg
+
+
 def test_build_system_message_includes_clear_reject_brevity():
     from screening.system_prompt import build_system_message
 
     message = build_system_message("")
     assert "CLEAR-REJECT BREVITY" in message
+    assert "RELATED-JOB BREVITY" not in message
     assert "Do NOT emit a requirement_evidence JSON array" in message
     assert '"requirement_evidence"' not in message
     assert '"work_authorization_analysis"' not in message
     assert '"canadian_clearance_analysis"' not in message
+
+
+def test_build_system_message_related_job_brief():
+    from screening.system_prompt import build_system_message
+
+    message = build_system_message("", related_job_brief=True)
+    assert "RELATED-JOB BREVITY" in message
+    assert "BELOW 70" in message
+    assert "CLEAR-REJECT BREVITY" in message
 
 
 def test_shadow_harness_schema_audit_mode_smoke():

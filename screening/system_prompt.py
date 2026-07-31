@@ -244,7 +244,7 @@ def _apply_screening_profile(message, profile):
     return message
 
 
-def build_system_message(global_reqs_section, profile='standard'):
+def build_system_message(global_reqs_section, profile='standard', related_job_brief=False):
     message = f"""You are a strict, evidence-based technical recruiter analyzing candidate-job fit.
 
 CRITICAL RULES:
@@ -623,7 +623,13 @@ IMPORTANT: You MUST complete the full technical assessment (years_analysis, skil
 NOTES QUALITY (MANDATORY):
 For match_score >= 50, gaps_identified and match_summary must provide enough reasoning for a recruiter who has NOT read the resume to understand why the candidate scored as they did. When more than one gap exists, use bullet-point format (separate with " | "). Each gap must state: (1) what is required, (2) what was found in the resume (or "not found"), and (3) why it does not satisfy the requirement.
 For match_score < 50 (clear reject), follow CLEAR-REJECT BREVITY above — one-sentence summary and at most two decisive gaps. Do not pad prose.
-
+{'' if not related_job_brief else '''
+RELATED-JOB BREVITY (cost control — does NOT change scoring arithmetic):
+This call is for a RELATED / non-applied open role (not the job the candidate applied to).
+- If your intended match_score is BELOW 70: keep prose SHORT at that score — this OVERRIDES NOTES QUALITY above (same limits as CLEAR-REJECT BREVITY: one-sentence summary, at most two gaps, short skills/experience phrases).
+- If your intended match_score is 70 or above (strong related / likely qualify): use normal NOTES QUALITY detail so recruiters can act on a real alternate match.
+Do NOT reduce scoring arithmetic, years_analysis, or penalty application — only written prose verbosity for weaker related roles.
+'''}
 SCORING GUIDELINES (apply to technical_score — location penalty adjusts match_score separately):
 - 85-100: Candidate meets ALL mandatory requirements with explicit evidence in resume, meets or exceeds ALL required years of experience per skill, AND has practiced relevant skills in a recent role (within last 12 months)
 - 70-84: Candidate meets MOST mandatory requirements, may have 1-2 minor gaps or be 1 year short on a non-critical skill

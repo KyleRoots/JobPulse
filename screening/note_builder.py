@@ -295,7 +295,7 @@ class NoteBuilderMixin:
             logger.warning(f"_build_revet_banner: failed for candidate {candidate_id}: {e!r}")
             return []
 
-    def _format_match_note_block(self, match, job_threshold_map, is_applied=False, show_gaps=False, candidate_id=None):
+    def _format_match_note_block(self, match, job_threshold_map, is_applied=False, show_gaps=False, candidate_id=None, brief=False):
         lines = []
         lines.append(f"• Job ID: {match.bullhorn_job_id} - {match.job_title}")
 
@@ -324,6 +324,21 @@ class NoteBuilderMixin:
 
         if is_applied:
             lines.append(f"  ⭐ APPLIED TO THIS POSITION")
+
+        # Compact trailing related matches: score + one-line gap only (no full
+        # Summary/Skills dossier). Top related matches keep the full block.
+        if brief:
+            if show_gaps and match.gaps_identified:
+                gaps_text = self._normalize_gaps_text(match.gaps_identified, candidate_id)
+                if len(gaps_text) > 220:
+                    gaps_text = gaps_text[:217].rsplit(' ', 1)[0] + '…'
+                lines.append(f"  Gaps: {gaps_text}")
+            elif match.match_summary:
+                summary = (match.match_summary or '').strip()
+                if len(summary) > 160:
+                    summary = summary[:157].rsplit(' ', 1)[0] + '…'
+                lines.append(f"  Summary: {summary}")
+            return lines
 
         lines.append(f"  Summary: {match.match_summary}")
         lines.append(f"  Skills: {match.skills_match}")
@@ -816,9 +831,14 @@ class NoteBuilderMixin:
                 else:
                     note_lines.append(f"TOP ANALYSIS RESULTS:")
             
-            for match in other_matches[:5]:
+            for idx, match in enumerate(other_matches[:5]):
                 note_lines.append(f"")
-                note_lines += self._format_match_note_block(match, job_threshold_map, show_gaps=True, candidate_id=vetting_log.bullhorn_candidate_id)
+                # Full write-up for top 2 related scores; thin blocks after that.
+                note_lines += self._format_match_note_block(
+                    match, job_threshold_map, show_gaps=True,
+                    candidate_id=vetting_log.bullhorn_candidate_id,
+                    brief=(idx >= 2),
+                )
         
         note_text = _compose_note_text(note_lines)
         
