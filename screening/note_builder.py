@@ -295,6 +295,66 @@ class NoteBuilderMixin:
             logger.warning(f"_build_revet_banner: failed for candidate {candidate_id}: {e!r}")
             return []
 
+    # Trailing OTHER TOP MATCHES (after the top 2): omit clear rejects from
+    # the note. Aligns with CLEAR-REJECT BREVITY floor — weak related roles
+    # already cost scoring tokens; mid-sentence gap cuts looked like errors
+    # (Saitharun Madipadaga / 4673413).
+    _RELATED_NOTE_TRAILING_MIN_SCORE = 60.0
+
+    @staticmethod
+    def _complete_brief_clause(text: str, max_len: int = 180) -> str:
+        """One complete gap/summary clause for brief note blocks.
+
+        Never mid-sentence truncate with an ellipsis. Prefer the first
+        pipe-separated gap (or first sentence) that fits; return '' when
+        nothing complete fits so the caller can use a score-only line.
+        """
+        text = (text or '').strip()
+        if not text:
+            return ''
+
+        candidates = []
+        for part in text.replace(' | ', '|').split('|'):
+            clause = part.strip()
+            if clause:
+                candidates.append(clause)
+        if not candidates:
+            candidates = [text]
+
+        for clause in candidates:
+            if len(clause) <= max_len:
+                return clause
+            for sep in ('. ', '; '):
+                if sep in clause:
+                    first = clause.split(sep, 1)[0].strip()
+                    if first and len(first) <= max_len:
+                        # Preserve sentence punctuation when we split on '. '
+                        return first + ('.' if sep == '. ' and not first.endswith('.') else '')
+            # This clause has no complete unit that fits — try the next gap bullet
+            continue
+        return ''
+
+    @classmethod
+    def _select_other_matches_for_note(cls, other_matches: Sequence, limit: int = 5):
+        """Ranked related matches for NOT RECOMMENDED notes.
+
+        Top 2 always get a full write-up. Remaining slots only include
+        near-misses (score >= 60) as brief complete lines — clear-reject
+        trailing roles are omitted entirely.
+        """
+        ranked = sorted(
+            other_matches,
+            key=lambda m: (m.match_score is not None, m.match_score or 0),
+            reverse=True,
+        )[:limit]
+        selected = []
+        for idx, match in enumerate(ranked):
+            if idx < 2:
+                selected.append((match, False))
+            elif (match.match_score or 0) >= cls._RELATED_NOTE_TRAILING_MIN_SCORE:
+                selected.append((match, True))
+        return selected
+
     def _format_match_note_block(self, match, job_threshold_map, is_applied=False, show_gaps=False, candidate_id=None, brief=False):
         lines = []
         lines.append(f"• Job ID: {match.bullhorn_job_id} - {match.job_title}")
@@ -325,19 +385,21 @@ class NoteBuilderMixin:
         if is_applied:
             lines.append(f"  ⭐ APPLIED TO THIS POSITION")
 
-        # Compact trailing related matches: score + one-line gap only (no full
-        # Summary/Skills dossier). Top related matches keep the full block.
+        # Compact trailing related matches: score + one complete gap clause
+        # (no full Summary/Skills dossier, never mid-sentence ellipsis).
         if brief:
+            one_liner = ''
             if show_gaps and match.gaps_identified:
                 gaps_text = self._normalize_gaps_text(match.gaps_identified, candidate_id)
-                if len(gaps_text) > 220:
-                    gaps_text = gaps_text[:217].rsplit(' ', 1)[0] + '…'
-                lines.append(f"  Gaps: {gaps_text}")
-            elif match.match_summary:
-                summary = (match.match_summary or '').strip()
-                if len(summary) > 160:
-                    summary = summary[:157].rsplit(' ', 1)[0] + '…'
-                lines.append(f"  Summary: {summary}")
+                one_liner = self._complete_brief_clause(gaps_text)
+                if one_liner:
+                    lines.append(f"  Gaps: {one_liner}")
+            if not one_liner and match.match_summary:
+                summary = self._complete_brief_clause(
+                    (match.match_summary or '').strip(), max_len=160
+                )
+                if summary:
+                    lines.append(f"  Summary: {summary}")
             return lines
 
         lines.append(f"  Summary: {match.match_summary}")
@@ -797,15 +859,16 @@ class NoteBuilderMixin:
                 f"",
             ]
             
-            other_matches.sort(key=lambda m: m.match_score, reverse=True)
-            
+            displayed_other = self._select_other_matches_for_note(other_matches)
+
             if applied_match:
                 note_lines.append(f"APPLIED POSITION:")
                 note_lines.append(f"")
                 note_lines += self._format_match_note_block(applied_match, job_threshold_map, is_applied=True, show_gaps=True, candidate_id=vetting_log.bullhorn_candidate_id)
                 # Only show this section when association logic actually scored
-                # related roles — an empty heading is noise for single-job screens.
-                if other_matches:
+                # related roles worth listing — empty heading is noise, and
+                # clear-reject trailing roles are omitted (see selector).
+                if displayed_other:
                     note_lines.append(f"")
                     note_lines.append(f"OTHER TOP MATCHES:")
             else:
@@ -831,13 +894,14 @@ class NoteBuilderMixin:
                 else:
                     note_lines.append(f"TOP ANALYSIS RESULTS:")
             
-            for idx, match in enumerate(other_matches[:5]):
+            for match, brief in displayed_other:
                 note_lines.append(f"")
-                # Full write-up for top 2 related scores; thin blocks after that.
+                # Full write-up for top 2 related scores; trailing near-misses
+                # only (score >= 60) use a complete one-liner — never mid-cut.
                 note_lines += self._format_match_note_block(
                     match, job_threshold_map, show_gaps=True,
                     candidate_id=vetting_log.bullhorn_candidate_id,
-                    brief=(idx >= 2),
+                    brief=brief,
                 )
         
         note_text = _compose_note_text(note_lines)

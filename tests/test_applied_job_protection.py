@@ -609,3 +609,176 @@ class TestOtherTopMatchesHeader:
             CandidateJobMatch.query.filter_by(vetting_log_id=vetting_log.id).delete()
             CandidateVettingLog.query.filter_by(bullhorn_candidate_id=46734002).delete()
             db.session.commit()
+
+
+class TestRelatedMatchNoteBrevity:
+    """Regression: OTHER TOP MATCHES must not mid-sentence truncate (4673413)."""
+
+    def test_complete_brief_clause_prefers_first_pipe_gap(self):
+        from screening.note_builder import NoteBuilderMixin
+
+        text = (
+            "No evidence of Electrical Engineering degree; holds Mechanical instead. "
+            "Electrical systems design experience required 10+ years; candidate has 3+. "
+            "No mention of PE licensure or power systems coursework on the resume at all."
+        )
+        # Long single clause without | — first sentence should win, not a mid-cut …
+        out = NoteBuilderMixin._complete_brief_clause(text, max_len=120)
+        assert out.endswith('.')
+        assert '…' not in out
+        assert 'No evidence of Electrical Engineering degree' in out
+        assert 'No mention' not in out  # later sentence discarded, not mid-cut
+
+    def test_complete_brief_clause_uses_pipe_bullets(self):
+        from screening.note_builder import NoteBuilderMixin
+
+        text = (
+            "Revit required (4+ years); no evidence of Revit found in resume. | "
+            "Industrial building mechanical/HVAC design and U.S. Mechanical Code/IMC "
+            "required; resume shows industrial systems in India, but not US facilities work."
+        )
+        out = NoteBuilderMixin._complete_brief_clause(text, max_len=180)
+        assert out == "Revit required (4+ years); no evidence of Revit found in resume."
+        assert '…' not in out
+
+    def test_complete_brief_clause_returns_empty_when_unfittable(self):
+        from screening.note_builder import NoteBuilderMixin
+
+        # One giant clause, no sentence break, over max — prefer empty over mid-cut
+        text = "x" * 250
+        assert NoteBuilderMixin._complete_brief_clause(text, max_len=180) == ''
+
+    def test_select_other_matches_omits_trailing_clear_rejects(self):
+        from screening.note_builder import NoteBuilderMixin
+
+        matches = [
+            Mock(bullhorn_job_id=35036, match_score=20.0),
+            Mock(bullhorn_job_id=34829, match_score=20.0),
+            Mock(bullhorn_job_id=35323, match_score=5.0),
+            Mock(bullhorn_job_id=34829, match_score=4.0),
+            Mock(bullhorn_job_id=34829, match_score=0.0),
+        ]
+        selected = NoteBuilderMixin._select_other_matches_for_note(matches)
+        assert len(selected) == 2
+        assert all(not brief for _, brief in selected)
+        assert {m.bullhorn_job_id for m, _ in selected} == {35036, 34829}
+
+    def test_select_other_matches_keeps_trailing_near_miss_brief(self):
+        from screening.note_builder import NoteBuilderMixin
+
+        matches = [
+            Mock(bullhorn_job_id=1, match_score=75.0),
+            Mock(bullhorn_job_id=2, match_score=72.0),
+            Mock(bullhorn_job_id=3, match_score=65.0),
+            Mock(bullhorn_job_id=4, match_score=10.0),
+        ]
+        selected = NoteBuilderMixin._select_other_matches_for_note(matches)
+        assert [(m.bullhorn_job_id, brief) for m, brief in selected] == [
+            (1, False),
+            (2, False),
+            (3, True),
+        ]
+
+    def test_saitharun_style_note_omits_truncated_trailing_gaps(self, app):
+        """End-to-end: clear-reject trailing related roles must not appear with … cuts."""
+        with app.app_context():
+            from candidate_vetting_service import CandidateVettingService
+            from models import CandidateVettingLog, CandidateJobMatch
+            from app import db
+            from datetime import datetime
+
+            vetting_log = CandidateVettingLog(
+                bullhorn_candidate_id=4673413,
+                candidate_name='Saitharun Madipadaga Regression',
+                status='completed',
+                is_qualified=False,
+                highest_match_score=20.0,
+                note_created=False,
+                analyzed_at=datetime.utcnow(),
+                created_at=datetime.utcnow(),
+            )
+            db.session.add(vetting_log)
+            db.session.commit()
+
+            long_gap = (
+                "No evidence of Electrical Engineering degree; holds Mechanical Engineering "
+                "degree instead. Electrical systems design experience required 10+ years; "
+                "candidate has 3+ years mechanical design experience only. No mention of PE "
+                "licensure or power distribution coursework anywhere on the resume."
+            )
+            rows = [
+                (35507, 'Facilities Mechanical Engineer', 0.0, True, 'Applied gaps'),
+                (35036, 'Civil/Structural Engineer, Senior', 20.0, False, 'CSA experience required'),
+                (34829, 'HVAC Designer, Senior (Remote)', 20.0, False, 'Revit missing'),
+                (35323, 'Electrical Engineer, Sr. (IN)', 5.0, False, long_gap),
+                (34828, 'HVAC Designer Dup Low', 4.0, False, long_gap),
+                (34827, 'HVAC Designer Dup Zero', 0.0, False, long_gap),
+            ]
+            for jid, title, score, applied, gaps in rows:
+                db.session.add(CandidateJobMatch(
+                    vetting_log_id=vetting_log.id,
+                    bullhorn_job_id=jid,
+                    job_title=title,
+                    match_score=score,
+                    technical_score=40.0 if jid in (35507, 35036) else score,
+                    is_qualified=False,
+                    is_applied_job=applied,
+                    match_summary='Wrong discipline fit.',
+                    skills_match='N/A',
+                    experience_match='N/A',
+                    gaps_identified=(
+                        gaps + ' | Location mismatch: candidate in Erie, PA'
+                        if jid in (35507, 35036) else gaps
+                    ),
+                ))
+            db.session.commit()
+
+            service = CandidateVettingService()
+            mock_bullhorn = MagicMock()
+            mock_bullhorn.get_candidate_notes.return_value = []
+            mock_bullhorn.create_candidate_note.return_value = 9003413
+
+            with patch.object(service, '_get_bullhorn_service', return_value=mock_bullhorn):
+                assert service.create_candidate_note(vetting_log) is True
+
+            note_text = mock_bullhorn.create_candidate_note.call_args[0][1]
+            assert 'OTHER TOP MATCHES:' in note_text
+            assert '35036' in note_text
+            assert '34829' in note_text
+            # Trailing clear rejects omitted — no mid-sentence ellipsis artifacts
+            assert '35323' not in note_text
+            assert '34828' not in note_text
+            assert '34827' not in note_text
+            assert '…' not in note_text
+            assert 'No mention…' not in note_text
+            assert 'but not…' not in note_text
+
+            CandidateJobMatch.query.filter_by(vetting_log_id=vetting_log.id).delete()
+            CandidateVettingLog.query.filter_by(bullhorn_candidate_id=4673413).delete()
+            db.session.commit()
+
+    def test_brief_block_never_appends_ellipsis(self):
+        from screening.note_builder import NoteBuilderMixin
+
+        match = Mock(
+            bullhorn_job_id=99,
+            job_title='Near Miss Role',
+            match_score=65.0,
+            technical_score=65.0,
+            gaps_identified=(
+                "Missing Kubernetes production experience. | Also missing Terraform "
+                "and deep AWS networking beyond a single classroom lab project that "
+                "does not demonstrate production ownership of VPC design."
+            ),
+            match_summary='Partial platform overlap.',
+            skills_match='Python',
+            prestige_boost_applied=False,
+            prestige_employer=None,
+        )
+        lines = NoteBuilderMixin()._format_match_note_block(
+            match, {}, show_gaps=True, brief=True
+        )
+        joined = '\n'.join(lines)
+        assert '…' not in joined
+        assert 'Gaps: Missing Kubernetes production experience.' in joined
+        assert 'Summary:' not in joined

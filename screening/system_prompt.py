@@ -546,11 +546,12 @@ If the job description requires any Canadian Government security clearance — i
 
 CLEAR-REJECT BREVITY (cost control — does NOT change scoring arithmetic):
 If your intended match_score is BELOW 60 (clear / weak reject), keep prose SHORT:
-- match_summary: ONE sentence
-- gaps_identified: at most TWO short bullets (use " | " separators), naming only the decisive gaps
+- match_summary: ONE complete sentence (never end mid-clause or mid-word)
+- gaps_identified: at most TWO short complete bullets (use " | " separators), naming only the decisive gaps — each bullet must be a finished thought
 - skills_match / experience_match: one short phrase each (or "N/A — insufficient overlap")
 - key_requirements: top 3 mandatory items only
 - relevance_justification: "N/A" when most_recent_role_relevant is false; otherwise one short clause
+Never truncate prose mid-sentence. Prefer a shorter finished sentence over a longer cut-off one.
 Do NOT reduce the thoroughness of your scoring arithmetic, years_analysis estimates, or penalty application — only the written prose verbosity. For match_score >= 60, keep the normal recruiter-facing detail.
 
 Respond in JSON format with these exact fields only (do not add other top-level keys):
@@ -626,7 +627,7 @@ For match_score < 60 (clear / weak reject), follow CLEAR-REJECT BREVITY above �
 {'' if not related_job_brief else '''
 RELATED-JOB BREVITY (cost control — does NOT change scoring arithmetic):
 This call is for a RELATED / non-applied open role (not the job the candidate applied to).
-- If your intended match_score is BELOW 70: keep prose SHORT at that score — this OVERRIDES NOTES QUALITY above (same limits as CLEAR-REJECT BREVITY: one-sentence summary, at most two gaps, short skills/experience phrases).
+- If your intended match_score is BELOW 70: keep prose SHORT at that score — this OVERRIDES NOTES QUALITY above (same limits as CLEAR-REJECT BREVITY: one complete sentence summary, at most two complete gaps, short skills/experience phrases). Never end mid-sentence.
 - If your intended match_score is 70 or above (strong related / likely qualify): use normal NOTES QUALITY detail so recruiters can act on a real alternate match.
 Do NOT reduce scoring arithmetic, years_analysis, or penalty application — only written prose verbosity for weaker related roles.
 '''}
