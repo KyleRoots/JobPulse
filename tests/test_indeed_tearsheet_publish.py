@@ -6,9 +6,11 @@ from indeed_publish.categories import category_id_by_name, category_choices
 from indeed_publish.category_mapper import map_published_category
 from indeed_publish.config import config_from_env
 from indeed_publish.sync import (
+    INDSHOW_TAG,
     IndeedTearsheetPublishService,
     _fingerprint,
     _first_assigned_recruiter,
+    ensure_indshow_tag,
     force_unpublish_jobs,
     unpublish_job_after_tearsheet_remove,
 )
@@ -48,6 +50,28 @@ class TestCategoryMapper:
         assert reason.startswith('fallback:') or reason.startswith('fuzzy:')
 
 
+class TestIndShowTag:
+    def test_append_when_missing(self):
+        assert ensure_indshow_tag('<p>hi</p>') == f'<p>hi</p>   {INDSHOW_TAG}'
+
+    def test_no_double_append(self):
+        tagged = f'<p>hi</p>   {INDSHOW_TAG}'
+        assert ensure_indshow_tag(tagged) == tagged
+
+    def test_spaces_format(self):
+        out = ensure_indshow_tag('lastword.')
+        assert out.endswith(f'   {INDSHOW_TAG}')
+        assert out == f'lastword.   {INDSHOW_TAG}'
+
+    def test_empty_unchanged(self):
+        assert ensure_indshow_tag('') == ''
+        assert ensure_indshow_tag('   ') == '   '
+
+    def test_case_sensitive_presence(self):
+        # lowercase is not treated as already tagged
+        assert ensure_indshow_tag('x #indshow') == f'x #indshow   {INDSHOW_TAG}'
+
+
 class TestRecruiterAndFingerprint:
     def test_first_assigned_with_email(self):
         job = {
@@ -71,6 +95,18 @@ class TestRecruiterAndFingerprint:
         job_a = {'id': 1, 'title': 'T', 'description': 'A', 'publicDescription': '', 'dateLastModified': 1}
         job_b = {'id': 1, 'title': 'T', 'description': 'B', 'publicDescription': '', 'dateLastModified': 1}
         assert _fingerprint(job_a, 1, 2) != _fingerprint(job_b, 1, 2)
+
+    def test_fingerprint_stable_with_or_without_indshow(self):
+        """Tagged and untagged sources hash the same (final desc includes tag)."""
+        job_a = {'id': 1, 'title': 'T', 'description': 'A', 'publicDescription': '', 'dateLastModified': 1}
+        job_b = {
+            'id': 1,
+            'title': 'T',
+            'description': f'A   {INDSHOW_TAG}',
+            'publicDescription': '',
+            'dateLastModified': 1,
+        }
+        assert _fingerprint(job_a, 1, 2) == _fingerprint(job_b, 1, 2)
 
 
 class TestConfig:
@@ -125,6 +161,7 @@ class TestSyncService:
         ui.current_user_id = '25'
         bh = MagicMock()
         bh.authenticate.return_value = True
+        bh.update_job_order.return_value = True
         job = {
             'id': 35233,
             'title': 'Python Test Developer',
@@ -159,10 +196,98 @@ class TestSyncService:
         assert 35233 in result['published']
         ui.publish_boards.assert_called()
         assert ui.publish_boards.call_args.kwargs.get('operation') == 'REPUBLISH'
+        tagged = f'<p>hi</p>   {INDSHOW_TAG}'
+        assert ui.publish_boards.call_args.kwargs.get('description_html') == tagged
+        bh.update_job_order.assert_called_once_with(
+            35233, {'publicDescription': tagged}
+        )
         save_state.assert_called()
         saved = save_state.call_args[0][0]
         assert 35233 in saved['job_ids']
         assert saved.get('pending_unpublish') == []
+
+    def test_publish_one_uses_tagged_description_and_persists(self):
+        ui = MagicMock()
+        bh = MagicMock()
+        bh.update_job_order.return_value = True
+        job = {
+            'id': 35233,
+            'title': 'Python Test Developer',
+            'description': '<p>internal</p>',
+            'publicDescription': '<p>public</p>',
+            'categories': {'data': [{'name': 'IT/Software Development'}]},
+            'assignedUsers': {
+                'data': [{'id': 65, 'email': 'adam@example.com', 'firstName': 'Adam'}]
+            },
+            'dateLastModified': 1,
+        }
+        svc = IndeedTearsheetPublishService(
+            config={
+                'enabled': True,
+                'tearsheet_id': 1640,
+                'job_url_template': 'https://myticas.com/jobs/{job_id}',
+            },
+            ui_client=ui,
+        )
+        result = {'skipped': [], 'errors': [], 'published': []}
+        fp = svc._publish_one(ui, bh, job, result, operation='REPUBLISH')
+        tagged = f'<p>public</p>   {INDSHOW_TAG}'
+        assert ui.publish_boards.call_args.kwargs['description_html'] == tagged
+        bh.update_job_order.assert_called_once_with(
+            35233, {'publicDescription': tagged}
+        )
+        assert job['publicDescription'] == tagged
+        assert fp == _fingerprint(job, 2000021, 65)
+
+    def test_publish_one_skips_persist_when_tag_present(self):
+        ui = MagicMock()
+        bh = MagicMock()
+        tagged = f'<p>public</p>   {INDSHOW_TAG}'
+        job = {
+            'id': 35233,
+            'title': 'Python Test Developer',
+            'description': '',
+            'publicDescription': tagged,
+            'categories': {'data': [{'name': 'IT/Software Development'}]},
+            'assignedUsers': {
+                'data': [{'id': 65, 'email': 'adam@example.com', 'firstName': 'Adam'}]
+            },
+            'dateLastModified': 1,
+        }
+        svc = IndeedTearsheetPublishService(
+            config={
+                'enabled': True,
+                'tearsheet_id': 1640,
+                'job_url_template': 'https://myticas.com/jobs/{job_id}',
+            },
+            ui_client=ui,
+        )
+        svc._publish_one(ui, bh, job, {}, operation='REPUBLISH')
+        assert ui.publish_boards.call_args.kwargs['description_html'] == tagged
+        bh.update_job_order.assert_not_called()
+
+    def test_unpublish_does_not_append_indshow(self):
+        ui = MagicMock()
+        bh = MagicMock()
+        job = {
+            'id': 35410,
+            'description': '<p>x</p>',
+            'publicDescription': '',
+            'publishedCategory': {'id': 2000021},
+            'responseUser': {'id': 65},
+            'categories': {'data': []},
+            'assignedUsers': {'data': [{'id': 65, 'email': 'adam@example.com'}]},
+        }
+        svc = IndeedTearsheetPublishService(
+            config={'enabled': True, 'tearsheet_id': 1640, 'job_url_template': 'https://x/{job_id}'},
+            ui_client=ui,
+        )
+        result = {'unpublished': []}
+        svc._unpublish_one(ui, bh, job, result)
+        desc = ui.unpublish_boards.call_args.kwargs['description_html']
+        assert INDSHOW_TAG not in desc
+        assert desc == '<p>x</p>'
+        bh.update_job_order.assert_not_called()
 
     def _sync_cfg(self):
         return {

@@ -16,6 +16,11 @@ from .ui_client import BullhornUIClient, BullhornUIClientError
 
 logger = logging.getLogger(__name__)
 
+# Appended to Indeed-published descriptions via tearsheet 1640 sync (Plan B).
+# Do not strip on unpublish / tearsheet remove — once added it stays in Bullhorn.
+INDSHOW_TAG = '#INDShow'
+INDSHOW_SUFFIX = f'   {INDSHOW_TAG}'  # three ASCII spaces before the tag
+
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -26,6 +31,23 @@ def _job_description_html(job: Dict[str, Any]) -> str:
     if public:
         return public
     return (job.get('description') or '').strip()
+
+
+def _description_source_field(job: Dict[str, Any]) -> str:
+    """Field `_job_description_html` would prefer (publicDescription, else description)."""
+    if (job.get('publicDescription') or '').strip():
+        return 'publicDescription'
+    return 'description'
+
+
+def ensure_indshow_tag(html: str) -> str:
+    """Append `   #INDShow` when missing (case-sensitive). Empty input unchanged."""
+    text = html or ''
+    if not text.strip():
+        return text
+    if INDSHOW_TAG in text:
+        return text
+    return f'{text}{INDSHOW_SUFFIX}'
 
 
 def _first_assigned_recruiter(job: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -49,10 +71,12 @@ def _first_assigned_recruiter(job: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 def _fingerprint(job: Dict[str, Any], category_id: int, response_user_id: int) -> str:
     # Do NOT include dateLastModified — Publish itself bumps that field and
     # would cause every member to REPUBLISH on every sync cycle.
+    # Fingerprint the final (tagged) description so first publish with #INDShow
+    # does not thrash on every subsequent sync.
     payload = '|'.join([
         str(job.get('id') or ''),
         str(job.get('title') or ''),
-        _job_description_html(job),
+        ensure_indshow_tag(_job_description_html(job)),
         str(category_id),
         str(response_user_id),
     ])
@@ -420,6 +444,39 @@ class IndeedTearsheetPublishService:
             logger.warning('Could not resolve BH_UI current user id: %s', exc)
         return None
 
+    def _persist_indshow_description(self, bh, job: Dict[str, Any], tagged_desc: str) -> None:
+        """Write tagged description back to the Bullhorn field we published from."""
+        jid = int(job['id'])
+        field = _description_source_field(job)
+        current = (job.get(field) or '')
+        if INDSHOW_TAG in current:
+            return
+        if not hasattr(bh, 'update_job_order'):
+            logger.warning(
+                'Indeed publish: cannot persist %s on job %s — no update_job_order',
+                field,
+                jid,
+            )
+            return
+        try:
+            ok = bh.update_job_order(jid, {field: tagged_desc})
+            if ok:
+                job[field] = tagged_desc
+                logger.info('Indeed publish: persisted %s with #INDShow on job %s', field, jid)
+            else:
+                logger.warning(
+                    'Indeed publish: Bullhorn REST update of %s failed for job %s',
+                    field,
+                    jid,
+                )
+        except Exception as exc:
+            logger.warning(
+                'Indeed publish: could not persist #INDShow on job %s %s: %s',
+                jid,
+                field,
+                exc,
+            )
+
     def _publish_one(
         self,
         ui: BullhornUIClient,
@@ -435,9 +492,10 @@ class IndeedTearsheetPublishService:
         if err or not uid:
             raise BullhornUIClientError(err or 'cannot resolve published contact')
 
-        desc = _job_description_html(job)
-        if not desc:
+        raw_desc = _job_description_html(job)
+        if not raw_desc:
             raise BullhornUIClientError('job has empty description/publicDescription')
+        desc = ensure_indshow_tag(raw_desc)
 
         logger.info(
             'Indeed %s job %s category=%s (%s) contact=%s <%s> via %s',
@@ -457,6 +515,8 @@ class IndeedTearsheetPublishService:
             job_url=self._job_url(jid),
             operation=operation,
         )
+        if desc != raw_desc:
+            self._persist_indshow_description(bh, job, desc)
         time.sleep(0.2)
         return _fingerprint(job, cat_id, uid)
 
