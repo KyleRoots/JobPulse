@@ -82,6 +82,13 @@ class FraudSignalEngine:
         }
 
     # ------------------------------------------------------------------- public
+    # Paid NeverBounce / Twilio signal codes — stripped/replaced on enrichment.
+    _CONTACT_SIGNAL_CODES = frozenset({
+        "email_undeliverable",
+        "phone_invalid",
+        "phone_voip",
+    })
+
     def assess(
         self,
         candidate: Dict[str, Any],
@@ -91,6 +98,7 @@ class FraudSignalEngine:
         candidate_country: Optional[str] = None,
         job_country: Optional[str] = None,
         pdf_metadata: Optional[Dict[str, Any]] = None,
+        include_contact_validation: bool = True,
     ) -> Optional[CandidateFraudAssessment]:
         """Score a candidate and persist an assessment row.
 
@@ -100,6 +108,10 @@ class FraudSignalEngine:
         forensics. They are passed by the screening hook when available;
         absent, those signals simply don't fire (everything stays fail-soft
         and advisory).
+
+        ``include_contact_validation`` controls NeverBounce/Twilio. Screening
+        passes False on the early pre-score pass; paid checks run later via
+        ``enrich_contact_validation`` only for Qualified candidates.
 
         Returns the persisted `CandidateFraudAssessment` (or None if it could
         not be persisted). NEVER raises — callers treat the result as advisory.
@@ -186,7 +198,9 @@ class FraudSignalEngine:
             gathered.append(fsig.evaluate_jd_mirror(resume_text, applied_job_description))
 
             # --- optional contact validation (NeverBounce / Twilio) ----
-            if config.get("contact_validation"):
+            # Screening defers this until after qualification (see
+            # enrich_contact_validation). Direct callers may still include it.
+            if include_contact_validation and config.get("contact_validation"):
                 gathered.extend(self._gather_contact_validation(email, phone))
 
             # --- soft LinkedIn URL cross-check (public, URL-only) ------
@@ -240,6 +254,117 @@ class FraudSignalEngine:
             self._maybe_write_note(candidate_id, result, assessment)
 
         return assessment
+
+    def enrich_contact_validation(
+        self,
+        candidate: Dict[str, Any],
+        vetting_log: Optional[CandidateVettingLog] = None,
+    ) -> Optional[CandidateFraudAssessment]:
+        """Run NeverBounce/Twilio and merge into an existing assessment.
+
+        Intended for Qualified candidates only (caller gates on
+        ``vetting_log.is_qualified``). Fail-soft: never raises. No-op when the
+        contact-validation toggle is off, secrets are missing, or no prior
+        assessment row exists for this vetting log.
+        """
+        try:
+            config = self._load_config()
+            if not config.get("contact_validation"):
+                return None
+
+            vetting_log_id = getattr(vetting_log, "id", None)
+            if not vetting_log_id:
+                return None
+
+            email = self._candidate_email(candidate, vetting_log)
+            phone = self._candidate_phone(candidate)
+            candidate_id = candidate.get("id") if candidate else None
+
+            contact_signals = self._gather_contact_validation(email, phone)
+            # Still update when checks return no fired signals (valid email/phone)
+            # so score stays consistent; empty list is fine.
+
+            with Session(db.engine, expire_on_commit=False) as session:
+                assessment = (
+                    session.query(CandidateFraudAssessment)
+                    .filter_by(vetting_log_id=vetting_log_id)
+                    .order_by(CandidateFraudAssessment.id.desc())
+                    .first()
+                )
+                if assessment is None:
+                    logger.info(
+                        "Contact enrichment skipped: no assessment for vetting_log %s",
+                        vetting_log_id,
+                    )
+                    return None
+
+                existing: List[fsig.FraudSignal] = []
+                try:
+                    raw = json.loads(assessment.signals_json or "[]")
+                    if isinstance(raw, list):
+                        for item in raw:
+                            if not isinstance(item, dict) or not item.get("code"):
+                                continue
+                            if item["code"] in self._CONTACT_SIGNAL_CODES:
+                                continue
+                            existing.append(fsig.FraudSignal(
+                                code=str(item["code"]),
+                                label=str(item.get("label") or item["code"]),
+                                points=int(item.get("points") or 0),
+                                evidence=str(item.get("evidence") or ""),
+                                details=item.get("details") or {},
+                            ))
+                except (TypeError, ValueError, json.JSONDecodeError) as exc:
+                    logger.warning(
+                        "Contact enrichment: could not parse signals_json for "
+                        "assessment %s: %s", assessment.id, exc,
+                    )
+                    existing = []
+
+                merged = existing + list(contact_signals)
+                result = fsig.aggregate(
+                    merged,
+                    review_threshold=config["review_threshold"],
+                    high_risk_threshold=config["high_risk_threshold"],
+                )
+                assessment.risk_score = result.risk_score
+                assessment.risk_band = result.risk_band.value
+                assessment.signals_json = json.dumps(result.signals_payload())
+                session.commit()
+
+            logger.info(
+                "Contact validation enriched assessment %s for candidate %s: "
+                "band=%s score=%s contact_signals=%d",
+                assessment.id,
+                candidate_id,
+                assessment.risk_band,
+                assessment.risk_score,
+                len(contact_signals),
+            )
+
+            band = result.risk_band
+            note_band_ok = (
+                band == fsig.FraudRiskBand.HIGH_RISK
+                or (
+                    config["note_all_bands"]
+                    and band in (fsig.FraudRiskBand.REVIEW, fsig.FraudRiskBand.CLEAR)
+                )
+            )
+            if (
+                config["note_enabled"]
+                and note_band_ok
+                and candidate_id
+                and not assessment.note_created
+            ):
+                self._maybe_write_note(candidate_id, result, assessment)
+
+            return assessment
+        except Exception as exc:
+            logger.warning(
+                "Contact validation enrichment failed (advisory): %s",
+                exc, exc_info=True,
+            )
+            return None
 
     # ----------------------------------------------------------- identity bits
     @staticmethod

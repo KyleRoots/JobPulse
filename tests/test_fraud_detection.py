@@ -1315,3 +1315,181 @@ def test_note_text_includes_questions():
     ])
     note = FraudSignalEngine._build_note_text(result)
     assert "Suggested verification questions" in note
+
+
+def test_early_assess_skips_contact_validation_when_flag_false(_fraud_db):
+    """Screening pre-score pass must not call NeverBounce even if toggle is on."""
+    db, Assessment, VettingLog, VettingConfig = _fraud_db
+    from fraud_detection.engine import FraudSignalEngine
+    from unittest.mock import patch
+
+    _set_config(
+        db, VettingConfig,
+        fraud_detection_enabled='true',
+        fraud_contact_validation_enabled='true',
+        fraud_bullhorn_note_enabled='false',
+        fraud_linkedin_crosscheck_enabled='false',
+    )
+    log = VettingLog(
+        bullhorn_candidate_id=9501,
+        candidate_name='Qual Gate',
+        candidate_email='gate@example.com',
+        status='processing',
+    )
+    db.session.add(log)
+    db.session.commit()
+
+    candidate = {
+        'id': 9501,
+        'firstName': 'Qual',
+        'lastName': 'Gate',
+        'email': 'gate@example.com',
+        'phone': '4165550199',
+    }
+    with patch.object(
+        FraudSignalEngine, '_gather_contact_validation', return_value=[],
+    ) as mock_contact:
+        engine = FraudSignalEngine(bullhorn_service=None)
+        result = engine.assess(
+            candidate, log, include_contact_validation=False,
+        )
+        mock_contact.assert_not_called()
+    assert result is not None
+    codes = {s['code'] for s in json.loads(result.signals_json or '[]')}
+    assert 'email_undeliverable' not in codes
+
+
+def test_enrich_contact_validation_merges_and_raises_band(_fraud_db):
+    """Post-qualify enrichment merges paid contact signals into the assessment."""
+    db, Assessment, VettingLog, VettingConfig = _fraud_db
+    from fraud_detection.engine import FraudSignalEngine
+    from unittest.mock import patch
+
+    _set_config(
+        db, VettingConfig,
+        fraud_detection_enabled='true',
+        fraud_contact_validation_enabled='true',
+        fraud_bullhorn_note_enabled='false',
+        fraud_linkedin_crosscheck_enabled='false',
+        fraud_review_threshold='40',
+        fraud_high_risk_threshold='75',
+    )
+    log = VettingLog(
+        bullhorn_candidate_id=9502,
+        candidate_name='Enrich Me',
+        candidate_email='bad@example.com',
+        status='completed',
+        is_qualified=True,
+    )
+    db.session.add(log)
+    db.session.commit()
+
+    base = Assessment(
+        bullhorn_candidate_id=9502,
+        vetting_log_id=log.id,
+        candidate_name='Enrich Me',
+        candidate_email='bad@example.com',
+        risk_score=20,
+        risk_band='clear',
+        signals_json=json.dumps([
+            {'code': 'name_anomaly', 'label': 'Name anomaly',
+             'points': 20, 'evidence': 'url', 'details': {}},
+        ]),
+        trigger='screening',
+        note_created=False,
+    )
+    db.session.add(base)
+    db.session.commit()
+
+    undeliverable = fsig.evaluate_email_undeliverable('bad@example.com', 'invalid')
+    assert undeliverable is not None
+
+    candidate = {
+        'id': 9502,
+        'firstName': 'Enrich',
+        'lastName': 'Me',
+        'email': 'bad@example.com',
+        'phone': '4165550100',
+    }
+    with patch.object(
+        FraudSignalEngine,
+        '_gather_contact_validation',
+        return_value=[undeliverable],
+    ):
+        engine = FraudSignalEngine(bullhorn_service=None)
+        updated = engine.enrich_contact_validation(candidate, log)
+
+    assert updated is not None
+    assert updated.risk_score >= 50  # 20 + 30
+    assert updated.risk_band == 'review'
+    codes = {s['code'] for s in json.loads(updated.signals_json or '[]')}
+    assert 'email_undeliverable' in codes
+    assert 'name_anomaly' in codes
+
+
+def test_enrich_contact_validation_noop_when_toggle_off(_fraud_db):
+    db, Assessment, VettingLog, VettingConfig = _fraud_db
+    from fraud_detection.engine import FraudSignalEngine
+    from unittest.mock import patch
+
+    _set_config(
+        db, VettingConfig,
+        fraud_detection_enabled='true',
+        fraud_contact_validation_enabled='false',
+    )
+    log = VettingLog(
+        bullhorn_candidate_id=9503,
+        candidate_name='Off Toggle',
+        candidate_email='off@example.com',
+        status='completed',
+        is_qualified=True,
+    )
+    db.session.add(log)
+    db.session.commit()
+    db.session.add(Assessment(
+        bullhorn_candidate_id=9503,
+        vetting_log_id=log.id,
+        risk_score=0,
+        risk_band='clear',
+        signals_json='[]',
+        trigger='screening',
+    ))
+    db.session.commit()
+
+    with patch.object(
+        FraudSignalEngine, '_gather_contact_validation', return_value=[],
+    ) as mock_contact:
+        engine = FraudSignalEngine(bullhorn_service=None)
+        assert engine.enrich_contact_validation(
+            {'id': 9503, 'email': 'off@example.com'}, log,
+        ) is None
+        mock_contact.assert_not_called()
+
+
+def test_processing_enrich_skips_when_not_qualified(_fraud_db):
+    """_enrich_fraud_contact_validation must not call engine when not qualified."""
+    db, Assessment, VettingLog, VettingConfig = _fraud_db
+    from candidate_vetting_service import CandidateVettingService
+    from unittest.mock import MagicMock, patch
+
+    _set_config(
+        db, VettingConfig,
+        fraud_detection_enabled='true',
+        fraud_contact_validation_enabled='true',
+    )
+    log = VettingLog(
+        bullhorn_candidate_id=9504,
+        candidate_name='Not Qual',
+        candidate_email='nq@example.com',
+        status='completed',
+        is_qualified=False,
+    )
+    db.session.add(log)
+    db.session.commit()
+
+    svc = CandidateVettingService.__new__(CandidateVettingService)
+    with patch('fraud_detection.engine.FraudSignalEngine') as mock_engine_cls:
+        svc._enrich_fraud_contact_validation(
+            {'id': 9504, 'email': 'nq@example.com'}, log,
+        )
+        mock_engine_cls.assert_not_called()

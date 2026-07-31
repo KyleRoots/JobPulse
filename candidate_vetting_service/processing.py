@@ -78,12 +78,15 @@ class CandidateProcessingMixin:
                              exc_info=True)
 
             engine = FraudSignalEngine(bullhorn_service=bullhorn_service)
+            # Paid NeverBounce/Twilio are deferred until after qualification
+            # (see _enrich_fraud_contact_validation). Free signals still run now.
             assessment = engine.assess(
                 candidate, vetting_log, trigger='screening',
                 applied_job_description=applied_job_description,
                 candidate_country=candidate_country,
                 job_country=job_country,
                 pdf_metadata=pdf_metadata,
+                include_contact_validation=False,
             )
             if assessment is not None:
                 logger.info(
@@ -93,6 +96,52 @@ class CandidateProcessingMixin:
         except Exception as e:
             logger.warning(
                 f"Fraud assessment skipped for candidate "
+                f"{candidate.get('id') if candidate else '?'}: {e}",
+                exc_info=True,
+            )
+
+    def _enrich_fraud_contact_validation(
+        self,
+        candidate: Dict,
+        vetting_log: CandidateVettingLog,
+    ) -> None:
+        """Run NeverBounce/Twilio for Qualified candidates only (fail-soft).
+
+        No-op when fraud detection or contact validation is disabled, or when
+        the candidate did not qualify for any role. Must never break screening.
+        """
+        try:
+            if not getattr(vetting_log, 'is_qualified', False):
+                return
+
+            from models import VettingConfig
+            fraud_on = str(
+                VettingConfig.get_value('fraud_detection_enabled', 'false')
+            ).strip().lower() == 'true'
+            contact_on = str(
+                VettingConfig.get_value('fraud_contact_validation_enabled', 'false')
+            ).strip().lower() == 'true'
+            if not fraud_on or not contact_on:
+                return
+
+            from fraud_detection.engine import FraudSignalEngine
+            bullhorn_service = None
+            try:
+                bullhorn_service = self._get_bullhorn_service()
+            except Exception:
+                bullhorn_service = None
+
+            engine = FraudSignalEngine(bullhorn_service=bullhorn_service)
+            assessment = engine.enrich_contact_validation(candidate, vetting_log)
+            if assessment is not None:
+                logger.info(
+                    f"🛡️ Contact validation enriched candidate "
+                    f"{candidate.get('id')}: {assessment.risk_band} "
+                    f"(score {assessment.risk_score})"
+                )
+        except Exception as e:
+            logger.warning(
+                f"Contact validation enrichment skipped for candidate "
                 f"{candidate.get('id') if candidate else '?'}: {e}",
                 exc_info=True,
             )
@@ -872,6 +921,10 @@ class CandidateProcessingMixin:
                 vetting_log.highest_match_score = max(m.match_score for m in all_match_results)
 
             db.session.commit()
+
+            # Paid contact checks only after we know the candidate qualified —
+            # NeverBounce/Twilio must not burn credits on clear rejects.
+            self._enrich_fraud_contact_validation(candidate, vetting_log)
 
             logger.info(f"✅ Completed analysis for {candidate_name} (ID: {candidate_id}): {len(qualified_matches)} qualified matches out of {len(all_match_results)} jobs")
 

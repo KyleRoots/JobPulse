@@ -648,9 +648,12 @@
                             <div>
                                 <strong class="d-block mb-1">Contact validation (NeverBounce + Twilio)</strong>
                                 <small class="text-muted">
-                                    Calls NeverBounce / Twilio Lookup when
-                                    <code>NEVERBOUNCE_API_KEY</code> and Twilio env vars are set.
-                                    Leave OFF until keys are smoke-tested. Fail-soft if missing.
+                                    Calls NeverBounce / Twilio Lookup only for
+                                    <strong>Qualified</strong> candidates (after match
+                                    threshold is met) — not on every screen.
+                                    Requires <code>NEVERBOUNCE_API_KEY</code> and Twilio
+                                    env vars. Leave OFF until keys are smoke-tested.
+                                    Fail-soft if missing.
                                 </small>
                             </div>
                             <label class="toggle-switch">
