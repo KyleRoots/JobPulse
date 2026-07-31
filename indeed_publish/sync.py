@@ -65,22 +65,32 @@ def _load_state() -> Dict[str, Any]:
     try:
         data = json.loads(raw)
         if isinstance(data, dict):
+            data.setdefault('job_ids', [])
+            data.setdefault('fingerprints', {})
+            data.setdefault('pending_unpublish', [])
             return data
     except Exception:
         pass
-    return {'job_ids': [], 'fingerprints': {}}
+    return {'job_ids': [], 'fingerprints': {}, 'pending_unpublish': []}
 
 
 def _save_state(state: Dict[str, Any]) -> None:
     from models import GlobalSettings
     state = dict(state)
+    state.setdefault('job_ids', [])
+    state.setdefault('fingerprints', {})
+    state.setdefault('pending_unpublish', [])
     state['updated_at'] = _utc_now()
     GlobalSettings.set_value(
         STATE_KEY,
         json.dumps(state),
-        description='Indeed tearsheet 1640 publish membership + fingerprints',
+        description='Indeed tearsheet 1640 publish membership + fingerprints + pending unpublish',
         category='indeed_publish',
     )
+
+
+def _pending_unpublish_ids(state: Dict[str, Any]) -> Set[int]:
+    return {int(x) for x in (state.get('pending_unpublish') or [])}
 
 
 def _save_last_result(result: Dict[str, Any]) -> None:
@@ -264,10 +274,16 @@ class IndeedTearsheetPublishService:
         fingerprints = {
             str(k): v for k, v in (state.get('fingerprints') or {}).items()
         }
+        pending_unpublish = _pending_unpublish_ids(state)
+        # Re-added to tearsheet → no longer need unpublish retry
+        pending_unpublish -= current_ids
 
         to_add = current_ids - prev_ids
         to_remove = prev_ids - current_ids
         to_check = current_ids & prev_ids
+        # Retry failed unpublishes every cycle until success (do not forget them
+        # just because they are no longer in job_ids / tearsheet membership).
+        unpublish_targets = (to_remove | pending_unpublish) - current_ids
 
         ui = self._build_ui_client()
         try:
@@ -289,13 +305,15 @@ class IndeedTearsheetPublishService:
             )
             return result
 
-        # Unpublish removals first
-        for jid in sorted(to_remove):
+        # Unpublish removals + pending retries first
+        for jid in sorted(unpublish_targets):
             try:
                 job = self._fetch_job_detail(bh, jid) or {'id': jid}
                 self._unpublish_one(ui, bh, job, result)
                 fingerprints.pop(str(jid), None)
+                pending_unpublish.discard(jid)
             except Exception as exc:
+                pending_unpublish.add(jid)
                 msg = f'unpublish {jid}: {exc}'
                 result['errors'].append(msg)
                 _notify_failure(
@@ -351,16 +369,26 @@ class IndeedTearsheetPublishService:
                     self.config.get('notify_email') or '',
                 )
 
+        # job_ids tracks current tearsheet membership for publish/republish.
+        # pending_unpublish retains failed removals so the next sync retries
+        # instead of forgetting them forever.
         _save_state({
             'job_ids': sorted(current_ids),
-            'fingerprints': fingerprints,
+            'fingerprints': {
+                k: v for k, v in fingerprints.items()
+                if int(k) in current_ids
+            },
+            'pending_unpublish': sorted(pending_unpublish),
         })
+        result['pending_unpublish'] = sorted(pending_unpublish)
         _save_last_result(result)
         logger.info(
-            'indeed_tearsheet_publish: done published=%s republished=%s unpublished=%s errors=%s',
+            'indeed_tearsheet_publish: done published=%s republished=%s unpublished=%s '
+            'pending_unpublish=%s errors=%s',
             len(result['published']),
             len(result['republished']),
             len(result['unpublished']),
+            len(pending_unpublish),
             len(result['errors']),
         )
         return result
@@ -466,10 +494,30 @@ class IndeedTearsheetPublishService:
         time.sleep(0.2)
 
 
+def _update_state_after_unpublish(job_id: int, *, success: bool) -> None:
+    """Adjust membership / pending_unpublish after a one-off unpublish attempt."""
+    state = _load_state()
+    jid = int(job_id)
+    ids = [int(x) for x in (state.get('job_ids') or []) if int(x) != jid]
+    fps = dict(state.get('fingerprints') or {})
+    fps.pop(str(jid), None)
+    pending = _pending_unpublish_ids(state)
+    if success:
+        pending.discard(jid)
+    else:
+        pending.add(jid)
+    _save_state({
+        'job_ids': ids,
+        'fingerprints': fps,
+        'pending_unpublish': sorted(pending),
+    })
+
+
 def unpublish_job_after_tearsheet_remove(job_id: int, tearsheet_id: int) -> bool:
     """
     Hook for incremental monitor auto-remove: full Unpublish when leaving 1640.
     Best-effort; failures are logged + emailed and do not raise.
+    Failed attempts are retained in pending_unpublish for the next sync retry.
     """
     if int(tearsheet_id) != int(TEARSHEET_STSI_INDEED):
         return False
@@ -503,18 +551,91 @@ def unpublish_job_after_tearsheet_remove(job_id: int, tearsheet_id: int) -> bool
         svc._unpublish_one(ui, bh, job, result)
 
         # Drop from membership state so next sync doesn't double-unpublish
-        state = _load_state()
-        ids = [int(x) for x in (state.get('job_ids') or []) if int(x) != int(job_id)]
-        fps = dict(state.get('fingerprints') or {})
-        fps.pop(str(job_id), None)
-        _save_state({'job_ids': ids, 'fingerprints': fps})
+        _update_state_after_unpublish(int(job_id), success=True)
         logger.info('indeed auto-unpublish succeeded for job %s', job_id)
         return True
     except Exception as exc:
         logger.error('indeed auto-unpublish failed for job %s: %s', job_id, exc)
+        try:
+            _update_state_after_unpublish(int(job_id), success=False)
+        except Exception as state_exc:
+            logger.error(
+                'indeed auto-unpublish could not persist pending retry for %s: %s',
+                job_id,
+                state_exc,
+            )
         _notify_failure(
             f'Indeed auto-unpublish failed for job {job_id}',
             str(exc),
             cfg.get('notify_email') or '',
         )
         return False
+
+
+def force_unpublish_jobs(job_ids: List[int]) -> Dict[str, Any]:
+    """
+    One-off recovery: unpublish specific jobs via Bullhorn UI JobBoard CFC
+    and clear them from membership / pending_unpublish state on success.
+
+    Use when jobs were published to Indeed but never recorded in (or were
+    dropped from) sync state — e.g. manual Manage Tearsheets removal that
+    raced a failed unpublish before pending_unpublish existed.
+    """
+    cfg = config_from_env()
+    out: Dict[str, Any] = {
+        'timestamp': _utc_now(),
+        'requested': [int(x) for x in job_ids],
+        'unpublished': [],
+        'errors': [],
+        'skipped': [],
+    }
+    if not cfg.get('enabled'):
+        out['skipped'].append('feature disabled (INDEED_TEARSHEET_PUBLISH_ENABLED=false)')
+        return out
+    if not cfg.get('username') or not cfg.get('password'):
+        out['errors'].append('missing BH_UI_USERNAME / BH_UI_PASSWORD')
+        return out
+
+    from utils.bullhorn_helpers import get_bullhorn_service
+    bh = get_bullhorn_service()
+    if not bh or not bh.authenticate():
+        out['errors'].append('Bullhorn REST auth failed')
+        return out
+
+    svc = IndeedTearsheetPublishService(config=cfg)
+    ui = svc._build_ui_client()
+    try:
+        ui.login()
+        if cfg.get('current_user_id'):
+            ui.set_current_user_id(cfg['current_user_id'])
+        elif not ui.current_user_id:
+            resolved = svc._resolve_ui_user_id(bh)
+            if resolved:
+                ui.set_current_user_id(resolved)
+    except BullhornUIClientError as exc:
+        out['errors'].append(f'UI login failed: {exc}')
+        return out
+
+    for raw_id in job_ids:
+        jid = int(raw_id)
+        try:
+            job = svc._fetch_job_detail(bh, jid) or {'id': jid}
+            result = {'unpublished': [], 'errors': []}
+            svc._unpublish_one(ui, bh, job, result)
+            _update_state_after_unpublish(jid, success=True)
+            out['unpublished'].append(jid)
+            logger.info('indeed force-unpublish succeeded for job %s', jid)
+        except Exception as exc:
+            try:
+                _update_state_after_unpublish(jid, success=False)
+            except Exception:
+                pass
+            msg = f'unpublish {jid}: {exc}'
+            out['errors'].append(msg)
+            logger.error('indeed force-unpublish failed for job %s: %s', jid, exc)
+            _notify_failure(
+                f'Indeed force-unpublish failed for job {jid}',
+                msg,
+                cfg.get('notify_email') or '',
+            )
+    return out
