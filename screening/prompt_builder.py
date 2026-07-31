@@ -179,23 +179,57 @@ CANDIDATE RESUME:
 
 def _shadow_screening_max_per_hour() -> int:
     """Per-hour cap on shadow scoring calls (env SCREENING_AB_SHADOW_MAX_CALLS_PER_HOUR).
-    Default 100. Set to 0 for unlimited (not recommended in production)."""
-    raw = os.environ.get('SCREENING_AB_SHADOW_MAX_CALLS_PER_HOUR', '100')
+
+    Default 40 for the Terra canary (challenger ≈ gpt-5.4 price — keep dual-call
+    spend bounded). Set to 0 for unlimited (not recommended in production).
+    """
+    raw = os.environ.get('SCREENING_AB_SHADOW_MAX_CALLS_PER_HOUR', '40')
     try:
         n = int(raw)
-        return n if n >= 0 else 100
+        return n if n >= 0 else 40
     except (TypeError, ValueError):
-        return 100
+        return 40
 
 
-def _shadow_screening_pick_model(prod_model: str) -> str:
-    """Pick the OTHER model for shadow comparison.
-    If prod is gpt-5.4 (current), shadow is gpt-4.1-mini. Otherwise shadow is
-    gpt-5.4 (regression-watch on a downgraded prod)."""
-    p = (prod_model or '').lower()
-    if 'mini' in p or '4.1' in p:
-        return 'gpt-5.4'
-    return 'gpt-4.1-mini'
+def _shadow_screening_sample_rate() -> float:
+    """Fraction of eligible escalate calls to dual-run (0–1).
+
+    Default 0.08 (~8%). Env: SCREENING_AB_SHADOW_SAMPLE_RATE.
+    """
+    raw = os.environ.get('SCREENING_AB_SHADOW_SAMPLE_RATE', '0.08')
+    try:
+        rate = float(raw)
+    except (TypeError, ValueError):
+        return 0.08
+    return max(0.0, min(1.0, rate))
+
+
+def _shadow_screening_should_sample() -> bool:
+    import random
+    return random.random() < _shadow_screening_sample_rate()
+
+
+def _shadow_screening_pick_model(prod_model: str) -> Optional[str]:
+    """Pick the challenger model for model-A/B shadow, or None to skip.
+
+    Terra canary (Jul 2026): only dual-run when production scored on the
+    escalate / flagship path (gpt-5.4). Never shadow Layer-2 mini calls —
+    that would either re-introduce expensive mini→flagship pairs or measure
+    the wrong comparison.
+
+    Challenger defaults to ``gpt-5.6-terra``; override with
+    ``SCREENING_AB_SHADOW_MODEL``.
+    """
+    p = (prod_model or '').lower().strip()
+    if not p:
+        return None
+    # Layer-2 / cheap tiers — out of scope for this canary.
+    if any(tag in p for tag in ('mini', 'nano', '4o-mini')):
+        return None
+    override = (os.environ.get('SCREENING_AB_SHADOW_MODEL') or '').strip()
+    if override:
+        return override
+    return 'gpt-5.6-terra'
 
 
 def _shadow_screening_rate_check() -> bool:
@@ -288,8 +322,11 @@ def _run_screening_shadow(
     Three modes (mutually exclusive — first non-None wins):
 
     * **Model A/B (legacy)** — when both audit kwargs are None: shadow
-      uses gpt-4.1-mini against the SAME prompt as prod. Gated by
-      SCREENING_AB_SHADOW_ENABLED + the SHADOW_LOGGING_DISABLED killswitch.
+      uses the challenger model (default ``gpt-5.6-terra``) against the
+      SAME prompt as prod, only when prod scored on a flagship / escalate
+      model (not Layer-2 mini). Gated by SCREENING_AB_SHADOW_ENABLED +
+      the SHADOW_LOGGING_DISABLED killswitch, plus sample-rate and
+      per-hour caps.
 
     * **Prompt-cache audit (2026-05-15)** — when `cache_audit_user_prompt` is
       provided: shadow uses the SAME model as prod against the OPPOSITE
@@ -329,9 +366,6 @@ def _run_screening_shadow(
                 return
         if openai_client is None:
             return
-        if not _shadow_screening_rate_check():
-            # Rate cap hit — skip silently
-            return
 
         if cache_audit_mode or schema_audit_mode:
             # Same model — these audits measure prompt/schema-induced
@@ -339,6 +373,15 @@ def _run_screening_shadow(
             shadow_model = prod_model
         else:
             shadow_model = _shadow_screening_pick_model(prod_model)
+            if not shadow_model:
+                return
+            # Sample before burning a rate-cap slot.
+            if not _shadow_screening_should_sample():
+                return
+
+        if not _shadow_screening_rate_check():
+            # Rate cap hit — skip silently
+            return
         from services.openai_helper import log_call, _extract_usage, estimate_cost
 
         # Use the explicit shadow model (no env override): we want the actual
@@ -356,14 +399,22 @@ def _run_screening_shadow(
 
         try:
             _shadow_user_prompt = cache_audit_user_prompt if cache_audit_mode else user_prompt
-            # Schema audit swaps the response_format; other modes keep the
-            # legacy json_object shape so the shadow output is comparable to
-            # prod.
-            _shadow_response_format = (
-                schema_audit_response_format
-                if schema_audit_mode
-                else {"type": "json_object"}
-            )
+            # Match production compact schema when enabled so score/token
+            # comparisons aren't confounded by response_format drift.
+            if schema_audit_mode:
+                _shadow_response_format = schema_audit_response_format
+                _shadow_max_out = 3750
+            else:
+                _compact = os.environ.get(
+                    'SCREENING_COMPACT_OUTPUT', 'true'
+                ).lower() in ('true', '1', 'yes')
+                if _compact:
+                    from screening.output_schema import build_response_format
+                    _shadow_response_format = build_response_format(strict=False)
+                    _shadow_max_out = 2200
+                else:
+                    _shadow_response_format = {"type": "json_object"}
+                    _shadow_max_out = 3750
             shadow_response = openai_client.chat.completions.create(
                 model=call_model,
                 messages=[
@@ -371,7 +422,7 @@ def _run_screening_shadow(
                     {"role": "user", "content": _shadow_user_prompt},
                 ],
                 response_format=_shadow_response_format,
-                max_completion_tokens=3750,
+                max_completion_tokens=_shadow_max_out,
             )
             log_call('screening.scoring.shadow', call_model, shadow_response)
 
@@ -1016,9 +1067,8 @@ GLOBAL SCREENING INSTRUCTIONS (apply to all jobs):
             elif custom_requirements:
                 logger.info(f"📝 Job {job_id} has custom requirements - AI interpretation will ALSO be saved (custom supplements AI)")
 
-            # Shadow A/B (S2): fire-and-forget gpt-4.1-mini comparison call.
-            # Gated by env SCREENING_AB_SHADOW_ENABLED (default off). Fully
-            # fail-soft — never raises, never affects prod scoring.
+            # Shadow A/B: fail-soft challenger dual-run (default gpt-5.6-terra
+            # vs flagship escalate only). Never affects prod scoring.
             try:
                 _prod_score_for_shadow = float(result.get('match_score', 0) or 0)
                 _run_screening_shadow(

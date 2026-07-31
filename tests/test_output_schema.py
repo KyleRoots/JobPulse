@@ -546,6 +546,59 @@ def test_build_system_message_related_job_brief():
     assert "CLEAR-REJECT BREVITY" in message
 
 
+def test_shadow_pick_model_terra_canary_only_on_flagship(monkeypatch):
+    """Terra shadow runs against escalate models; Layer-2 mini is skipped."""
+    import importlib
+    import screening.prompt_builder as pb
+
+    importlib.reload(pb)
+    monkeypatch.delenv("SCREENING_AB_SHADOW_MODEL", raising=False)
+
+    assert pb._shadow_screening_pick_model("gpt-5.4") == "gpt-5.6-terra"
+    assert pb._shadow_screening_pick_model("gpt-5.4-2026-03-05") == "gpt-5.6-terra"
+    assert pb._shadow_screening_pick_model("gpt-4.1-mini") is None
+    assert pb._shadow_screening_pick_model("gpt-4.1-mini-2025-04-14") is None
+
+    monkeypatch.setenv("SCREENING_AB_SHADOW_MODEL", "gpt-5.6-luna")
+    assert pb._shadow_screening_pick_model("gpt-5.4") == "gpt-5.6-luna"
+
+
+def test_shadow_model_ab_skips_when_pick_returns_none(monkeypatch):
+    """Model A/B must not dual-call when prod is Layer-2 mini."""
+    import importlib
+    import screening.prompt_builder as pb
+
+    importlib.reload(pb)
+    monkeypatch.setenv("SHADOW_LOGGING_DISABLED", "false")
+    monkeypatch.setenv("SCREENING_AB_SHADOW_ENABLED", "true")
+    monkeypatch.setenv("SCREENING_AB_SHADOW_SAMPLE_RATE", "1.0")
+
+    calls = []
+
+    class _StubClient:
+        class chat:
+            class completions:
+                @staticmethod
+                def create(**kwargs):
+                    calls.append(kwargs)
+                    raise AssertionError("should not call OpenAI for mini prod")
+
+    pb._save_screening_ab_row = lambda row: None  # type: ignore[assignment]
+    pb._shadow_screening_rate_check = lambda: True  # type: ignore[assignment]
+
+    pb._run_screening_shadow(
+        system_message="sys",
+        user_prompt="user",
+        prod_model="gpt-4.1-mini",
+        prod_score=20.0,
+        prod_qualified=False,
+        job_id=1,
+        job_title="Test",
+        openai_client=_StubClient(),
+    )
+    assert calls == []
+
+
 def test_shadow_harness_schema_audit_mode_smoke():
     """Targeted harness test for `_run_screening_shadow` schema mode.
 
