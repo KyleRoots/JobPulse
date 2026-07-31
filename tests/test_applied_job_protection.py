@@ -439,16 +439,39 @@ class TestAppliedJobNoteLabeling:
         assert applied is not None
         assert applied.match_score == 45.0
         
-        # When applied is found, note uses "APPLIED POSITION:" + "OTHER TOP MATCHES:"
+        # When applied is found, note uses "APPLIED POSITION:" and only adds
+        # "OTHER TOP MATCHES:" when related roles were also scored.
         # When applied is NOT found, note uses "TOP ANALYSIS RESULTS:"
         # This test verifies the label selection logic
         if applied:
             label = "APPLIED POSITION:"
+            other_label = "OTHER TOP MATCHES:" if other_matches else None
         else:
             label = "TOP ANALYSIS RESULTS:"
+            other_label = None
         
         assert label == "APPLIED POSITION:"
+        assert other_label == "OTHER TOP MATCHES:"
     
+    def test_not_qualified_omits_other_top_matches_when_none(self):
+        """Single-job not-qualified notes should not show an empty OTHER TOP MATCHES header."""
+        applied_match = Mock()
+        applied_match.is_applied_job = True
+        applied_match.bullhorn_job_id = 35559
+        applied_match.job_title = 'Structural Engineer, Sr. (IL)'
+        applied_match.match_score = 0.0
+
+        matches = [applied_match]
+        other_matches = [m for m in matches if not m.is_applied_job]
+
+        if applied_match and other_matches:
+            other_header = "OTHER TOP MATCHES:"
+        else:
+            other_header = None
+
+        assert other_header is None
+        assert other_matches == []
+
     def test_missing_applied_job_shows_top_analysis(self):
         """Without applied job in results, note falls back to 'TOP ANALYSIS RESULTS'."""
         matches = [
@@ -467,3 +490,122 @@ class TestAppliedJobNoteLabeling:
             label = "TOP ANALYSIS RESULTS:"
         
         assert label == "TOP ANALYSIS RESULTS:"
+
+
+class TestOtherTopMatchesHeader:
+    """Regression: empty OTHER TOP MATCHES heading must not appear on single-job notes."""
+
+    def test_single_job_not_qualified_omits_other_top_matches_header(self, app):
+        with app.app_context():
+            from candidate_vetting_service import CandidateVettingService
+            from models import CandidateVettingLog, CandidateJobMatch
+            from app import db
+            from datetime import datetime
+
+            vetting_log = CandidateVettingLog(
+                bullhorn_candidate_id=46734001,
+                candidate_name='William Sander Regression',
+                status='completed',
+                is_qualified=False,
+                highest_match_score=0.0,
+                note_created=False,
+                analyzed_at=datetime.utcnow(),
+                created_at=datetime.utcnow(),
+            )
+            db.session.add(vetting_log)
+            db.session.commit()
+
+            match = CandidateJobMatch(
+                vetting_log_id=vetting_log.id,
+                bullhorn_job_id=35559,
+                job_title='Structural Engineer, Sr. (IL)',
+                match_score=0.0,
+                is_qualified=False,
+                is_applied_job=True,
+                match_summary='CS background; role needs structural engineering.',
+                skills_match='N/A — insufficient overlap',
+                experience_match='N/A — insufficient overlap',
+                gaps_identified='Degree mismatch | No structural design experience',
+            )
+            db.session.add(match)
+            db.session.commit()
+
+            service = CandidateVettingService()
+            mock_bullhorn = MagicMock()
+            mock_bullhorn.get_candidate_notes.return_value = []
+            mock_bullhorn.create_candidate_note.return_value = 9001001
+
+            with patch.object(service, '_get_bullhorn_service', return_value=mock_bullhorn):
+                assert service.create_candidate_note(vetting_log) is True
+
+            mock_bullhorn.create_candidate_note.assert_called_once()
+            note_text = mock_bullhorn.create_candidate_note.call_args[0][1]
+            assert 'APPLIED POSITION:' in note_text
+            assert 'OTHER TOP MATCHES:' not in note_text
+
+            CandidateJobMatch.query.filter_by(vetting_log_id=vetting_log.id).delete()
+            CandidateVettingLog.query.filter_by(bullhorn_candidate_id=46734001).delete()
+            db.session.commit()
+
+    def test_multi_job_not_qualified_keeps_other_top_matches_header(self, app):
+        with app.app_context():
+            from candidate_vetting_service import CandidateVettingService
+            from models import CandidateVettingLog, CandidateJobMatch
+            from app import db
+            from datetime import datetime
+
+            vetting_log = CandidateVettingLog(
+                bullhorn_candidate_id=46734002,
+                candidate_name='Multi Job Regression',
+                status='completed',
+                is_qualified=False,
+                highest_match_score=60.0,
+                note_created=False,
+                analyzed_at=datetime.utcnow(),
+                created_at=datetime.utcnow(),
+            )
+            db.session.add(vetting_log)
+            db.session.commit()
+
+            db.session.add(CandidateJobMatch(
+                vetting_log_id=vetting_log.id,
+                bullhorn_job_id=35559,
+                job_title='Structural Engineer, Sr. (IL)',
+                match_score=0.0,
+                is_qualified=False,
+                is_applied_job=True,
+                match_summary='Wrong discipline.',
+                skills_match='N/A',
+                experience_match='N/A',
+                gaps_identified='Degree mismatch',
+            ))
+            db.session.add(CandidateJobMatch(
+                vetting_log_id=vetting_log.id,
+                bullhorn_job_id=35578,
+                job_title='AI Engineer',
+                match_score=60.0,
+                is_qualified=False,
+                is_applied_job=False,
+                match_summary='Partial AI overlap.',
+                skills_match='Python',
+                experience_match='2 years',
+                gaps_identified='Missing Docker',
+            ))
+            db.session.commit()
+
+            service = CandidateVettingService()
+            mock_bullhorn = MagicMock()
+            mock_bullhorn.get_candidate_notes.return_value = []
+            mock_bullhorn.create_candidate_note.return_value = 9001002
+
+            with patch.object(service, '_get_bullhorn_service', return_value=mock_bullhorn):
+                assert service.create_candidate_note(vetting_log) is True
+
+            note_text = mock_bullhorn.create_candidate_note.call_args[0][1]
+            assert 'APPLIED POSITION:' in note_text
+            assert 'OTHER TOP MATCHES:' in note_text
+            assert '35578' in note_text
+
+            CandidateJobMatch.query.filter_by(vetting_log_id=vetting_log.id).delete()
+            CandidateVettingLog.query.filter_by(bullhorn_candidate_id=46734002).delete()
+            db.session.commit()

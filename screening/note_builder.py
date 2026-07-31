@@ -788,8 +788,11 @@ class NoteBuilderMixin:
                 note_lines.append(f"APPLIED POSITION:")
                 note_lines.append(f"")
                 note_lines += self._format_match_note_block(applied_match, job_threshold_map, is_applied=True, show_gaps=True, candidate_id=vetting_log.bullhorn_candidate_id)
-                note_lines.append(f"")
-                note_lines.append(f"OTHER TOP MATCHES:")
+                # Only show this section when association logic actually scored
+                # related roles — an empty heading is noise for single-job screens.
+                if other_matches:
+                    note_lines.append(f"")
+                    note_lines.append(f"OTHER TOP MATCHES:")
             else:
                 # Safety net: we know which job they applied to, but it never
                 # landed in CandidateJobMatch (historically: half-closed applied
