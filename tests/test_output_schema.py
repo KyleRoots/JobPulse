@@ -529,6 +529,7 @@ def test_build_system_message_includes_clear_reject_brevity():
 
     message = build_system_message("")
     assert "CLEAR-REJECT BREVITY" in message
+    assert "BELOW 60" in message
     assert "RELATED-JOB BREVITY" not in message
     assert "Do NOT emit a requirement_evidence JSON array" in message
     assert '"requirement_evidence"' not in message

@@ -545,19 +545,19 @@ If the job description requires any Canadian Government security clearance — i
 5. Document the eligibility verdict in match_summary AND gaps_identified — do NOT emit a canadian_clearance_analysis JSON block.
 
 CLEAR-REJECT BREVITY (cost control — does NOT change scoring arithmetic):
-If your intended match_score is BELOW 50 (clear reject), keep prose SHORT:
+If your intended match_score is BELOW 60 (clear / weak reject), keep prose SHORT:
 - match_summary: ONE sentence
 - gaps_identified: at most TWO short bullets (use " | " separators), naming only the decisive gaps
 - skills_match / experience_match: one short phrase each (or "N/A — insufficient overlap")
 - key_requirements: top 3 mandatory items only
 - relevance_justification: "N/A" when most_recent_role_relevant is false; otherwise one short clause
-Do NOT reduce the thoroughness of your scoring arithmetic, years_analysis estimates, or penalty application — only the written prose verbosity. For match_score >= 50, keep the normal recruiter-facing detail.
+Do NOT reduce the thoroughness of your scoring arithmetic, years_analysis estimates, or penalty application — only the written prose verbosity. For match_score >= 60, keep the normal recruiter-facing detail.
 
 Respond in JSON format with these exact fields only (do not add other top-level keys):
 {{{{
     "technical_score": 0,
     "match_score": 0,
-    "match_summary": "<overall fit summary — 2-3 sentences when score >= 50; ONE sentence when score < 50. If there is a country mismatch, say \'The candidate is based in [country] but the job requires [work type] work from [job country], creating a location compliance issue.\'>",
+    "match_summary": "<overall fit summary — 2-3 sentences when score >= 60; ONE sentence when score < 60. If there is a country mismatch, say \'The candidate is based in [country] but the job requires [work type] work from [job country], creating a location compliance issue.\'>",
     "skills_match": "<skills from the resume that match job requirements>",
     "experience_match": "<experience from the resume relevant to the job>",
     "gaps_identified": "<mandatory gaps as a single string — use \' | \' between gaps. Not a JSON array.>",
@@ -621,8 +621,8 @@ When a location penalty is applied, you MUST document it explicitly in gaps_iden
 IMPORTANT: You MUST complete the full technical assessment (years_analysis, skills_match, experience_match, gaps) BEFORE considering location. A location mismatch must NEVER cause you to skip or abbreviate the technical analysis.
 
 NOTES QUALITY (MANDATORY):
-For match_score >= 50, gaps_identified and match_summary must provide enough reasoning for a recruiter who has NOT read the resume to understand why the candidate scored as they did. When more than one gap exists, use bullet-point format (separate with " | "). Each gap must state: (1) what is required, (2) what was found in the resume (or "not found"), and (3) why it does not satisfy the requirement.
-For match_score < 50 (clear reject), follow CLEAR-REJECT BREVITY above — one-sentence summary and at most two decisive gaps. Do not pad prose.
+For match_score >= 60, gaps_identified and match_summary must provide enough reasoning for a recruiter who has NOT read the resume to understand why the candidate scored as they did. When more than one gap exists, use bullet-point format (separate with " | "). Each gap must state: (1) what is required, (2) what was found in the resume (or "not found"), and (3) why it does not satisfy the requirement.
+For match_score < 60 (clear / weak reject), follow CLEAR-REJECT BREVITY above — one-sentence summary and at most two decisive gaps. Do not pad prose.
 {'' if not related_job_brief else '''
 RELATED-JOB BREVITY (cost control — does NOT change scoring arithmetic):
 This call is for a RELATED / non-applied open role (not the job the candidate applied to).
