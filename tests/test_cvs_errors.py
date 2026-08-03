@@ -328,6 +328,63 @@ class TestMatadorMerge:
             assert 'matador' in result['detection_method']
             _release_lock(app)
 
+
+# ===========================================================================
+# 5b. Indeed native Apply candidate detection merge
+# ===========================================================================
+class TestIndeedMerge:
+
+    def test_indeed_candidates_merged_without_dupes(self, app):
+        """Indeed applicants merge with parsed_email candidates and dedupe by ID."""
+        _set_vetting_enabled(app, True)
+        cvs = _make_cvs()
+
+        with app.app_context():
+            _release_lock(app)
+            email_candidates = [{'id': 910, 'firstName': 'Email', 'lastName': 'One'}]
+            indeed_candidates = [
+                {'id': 910, 'firstName': 'Email', 'lastName': 'One'},  # duplicate
+                {'id': 911, 'firstName': 'Indeed', 'lastName': 'New'},
+            ]
+
+            with patch.object(cvs, 'detect_unvetted_applications', return_value=email_candidates):
+                with patch.object(cvs, 'detect_pandologic_candidates', return_value=[]):
+                    with patch.object(cvs, 'detect_matador_candidates', return_value=[]):
+                        with patch.object(cvs, 'detect_indeed_applicants', return_value=indeed_candidates):
+                            with patch.object(cvs, 'process_candidate', return_value=None):
+                                result = cvs.run_vetting_cycle()
+
+            assert result['candidates_detected'] == 2
+            assert 'indeed' in result['detection_method']
+            _release_lock(app)
+
+    def test_indeed_only_cycle_uses_indeed_method(self, app):
+        """If only Indeed candidates are present, detection_method flags it."""
+        _set_vetting_enabled(app, True)
+        cvs = _make_cvs()
+
+        with app.app_context():
+            _release_lock(app)
+            indeed_candidates = [{'id': 912, 'firstName': 'I', 'lastName': 'Only'}]
+
+            with patch.object(cvs, 'detect_unvetted_applications', return_value=[]):
+                with patch.object(cvs, 'detect_new_applicants', return_value=[]):
+                    with patch.object(cvs, 'detect_pandologic_candidates', return_value=[]):
+                        with patch.object(cvs, 'detect_matador_candidates', return_value=[]):
+                            with patch.object(cvs, 'detect_indeed_applicants', return_value=indeed_candidates):
+                                with patch.object(cvs, 'process_candidate', return_value=None):
+                                    result = cvs.run_vetting_cycle()
+
+            assert result['candidates_detected'] == 1
+            assert 'indeed' in result['detection_method']
+            _release_lock(app)
+
+
+# ===========================================================================
+# 5c. Matador Lucene query shape
+# ===========================================================================
+class TestMatadorQuery:
+
     def test_matador_detection_uses_owner_filter(self, app):
         """detect_matador_candidates queries Bullhorn with owner.name:'Matador API'."""
         from unittest.mock import MagicMock

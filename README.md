@@ -367,6 +367,10 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
+### August 2026: Indeed native Apply Scout Screening coverage
+- **Problem**: Native Indeed Apply (Plan B) creates Bullhorn candidates as **New Lead + Unassigned + source Indeed** with a JobSubmission, but never creates a ParsedEmail and never sets status to Online Applicant — so Scout’s detectors never saw them (LinkedIn Job Board email inbound continued to screen normally).
+- **Fix**: `detect_indeed_applicants` in `screening/detection.py` — source-based Lucene search (`Indeed` / `Indeed Job Board`), JobSubmission gate, Unassigned-eligible human-owner skip, merged into the 1-minute vetting cycle (same pattern as Matador).
+
 ### October 2025: Database-Backed Reference Number Preservation ✨
 - **Problem Identified**: Live XML URL returns 403 Forbidden, causing reference number reversion
 - **Solution Implemented**: JobReferenceNumber database table for persistent storage
@@ -490,5 +494,5 @@ Access health endpoints for status checks:
 
 ---
 
-**Last Updated**: October 2025  
-**Version**: 2.0 (Database-Backed Reference Preservation)
+**Last Updated**: August 2026  
+**Version**: 2.1 (Indeed native Apply Scout Screening coverage)
