@@ -106,6 +106,20 @@ class VettingCycleMixin:
                 else:
                     summary['detection_method'] = f"{summary['detection_method']}+matador"
 
+            # Native Indeed Apply (Plan B / Indeed Apply) lands as New Lead +
+            # source Indeed outside ParsedEmail and Online Applicant detectors.
+            indeed_candidates = self.detect_indeed_applicants(since_minutes=120)
+            if indeed_candidates:
+                logger.info(f"🟢 Adding {len(indeed_candidates)} Indeed applicants to vetting queue")
+
+                existing_ids = {c.get('id') for c in candidates}
+                for indeed_candidate in indeed_candidates:
+                    if indeed_candidate.get('id') not in existing_ids:
+                        candidates.append(indeed_candidate)
+                        existing_ids.add(indeed_candidate.get('id'))
+
+                summary['detection_method'] = f"{summary['detection_method']}+indeed"
+
             pando_note_candidates = self.detect_pandologic_note_candidates(since_minutes=10)
             if pando_note_candidates:
                 logger.info(

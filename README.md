@@ -404,6 +404,10 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
+### August 2026: Indeed native Apply Scout Screening coverage
+- **Problem**: Native Indeed Apply (Plan B) creates Bullhorn candidates as **New Lead + Unassigned + source Indeed** with a JobSubmission, but never creates a ParsedEmail and never sets status to Online Applicant — so Scout’s detectors never saw them (LinkedIn Job Board email inbound continued to screen normally).
+- **Fix**: `detect_indeed_applicants` in `screening/detection.py` — source-based Lucene search (`Indeed` / `Indeed Job Board`), JobSubmission gate, Unassigned-eligible human-owner skip, merged into the 1-minute vetting cycle (same pattern as Matador).
+
 ### July 2026: Railway Production, STSI Channel Feeds & Screening Compliance
 - **Railway deployment**: Production on Railway (`gunicorn` via `railway.toml`); Entra/Graph mailbox-pull auth for inbound applicants
 - **Split Microsoft Entra credentials (Jul 28)**: Support Portal SSO uses `SUPPORT_MICROSOFT_CLIENT_ID` / `SUPPORT_MICROSOFT_CLIENT_SECRET` / `SUPPORT_MICROSOFT_TENANT_ID` (Myticas Support Portal app). Graph mailbox-pull keeps `MICROSOFT_CLIENT_*` + `MICROSOFT_TENANT_ID` on the **mail** app (`Mail.Read` application permission for `Apply@myticas.com`). Do not point both at the Support Portal app — that yields Graph `403` and stops applicant intake.
@@ -571,5 +575,5 @@ Access health endpoints for status checks:
 
 ---
 
-**Last Updated**: July 31, 2026
-**Version**: 2.6 (Railway production, candidate country normalization, cost-loop containment, integration retry hardening)
+**Last Updated**: August 3, 2026
+**Version**: 2.7 (Indeed native Apply Scout Screening coverage; Railway production)

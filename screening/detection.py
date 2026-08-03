@@ -8,6 +8,7 @@ Contains:
   - detect_pandologic_candidates: Finds Pandologic API candidates (owner-based)
   - detect_pandologic_note_candidates: Finds re-applicants via Pandologic API notes
   - detect_matador_candidates: Finds Matador API candidates (corporate website submissions)
+  - detect_indeed_applicants: Finds native Indeed Apply candidates (source-based New Lead)
   - detect_unvetted_applications: Primary detection via ParsedEmail records
   - _resolve_pandologic_user_id: Resolves and caches Pandologic CorporateUser ID
 
@@ -400,6 +401,166 @@ class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMi
             
         except Exception as e:
             logger.error(f"Error detecting Matador candidates: {str(e)}")
+            return []
+
+    def detect_indeed_applicants(self, since_minutes: int = 120) -> List[Dict]:
+        """
+        Find candidates from native Indeed Apply that haven't been vetted recently.
+
+        Indeed Plan B (Bullhorn JobBoard CFC publish) and Indeed Apply create
+        Candidate + JobSubmission records directly in Bullhorn with
+        source='Indeed' (or 'Indeed Job Board') and status='New Lead', often
+        owned by Unassigned. They bypass ParsedEmail inbound entirely and do
+        not match status:"Online Applicant", so detect_new_applicants misses
+        them — same discovery gap Matador solves via owner-based detection.
+
+        Uses source-based Lucene search + JobSubmission gate (applied, not
+        merely sourced). Job-aware dedup via _should_skip_candidate.
+
+        Default lookback is 120 minutes (wider than Matador's last-run-only
+        window) so briefly delayed discovery still catches native applies
+        even when the sliding last-run watermark has already advanced.
+
+        Args:
+            since_minutes: Minimum lookback window in minutes (also used as
+                the floor when a last-run timestamp exists).
+
+        Returns:
+            List of candidate dictionaries from Bullhorn, each enriched with
+            `_applied_job_id` / `_applied_job_title` when a JobSubmission is
+            found.
+        """
+        bullhorn = self._get_bullhorn_service()
+        if not bullhorn:
+            return []
+
+        if not bullhorn.authenticate():
+            logger.error("Failed to authenticate with Bullhorn for Indeed detection")
+            return []
+
+        try:
+            floor = datetime.utcnow() - timedelta(minutes=max(since_minutes, 60))
+            last_run = self._get_last_run_timestamp()
+            # Look at least `floor` back so native Indeed applies are not lost
+            # when last_run advances every minute without an Indeed detector.
+            if last_run:
+                since_time = min(last_run, floor)
+            else:
+                since_time = floor
+
+            since_timestamp = int(since_time.timestamp() * 1000)
+
+            # Native Indeed Apply uses source "Indeed"; JobPulse inbound
+            # normalizes to "Indeed Job Board". Match both.
+            url = f"{bullhorn.base_url}search/Candidate"
+            params = {
+                'query': (
+                    f'(source:Indeed OR source:"Indeed Job Board") '
+                    f'AND dateLastModified:[{since_timestamp} TO *]'
+                ),
+                'fields': (
+                    'id,firstName,lastName,email,phone,status,dateAdded,'
+                    'dateLastModified,source,occupation,description,'
+                    'address(address1,city,state,countryName),owner(id,name)'
+                ),
+                'count': 50,
+                'sort': '-dateLastModified',
+                'BhRestToken': bullhorn.rest_token,
+            }
+
+            response = bullhorn.session.get(url, params=params, timeout=30)
+
+            if response.status_code != 200:
+                logger.error(
+                    f"Failed to search for Indeed applicants: {response.status_code}"
+                )
+                return []
+
+            data = response.json()
+            candidates = data.get('data', [])
+
+            logger.info(f"🟢 Indeed: Found {len(candidates)} candidates since {since_time}")
+
+            # Human-owner skip: Unassigned (id=1) must remain eligible — native
+            # Indeed Apply lands Unassigned. Treat missing owner and Unassigned
+            # as not human-owned; skip only real recruiter owners when enabled.
+            skip_human_owned = _screening_skip_human_owned()
+            api_user_ids = (
+                _parse_api_user_ids_for_screening() if skip_human_owned else []
+            )
+            human_owned_skipped = 0
+
+            new_candidates = []
+            for candidate in candidates:
+                candidate_id = candidate.get('id')
+                if not candidate_id:
+                    continue
+
+                if skip_human_owned and api_user_ids:
+                    owner = candidate.get('owner') or {}
+                    owner_id = owner.get('id')
+                    is_unassigned = (
+                        owner_id is None
+                        or (isinstance(owner_id, int) and owner_id == 1)
+                        or str(owner_id) == '1'
+                        or 'unassigned' in str(owner.get('name') or '').lower()
+                    )
+                    if (
+                        not is_unassigned
+                        and _is_human_owned(candidate, api_user_ids)
+                    ):
+                        logger.info(
+                            f"Indeed candidate {candidate_id} "
+                            f"({candidate.get('firstName')} {candidate.get('lastName')}) "
+                            f"has human owner (id={owner_id}, "
+                            f"name={owner.get('name', '?')}); skipping re-screen"
+                        )
+                        human_owned_skipped += 1
+                        continue
+
+                applied_job_id, applied_job_title, _lookup_ok = (
+                    self._fetch_latest_job_submission(bullhorn, candidate_id)
+                )
+
+                # Job submission gate: skip sourced-only (no application).
+                if _lookup_ok and applied_job_id is None:
+                    logger.debug(
+                        f"Indeed candidate {candidate_id} skipped — "
+                        f"no JobSubmission found (sourced, not applied)"
+                    )
+                    continue
+
+                if applied_job_id is not None:
+                    candidate['_applied_job_id'] = applied_job_id
+                    candidate['_applied_job_title'] = applied_job_title or ''
+
+                if self._should_skip_candidate(
+                    candidate_id, applied_job_id, bullhorn=bullhorn
+                ):
+                    logger.debug(
+                        f"Indeed candidate {candidate_id} skipped by job-aware dedup "
+                        f"(applied_job={applied_job_id})"
+                    )
+                else:
+                    new_candidates.append(candidate)
+                    job_info = f" for job {applied_job_id}" if applied_job_id else ""
+                    logger.info(
+                        f"🟢 Indeed applicant detected: "
+                        f"{candidate.get('firstName')} {candidate.get('lastName')} "
+                        f"(ID: {candidate_id}{job_info}, "
+                        f"source={candidate.get('source')!r}, "
+                        f"status={candidate.get('status')!r})"
+                    )
+
+            logger.info(
+                f"🟢 Indeed: {len(new_candidates)} candidates to vet out of "
+                f"{len(candidates)} total "
+                f"({human_owned_skipped} skipped — human-owned)"
+            )
+            return new_candidates
+
+        except Exception as e:
+            logger.error(f"Error detecting Indeed applicants: {str(e)}")
             return []
 
     def _resolve_pandologic_user_id(self, bullhorn) -> Optional[int]:

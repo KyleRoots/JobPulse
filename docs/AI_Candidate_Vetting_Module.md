@@ -12,7 +12,8 @@ The AI Candidate Vetting Module is an advanced feature of Scout Genius™ that a
 - **ParsedEmail-Based Detection**: Captures ALL inbound applicants by tracking the `vetted_at` column in the ParsedEmail table
 - **Both New and Existing Candidates**: Processes applications whether the candidate is new to Bullhorn or already exists with an updated resume
 - **Fallback Detection**: Legacy "Online Applicant" status search as backup for candidates entering through other channels
-
+- **Owner-based detectors**: Pandologic API and Matador API (corporate website New Lead) applicants
+- **Indeed native Apply detector** (Aug 2026): Source-based discovery for `source:Indeed` / `Indeed Job Board` candidates that land as **New Lead + Unassigned** via Bullhorn↔Indeed Apply (outside email inbound). Requires a JobSubmission (applied, not sourced).
 ### 2. Intelligent Resume Analysis
 - **Resume Extraction**: Downloads resume files (PDF, DOCX, DOC, TXT) from candidate profiles in Bullhorn
 - **Three-Layer PDF Processing** (implemented 2026-01-30):
@@ -71,6 +72,8 @@ The AI Candidate Vetting Module is an advanced feature of Scout Genius™ that a
 │  2. DETECT UNVETTED APPLICATIONS                                    │
 │     └─> Query ParsedEmail where vetted_at IS NULL                   │
 │     └─> Fallback: Search Bullhorn for "Online Applicant" status     │
+│     └─> Always merge: Pandologic / Matador / Indeed native Apply    │
+│         / Pandologic-note / pending auditor revets                  │
 │                                                                     │
 │  3. FOR EACH CANDIDATE (up to batch_size):                          │
 │     a. Download resume from Bullhorn                                │
@@ -367,6 +370,7 @@ Each entry includes:
 
 | Date | Version | Changes |
 |------|---------|---------|
+| 2026-08-03 | 1.2 | Added detect_indeed_applicants for native Indeed Apply New Lead coverage (source-based + JobSubmission gate) |
 | 2026-01-30 | 1.1 | Enhanced resume formatting with three-layer PDF processing (PyMuPDF + deterministic text normalization + GPT-4o AI formatting) for proper HTML display in Bullhorn |
 | 2026-01-30 | 1.0 | Initial release with ParsedEmail detection, GPT-4o matching, CC-based notifications |
 | 2026-01-28 | 0.9 | Fixed note creation with commentingPerson ID |
