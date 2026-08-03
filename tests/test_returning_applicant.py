@@ -703,8 +703,8 @@ class TestPreNoteDuplicateSafeguard:
 
 class TestSubmissionGate:
     """
-    Unit tests for the job-submission gate added to detect_pandologic_candidates
-    and detect_matador_candidates.
+    Unit tests for the job-submission gate added to detect_pandologic_candidates,
+    detect_matador_candidates, and detect_indeed_applicants.
 
     Gate rules:
       - lookup OK  + no submission  → candidate skipped (sourced, not applied)
@@ -863,3 +863,104 @@ class TestSubmissionGate:
 
         assert len(result) == 1
         assert result[0]['_applied_job_id'] == 43719
+
+    def _make_indeed_bullhorn(self, candidate_id=8101, owner_id=1, owner_name='Unassigned User'):
+        """Bullhorn mock returning one Indeed New Lead candidate."""
+        bh = MagicMock()
+        bh.authenticate.return_value = True
+        bh.base_url = 'https://rest.bullhorn.test/'
+        bh.rest_token = 'token123'
+        bh.user_id = 1147490
+
+        candidate_payload = {
+            'id': candidate_id,
+            'firstName': 'Indeed',
+            'lastName': 'Applicant',
+            'email': 'indeed@example.com',
+            'status': 'New Lead',
+            'dateAdded': 1700000000000,
+            'dateLastModified': 1700000000000,
+            'source': 'Indeed',
+            'occupation': 'Project Engineer',
+            'description': '',
+            'address': {},
+            'owner': {'id': owner_id, 'name': owner_name},
+        }
+        search_response = MagicMock()
+        search_response.status_code = 200
+        search_response.json.return_value = {'data': [candidate_payload]}
+        bh.session.get.return_value = search_response
+        return bh
+
+    def test_indeed_no_submission_skipped(self, app):
+        """Indeed candidate with lookup OK but no JobSubmission is excluded."""
+        svc = self._make_service()
+        bh = self._make_indeed_bullhorn()
+
+        with patch.object(svc, '_get_bullhorn_service', return_value=bh), \
+             patch.object(svc, '_get_last_run_timestamp', return_value=None), \
+             patch.object(svc, '_fetch_latest_job_submission',
+                          return_value=(None, None, True)), \
+             patch.object(svc, '_should_skip_candidate', return_value=False), \
+             patch('screening.detection._screening_skip_human_owned', return_value=False):
+            with app.app_context():
+                result = svc.detect_indeed_applicants()
+
+        assert result == []
+
+    def test_indeed_lookup_failure_passes_through(self, app):
+        """Indeed candidate with failed JobSubmission lookup passes through."""
+        svc = self._make_service()
+        bh = self._make_indeed_bullhorn()
+
+        with patch.object(svc, '_get_bullhorn_service', return_value=bh), \
+             patch.object(svc, '_get_last_run_timestamp', return_value=None), \
+             patch.object(svc, '_fetch_latest_job_submission',
+                          return_value=(None, None, False)), \
+             patch.object(svc, '_should_skip_candidate', return_value=False), \
+             patch('screening.detection._screening_skip_human_owned', return_value=False):
+            with app.app_context():
+                result = svc.detect_indeed_applicants()
+
+        assert len(result) == 1
+
+    def test_indeed_with_submission_unassigned_passes_through(self, app):
+        """Unassigned Indeed New Lead with a JobSubmission is included."""
+        svc = self._make_service()
+        bh = self._make_indeed_bullhorn()
+
+        with patch.object(svc, '_get_bullhorn_service', return_value=bh), \
+             patch.object(svc, '_get_last_run_timestamp', return_value=None), \
+             patch.object(svc, '_fetch_latest_job_submission',
+                          return_value=(35593, 'Structural Engineer', True)), \
+             patch.object(svc, '_should_skip_candidate', return_value=False), \
+             patch('screening.detection._screening_skip_human_owned', return_value=True), \
+             patch('screening.detection._parse_api_user_ids_for_screening',
+                   return_value=[1147490]):
+            with app.app_context():
+                result = svc.detect_indeed_applicants()
+
+        assert len(result) == 1
+        assert result[0]['_applied_job_id'] == 35593
+        # Query must target Indeed sources
+        called_params = bh.session.get.call_args[1]['params']
+        assert 'source:Indeed' in called_params['query']
+        assert 'Indeed Job Board' in called_params['query']
+
+    def test_indeed_human_owned_skipped_when_enabled(self, app):
+        """Recruiter-owned Indeed candidates are skipped when human-owner skip is on."""
+        svc = self._make_service()
+        bh = self._make_indeed_bullhorn(owner_id=99999, owner_name='Jane Recruiter')
+
+        with patch.object(svc, '_get_bullhorn_service', return_value=bh), \
+             patch.object(svc, '_get_last_run_timestamp', return_value=None), \
+             patch.object(svc, '_fetch_latest_job_submission',
+                          return_value=(35593, 'Structural Engineer', True)), \
+             patch.object(svc, '_should_skip_candidate', return_value=False), \
+             patch('screening.detection._screening_skip_human_owned', return_value=True), \
+             patch('screening.detection._parse_api_user_ids_for_screening',
+                   return_value=[1147490]):
+            with app.app_context():
+                result = svc.detect_indeed_applicants()
+
+        assert result == []
