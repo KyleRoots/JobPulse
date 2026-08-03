@@ -204,6 +204,25 @@ def _shadow_screening_sample_rate() -> float:
     return max(0.0, min(1.0, rate))
 
 
+def _shadow_screening_max_completion_tokens() -> int:
+    """Completion-token ceiling for challenger shadow scoring only.
+
+    Compact production scoring uses 2200, but gpt-5.6-terra often spends
+    reasoning tokens inside the same budget and hits finish=length →
+    empty_response (~35% at 2200). Raise shadow-only to 4000 so the
+    scoring JSON can finish without a large cost blowup (shadow remains
+    sampled + hourly-capped). Override with
+    SCREENING_AB_SHADOW_MAX_COMPLETION_TOKENS. Production escalate /
+    flagship and Layer-2 mini paths are unchanged.
+    """
+    raw = os.environ.get('SCREENING_AB_SHADOW_MAX_COMPLETION_TOKENS', '4000')
+    try:
+        n = int(raw)
+        return n if n >= 500 else 4000
+    except (TypeError, ValueError):
+        return 4000
+
+
 def _shadow_screening_should_sample() -> bool:
     import random
     return random.random() < _shadow_screening_sample_rate()
@@ -411,7 +430,9 @@ def _run_screening_shadow(
                 if _compact:
                     from screening.output_schema import build_response_format
                     _shadow_response_format = build_response_format(strict=False)
-                    _shadow_max_out = 2200
+                    # Shadow-only: higher than prod compact 2200 so Terra
+                    # reasoning does not truncate to empty_response.
+                    _shadow_max_out = _shadow_screening_max_completion_tokens()
                 else:
                     _shadow_response_format = {"type": "json_object"}
                     _shadow_max_out = 3750

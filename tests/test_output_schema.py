@@ -563,6 +563,107 @@ def test_shadow_pick_model_terra_canary_only_on_flagship(monkeypatch):
     assert pb._shadow_screening_pick_model("gpt-5.4") == "gpt-5.6-luna"
 
 
+def test_shadow_max_completion_tokens_default_and_override(monkeypatch):
+    """Shadow compact ceiling defaults to 4000; env override + invalid fallback."""
+    import importlib
+    import screening.prompt_builder as pb
+
+    importlib.reload(pb)
+    monkeypatch.delenv("SCREENING_AB_SHADOW_MAX_COMPLETION_TOKENS", raising=False)
+    assert pb._shadow_screening_max_completion_tokens() == 4000
+
+    monkeypatch.setenv("SCREENING_AB_SHADOW_MAX_COMPLETION_TOKENS", "3500")
+    assert pb._shadow_screening_max_completion_tokens() == 3500
+
+    monkeypatch.setenv("SCREENING_AB_SHADOW_MAX_COMPLETION_TOKENS", "banana")
+    assert pb._shadow_screening_max_completion_tokens() == 4000
+
+    monkeypatch.setenv("SCREENING_AB_SHADOW_MAX_COMPLETION_TOKENS", "100")
+    assert pb._shadow_screening_max_completion_tokens() == 4000
+
+
+def test_shadow_model_ab_uses_raised_token_ceiling(monkeypatch):
+    """Model A/B compact shadow must use the raised ceiling, not prod 2200."""
+    import importlib
+    import screening.prompt_builder as pb
+
+    importlib.reload(pb)
+    monkeypatch.setenv("SHADOW_LOGGING_DISABLED", "false")
+    monkeypatch.setenv("SCREENING_AB_SHADOW_ENABLED", "true")
+    monkeypatch.setenv("SCREENING_AB_SHADOW_SAMPLE_RATE", "1.0")
+    monkeypatch.setenv("SCREENING_COMPACT_OUTPUT", "true")
+    monkeypatch.delenv("SCREENING_AB_SHADOW_MAX_COMPLETION_TOKENS", raising=False)
+
+    captured = {}
+
+    class _Usage:
+        prompt_tokens = 50
+        completion_tokens = 10
+        prompt_tokens_details = None
+
+    class _Choice:
+        message = type("M", (), {"content": json.dumps({
+            "match_score": 82,
+            "match_summary": "ok",
+        })})()
+        finish_reason = "stop"
+
+    class _Resp:
+        choices = [_Choice()]
+        usage = _Usage()
+
+    class _StubClient:
+        class chat:
+            class completions:
+                @staticmethod
+                def create(**kwargs):
+                    captured["kwargs"] = kwargs
+                    return _Resp()
+
+    monkeypatch.setattr(
+        "services.openai_helper.log_call",
+        lambda *a, **k: None,
+    )
+    monkeypatch.setattr(
+        "services.openai_helper._extract_usage",
+        lambda resp: (50, 0, 10),
+    )
+    monkeypatch.setattr(
+        "services.openai_helper.estimate_cost",
+        lambda *a, **k: 0.01,
+    )
+    pb._save_screening_ab_row = lambda row: None  # type: ignore[assignment]
+    pb._shadow_screening_rate_check = lambda: True  # type: ignore[assignment]
+
+    pb._run_screening_shadow(
+        system_message="sys",
+        user_prompt="user",
+        prod_model="gpt-5.4",
+        prod_score=85.0,
+        prod_qualified=True,
+        job_id=1,
+        job_title="Test",
+        openai_client=_StubClient(),
+    )
+    assert captured.get("kwargs"), "shadow call did not fire"
+    assert captured["kwargs"]["model"] == "gpt-5.6-terra"
+    assert captured["kwargs"]["max_completion_tokens"] == 4000
+
+    monkeypatch.setenv("SCREENING_AB_SHADOW_MAX_COMPLETION_TOKENS", "3500")
+    captured.clear()
+    pb._run_screening_shadow(
+        system_message="sys",
+        user_prompt="user",
+        prod_model="gpt-5.4",
+        prod_score=85.0,
+        prod_qualified=True,
+        job_id=1,
+        job_title="Test",
+        openai_client=_StubClient(),
+    )
+    assert captured["kwargs"]["max_completion_tokens"] == 3500
+
+
 def test_shadow_model_ab_skips_when_pick_returns_none(monkeypatch):
     """Model A/B must not dual-call when prod is Layer-2 mini."""
     import importlib
