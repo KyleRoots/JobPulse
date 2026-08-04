@@ -14,7 +14,7 @@ The AI Candidate Vetting Module is an advanced feature of Scout Genius™ that a
 - **Fallback Detection**: Legacy "Online Applicant" status search as backup for candidates entering through other channels
 - **Owner-based detectors**: Pandologic API and Matador API (corporate website New Lead) applicants
 - **Indeed native Apply detector** (Aug 2026): Source-based discovery for `source:Indeed` / `Indeed Job Board` candidates that land as **New Lead + Unassigned** via Bullhorn↔Indeed Apply (outside email inbound). Requires a JobSubmission (applied, not sourced).
-- **Indeed inbound field remap** (Aug 2026): Scheduled task remaps native Apply fields to match email inbound — `New Lead`→`Online Applicant`, `Indeed`→`Indeed Job Board`, Unassigned→Myticas API User (`1147490`) only when still unassigned. Does not overwrite human owners; Owner Reassignment continues to claim from activity after the API-user default.
+- **Indeed inbound field remap** (Aug 2026): Scheduled task remaps native Apply fields to match email inbound — `New Lead`→`Online Applicant`, `Indeed`→`Indeed Job Board`, Unassigned→Myticas API User (`1147490`) only when still unassigned. Lucene selects still-wrong `source:Indeed` with **no date floor by default** (full backlog; remapped rows drop out). Does not overwrite human owners; Owner Reassignment continues to claim from activity after the API-user default.
 ### 2. Intelligent Resume Analysis
 - **Resume Extraction**: Downloads resume files (PDF, DOCX, DOC, TXT) from candidate profiles in Bullhorn
 - **Three-Layer PDF Processing** (implemented 2026-01-30):
@@ -371,7 +371,7 @@ Each entry includes:
 
 | Date | Version | Changes |
 |------|---------|---------|
-| 2026-08-04 | 1.3 | Added indeed_inbound_remap (New Lead/Indeed/Unassigned → Online Applicant/Indeed Job Board/Myticas API User; preserves human owners for activity-based reassignment) |
+| 2026-08-04 | 1.3 | Added indeed_inbound_remap (New Lead/Indeed/Unassigned → Online Applicant/Indeed Job Board/Myticas API User; full source backlog by default; preserves human owners for activity-based reassignment) |
 | 2026-08-03 | 1.2 | Added detect_indeed_applicants for native Indeed Apply New Lead coverage (source-based + JobSubmission gate) |
 | 2026-01-30 | 1.1 | Enhanced resume formatting with three-layer PDF processing (PyMuPDF + deterministic text normalization + GPT-4o AI formatting) for proper HTML display in Bullhorn |
 | 2026-01-30 | 1.0 | Initial release with ParsedEmail detection, GPT-4o matching, CC-based notifications |

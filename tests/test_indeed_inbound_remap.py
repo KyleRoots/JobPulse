@@ -15,6 +15,7 @@ from tasks.indeed_inbound_remap import (
     TARGET_SOURCE,
     TARGET_STATUS,
     UNASSIGNED_OWNER_ID,
+    _search_query,
     build_indeed_inbound_remap_payload,
     is_native_indeed_source,
     is_unassigned_owner,
@@ -72,6 +73,19 @@ class TestHelpers:
         assert not is_native_indeed_source('LinkedIn Job Board')
         assert not is_native_indeed_source('')
         assert not is_native_indeed_source(None)
+
+    def test_search_query_default_has_no_date_floor(self):
+        """Backlog: default query is source-based only (like LinkedIn cleanup)."""
+        q = _search_query(None)
+        assert 'source:Indeed' in q
+        assert 'Indeed Job Board' in q
+        assert 'Indeed Resume Search' in q
+        assert 'dateLastModified' not in q
+
+    def test_search_query_optional_lookback_adds_date(self):
+        q = _search_query(1_700_000_000_000)
+        assert 'dateLastModified:[1700000000000 TO *]' in q
+        assert 'Indeed Resume Search' in q
 
 
 class TestBuildPayload:
@@ -193,7 +207,7 @@ class TestRemapCycle:
         }
 
         with patch('bullhorn_service.BullhornService', return_value=bh), \
-             patch('tasks.indeed_inbound_remap._requests.get', return_value=search_resp), \
+             patch('tasks.indeed_inbound_remap._requests.get', return_value=search_resp) as mock_get, \
              patch('tasks.indeed_inbound_remap._requests.post', return_value=update_resp) as mock_post:
             result = remap_indeed_inbound_fields(lookback_hours=24)
 
@@ -204,6 +218,10 @@ class TestRemapCycle:
         assert result['updated'] == 2
         assert result['skipped_human_owner_only'] == 1
         assert mock_post.call_count == 2
+
+        # Optional lookback should appear in the search query
+        search_q = mock_get.call_args_list[0].kwargs['params']['query']
+        assert 'dateLastModified:' in search_q
 
         bodies = [call.kwargs['json'] for call in mock_post.call_args_list]
         assert {
@@ -216,3 +234,30 @@ class TestRemapCycle:
             'source': 'Indeed Job Board',
         } in bodies
         assert sum(1 for b in bodies if 'owner' in b) == 1
+
+    def test_cycle_default_backlog_query_has_no_date_floor(self, monkeypatch):
+        monkeypatch.setenv('INDEED_INBOUND_REMAP_ENABLED', 'true')
+        monkeypatch.delenv('INDEED_INBOUND_REMAP_LOOKBACK_HOURS', raising=False)
+        bh = self._mock_bh()
+
+        search_resp = MagicMock()
+        search_resp.status_code = 200
+        search_resp.json.return_value = {'data': [_cand(cid=1)]}
+
+        update_resp = MagicMock()
+        update_resp.status_code = 200
+        update_resp.json.return_value = {
+            'changeType': 'UPDATE',
+            'changedEntityId': 1,
+        }
+
+        with patch('bullhorn_service.BullhornService', return_value=bh), \
+             patch('tasks.indeed_inbound_remap._requests.get', return_value=search_resp) as mock_get, \
+             patch('tasks.indeed_inbound_remap._requests.post', return_value=update_resp):
+            result = remap_indeed_inbound_fields()
+
+        assert result['lookback_hours'] == 0
+        assert result['updated'] == 1
+        query = mock_get.call_args.kwargs['params']['query']
+        assert 'dateLastModified' not in query
+        assert 'source:Indeed' in query

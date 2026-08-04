@@ -11,6 +11,13 @@ Email inbound (LinkedIn / Indeed emails / apply forms) instead creates:
 This task remaps the native Indeed shape to match email inbound so Scout
 detectors and Owner Reassignment see a consistent inbound profile.
 
+Backlog: the Lucene query selects by still-wrong source (Indeed, excluding
+Indeed Job Board / Indeed Resume Search) with no date floor by default —
+same pattern as LinkedIn source cleanup. Existing New Lead + Indeed +
+Unassigned records are remapped on first deploy cycles (up to
+MAX_UPDATES_PER_CYCLE per run). Once source becomes Indeed Job Board they
+drop out of the query, so ongoing 5-min runs stay efficient.
+
 Ownership interaction with owner_reassignment
 ---------------------------------------------
 owner_reassignment only considers candidates whose owner.id is in the
@@ -51,9 +58,15 @@ TARGET_STATUS = 'Online Applicant'
 TARGET_SOURCE = 'Indeed Job Board'
 SOURCE_EXACT = 'Indeed'  # native Apply only — not Resume Search / Job Board
 
-DEFAULT_LOOKBACK_HOURS = 48
+# 0 = no date floor: Lucene source:Indeed (still needing remap) covers full
+# backlog. Remapped records leave the query (source becomes Indeed Job Board),
+# so ongoing 5-min cycles stay cheap. Set INDEED_INBOUND_REMAP_LOOKBACK_HOURS
+# > 0 only to narrow the window intentionally.
+DEFAULT_LOOKBACK_HOURS = 0
 DEFAULT_BATCH_SIZE = 100
 MAX_UPDATES_PER_CYCLE = 200
+# Cap optional lookback when operators set a positive window (1h–2y).
+MAX_LOOKBACK_HOURS = 24 * 365 * 2
 
 SEARCH_FIELDS = (
     'id,firstName,lastName,status,source,dateAdded,dateLastModified,'
@@ -69,12 +82,15 @@ def _env_flag(name: str, default: bool = True) -> bool:
 
 
 def _lookback_hours() -> float:
+    """Hours of dateLastModified lookback. 0 (default) = full source backlog."""
     raw = os.environ.get('INDEED_INBOUND_REMAP_LOOKBACK_HOURS', str(DEFAULT_LOOKBACK_HOURS))
     try:
         value = float(raw)
     except (TypeError, ValueError):
         return float(DEFAULT_LOOKBACK_HOURS)
-    return max(1.0, min(value, 168.0))  # clamp 1h–7d
+    if value <= 0:
+        return 0.0
+    return min(value, float(MAX_LOOKBACK_HOURS))
 
 
 def is_unassigned_owner(owner: Optional[Dict[str, Any]]) -> bool:
@@ -133,14 +149,21 @@ def build_indeed_inbound_remap_payload(
     return updates
 
 
-def _search_query(since_ms: int) -> str:
-    # Lucene: token Indeed matches Indeed* variants; exclude known non-Apply sources.
-    # Post-filter still requires exact source == "Indeed".
-    return (
-        f'source:Indeed AND -source:"Indeed Job Board" '
-        f'AND -source:"Indeed Resume Search" '
-        f'AND dateLastModified:[{since_ms} TO *]'
+def _search_query(since_ms: Optional[int] = None) -> str:
+    """Lucene query for candidates still on native source Indeed.
+
+    Mirrors LinkedIn source cleanup: select by field values that still need
+    remap (not a short recency window). Excludes Indeed Job Board and Indeed
+    Resume Search. Optional since_ms adds a dateLastModified floor.
+    Post-filter still requires exact source == "Indeed".
+    """
+    query = (
+        'source:Indeed AND -source:"Indeed Job Board" '
+        'AND -source:"Indeed Resume Search"'
     )
+    if since_ms is not None:
+        query = f'{query} AND dateLastModified:[{since_ms} TO *]'
+    return query
 
 
 def _post_update_ok(response: _requests.Response) -> bool:
@@ -164,7 +187,9 @@ def remap_indeed_inbound_fields(
     dry_run: bool = False,
 ) -> Dict[str, Any]:
     """
-    Find recent source=Indeed candidates and remap status/source/owner.
+    Find source=Indeed candidates still needing remap (full backlog by default)
+    and update status/source/owner. Caps writes per cycle; remapped records
+    drop out of the Lucene query on subsequent runs.
 
     Returns a summary dict for logging / tests.
     """
@@ -196,8 +221,10 @@ def remap_indeed_inbound_fields(
         logger.warning('indeed_inbound_remap: %s — skipping run', summary['message'])
         return summary
 
-    hours = summary['lookback_hours']
-    since_ms = int((datetime.utcnow() - timedelta(hours=hours)).timestamp() * 1000)
+    hours = float(summary['lookback_hours'] or 0)
+    since_ms: Optional[int] = None
+    if hours > 0:
+        since_ms = int((datetime.utcnow() - timedelta(hours=hours)).timestamp() * 1000)
     query = _search_query(since_ms)
 
     base_url = bh.base_url
@@ -262,10 +289,13 @@ def remap_indeed_inbound_fields(
         time.sleep(0.05)
 
     summary['found'] = len(candidates)
+    window_label = (
+        f'{hours:.0f}h lookback' if hours > 0 else 'full source backlog (no date floor)'
+    )
     logger.info(
-        'indeed_inbound_remap: found %s candidate(s) in %.0fh window (query=%r)',
+        'indeed_inbound_remap: found %s candidate(s) — %s (query=%r)',
         len(candidates),
-        hours,
+        window_label,
         query,
     )
 
