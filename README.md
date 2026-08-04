@@ -223,6 +223,11 @@ BH_UI_ENCRYPTION_KEY=novo
 BH_UI_CURRENT_USER_ID=   # optional; auto-resolved when possible
 BH_CAREER_PORTAL_JOB_URL_TEMPLATE=https://myticas.com/jobs/{job_id}
 INDEED_TEARSHEET_PUBLISH_NOTIFY_EMAIL=kroots@myticas.com
+
+# Native Indeed Apply inbound field remap (New Lead/Indeed/Unassigned →
+# Online Applicant/Indeed Job Board/Myticas API User). Default ON.
+# INDEED_INBOUND_REMAP_ENABLED=true
+# INDEED_INBOUND_REMAP_LOOKBACK_HOURS=48
 ```
 
 Optional overrides: `ENVIRONMENT_HEALTH_URL` / `SCOUTGENIUS_PUBLIC_URL` for env-monitor probe URL.
@@ -404,7 +409,8 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
-### August 2026: Indeed native Apply Scout Screening coverage
+### August 2026: Indeed inbound field remap + Scout Screening coverage
+- **Indeed inbound field remap (Aug 4)**: Scheduled `indeed_inbound_remap` (every 5 min, `INDEED_INBOUND_REMAP_ENABLED` default ON) remaps native Indeed Apply candidates from **New Lead / source Indeed / Unassigned User** → **Online Applicant / Indeed Job Board / Myticas API User (1147490)**. Exact `source:Indeed` only (skips `Indeed Resume Search` and already-`Indeed Job Board`). Owner is set to Myticas API User **only when still Unassigned** — never overwrites a human owner. This mirrors LinkedIn/email inbound so Owner Reassignment (`owner_reassignment`, every 5 min) can later claim from recruiter activity the same way it does for other Online Applicant / Myticas API User records. Lookback default 48h (`INDEED_INBOUND_REMAP_LOOKBACK_HOURS`).
 - **Problem**: Native Indeed Apply (Plan B) creates Bullhorn candidates as **New Lead + Unassigned + source Indeed** with a JobSubmission, but never creates a ParsedEmail and never sets status to Online Applicant — so Scout’s detectors never saw them (LinkedIn Job Board email inbound continued to screen normally).
 - **Fix**: `detect_indeed_applicants` in `screening/detection.py` — source-based Lucene search (`Indeed` / `Indeed Job Board`), JobSubmission gate, Unassigned-eligible human-owner skip, merged into the 1-minute vetting cycle (same pattern as Matador).
 
@@ -575,5 +581,5 @@ Access health endpoints for status checks:
 
 ---
 
-**Last Updated**: August 3, 2026
+**Last Updated**: August 4, 2026
 **Version**: 2.7 (Indeed native Apply Scout Screening coverage; Railway production)

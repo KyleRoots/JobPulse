@@ -481,6 +481,28 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
             "(gated by INDEED_TEARSHEET_PUBLISH_ENABLED)"
         )
 
+    # ── Indeed Inbound Field Remap (every 5 minutes, feature-flagged) ────────
+    # Native Indeed Apply lands as New Lead + source Indeed + Unassigned.
+    # Remap to Online Applicant + Indeed Job Board + Myticas API User (only when
+    # still Unassigned) so Owner Reassignment can later claim from activity —
+    # same path as LinkedIn email inbound. Gated by INDEED_INBOUND_REMAP_ENABLED
+    # (default ON).
+    if is_primary_worker:
+        from tasks import run_indeed_inbound_remap
+        scheduler.add_job(
+            func=run_indeed_inbound_remap,
+            trigger=IntervalTrigger(minutes=5),
+            id='indeed_inbound_remap',
+            name='Indeed Inbound Field Remap (5 min)',
+            replace_existing=True,
+            misfire_grace_time=300,
+            coalesce=True,
+        )
+        app.logger.info(
+            "🔄 Indeed inbound field remap registered — runs every 5 minutes "
+            "(gated by INDEED_INBOUND_REMAP_ENABLED, default ON)"
+        )
+
     # ── Ownership Reassignment (every 5 minutes) ─────────────────────────────
     if is_primary_worker:
         from tasks import reassign_api_user_candidates

@@ -239,6 +239,7 @@ VISIBLE_JOBS = {
     'reference_number_refresh': 'Reference Number Refresh',
     'enforce_tearsheet_jobs_public': 'Enforce Jobs Public',
     'indeed_tearsheet_publish': 'Indeed Tearsheet Publish (1640)',
+    'indeed_inbound_remap': 'Indeed Inbound Field Remap',
     'requirements_maintenance': 'Requirements Maintenance',
     'duplicate_merge_check': 'Duplicate Candidate Merge',
     'owner_reassignment': 'Owner Reassignment (5 min)',
