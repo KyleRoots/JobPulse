@@ -193,9 +193,11 @@ class CandidateDataAccessMixin:
 
         Applied-job path ALWAYS injects when the JobOrder entity exists —
         including "half-closed" Bullhorn records (``isOpen=False`` while status
-        remains ``Accepting Candidates``). Tearsheet browsing still uses the
-        strict ``is_job_eligible`` filter; the job a candidate actually applied
-        to must be scored so notes/emails can show APPLIED POSITION context.
+        remains ``Accepting Candidates``) and fully closed statuses. Tearsheet
+        browsing still uses the strict ``is_job_eligible`` filter; the job a
+        candidate actually applied to is still scored so notes can show
+        APPLIED POSITION context. Closed/ineligible applied jobs must never
+        set ``is_qualified`` or trigger recruiter email (see ``job_can_qualify``).
         Returns None only when the job cannot be fetched.
 
         Args:

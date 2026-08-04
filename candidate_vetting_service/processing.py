@@ -336,6 +336,40 @@ class CandidateProcessingMixin:
                                 vetting_log.applied_job_id
                             )
                         if applied_job_data:
+                            # Remap / dateLastModified bumps can re-detect old
+                            # Online Applicants whose only submission is a
+                            # closed job. If we already screened that pair,
+                            # skip — do not re-qualify or re-email recruiters
+                            # (Aug 2026: candidate 4657295 × job 34990).
+                            from utils.job_status import job_can_qualify
+                            if not job_can_qualify(applied_job_data):
+                                prior_same_job = CandidateVettingLog.query.filter(
+                                    CandidateVettingLog.bullhorn_candidate_id == candidate_id,
+                                    CandidateVettingLog.applied_job_id == vetting_log.applied_job_id,
+                                    CandidateVettingLog.status.in_(['completed', 'processing']),
+                                    CandidateVettingLog.id != vetting_log.id,
+                                ).order_by(CandidateVettingLog.created_at.desc()).first()
+                                if prior_same_job:
+                                    logger.info(
+                                        f"⏭️ Skipping re-screen of candidate {candidate_id}: "
+                                        f"applied job {vetting_log.applied_job_id} is ineligible "
+                                        f"(isOpen={applied_job_data.get('isOpen')}, "
+                                        f"status={applied_job_data.get('status')!r}) and was "
+                                        f"already screened (prior vetting_log id={prior_same_job.id})"
+                                    )
+                                    vetting_log.status = 'completed'
+                                    vetting_log.analyzed_at = datetime.utcnow()
+                                    vetting_log.is_qualified = False
+                                    vetting_log.highest_match_score = 0.0
+                                    vetting_log.total_jobs_matched = 0
+                                    vetting_log.error_message = (
+                                        f"Skipped: applied job {vetting_log.applied_job_id} "
+                                        f"closed/ineligible and previously screened "
+                                        f"(log {prior_same_job.id})"
+                                    )[:500]
+                                    db.session.commit()
+                                    return vetting_log
+
                             jobs.append(applied_job_data)
                             logger.info(
                                 f"🎯 Injected applied job {vetting_log.applied_job_id} "
@@ -783,6 +817,14 @@ class CandidateProcessingMixin:
                         f"score {_original}→{_final_score} (+{PRESTIGE_BOOST_POINTS}pts) for job {job_id}"
                     )
 
+                from utils.job_status import job_can_qualify
+                score_clears_threshold = (
+                    (_final_score >= job_threshold)
+                    and not analysis.get('is_location_barrier', False)
+                )
+                can_qualify = job_can_qualify(job)
+                match_is_qualified = score_clears_threshold and can_qualify
+
                 match_record = CandidateJobMatch(
                     vetting_log_id=vetting_log.id,
                     bullhorn_job_id=job_id,
@@ -795,7 +837,7 @@ class CandidateProcessingMixin:
                     recruiter_bullhorn_id=recruiter_id,
                     match_score=_final_score,
                     technical_score=analysis.get('technical_score'),
-                    is_qualified=(_final_score >= job_threshold) and not analysis.get('is_location_barrier', False),
+                    is_qualified=match_is_qualified,
                     is_applied_job=is_applied_job,
                     match_summary=sanitize_text(analysis.get('match_summary', '')),
                     skills_match=sanitize_text(analysis.get('skills_match', '')),
@@ -814,7 +856,14 @@ class CandidateProcessingMixin:
                     qualified_matches.append(match_record)
                     logger.info(f"  ✅ Match: {job.get('title')} - {analysis.get('match_score')}%{threshold_note}")
                 else:
-                    if analysis.get('is_location_barrier', False) and analysis.get('match_score', 0) >= job_threshold:
+                    if score_clears_threshold and not can_qualify:
+                        logger.info(
+                            f"  🚫 Closed/ineligible job suppress qualify: {job.get('title')} "
+                            f"scored {_final_score}% (>= {int(job_threshold)}%) but "
+                            f"isOpen={job.get('isOpen')} status={job.get('status')!r} — "
+                            f"is_qualified=False (no recruiter email)"
+                        )
+                    elif analysis.get('is_location_barrier', False) and analysis.get('match_score', 0) >= job_threshold:
                         logger.info(
                             f"  📍 Location barrier override: {job.get('title')} scored {analysis.get('match_score')}% "
                             f"(>= {int(job_threshold)}% threshold) but is_qualified=False due to location mismatch"
@@ -895,7 +944,11 @@ class CandidateProcessingMixin:
                                     job_threshold = job_threshold_cache.get(
                                         match_record.bullhorn_job_id, global_threshold
                                     )
-                                    match_record.is_qualified = new_score >= job_threshold
+                                    from utils.job_status import job_can_qualify
+                                    match_record.is_qualified = (
+                                        new_score >= job_threshold
+                                        and job_can_qualify(job)
+                                    )
                                     if match_record.is_qualified:
                                         qualified_matches.append(match_record)
                                     logger.info(
