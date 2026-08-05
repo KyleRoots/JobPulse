@@ -1,6 +1,7 @@
 """Tests for Scout new-requirement-spec create notify email."""
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
+import json
 
 
 class TestRequirementsSpecNotifyConfig:
@@ -113,8 +114,47 @@ class TestNotifyNewRequirementsSpec:
         assert ok is False
 
 
+class TestScreeningListGate:
+    def test_is_job_on_list_reads_active_snapshots(self, app):
+        with app.app_context():
+            from app import db
+            from models import BullhornMonitor
+            from screening.requirements_spec_notify import (
+                is_job_on_scout_screening_list,
+                screening_snapshot_job_ids,
+            )
+
+            with patch(
+                'screening.requirements_spec_notify.screening_snapshot_job_ids',
+                return_value={34321, 100},
+            ):
+                assert is_job_on_scout_screening_list(34321) is True
+                assert is_job_on_scout_screening_list(99999) is False
+
+            monitor = BullhornMonitor(
+                name='gate-test-monitor',
+                tearsheet_id=999001,
+                is_active=True,
+                next_check=datetime.utcnow(),
+                last_job_snapshot=json.dumps([
+                    {'id': 55501, 'title': 'Visible Job'},
+                    {'id': '55502', 'title': 'Also Visible'},
+                ]),
+            )
+            db.session.add(monitor)
+            db.session.commit()
+            try:
+                ids = screening_snapshot_job_ids()
+                assert 55501 in ids
+                assert 55502 in ids
+                assert is_job_on_scout_screening_list(55501) is True
+            finally:
+                db.session.delete(monitor)
+                db.session.commit()
+
+
 class TestSaveAiInterpretedRequirementsNotify:
-    """Hook: create notifies; update does not; notify exceptions do not break save."""
+    """Hook: create notifies only when on screening list; update does not; no double."""
 
     def _mixin_instance(self):
         from screening.job_management import JobManagementMixin
@@ -124,7 +164,7 @@ class TestSaveAiInterpretedRequirementsNotify:
 
         return _Svc()
 
-    def test_notify_on_create(self, app, monkeypatch):
+    def test_notify_on_create_when_on_screening_list(self, app, monkeypatch):
         monkeypatch.setenv('REQUIREMENTS_SPEC_NOTIFY_ENABLED', 'true')
 
         with app.app_context():
@@ -136,9 +176,12 @@ class TestSaveAiInterpretedRequirementsNotify:
             db.session.commit()
 
             with patch(
-                'screening.requirements_spec_notify.notify_new_requirements_spec'
+                'screening.requirements_spec_notify.is_job_on_scout_screening_list',
+                return_value=True,
+            ), patch(
+                'screening.requirements_spec_notify.notify_new_requirements_spec',
+                return_value=True,
             ) as mock_notify:
-                mock_notify.return_value = True
                 svc = self._mixin_instance()
                 svc._save_ai_interpreted_requirements(
                     job_id,
@@ -153,9 +196,92 @@ class TestSaveAiInterpretedRequirementsNotify:
             assert row is not None
             assert 'Python' in (row.ai_interpreted_requirements or '')
             mock_notify.assert_called_once()
-            call_kw = mock_notify.call_args[1]
-            assert call_kw['job_id'] == job_id
-            assert call_kw['job_title'] == 'New Spec Job'
+            assert row.spec_create_notified_at is not None
+
+            JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).delete()
+            db.session.commit()
+
+    def test_no_notify_when_spec_saved_but_not_on_screening_list(self, app, monkeypatch):
+        monkeypatch.setenv('REQUIREMENTS_SPEC_NOTIFY_ENABLED', 'true')
+
+        with app.app_context():
+            from app import db
+            from models import JobVettingRequirements
+
+            job_id = 990004
+            JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).delete()
+            db.session.commit()
+
+            with patch(
+                'screening.requirements_spec_notify.is_job_on_scout_screening_list',
+                return_value=False,
+            ), patch(
+                'screening.requirements_spec_notify.notify_new_requirements_spec',
+                return_value=True,
+            ) as mock_notify:
+                svc = self._mixin_instance()
+                svc._save_ai_interpreted_requirements(
+                    job_id,
+                    'Early Spec Job',
+                    '- Drupal\n- Remote W2',
+                    None,
+                    'Remote',
+                )
+
+            row = JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).first()
+            assert row is not None
+            assert row.spec_create_notified_at is None
+            mock_notify.assert_not_called()
+
+            JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).delete()
+            db.session.commit()
+
+    def test_flush_notifies_when_job_becomes_visible_no_double(self, app, monkeypatch):
+        monkeypatch.setenv('REQUIREMENTS_SPEC_NOTIFY_ENABLED', 'true')
+
+        with app.app_context():
+            from app import db
+            from models import JobVettingRequirements
+            from screening.requirements_spec_notify import (
+                flush_pending_requirements_spec_notifies,
+                maybe_notify_new_requirements_spec,
+            )
+
+            job_id = 990005
+            JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).delete()
+            db.session.commit()
+
+            row = JobVettingRequirements(
+                bullhorn_job_id=job_id,
+                job_title='Deferred Notify Job',
+                ai_interpreted_requirements='- Need Python',
+                last_ai_interpretation=datetime.utcnow(),
+                spec_create_notified_at=None,
+            )
+            db.session.add(row)
+            db.session.commit()
+
+            with patch(
+                'screening.requirements_spec_notify.is_job_on_scout_screening_list',
+                return_value=True,
+            ), patch(
+                'screening.requirements_spec_notify.notify_new_requirements_spec',
+                return_value=True,
+            ) as mock_notify:
+                sent = flush_pending_requirements_spec_notifies([job_id])
+                assert sent == 1
+                mock_notify.assert_called_once()
+
+                # Second flush / maybe must not send again
+                sent2 = flush_pending_requirements_spec_notifies([job_id])
+                assert sent2 == 0
+                assert maybe_notify_new_requirements_spec(row) is False
+                assert mock_notify.call_count == 1
+
+            refreshed = JobVettingRequirements.query.filter_by(
+                bullhorn_job_id=job_id
+            ).first()
+            assert refreshed.spec_create_notified_at is not None
 
             JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).delete()
             db.session.commit()
@@ -174,11 +300,12 @@ class TestSaveAiInterpretedRequirementsNotify:
                 job_title='Existing',
                 ai_interpreted_requirements='- Old req',
                 last_ai_interpretation=datetime.utcnow(),
+                spec_create_notified_at=datetime.utcnow(),
             ))
             db.session.commit()
 
             with patch(
-                'screening.requirements_spec_notify.notify_new_requirements_spec'
+                'screening.requirements_spec_notify.maybe_notify_new_requirements_spec'
             ) as mock_notify:
                 svc = self._mixin_instance()
                 svc._save_ai_interpreted_requirements(
@@ -209,7 +336,7 @@ class TestSaveAiInterpretedRequirementsNotify:
             db.session.commit()
 
             with patch(
-                'screening.requirements_spec_notify.notify_new_requirements_spec',
+                'screening.requirements_spec_notify.maybe_notify_new_requirements_spec',
                 side_effect=RuntimeError('boom'),
             ):
                 svc = self._mixin_instance()

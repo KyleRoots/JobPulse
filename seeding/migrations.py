@@ -90,6 +90,10 @@ def run_schema_migrations(db):
         # delete/re-extract churn between auto-removal and requirements
         # maintenance (Jul 2026).
         ("job_vetting_requirements", "tearsheet_absent_since", "TIMESTAMP"),
+        # Create-only requirements-spec notify stamp — defer until job is on
+        # Scout Screening snapshot list; backfill existing rows so we do not
+        # re-email historical specs (Aug 2026).
+        ("job_vetting_requirements", "spec_create_notified_at", "TIMESTAMP"),
     ]
 
     _SAFE_IDENTIFIER = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
@@ -113,6 +117,30 @@ def run_schema_migrations(db):
         except Exception as e:
             db.session.rollback()
             logger.warning(f"⚠️ Migration skipped for {table}.{column}: {str(e)}")
+
+    # Backfill spec_create_notified_at for pre-existing AI requirement specs so
+    # the deferred Scout Screening notify flush does not re-email historical rows
+    # (including ones already emailed under the pre-gate path). Idempotent.
+    try:
+        result = db.session.execute(text("""
+            UPDATE job_vetting_requirements
+            SET spec_create_notified_at = COALESCE(
+                created_at,
+                last_ai_interpretation,
+                CURRENT_TIMESTAMP
+            )
+            WHERE ai_interpreted_requirements IS NOT NULL
+              AND spec_create_notified_at IS NULL
+        """))
+        db.session.commit()
+        updated = result.rowcount if result.rowcount is not None and result.rowcount >= 0 else 0
+        if updated:
+            logger.info(
+                f"✅ Backfilled spec_create_notified_at on {updated} job_vetting_requirements row(s)"
+            )
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ spec_create_notified_at backfill skipped: {str(e)}")
 
     # Index the normalized phone column for the fraud identity-reuse lookup
     # (added May 2026). Mirrors the name SQLAlchemy would auto-generate so

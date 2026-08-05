@@ -176,6 +176,11 @@ class JobVettingRequirements(db.Model):
     # a fresh gpt-5.4 extraction (~$275/mo of churn, Jul 2026). Cleared as soon
     # as the job is seen active again.
     tearsheet_absent_since = db.Column(db.DateTime, nullable=True)
+    # When the create-only requirements-spec sanity email was sent (or backfilled
+    # for pre-existing rows). NULL = still pending until the job appears on the
+    # Scout Screening snapshot list. Prevents duplicate emails across extract +
+    # deferred flush paths.
+    spec_create_notified_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

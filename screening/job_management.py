@@ -786,18 +786,17 @@ class JobManagementMixin:
             db.session.commit()
             logger.info(f"✅ Successfully saved AI requirements for job {job_id_int}")
 
-            # Internal sanity email on first-time create only (not update/regen).
+            # Internal sanity email on first-time create only (not update/regen),
+            # and only once the job is on the Scout Screening snapshot list.
+            # If the spec is saved before the job appears in last_job_snapshot,
+            # notify stays pending until flush_pending_requirements_spec_notifies
+            # runs after the next snapshot refresh.
             if is_new_create:
                 try:
-                    from screening.requirements_spec_notify import notify_new_requirements_spec
-                    notify_new_requirements_spec(
-                        job_id=job_id_int,
-                        job_title=job_title or (job_req.job_title if job_req else None),
-                        requirements=requirements,
-                        job_location=job_location or (job_req.job_location if job_req else None),
-                        job_work_type=job_work_type or (job_req.job_work_type if job_req else None),
-                        created_at=getattr(job_req, 'created_at', None) or datetime.utcnow(),
+                    from screening.requirements_spec_notify import (
+                        maybe_notify_new_requirements_spec,
                     )
+                    maybe_notify_new_requirements_spec(job_req)
                 except Exception as notify_err:
                     # Fail-soft: never break requirements persistence / screening.
                     logger.error(
@@ -925,6 +924,22 @@ class JobManagementMixin:
                 monitor.last_job_snapshot = json.dumps(snapshot_jobs)
             
             db.session.commit()
+
+            # Specs are often extracted in incremental monitoring *before* this
+            # snapshot write. Flush deferred create-notifies now that jobs are
+            # UI-visible on Scout Screening (idempotent via spec_create_notified_at).
+            try:
+                from screening.requirements_spec_notify import (
+                    flush_pending_requirements_spec_notifies,
+                )
+                visible_ids = [
+                    int(j.get('id')) for j in all_jobs if j.get('id') is not None
+                ]
+                flush_pending_requirements_spec_notifies(visible_ids)
+            except Exception as flush_err:
+                logger.warning(
+                    f"Deferred requirements-spec notify flush failed: {flush_err}"
+                )
         except Exception as e:
             logger.warning(f"Failed to persist job snapshots: {str(e)}")
             db.session.rollback()
