@@ -758,6 +758,7 @@ class JobManagementMixin:
             logger.info(f"💾 Saving AI requirements for job {job_id_int}: {job_title[:50] if job_title else 'No title'}")
 
             job_req = JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id_int).first()
+            is_new_create = job_req is None
             if job_req:
                 job_req.ai_interpreted_requirements = requirements
                 job_req.last_ai_interpretation = datetime.utcnow()
@@ -784,6 +785,27 @@ class JobManagementMixin:
                 logger.info(f"✅ Created new requirements record for job {job_id_int}")
             db.session.commit()
             logger.info(f"✅ Successfully saved AI requirements for job {job_id_int}")
+
+            # Internal sanity email on first-time create only (not update/regen).
+            if is_new_create:
+                try:
+                    from screening.requirements_spec_notify import notify_new_requirements_spec
+                    notify_new_requirements_spec(
+                        job_id=job_id_int,
+                        job_title=job_title or (job_req.job_title if job_req else None),
+                        requirements=requirements,
+                        job_location=job_location or (job_req.job_location if job_req else None),
+                        job_work_type=job_work_type or (job_req.job_work_type if job_req else None),
+                        created_at=getattr(job_req, 'created_at', None) or datetime.utcnow(),
+                    )
+                except Exception as notify_err:
+                    # Fail-soft: never break requirements persistence / screening.
+                    logger.error(
+                        "Requirements-spec create notify raised for job %s: %s",
+                        job_id_int,
+                        notify_err,
+                        exc_info=True,
+                    )
         except Exception as e:
             logger.error(f"Error saving AI requirements for job {job_id}: {str(e)}")
             import traceback
