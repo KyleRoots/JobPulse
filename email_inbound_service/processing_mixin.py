@@ -5,6 +5,7 @@ from typing import Dict, Any
 from utils.candidate_name_extraction import (
     build_extraction_summary,
     is_cta_phrase,
+    is_job_title_phrase,
     is_valid_name,
     parse_name_from_email_address,
     parse_name_from_filename,
@@ -283,6 +284,43 @@ class ProcessingMixin:
                     first_name = None
                     last_name = None
 
+            # Title-Reject Guard: occupation / job-title leaked into the
+            # name fields (apply-form autofill, LinkedIn subject using
+            # headline, or email name == résumé current_title). Prefer
+            # the AI résumé name, then clear so filename / email-local
+            # recovery can run. Production: #4673968 "Senior Business
+            # Analyst" while résumé AI had "Uday Vasireddy".
+            current_title = (resume_data.get('current_title') or '').strip()
+            combined_name = f"{first_name or ''} {last_name or ''}".strip()
+            name_matches_title = bool(
+                combined_name
+                and current_title
+                and combined_name.lower() == current_title.lower()
+            )
+            if first_name and last_name and (
+                is_job_title_phrase(combined_name) or name_matches_title
+            ):
+                self.logger.warning(
+                    f"Title-style name rejected: '{combined_name}' "
+                    f"(matches_title={name_matches_title}). Trying resume_data "
+                    f"alone, then falling to recovery layers."
+                )
+                rd_first = resume_data.get('first_name')
+                rd_last = resume_data.get('last_name')
+                if (rd_first and rd_last
+                        and not is_job_title_phrase(f"{rd_first} {rd_last}")
+                        and is_valid_name(rd_first, rd_last)
+                        and f"{rd_first} {rd_last}".strip().lower() != current_title.lower()):
+                    first_name, last_name = rd_first, rd_last
+                    parsed_email.candidate_name = f"{first_name} {last_name}".strip()
+                    self.logger.info(
+                        f"Title-Reject Guard recovered name from resume_data: "
+                        f"{first_name} {last_name}"
+                    )
+                else:
+                    first_name = None
+                    last_name = None
+
             has_name = is_valid_name(first_name, last_name)
             has_contact = bool(candidate_email or candidate_phone)
             has_email_data = bool(email_candidate.get('first_name') or email_candidate.get('email'))
@@ -294,8 +332,10 @@ class ProcessingMixin:
                         f"Layer 3 (filename) recovered name: {fn_first} {fn_last} "
                         f"from '{parsed_email.resume_filename}'"
                     )
-                    first_name = first_name or fn_first
-                    last_name = last_name or fn_last
+                    # Overwrite — do not keep a truthy-but-poisoned
+                    # first/last via `or` (we only enter this block when
+                    # the current pair failed is_valid_name).
+                    first_name, last_name = fn_first, fn_last
                     parsed_email.candidate_name = f"{first_name} {last_name}".strip()
                     has_name = True
 
@@ -305,8 +345,7 @@ class ProcessingMixin:
                     self.logger.info(
                         f"Layer 3b (email local-part) recovered name: {ea_first} {ea_last}"
                     )
-                    first_name = first_name or ea_first
-                    last_name = last_name or ea_last
+                    first_name, last_name = ea_first, ea_last
                     parsed_email.candidate_name = f"{first_name} {last_name}".strip()
                     has_name = True
 
