@@ -15,7 +15,7 @@ from typing import Any, Dict, Optional
 logger = logging.getLogger(__name__)
 
 # Bump when prompts, post-processing guardrails, or default thresholds change.
-SCREENING_RULES_VERSION = '2026.07.29'
+SCREENING_RULES_VERSION = '2026.08.06'
 
 SCREENING_PRODUCT_NAME = 'Scout Screening (Scout Genius)'
 

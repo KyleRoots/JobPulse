@@ -263,7 +263,7 @@ CRITICAL RULES:
    - If a job requires "Bachelor\'s degree" and the candidate has a Master\'s, PhD, or Doctorate, the education requirement is MET (exceeded), NOT a gap.
    - Only flag an education gap if the candidate\'s highest degree is LOWER than what the job requires.
    - If the job specifies a field (e.g., "Bachelor\'s in Computer Science") and the candidate has a higher degree in an unrelated field, acknowledge the higher degree but note the field mismatch as a separate gap.
-9. YEARS OF EXPERIENCE MATTER: If a job requires "3+ years of Python" and the candidate has only used Python for 6 months based on resume dates, that is a CRITICAL GAP that MUST significantly reduce the score. Do NOT treat skills learned in brief internships, bootcamps, or university coursework as equivalent to years of professional experience. A 4-month internship using React does NOT satisfy a "3+ years of React" requirement.
+9. YEARS OF EXPERIENCE MATTER: If a job requires "3+ years of Python" and the candidate has only used Python for 6 months based on resume dates, that is a CRITICAL GAP that MUST significantly reduce the score. Count years from DATED role start/end dates only — résumé summary self-claims ("3+ years shipping production AI") are NOT proof. Do NOT treat skills learned in brief internships, bootcamps, or university coursework as equivalent to years of professional experience. A 4-month internship using React does NOT satisfy a "3+ years of React" requirement.
 10. DISTINGUISH PROFESSIONAL VS ACADEMIC EXPERIENCE: Full-time professional roles count fully. Internships and part-time roles count at 50%. University projects, coursework, capstone projects, and personal side projects count as ZERO professional years. A recent graduate with only coursework experience CANNOT meet a "3+ years" requirement.
 11. WORK AUTHORIZATION & CLEARANCE EVIDENCE: When a job requires US citizenship, W2 only, or similar work authorization, you MUST internally enumerate US-based roles from the resume before scoring and apply the Global Screening Instructions inference tiers. DO NOT simply flag "citizenship not mentioned" as a gap without that enumeration. If the candidate has 5+ years of US work experience, apply NO score penalty per the inference tier rules. SIMILARLY, when a job requires a Canadian security clearance (Reliability, Enhanced Reliability, Secret, Top Secret, Controlled Goods, PWGSC, or "clearance eligible"), you MUST internally enumerate Canadian roles and apply the clearance inference tier rules — most Canadian residents with sufficient Canadian work history are sponsorable for the lower clearance levels even when no clearance is mentioned on the resume. Do NOT emit separate work_authorization_analysis or canadian_clearance_analysis JSON blocks — fold the eligibility verdict into match_summary and gaps_identified only. TRANSPARENCY REQUIREMENT: For ANY job that triggers a work-authorization or security-clearance rule (US or Canadian), you MUST state the resulting eligibility verdict explicitly in BOTH the match_summary AND the gaps_identified fields — in every case, including when the verdict is favorable and no penalty applies. When the candidate does not hold and cannot be inferred eligible for a required clearance, gaps_identified MUST document that as an explicit reason the candidate may not qualify. A verdict placed in only one field is invisible to one recruiter surface (the email shows only match_summary; the Bullhorn note shows both). This is a documentation requirement and does NOT change any scoring.
 12. EVIDENCE-FIRST SCORING: Before assigning match_score, internally evaluate each top mandatory requirement against resume evidence. Your score must be mathematically consistent with those findings — do not assign a holistic impression score that contradicts the gaps you report. Do NOT emit a requirement_evidence array in the JSON response.
@@ -422,6 +422,27 @@ YEARS OF EXPERIENCE ANALYSIS (MANDATORY):
 Before scoring, you MUST perform this analysis for EACH skill or technology that has an
 explicit "X+ years" or "X years" requirement in the job description or requirements:
 
+DATED WORK HISTORY IS AUTHORITATIVE (CRITICAL — summary-claim regression):
+- estimated_years MUST come ONLY from dated professional roles (month/year start–end arithmetic
+  on roles whose responsibilities match the REQUIRED skill or domain).
+- Résumé SUMMARY / PROFILE / OBJECTIVE phrases such as "3+ years shipping production AI",
+  "5 years of experience", or "seasoned ML engineer" are CLAIMS, not proof. You MAY note them
+  in the calculation field as "summary_claim: …" but MUST NOT use them as the sole basis for
+  estimated_years or for meets_requirement=true.
+- Domain scope: if the JD asks for years in a SPECIFIC domain (e.g. "3–5+ years AI", "3+ years ML"),
+  count ONLY dated roles with AI/ML (or that discipline\'s) responsibilities. Do NOT credit all
+  Python / data / software years toward an AI years bar unless those roles show AI/ML work.
+  For a generic years bar with no skill attached (e.g. "5+ years of experience"), sum dated
+  professional roles in the relevant career track.
+- Conflict rule: when the summary claims N+ years but dated relevant roles sum to fewer years,
+  set estimated_years to the dated sum, set meets_requirement from the dated sum only, and write
+  in calculation: "Summary claims N+yr; dated relevant roles = X.Xyr ([role date ranges]). Claim
+  not used for estimated_years."
+- NOTE LANGUAGE: Never write "resume explicitly shows N+ years of [skill]" (or equivalent certainty)
+  unless dated role arithmetic supports ≥ N years for that skill. Prefer "Dated [skill] roles total
+  ~X.Xyr ([dates])". When a claim conflicts, write: "Résumé summary claims N+ years of [skill];
+  dated roles show ~X.Xyr."
+
 1. Identify which skills have year-based requirements (e.g., "3+ years of Python", "5 years Java development").
 2. For each such skill, scan the resume for ALL roles where the candidate performed work in that skill area.
    DISCIPLINE RECOGNITION — count a role if the candidate DID the work, even if their title differs:
@@ -567,7 +588,8 @@ Respond in JSON format with these exact fields only (do not add other top-level 
         "<skill_name>": {{{{
             "required_years": 0,
             "estimated_years": 0.0,
-            "meets_requirement": true
+            "meets_requirement": true,
+            "calculation": "<dated month arithmetic only; note summary_claim separately if present>"
         }}}}
     }}}},
     "recency_analysis": {{{{

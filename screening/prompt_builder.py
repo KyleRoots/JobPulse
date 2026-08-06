@@ -607,22 +607,27 @@ CANDIDATE RESUME:
 {resume_text[:8000]}
 
 INSTRUCTIONS:
-1. For EACH skill listed above, re-scan the resume for ALL roles where the candidate performed 
-   relevant work (focus on responsibilities, not just titles).
+1. For EACH skill listed above, re-scan the resume for ALL DATED roles where the candidate performed
+   relevant work (focus on responsibilities, not just titles). Scope to the skill/domain the JD
+   requires (e.g. AI/ML years ≠ all Python years unless the role shows AI/ML work).
 2. Calculate total months using the EXACT formula:
    Duration = (end_year - start_year) × 12 + (end_month - start_month)
    For "Present"/"Current" roles, use today: month {_today_month} of {_today_year}.
-3. Show your step-by-step arithmetic.
+3. Show your step-by-step arithmetic from role dates ONLY.
 4. Internships/part-time = 50% weight. University projects = 0.
-5. Return the CORRECTED years_analysis.
+5. SUMMARY CLAIMS ARE NOT PROOF: Phrases like "3+ years shipping production AI" in a résumé
+   summary/profile may be noted as summary_claim but MUST NOT set estimated_years or alone
+   justify meets_requirement=true. If summary claims N+yr but dated roles sum to less, use the
+   dated sum and write: "Summary claims N+yr; dated relevant roles = X.Xyr. Claim not used."
+6. Return the CORRECTED years_analysis.
 
 Respond in JSON format:
 {{
     "<skill_name>": {{
         "required_years": <N>,
-        "estimated_years": <M>,
+        "estimated_years": <M from dated roles only>,
         "meets_requirement": true/false,
-        "calculation": "<step-by-step month arithmetic>"
+        "calculation": "<step-by-step month arithmetic; note summary_claim separately if present>"
     }}
 }}"""
 
@@ -636,7 +641,8 @@ Respond in JSON format:
                 messages=[
                     {"role": "system", "content": "You are a precise arithmetic calculator. "
                      "Your ONLY job is to verify years-of-experience calculations by counting "
-                     "months between dates on a resume. Be exact. Show your work."},
+                     "months between dated roles on a resume. Ignore résumé summary self-claims "
+                     "when computing estimated_years. Be exact. Show your work."},
                     {"role": "user", "content": prompt}
                 ],
                 response_format={"type": "json_object"},

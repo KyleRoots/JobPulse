@@ -80,6 +80,14 @@ SCREENING_SCORING_RESPONSE_SCHEMA: dict[str, Any] = {
                     "meets_requirement": {"type": "boolean"},
                     "required_years": {"type": "number", "minimum": 0},
                     "estimated_years": {"type": "number", "minimum": 0},
+                    "calculation": {
+                        "type": "string",
+                        "maxLength": 1500,
+                        "description": (
+                            "Dated month arithmetic; summary_claim notes allowed "
+                            "but must not set estimated_years."
+                        ),
+                    },
                 },
             },
         },

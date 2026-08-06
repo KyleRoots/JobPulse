@@ -3,6 +3,19 @@
 Each production screening result stores `screening_rules_version` so audits can
 identify which rule set produced a score.
 
+## 2026.08.06 — Dated tenure over summary claims
+
+- **Bug:** Years bars (e.g. "3–5+ years AI") could be treated as met from résumé
+  summary self-claims ("3+ years shipping production AI") even when dated
+  relevant roles totaled far less (regression: Nirav Patel — summary 3+ AI;
+  dated AI role ~16 months).
+- **Fix:** System + years-recheck prompts require `estimated_years` from dated
+  role arithmetic only; domain-scope AI/ML years separately from generic
+  Python/data years; note language must not say "resume explicitly shows N+
+  years" unless dated history supports it. Post-processing sanitizes that
+  overclaim phrasing when `years_analysis` shows a shortfall.
+- **Rules version:** `2026.08.06`
+
 ## 2026.07.29 — Ops hardening + undated-tenure wording
 
 - **OpenAI auth/permission failures**: analysis no longer lands as permanent

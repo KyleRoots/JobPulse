@@ -214,6 +214,22 @@ def enforce_years_hard_gate(result, job_id, job_title, resume_text, recheck_fn):
     if not isinstance(years_analysis, dict) or not years_analysis:
         return
 
+    # Defense in depth: estimated_years from dated math must drive meets_requirement.
+    # Prevents summary-claim inflation from skipping the shortfall gate when the model
+    # sets meets_requirement=true despite estimated < required.
+    for skill, data in years_analysis.items():
+        if not isinstance(data, dict):
+            continue
+        required = _safe_float(data.get('required_years'), default=0.0)
+        estimated = _safe_float(data.get('estimated_years'), default=None)
+        if required > 0 and estimated is not None and estimated + 0.05 < required:
+            if data.get('meets_requirement', True):
+                data['meets_requirement'] = False
+                logger.info(
+                    f"📐 Years gate: forced meets_requirement=false for '{skill}' "
+                    f"on job {job_id} (estimated {estimated:.1f}yr < required {required:.0f}yr)"
+                )
+
     original_score = result['match_score']
     max_shortfall, shortfall_details = _compute_shortfalls(years_analysis, job_id)
 
@@ -259,6 +275,88 @@ def enforce_years_hard_gate(result, job_id, job_title, resume_text, recheck_fn):
             result['gaps_identified'] = f"{existing_gaps} | {gap_suffix}"
         else:
             result['gaps_identified'] = gap_suffix
+
+    sanitize_years_claim_language(result, job_id)
+
+
+# Phrases that claim dated proof of years when only a résumé summary may support them.
+_EXPLICITLY_SHOWS_YEARS_RE = re.compile(
+    r'(?:resume|CV|curriculum\s+vitae)\s+explicitly\s+shows\s+'
+    r'(\d+(?:\.\d+)?)\+?\s*years?(?:\s+of)?',
+    re.IGNORECASE,
+)
+
+_SUMMARY_CLAIM_IN_CALC = (
+    'summary claim',
+    'summary claims',
+    'claim not used',
+    'claim only',
+    'self-reported',
+    'from summary',
+    'resume claims',
+    'profile claims',
+)
+
+
+def _years_shortfall_entries(years_analysis):
+    """Yield (skill, required, estimated, data) for skills below the years bar."""
+    if not isinstance(years_analysis, dict):
+        return
+    for skill, data in years_analysis.items():
+        if not isinstance(data, dict):
+            continue
+        required = _safe_float(data.get('required_years'), default=0.0)
+        estimated = _safe_float(data.get('estimated_years'), default=None)
+        if required <= 0 or estimated is None:
+            continue
+        if estimated + 0.05 < required:
+            yield skill, required, estimated, data
+
+
+def sanitize_years_claim_language(result, job_id=None):
+    """Rewrite recruiter-facing prose that overstates years proof from summary claims.
+
+    When years_analysis shows a dated shortfall, phrases like "resume explicitly shows
+    3+ years" must not stand — recruiters treat that as verified tenure (Nirav Patel
+    regression: summary claimed 3+ AI years; dated AI role ~16 months).
+    """
+    years_analysis = result.get('years_analysis', {})
+    shortfalls = list(_years_shortfall_entries(years_analysis))
+    if not shortfalls:
+        return
+
+    # Prefer the largest shortfall for replacement wording.
+    skill, required, estimated, data = max(
+        shortfalls, key=lambda t: t[1] - t[2]
+    )
+    calc = str(data.get('calculation') or '').lower()
+    notes_summary_claim = any(m in calc for m in _SUMMARY_CLAIM_IN_CALC)
+
+    replacement = (
+        f"résumé summary claims {required:.0f}+ years of {skill} "
+        f"(dated roles show ~{estimated:.1f}yr)"
+        if notes_summary_claim
+        else (
+            f"dated {skill} roles total ~{estimated:.1f}yr "
+            f"(below {required:.0f}yr required)"
+        )
+    )
+
+    changed = False
+    for field in ('match_summary', 'experience_match', 'gaps_identified'):
+        text = result.get(field) or ''
+        if not isinstance(text, str) or not text:
+            continue
+        new_text, n = _EXPLICITLY_SHOWS_YEARS_RE.subn(replacement, text)
+        if n:
+            result[field] = new_text
+            changed = True
+
+    if changed and job_id is not None:
+        logger.info(
+            f"📝 Years claim language sanitized for job {job_id} "
+            f"({skill}: dated ~{estimated:.1f}yr vs {required:.0f}yr required)"
+        )
 
 
 # Phrases that always invalidate a relevance=True justification (generic soft skills).
