@@ -157,6 +157,81 @@ CTA_PHRASES = {
     "scout genius",
 }
 
+# Job-title vocabulary. Production failure (2026-08-06): LinkedIn apply-form
+# submitted firstName="Senior" / lastName="Business Analyst" (the candidate's
+# occupation) while the résumé AI correctly extracted "Uday Vasireddy". Email
+# subject preference then shipped the title to Bullhorn as the candidate name
+# (#4673968). These tokens/phrases reject title-shaped (first, last) pairs
+# without blocking rare real surnames like "Senior" alone ("John Senior").
+JOB_TITLE_SENIORITY_TOKENS = {
+    "senior", "junior", "principal", "staff", "lead", "sr", "jr",
+    "associate", "entry", "mid", "midlevel", "mid-level",
+}
+
+JOB_TITLE_ROLE_TOKENS = {
+    "analyst", "engineer", "developer", "manager", "architect",
+    "consultant", "specialist", "director", "coordinator",
+    "administrator", "admin", "officer", "designer", "scientist",
+    "programmer", "technician", "recruiter", "accountant",
+    "executive", "president", "founder", "intern", "trainee",
+    "assistant", "supervisor", "strategist", "owner", "lead",
+    "sme", "ba", "pm", "po", "qa", "sdet", "devops",
+}
+
+JOB_TITLE_DOMAIN_TOKENS = {
+    "business", "software", "data", "product", "project", "systems",
+    "system", "network", "cloud", "full", "stack", "fullstack",
+    "frontend", "backend", "front", "back", "end", "ux", "ui",
+    "technical", "tech", "sales", "marketing", "finance",
+    "financial", "operations", "ops", "security", "cyber",
+    "machine", "learning", "web", "mobile", "platform",
+    "infrastructure", "solutions", "solution", "enterprise",
+    "digital", "information", "quality", "assurance", "scrum",
+    "agile", "delivery", "program", "portfolio", "release",
+    "site", "reliability", "sre", "database", "warehouse",
+}
+
+# Exact / near-exact multi-word titles commonly pasted into name fields.
+JOB_TITLE_PHRASES = {
+    "business analyst",
+    "senior business analyst",
+    "junior business analyst",
+    "software engineer",
+    "senior software engineer",
+    "software developer",
+    "senior software developer",
+    "product manager",
+    "senior product manager",
+    "project manager",
+    "senior project manager",
+    "product owner",
+    "technical product owner",
+    "scrum master",
+    "data scientist",
+    "data engineer",
+    "data analyst",
+    "devops engineer",
+    "site reliability engineer",
+    "solutions architect",
+    "solution architect",
+    "technical architect",
+    "qa engineer",
+    "quality assurance",
+    "full stack developer",
+    "fullstack developer",
+    "front end developer",
+    "frontend developer",
+    "back end developer",
+    "backend developer",
+    "program manager",
+    "engineering manager",
+    "account manager",
+    "sales manager",
+    "hr manager",
+    "recruiter",
+    "talent acquisition",
+}
+
 
 def is_cta_phrase(text: Optional[str]) -> bool:
     """Return True if ``text`` is a job-board call-to-action phrase.
@@ -180,6 +255,57 @@ def is_cta_phrase(text: Optional[str]) -> bool:
         if phrase in normalised:
             return True
     return False
+
+
+def is_job_title_phrase(text: Optional[str]) -> bool:
+    """Return True if ``text`` looks like a job title rather than a person name.
+
+    Production failure: apply-form / LinkedIn subject used the candidate's
+    occupation ("Senior Business Analyst") where first/last name belong.
+    ``is_valid_name`` previously accepted those tokens because they are
+    alphabetic and title-cased.
+
+    Match layers (any hit → True):
+
+    1. Exact / substring hit against :data:`JOB_TITLE_PHRASES`.
+    2. First token is seniority (``Senior``, ``Lead``, …) AND any later
+       token is a role (``Analyst``, ``Engineer``, …).
+    3. Every token (2+) is in the union of seniority / role / domain
+       title vocabulary (e.g. ``Business Analyst``, ``Senior Business``
+       after a role word was stripped). Bare ``John Senior`` still
+       passes because ``John`` is not title vocabulary.
+    """
+    if not text:
+        return False
+    normalised = " ".join(text.strip().lower().split())
+    if not normalised:
+        return False
+    for phrase in JOB_TITLE_PHRASES:
+        if phrase == normalised or f" {phrase} " in f" {normalised} ":
+            return True
+        if normalised.startswith(phrase + " ") or normalised.endswith(" " + phrase):
+            return True
+
+    tokens = [t.strip(".,;:") for t in re.split(r"[\s\-]+", normalised) if t.strip(".,;:")]
+    if len(tokens) < 2:
+        return False
+
+    title_vocab = (
+        JOB_TITLE_SENIORITY_TOKENS
+        | JOB_TITLE_ROLE_TOKENS
+        | JOB_TITLE_DOMAIN_TOKENS
+    )
+    if tokens[0] in JOB_TITLE_SENIORITY_TOKENS and any(
+        t in JOB_TITLE_ROLE_TOKENS for t in tokens[1:]
+    ):
+        return True
+    # All-vocab pairs catch incomplete titles ("Senior Business") and
+    # domain+role titles ("Business Analyst") without requiring a role
+    # token — real surnames like "John Senior" stay allowed.
+    if all(t in title_vocab for t in tokens):
+        return True
+    return False
+
 
 NAME_TOKEN_RE = r"[A-Za-z][A-Za-z'\-]*"
 # Non-greedy multi-token name capture so trailing suffix anchors match
@@ -424,6 +550,13 @@ def is_valid_name(first_name: Optional[str], last_name: Optional[str]) -> bool:
     if is_cta_phrase(combined):
         return False
 
+    # Reject job-title-shaped pairs ("Senior Business Analyst",
+    # "Software Engineer"). Production failure: apply-form submitted
+    # occupation as first/last and inbound preferred the email subject
+    # over the AI résumé name (#4673968 Uday Vasireddy).
+    if is_job_title_phrase(combined):
+        return False
+
     # Validate first name: must be a single valid token
     if not is_valid_name_token(first):
         return False
@@ -621,6 +754,23 @@ def parse_name_from_filename(filename: str) -> Tuple[Optional[str], Optional[str
     if not filtered:
         return None, None
 
+    # Strip trailing job-title tokens so filenames like
+    # "Uday_Vasireddy_Senior_Business_Analyst.docx" yield the person
+    # name rather than absorbing the occupation suffix into last_name.
+    # Continue while len > 1 so a title-only filename
+    # ("Senior_Business_Analyst.docx") collapses to a mononym / empty
+    # rather than leaving the remnant pair "Senior Business".
+    title_vocab = (
+        JOB_TITLE_SENIORITY_TOKENS
+        | JOB_TITLE_ROLE_TOKENS
+        | JOB_TITLE_DOMAIN_TOKENS
+    )
+    while len(filtered) > 1 and filtered[-1].lower().strip("()[]{}") in title_vocab:
+        filtered.pop()
+
+    if not filtered:
+        return None, None
+
     candidate = " ".join(filtered)
     first, last = split_full_name(candidate)
 
@@ -629,6 +779,15 @@ def parse_name_from_filename(filename: str) -> Tuple[Optional[str], Optional[str
     if first and first.lower() in INVALID_NAME_TOKENS:
         return None, None
     if last and last.split()[0].lower() in INVALID_NAME_TOKENS:
+        return None, None
+
+    # Reject when the remaining (first, last) is still a job title
+    # (e.g. filename was only "Senior_Business_Analyst.docx").
+    if first and last and is_job_title_phrase(f"{first} {last}"):
+        return None, None
+    # Title-only filenames that collapsed to a single seniority/role
+    # token (mononym) are not usable person names.
+    if first and not last and first.lower() in title_vocab:
         return None, None
 
     return first, last

@@ -13,6 +13,7 @@ import pytest
 
 from utils.candidate_name_extraction import (
     extract_name_from_pattern,
+    is_job_title_phrase,
     is_valid_name,
     is_valid_name_token,
     merge_name_candidates,
@@ -153,6 +154,19 @@ class TestParseNameFromFilename:
         assert first == "Mary-Jane"
         assert last == "O'Brien"
 
+    def test_strips_trailing_job_title_suffix(self):
+        """Name + occupation suffix must yield the person, not the title."""
+        first, last = parse_name_from_filename(
+            "Uday_Vasireddy_Senior_Business_Analyst.docx"
+        )
+        assert (first, last) == ("Uday", "Vasireddy")
+        assert is_valid_name(first, last)
+
+    def test_title_only_filename_rejected(self):
+        """A resume named only after the occupation must not invent a name."""
+        assert parse_name_from_filename("Senior_Business_Analyst.docx") == (None, None)
+        assert parse_name_from_filename("Business_Analyst_Resume.pdf") == (None, None)
+
 
 # ---------------------------------------------------------------------------
 # parse_name_from_email_address — Layer 3b fallback
@@ -208,6 +222,120 @@ class TestIsValidName:
 
     def test_hyphenated_passes(self):
         assert is_valid_name("Mary-Jane", "O'Brien")
+
+    def test_job_title_as_name_rejected(self):
+        """REGRESSION #4673968: occupation must not pass as a person name."""
+        assert not is_valid_name("Senior", "Business Analyst")
+        assert not is_valid_name("Business", "Analyst")
+        assert not is_valid_name("Software", "Engineer")
+        assert not is_valid_name("Product", "Manager")
+
+    def test_real_surname_senior_still_accepted(self):
+        assert is_valid_name("John", "Senior")
+
+
+# ---------------------------------------------------------------------------
+# is_job_title_phrase — rejects occupation leaked into name fields
+# ---------------------------------------------------------------------------
+class TestIsJobTitlePhrase:
+    """REGRESSION: Bullhorn #4673968 — apply form sent firstName=Senior /
+    lastName=Business Analyst; AI résumé parse had Uday Vasireddy but
+    email-subject preference won."""
+
+    def test_production_senior_business_analyst(self):
+        assert is_job_title_phrase("Senior Business Analyst") is True
+        assert is_valid_name("Senior", "Business Analyst") is False
+
+    def test_common_titles(self):
+        for title in (
+            "Business Analyst",
+            "Software Engineer",
+            "Senior Software Engineer",
+            "Product Manager",
+            "Data Scientist",
+            "Lead Data Engineer",
+        ):
+            assert is_job_title_phrase(title) is True, title
+
+    def test_incomplete_title_remnant(self):
+        """After stripping a role word, seniority+domain must still reject."""
+        assert is_job_title_phrase("Senior Business") is True
+        assert is_valid_name("Senior", "Business") is False
+
+    def test_real_name_not_rejected(self):
+        assert is_job_title_phrase("Uday Vasireddy") is False
+        assert is_valid_name("Uday", "Vasireddy") is True
+
+    def test_surname_senior_still_allowed(self):
+        """'John Senior' is a plausible real name — seniority as last only."""
+        assert is_job_title_phrase("John Senior") is False
+        assert is_valid_name("John", "Senior") is True
+
+    def test_empty_rejected(self):
+        assert is_job_title_phrase("") is False
+        assert is_job_title_phrase(None) is False
+
+
+# ---------------------------------------------------------------------------
+# Title-Reject Guard — #4673968 Uday Vasireddy regression
+# ---------------------------------------------------------------------------
+class TestTitleRejectGuardRegression:
+    """Pins the Aug 2026 production failure.
+
+    Apply-form / LinkedIn subject preferred firstName='Senior' /
+    lastName='Business Analyst' (the candidate's occupation) over the
+    AI résumé name 'Uday Vasireddy'. Bullhorn candidate #4673968 was
+    created with the title as the person name.
+
+    Verdict from investigate: email-subject / form name won the
+    ``email_candidate or resume_data`` preference; ``is_valid_name``
+    accepted alphabetic title tokens; recovery layers used ``or`` and
+    could not overwrite a truthy poisoned pair. Fix: reject
+    title-shaped pairs, prefer resume AI name, then filename / email.
+    """
+
+    EMAIL_FIRST = "Senior"
+    EMAIL_LAST = "Business Analyst"
+    RESUME_FIRST = "Uday"
+    RESUME_LAST = "Vasireddy"
+    CURRENT_TITLE = "Senior Business Analyst"
+    FILENAME = "Uday_Vasireddy_Senior_Business_Analyst.docx"
+    EMAIL = "uday.vasireddy@example.com"
+
+    def test_poisoned_email_name_fails_validator(self):
+        assert not is_valid_name(self.EMAIL_FIRST, self.EMAIL_LAST)
+
+    def test_resume_ai_name_passes_validator(self):
+        assert is_valid_name(self.RESUME_FIRST, self.RESUME_LAST)
+
+    def test_name_equals_current_title(self):
+        combined = f"{self.EMAIL_FIRST} {self.EMAIL_LAST}"
+        assert combined.lower() == self.CURRENT_TITLE.lower()
+        assert is_job_title_phrase(combined)
+
+    def test_filename_recovers_person_not_title(self):
+        first, last = parse_name_from_filename(self.FILENAME)
+        assert (first, last) == ("Uday", "Vasireddy")
+
+    def test_email_local_part_recovers_person(self):
+        first, last = parse_name_from_email_address(self.EMAIL)
+        assert (first, last) == ("Uday", "Vasireddy")
+
+    def test_deterministic_layers_prefer_resume_over_title(self):
+        """Simulate Title-Reject Guard: drop title pair, keep résumé name."""
+        first, last = self.EMAIL_FIRST, self.EMAIL_LAST
+        if is_job_title_phrase(f"{first} {last}"):
+            first, last = self.RESUME_FIRST, self.RESUME_LAST
+        assert is_valid_name(first, last)
+        assert (first, last) == ("Uday", "Vasireddy")
+
+    def test_merge_skips_title_picks_resume(self):
+        winner = merge_name_candidates(
+            (self.EMAIL_FIRST, self.EMAIL_LAST),
+            (self.RESUME_FIRST, self.RESUME_LAST),
+            parse_name_from_filename(self.FILENAME),
+        )
+        assert winner == ("Uday", "Vasireddy")
 
 
 # ---------------------------------------------------------------------------
