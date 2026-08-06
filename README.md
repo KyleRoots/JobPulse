@@ -367,6 +367,10 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
+### August 2026: Reject job-title-as-name on inbound
+- **Problem**: LinkedIn apply-form submissions sometimes put the candidate's occupation in `firstName`/`lastName` (e.g. "Senior" / "Business Analyst"). Inbound preferred that email/subject name over the AI résumé parse, creating Bullhorn records with the title as the candidate name (e.g. #4673968 — real name Uday Vasireddy was on the résumé and in the filename).
+- **Fix**: `is_job_title_phrase` in `utils/candidate_name_extraction.py` (wired into `is_valid_name`), Title-Reject Guard in inbound processing (prefer résumé AI name; fall back to filename with title-suffix stripping), and overwrite (not `or`) when recovering over an invalid name.
+
 ### August 2026: Indeed native Apply Scout Screening coverage
 - **Problem**: Native Indeed Apply (Plan B) creates Bullhorn candidates as **New Lead + Unassigned + source Indeed** with a JobSubmission, but never creates a ParsedEmail and never sets status to Online Applicant — so Scout’s detectors never saw them (LinkedIn Job Board email inbound continued to screen normally).
 - **Fix**: `detect_indeed_applicants` in `screening/detection.py` — source-based Lucene search (`Indeed` / `Indeed Job Board`), JobSubmission gate, Unassigned-eligible human-owner skip, merged into the 1-minute vetting cycle (same pattern as Matador).
