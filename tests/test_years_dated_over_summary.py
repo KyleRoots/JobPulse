@@ -203,6 +203,48 @@ def test_clear_shortfall_blocks_qualify_even_without_score_gate():
     assert result["match_score"] == 90
 
 
+def test_clear_shortfall_blocks_qualify_at_score_95_after_penalty():
+    """95 raw −15 → 80 still clears a typical threshold; clear gap still blocks."""
+    result = {
+        "match_score": 95,
+        "match_summary": "Strong technical fit across the stack.",
+        "gaps_identified": "",
+        "years_analysis": _nirav_like_years_analysis(),
+    }
+
+    def _recheck_fn(*_a, **_k):
+        return None
+
+    enforce_years_hard_gate(result, 99014, "AI Engineer", "resume", _recheck_fn)
+
+    assert result["match_score"] == 80
+    assert result["_years_tenure_blocks_qualify"] is True
+    assert years_tenure_allows_qualify(result) is False
+
+
+def test_unverified_tenure_does_not_set_qualify_block():
+    """Undated soft cases are not clear *dated* shortfalls for the qualify gate."""
+    result = {
+        "match_score": 82,
+        "match_summary": "Strong Power BI skills.",
+        "gaps_identified": "",
+        "years_analysis": {
+            "Power BI": {
+                "required_years": 5,
+                "estimated_years": 0.0,
+                "meets_requirement": False,
+                "calculation": (
+                    "No dated role history — tenure unverified. "
+                    "Skills evidence present; recruiter should confirm."
+                ),
+            }
+        },
+    }
+    apply_years_tenure_qualify_gate(result, job_id=99015)
+    assert result["_years_tenure_status"] == "meets"
+    assert years_tenure_allows_qualify(result) is True
+
+
 def test_sanitize_explicitly_shows_when_shortfall_present():
     result = {
         "match_summary": "The resume explicitly shows 3+ years of AI delivery.",

@@ -9,9 +9,12 @@ identify which rule set produced a score.
   or fire Scout qualify emails even when match_score still clears the numeric
   threshold (Nirav-like: ~16 months dated AI vs 3–5yr JD).
 - **Close band** (still may qualify, with note caveat): shortfall ≤ **0.75yr**
-  (~9 months) **or** estimated ≥ **85%** of required years.
-- **Clear shortfall** (blocks `is_qualified`): below required and outside the
-  close band. Meets/exceeds dated tenure: qualify unchanged.
+  (~9 months, within the 6–12 month product window) **or** estimated ≥ **85%**
+  of required years.
+- **Clear shortfall** (blocks `is_qualified` + recruiter qualify email): below
+  required and outside the close band. Meets/exceeds dated tenure: qualify
+  unchanged. Undated UNVERIFIED/TRANSFERABLE soft cases do not use this block
+  (score hard-gate still applies).
 - Wire: `apply_years_tenure_qualify_gate` after years hard gate;
   `years_tenure_allows_qualify` in match persistence.
 - **Rules version:** `2026.08.06b`
