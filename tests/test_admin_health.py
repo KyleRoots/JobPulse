@@ -128,7 +128,7 @@ class TestAdminHealthAuth:
         assert 'overall_status' in payload
         assert 'last_checked' in payload
         assert isinstance(payload['tiles'], list)
-        assert len(payload['tiles']) == 9
+        assert len(payload['tiles']) == 11
         assert payload['overall_status'] in ('green', 'amber', 'red', 'unknown')
         for tile in payload['tiles']:
             for required in ('key', 'label', 'icon', 'status', 'value'):
@@ -180,16 +180,17 @@ class TestAdminHealthService:
     """Service-layer guarantees: every tile method returns a HealthTile and
     never raises, even when its backing service is broken."""
 
-    def test_collect_all_returns_nine_tiles(self, app):
+    def test_collect_all_returns_eleven_tiles(self, app):
         with app.app_context():
             tiles = AdminHealthService().collect_all()
-            assert len(tiles) == 9
+            assert len(tiles) == 11
             assert all(isinstance(t, HealthTile) for t in tiles)
             keys = {t.key for t in tiles}
             assert keys == {
                 'database', 'scheduler', 'bullhorn_auth', 'openai',
                 'inflight_vetting', 'failed_vetting_24h',
                 'sftp_uploads', 'onedrive_token', 'ai_cost_24h',
+                'skip_gates', 'monthly_report',
             }
 
     def test_database_tile_green_when_query_succeeds(self, app):
@@ -415,7 +416,10 @@ class TestAdminHealthService:
         with app.app_context():
             mock_svc = MagicMock()
             mock_svc.get_access_token.return_value = 'tok'
-            mock_svc._token_expires_at = (datetime.utcnow() + timedelta(hours=2)).timestamp()
+            # Use epoch seconds (not naive utcnow().timestamp()) — naive .timestamp()
+            # is local-TZ on macOS and skews the expiry window outside UTC.
+            import time
+            mock_svc._token_expires_at = time.time() + 2 * 3600
             with patch('onedrive_service.OneDriveService', return_value=mock_svc):
                 tile = AdminHealthService().tile_onedrive_token()
             assert tile.status == 'green'
@@ -424,7 +428,8 @@ class TestAdminHealthService:
         with app.app_context():
             mock_svc = MagicMock()
             mock_svc.get_access_token.return_value = 'tok'
-            mock_svc._token_expires_at = (datetime.utcnow() + timedelta(minutes=15)).timestamp()
+            import time
+            mock_svc._token_expires_at = time.time() + 15 * 60
             with patch('onedrive_service.OneDriveService', return_value=mock_svc):
                 tile = AdminHealthService().tile_onedrive_token()
             assert tile.status == 'amber'
