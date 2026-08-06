@@ -454,7 +454,7 @@ def seed_database(db, User):
         log_critical_settings_state(db)
 
         # AUTO-RELEASE: Release any stuck vetting lock on deploy
-        # When Render restarts the service, the previous lock becomes stale
+        # When the service restarts, the previous lock becomes stale
         try:
             from models import VettingConfig
             lock = VettingConfig.query.filter_by(setting_key='vetting_in_progress').first()

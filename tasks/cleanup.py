@@ -42,22 +42,6 @@ def activity_retention_cleanup():
             db.session.rollback()
 
 
-def log_monitoring_cycle():
-    """Run log monitoring cycle - fetches Render logs, analyzes for issues, auto-fixes or escalates."""
-    from app import app
-    with app.app_context():
-        try:
-            from log_monitoring_service import run_log_monitoring_cycle
-            result = run_log_monitoring_cycle()
-            app.logger.info(f"Log monitoring cycle complete: {result['logs_analyzed']} logs, "
-                          f"{result['issues_found']} issues found, {result['auto_fixed']} auto-fixed, "
-                          f"{result['escalated']} escalated")
-        except ImportError as e:
-            app.logger.warning(f"Log monitoring service not available: {e}")
-        except Exception as e:
-            app.logger.error(f"Log monitoring error: {e}")
-
-
 def email_parsing_timeout_cleanup():
     """Reap stuck email-parsing records (status='processing' past the timeout).
 
@@ -348,7 +332,7 @@ def run_data_retention_cleanup():
     """
     Clean up old data to keep the database optimized.
     Retention periods:
-    - Log monitoring runs/issues: 30 days
+    - Legacy log monitoring runs/issues: 30 days (table retained; feature removed)
     - Vetting health checks: 7 days
     - Environment alerts: 30 days
     """
@@ -356,11 +340,11 @@ def run_data_retention_cleanup():
     from extensions import db
     with app.app_context():
         try:
-            from models import LogMonitoringRun, LogMonitoringIssue, VettingHealthCheck, EnvironmentAlert
-            from sqlalchemy import and_
+            from models import LogMonitoringRun, VettingHealthCheck, EnvironmentAlert
 
             total_deleted = 0
 
+            # Drain historical Render log-monitor rows; no new writes after feature removal.
             log_retention_date = datetime.utcnow() - timedelta(days=30)
             old_runs = LogMonitoringRun.query.filter(
                 LogMonitoringRun.run_time < log_retention_date
@@ -370,7 +354,7 @@ def run_data_retention_cleanup():
                 for run in old_runs:
                     db.session.delete(run)  # Cascade deletes issues
                 total_deleted += len(old_runs)
-                app.logger.info(f"Data cleanup: Deleted {len(old_runs)} log monitoring runs older than 30 days")
+                app.logger.info(f"Data cleanup: Deleted {len(old_runs)} legacy log monitoring runs older than 30 days")
 
             health_retention_date = datetime.utcnow() - timedelta(days=7)
             old_health_checks = VettingHealthCheck.query.filter(

@@ -290,20 +290,6 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
         )
         app.logger.info("📦 Scheduled nightly database backup (2 AM UTC → OneDrive)")
 
-    # ── Log Monitoring / Self-Healing ─────────────────────────────────────────
-    if is_primary_worker:
-        from tasks import log_monitoring_cycle
-        log_monitor_interval = int(os.environ.get('LOG_MONITOR_INTERVAL_MINUTES', '15'))
-        scheduler.add_job(
-            func=log_monitoring_cycle,
-            trigger='interval',
-            minutes=log_monitor_interval,
-            id='log_monitoring',
-            name=f'Render Log Monitoring (Self-Healing) - {log_monitor_interval}min',
-            replace_existing=True
-        )
-        app.logger.info(f"📊 Log monitoring enabled - checking Render logs every {log_monitor_interval} minutes")
-
     # ── Email Parsing Timeout Cleanup (every 5 minutes) ───────────────────────
     if is_primary_worker:
         from tasks import email_parsing_timeout_cleanup

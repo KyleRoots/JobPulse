@@ -250,7 +250,7 @@ PROTECTED_JOBS = {'process_bullhorn_monitors', 'candidate_vetting_cycle', 'vetti
 
 INTERNAL_JOBS = {
     'check_monitor_health', 'environment_monitoring', 'refresh_active_job_ids',
-    'activity_cleanup', 'log_monitoring', 'email_parsing_timeout_cleanup',
+    'activity_cleanup', 'email_parsing_timeout_cleanup',
     'data_retention_cleanup',
 }
 

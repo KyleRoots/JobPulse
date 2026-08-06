@@ -63,7 +63,6 @@ HARDENED_TEMPLATES: tuple[str, ...] = (
     "vetting_sandbox.html",
     "ats_integration.html",
     "ats_integration_details.html",
-    "log_monitoring.html",
     "scout_screening.html",
     "base_layout.html",
 )

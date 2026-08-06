@@ -8,7 +8,6 @@ from .monitoring import (
 )
 from .cleanup import (
     activity_retention_cleanup,
-    log_monitoring_cycle,
     email_parsing_timeout_cleanup,
     run_data_retention_cleanup,
 )
@@ -42,7 +41,6 @@ __all__ = [
     "check_environment_status",
     "send_environment_alert",
     "activity_retention_cleanup",
-    "log_monitoring_cycle",
     "email_parsing_timeout_cleanup",
     "run_data_retention_cleanup",
     "run_vetting_health_check",
