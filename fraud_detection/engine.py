@@ -17,6 +17,7 @@ Design tenets:
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import logging
@@ -167,6 +168,12 @@ class FraudSignalEngine:
                     resume_text=resume_text,
                     vetting_log_id=vetting_log_id,
                 )
+            ))
+
+            # --- divergent Resume-typed files on same BH candidate ------
+            # Free / BH-local only (no NeverBounce). Fail-soft on fetch.
+            gathered.append(fsig.evaluate_divergent_resume_versions(
+                self._gather_resume_file_versions(candidate_id)
             ))
 
             # --- PDF metadata / author-signature reuse -----------------
@@ -862,6 +869,136 @@ class FraudSignalEngine:
         except Exception as exc:
             logger.debug("submission-drift gather failed: %s", exc)
             return []
+
+    def _gather_resume_file_versions(self, candidate_id) -> List[Dict[str, Any]]:
+        """Download newest Resume-typed Bullhorn files for divergence check.
+
+        Caps at ``RESUME_VERSION_MAX_FILES`` (newest first). Uses cheap local
+        text extraction only (no OCR / AI). Fail-soft: returns [] on any
+        Bullhorn or parse failure so screening is never blocked.
+        """
+        if not candidate_id or self.bullhorn_service is None:
+            return []
+        try:
+            from screening.candidate_data import list_resume_labeled_files
+            files = self.bullhorn_service.get_entity_files(
+                "Candidate", int(candidate_id),
+            )
+            labeled = list_resume_labeled_files(files)[:fsig.RESUME_VERSION_MAX_FILES]
+            if len(labeled) < 2:
+                # Need ≥2 files to possibly diverge; skip downloads.
+                return []
+
+            versions: List[Dict[str, Any]] = []
+            for file_info in labeled:
+                file_id = file_info.get("id")
+                name = str(file_info.get("name") or f"resume_{file_id}")
+                if not file_id:
+                    continue
+                content = self._download_candidate_file_bytes(
+                    int(candidate_id), int(file_id),
+                )
+                if not content:
+                    continue
+                text = self._extract_resume_text_cheap(content, name)
+                if not text:
+                    continue
+                versions.append({
+                    "name": name[:200],
+                    "text": text,
+                    "file_id": int(file_id),
+                })
+            return versions
+        except Exception as exc:
+            logger.debug(
+                "divergent-resume gather failed for candidate %s: %s",
+                candidate_id, exc,
+            )
+            return []
+
+    def _download_candidate_file_bytes(
+        self, candidate_id: int, file_id: int,
+    ) -> Optional[bytes]:
+        """Fetch raw file bytes from Bullhorn (JSON envelope unwrapped)."""
+        service = self.bullhorn_service
+        if service is None or not getattr(service, "base_url", None):
+            return None
+        try:
+            if not getattr(service, "rest_token", None):
+                authenticate = getattr(service, "authenticate", None)
+                if callable(authenticate) and not authenticate():
+                    return None
+            url = f"{service.base_url}file/Candidate/{candidate_id}/{file_id}"
+            params = {"BhRestToken": service.rest_token}
+            session = getattr(service, "session", None)
+            if session is None:
+                return None
+            response = session.get(url, params=params, timeout=45)
+            if response.status_code == 401:
+                authenticate = getattr(service, "authenticate", None)
+                if callable(authenticate) and authenticate():
+                    params["BhRestToken"] = service.rest_token
+                    response = session.get(url, params=params, timeout=45)
+                else:
+                    return None
+            if response.status_code != 200 or not response.content:
+                return None
+            content = response.content
+            if content.lstrip()[:1] == b"{" and b'"File"' in content[:200]:
+                try:
+                    data = response.json()
+                    b64 = (data.get("File") or {}).get("fileContent") or ""
+                    if not b64:
+                        return None
+                    content = base64.b64decode(b64)
+                except Exception:
+                    return None
+            return content
+        except Exception as exc:
+            logger.debug(
+                "divergent-resume file download failed %s/%s: %s",
+                candidate_id, file_id, exc,
+            )
+            return None
+
+    @staticmethod
+    def _extract_resume_text_cheap(
+        content: bytes, filename: str,
+    ) -> Optional[str]:
+        """Local PDF/DOCX/DOC/TXT extract only — no OCR / vision (keeps $0)."""
+        if not content:
+            return None
+        try:
+            from vetting.resume_utils import (
+                extract_text_from_pdf,
+                extract_text_from_docx,
+                extract_text_from_doc,
+                _detect_file_format,
+            )
+            from utils.text_sanitization import sanitize_text
+            name = (filename or "").lower()
+            fmt = _detect_file_format(content)
+            text = None
+            if name.endswith(".pdf") or fmt == "pdf":
+                text = extract_text_from_pdf(content)
+            elif name.endswith(".docx") or fmt == "docx":
+                text = extract_text_from_docx(content)
+                if (not text or len(text.strip()) < 10) and fmt == "doc":
+                    text = extract_text_from_doc(content)
+            elif name.endswith(".doc") or fmt == "doc":
+                text = extract_text_from_doc(content)
+            elif name.endswith(".txt") or name.endswith(".rtf"):
+                for enc in ("utf-8", "latin-1"):
+                    try:
+                        text = content.decode(enc)
+                        break
+                    except UnicodeDecodeError:
+                        continue
+            if text and len(text.strip()) >= 40:
+                return sanitize_text(text)
+            return None
+        except Exception:
+            return None
 
     def _gather_pdf_signals(
         self, pdf_metadata, candidate_id, name, resume_text, vetting_log_id,

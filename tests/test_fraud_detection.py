@@ -1230,6 +1230,114 @@ def test_submission_drift_empty():
     assert fsig.evaluate_submission_drift(None) is None
 
 
+def _ml_resume_text():
+    """Synthetic ML-career résumé with enough tokens for overlap checks."""
+    skills = (
+        "python pytorch tensorflow scikit learn neural networks deep learning "
+        "machine learning model training feature engineering gpu cuda "
+        "transformer bert llm langchain mlops kubernetesflow kubernetesflow "
+        "data pipelines spark airflow kubernetesflow docker kubernetesflow "
+    )
+    roles = (
+        "Senior Machine Learning Engineer at Acme AI built ranking models. "
+        "ML Scientist at DataCorp trained computer vision classifiers. "
+        "Research Intern published papers on reinforcement learning agents. "
+    )
+    return (skills + roles) * 3
+
+
+def _marketing_resume_text():
+    """Synthetic marketing/CRM résumé — clearly different career content."""
+    skills = (
+        "hubspot salesforce marketo campaign management email nurture "
+        "brand strategy content calendar seo sem google ads analytics "
+        "crm lifecycle funnel conversion copywriting social media "
+        "webinars demand generation abm account based marketing "
+    )
+    roles = (
+        "Marketing Manager at BrandCo led product launch campaigns. "
+        "CRM Specialist at RetailCo owned Salesforce journeys. "
+        "Content Associate wrote blog posts and nurture sequences. "
+    )
+    return (skills + roles) * 3
+
+
+def test_divergent_resume_identical_dupes_no_flag():
+    """Near-identical merge duplicates collapse → no advisory."""
+    text = _ml_resume_text()
+    sig = fsig.evaluate_divergent_resume_versions([
+        {"name": "Resume_A.docx", "text": text},
+        {"name": "Resume_A_copy.docx", "text": text},
+        {"name": "Resume_A_v2.docx", "text": text + "  "},  # trivial whitespace
+    ])
+    assert sig is None
+
+
+def test_divergent_resume_clearly_divergent_pair_flags():
+    """ML vs marketing content on same candidate → Review-band soft advisory."""
+    sig = fsig.evaluate_divergent_resume_versions([
+        {"name": "ML__E.docx", "text": _ml_resume_text()},
+        {"name": "Resume_CV_Marketing.docx", "text": _marketing_resume_text()},
+    ])
+    assert sig is not None
+    assert sig.code == "divergent_resume_versions"
+    assert sig.points == fsig.POINTS_DIVERGENT_RESUME_VERSIONS
+    assert sig.points >= fsig.DEFAULT_REVIEW_THRESHOLD
+    assert sig.points < fsig.DEFAULT_HIGH_RISK_THRESHOLD
+    result = fsig.aggregate([sig])
+    assert result.risk_band == fsig.FraudRiskBand.REVIEW
+    assert "ML__E.docx" in sig.evidence or "Marketing" in sig.evidence
+
+
+def test_divergent_resume_single_file_no_flag():
+    assert fsig.evaluate_divergent_resume_versions([
+        {"name": "Resume.docx", "text": _ml_resume_text()},
+    ]) is None
+    assert fsig.evaluate_divergent_resume_versions([]) is None
+    assert fsig.evaluate_divergent_resume_versions(None) is None
+
+
+def test_divergent_resume_gather_fetch_failure_no_crash(_fraud_db):
+    """Bullhorn file fetch failure must not raise or invent a signal."""
+    db, Assessment, VettingLog, VettingConfig = _fraud_db
+    from fraud_detection.engine import FraudSignalEngine
+    from unittest.mock import MagicMock
+
+    _set_config(
+        db, VettingConfig,
+        fraud_detection_enabled='true',
+        fraud_bullhorn_note_enabled='false',
+        fraud_linkedin_crosscheck_enabled='false',
+        fraud_contact_validation_enabled='false',
+    )
+    bh = MagicMock()
+    bh.get_entity_files.side_effect = RuntimeError("BH unavailable")
+    engine = FraudSignalEngine(bullhorn_service=bh)
+    versions = engine._gather_resume_file_versions(4309619)
+    assert versions == []
+    assert fsig.evaluate_divergent_resume_versions(versions) is None
+
+    candidate = {
+        "id": 9601,
+        "firstName": "Ocean",
+        "lastName": "Towne",
+        "email": "ocean@example.com",
+    }
+    log = VettingLog(
+        bullhorn_candidate_id=9601,
+        candidate_name="Ocean Towne",
+        candidate_email="ocean@example.com",
+        status="processing",
+        resume_text=_ml_resume_text(),
+    )
+    db.session.add(log)
+    db.session.commit()
+    result = engine.assess(candidate, log, include_contact_validation=False)
+    assert result is not None
+    codes = {s["code"] for s in __import__("json").loads(result.signals_json or "[]")}
+    assert "divergent_resume_versions" not in codes
+
+
 def test_pdf_author_reuse_and_recent():
     sigs = fsig.evaluate_pdf_author_reuse(
         "jane|word|adobe", other_identities=2, recent_mod=True,

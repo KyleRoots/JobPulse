@@ -775,6 +775,7 @@ class NotificationMixin:
                     'Application velocity',
                     'LinkedIn profile reuse',
                     'Multi-submission claim drift',
+                    'Divergent résumé file versions',
                     'PDF metadata fingerprint (when PDF)',
                     'Name completeness',
                     'Third-party-submission pattern',

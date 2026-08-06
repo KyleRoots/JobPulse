@@ -9,6 +9,7 @@ Contains:
   - _fetch_applied_job: Single job fetch for applied-job injection
   - _mark_application_vetted: Mark ParsedEmail as vetted
   - get_candidate_resume: Download newest Resume-typed file from Bullhorn
+  - list_resume_labeled_files: Resume-typed/named entityFiles, newest first
   - select_newest_resume_file: Pure newest-by-dateAdded résumé picker
   - extract_resume_text / _extract_text_from_*: Delegate to vetting.resume_utils
 """
@@ -42,6 +43,27 @@ def _file_date_added_ms(file_info: Dict) -> int:
         return 0
 
 
+def list_resume_labeled_files(files: Optional[List[Dict]]) -> List[Dict]:
+    """Return entityFiles whose type or name contains ``resume``, newest first.
+
+    Used by newest-resume selection and divergent-resume fraud advisory.
+    Does not fall back to generic document extensions — those are not
+    Resume-typed versions for integrity comparison.
+    """
+    if not files:
+        return []
+    labeled = []
+    for file_info in files:
+        if not isinstance(file_info, dict):
+            continue
+        type_l = str(file_info.get('type') or '').lower()
+        name_l = str(file_info.get('name') or '').lower()
+        if 'resume' in type_l or 'resume' in name_l:
+            labeled.append(file_info)
+    labeled.sort(key=_file_date_added_ms, reverse=True)
+    return labeled
+
+
 def select_newest_resume_file(files: Optional[List[Dict]]) -> Optional[Dict]:
     """Pick the résumé file recruiters / screening should use.
 
@@ -58,20 +80,18 @@ def select_newest_resume_file(files: Optional[List[Dict]]) -> Optional[Dict]:
     if not files:
         return None
 
-    labeled = []
+    labeled = list_resume_labeled_files(files)
+    if labeled:
+        return labeled[0]
+
     docs = []
     for file_info in files:
         if not isinstance(file_info, dict):
             continue
-        type_l = str(file_info.get('type') or '').lower()
         name_l = str(file_info.get('name') or '').lower()
-        if 'resume' in type_l or 'resume' in name_l:
-            labeled.append(file_info)
-        elif name_l.endswith(_RESUME_DOC_EXTENSIONS):
+        if name_l.endswith(_RESUME_DOC_EXTENSIONS):
             docs.append(file_info)
 
-    if labeled:
-        return max(labeled, key=_file_date_added_ms)
     if docs:
         return max(docs, key=_file_date_added_ms)
     valid = [f for f in files if isinstance(f, dict)]

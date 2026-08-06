@@ -414,6 +414,10 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
+### August 2026: Divergent résumé versions fraud advisory
+- **Problem**: Multi-submission claim drift only compares identity claims across applies — it does not catch clearly different Resume-typed files on one Bullhorn profile (e.g. [Ocean Towne](https://cls45.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?Entity=Candidate&id=4309619) ML vs marketing/CRM versions).
+- **Fix**: Free / BH-local signal `divergent_resume_versions` in `FraudSignalEngine` — newest ≤5 Resume-typed/named entityFiles, near-identical content collapsed (hash / Jaccard ≥0.90), Review-band soft advisory (40 pts) when min pairwise word-token Jaccard &lt;0.40. Fail-soft on Bullhorn fetch; no OCR/NeverBounce.
+
 ### August 2026: Recruiter email attaches newest Bullhorn résumé
 - **Problem**: Scout recruiter emails renamed the attachment to `{Name}_Resume.docx` but fetched the **first** entityFiles hit whose type/name contained "resume" (often oldest-first). Screening preferred Candidate.description (already refreshed from the newest file), so emails could attach a stale tailored résumé while the body pitched skills from a newer version ([Ocean Towne](https://cls45.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?Entity=Candidate&id=4309619) — marketing `Resume_CV…` attached vs `ML__E.docx` scored).
 - **Fix**: `select_newest_resume_file` in `screening/candidate_data.py` — pick newest by `dateAdded` among Resume-typed/named files (then doc extensions). Same helper used by `get_candidate_resume` for attachments and screening file fallback.
@@ -456,6 +460,7 @@ Check dashboard for automation status:
 - **Ops hardening (Jul 28)**: OpenAI auth failures → incomplete retry (not fake 0% NQ); auditor no longer crashes after re-vet deletes the vetting log; undated-tenure years gaps use UNVERIFIED TENURE wording; Indeed XML parks empty while native Plan B is on; Sales Rep `_get_headers` restored; environment_status duplicate rows deduped.
 - **Env monitor + Sales Rep (Jul 28)**: Environment monitor probes `https://app.scoutgenius.ai` (auto-migrates stale lyntrix URLs — domain was never moved). Sales Rep Sync uses Bullhorn **search** (not query) for ClientCorporation `customText` fields — BQL `<> ''` caused residual HTTP 400 after BhRestToken fix; scan errors no longer log the full request URL/token.
 - **Fraud notifier differentiators (Jul 28)**: Multi-submission claim drift; suggested verification questions on Review/High-Risk emails + Bullhorn notes; PDF Author/Producer fingerprint reuse; optional NeverBounce/Twilio contact validation (Qualified candidates only; toggle + env keys); soft LinkedIn URL cross-check (never High-Risk alone); weekly calibration sample API + `scripts/fraud_calibration_report.py`.
+- **Divergent résumé file versions (Aug 6)**: Soft Review advisory (`divergent_resume_versions`, 40 pts) when ≥2 Resume-typed/named Bullhorn files have clearly divergent content after near-identical dedupe (Jaccard &lt;0.40). Free/BH-local; fail-soft.
 - **Qualified-only contact validation (Jul 30)**: NeverBounce/Twilio no longer run on every screen. Free fraud signals still assess all applicants; paid contact checks enrich the fraud assessment only after `is_qualified` is true, cutting credit burn to the qualify rate.
 - **Related-job scoring brevity (Jul 30)**: Non-applied tearsheet matches instruct the model to keep short complete prose when score &lt; 70 (scores unchanged); applied role keeps normal near-miss detail.
 - **OTHER TOP MATCHES note hygiene (Jul 31)**: Not-recommended notes keep a full write-up for the top 2 related roles; trailing related roles below 60% are omitted (no mid-sentence `…` gap cuts — Saitharun / 4673413). Trailing near-misses (≥60) use one complete gap clause only. Prompt brevity also forbids unfinished sentences.
@@ -597,5 +602,5 @@ Access health endpoints for status checks:
 
 ---
 
-**Last Updated**: August 4, 2026
-**Version**: 2.7 (Indeed native Apply Scout Screening coverage; Railway production)
+**Last Updated**: August 6, 2026
+**Version**: 2.8 (Divergent résumé fraud advisory; Railway production)

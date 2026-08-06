@@ -15,6 +15,7 @@ All signals here are DETERMINISTIC — zero OpenAI cost.
 
 from __future__ import annotations
 
+import hashlib
 import re
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -66,6 +67,10 @@ POINTS_AI_STYLE_MARKERS = 0
 # Multi-submission drift: same contact / candidate ID, changing claims over time.
 POINTS_SUBMISSION_DRIFT_LIGHT = 22
 POINTS_SUBMISSION_DRIFT_MODERATE = 40
+# Divergent Resume-typed files on the same Bullhorn candidate (soft Review advisory).
+# Alone hits Review (≥40); not enough for High-Risk. Distinct from submission_drift
+# (claim changes across applies) — this is file-content diversity on one profile.
+POINTS_DIVERGENT_RESUME_VERSIONS = 40
 # PDF Author/Producer signature reused across different candidate names.
 POINTS_PDF_AUTHOR_REUSE = 35
 # Soft amplifier when ModDate is very recent AND author reuse already fired.
@@ -78,6 +83,17 @@ POINTS_PHONE_VOIP = 10
 POINTS_LINKEDIN_URL_DEAD = 42
 POINTS_LINKEDIN_NAME_MISMATCH = 25
 LINKEDIN_SOFT_CODES = frozenset({"linkedin_url_dead", "linkedin_name_mismatch"})
+
+# Divergent-resume tuning (word-token Jaccard on extracted text).
+# Near-identical merge duplicates collapse first (same content saved twice).
+RESUME_VERSION_NEAR_DUP_JACCARD = 0.90
+# Clear divergence: min pairwise Jaccard among unique versions below this fires.
+# Tuned so light tailoring (same career, different emphasis) stays quiet, while
+# unrelated careers (e.g. ML vs marketing/CRM) on one candidate flag Review.
+RESUME_VERSION_DIVERGENCE_JACCARD = 0.40
+RESUME_VERSION_MIN_TOKENS = 40
+RESUME_VERSION_MAX_FILES = 5
+_RESUME_TOKEN_RE = re.compile(r"[a-z0-9]{2,}", re.IGNORECASE)
 
 # JD-mirror tuning: minimum contiguous word-run length to count as a verbatim lift
 # (8 identical consecutive words is strongly copy-paste, not coincidental overlap),
@@ -877,6 +893,126 @@ def evaluate_submission_drift(
     )
 
 
+def resume_content_tokens(text: Optional[str]) -> frozenset:
+    """Lowercased alphanumeric word tokens for résumé overlap comparison."""
+    if not text:
+        return frozenset()
+    return frozenset(_RESUME_TOKEN_RE.findall(str(text).lower()))
+
+
+def jaccard_token_overlap(a: frozenset, b: frozenset) -> float:
+    """Jaccard similarity of two token sets; 1.0 when both empty."""
+    if not a and not b:
+        return 1.0
+    if not a or not b:
+        return 0.0
+    union = len(a | b)
+    if union == 0:
+        return 1.0
+    return len(a & b) / union
+
+
+def dedupe_near_identical_resume_versions(
+    versions: Sequence[Dict[str, Any]],
+    near_dup_jaccard: float = RESUME_VERSION_NEAR_DUP_JACCARD,
+    min_tokens: int = RESUME_VERSION_MIN_TOKENS,
+) -> List[Dict[str, Any]]:
+    """Collapse near-identical résumé versions (hash or high Jaccard).
+
+    Each item needs ``name`` and ``text`` (or precomputed ``tokens``).
+    Returns unique representatives in input order. Short/empty parses are
+    dropped so garbage extractions cannot fabricate divergence.
+    """
+    unique: List[Dict[str, Any]] = []
+    for raw in versions or []:
+        if not isinstance(raw, dict):
+            continue
+        text = str(raw.get("text") or "")
+        tokens = raw.get("tokens")
+        if not isinstance(tokens, frozenset):
+            tokens = resume_content_tokens(text)
+        if len(tokens) < min_tokens:
+            continue
+        content_hash = str(raw.get("content_hash") or "")
+        if not content_hash and text:
+            content_hash = hashlib.md5(text.encode("utf-8")).hexdigest()
+        is_dup = False
+        for kept in unique:
+            if content_hash and content_hash == kept.get("content_hash"):
+                is_dup = True
+                break
+            if jaccard_token_overlap(tokens, kept["tokens"]) >= near_dup_jaccard:
+                is_dup = True
+                break
+        if is_dup:
+            continue
+        unique.append({
+            "name": str(raw.get("name") or "resume")[:200],
+            "text": text,
+            "tokens": tokens,
+            "content_hash": content_hash,
+            "file_id": raw.get("file_id"),
+        })
+    return unique
+
+
+def evaluate_divergent_resume_versions(
+    versions: Optional[Sequence[Dict[str, Any]]] = None,
+    *,
+    near_dup_jaccard: float = RESUME_VERSION_NEAR_DUP_JACCARD,
+    divergence_jaccard: float = RESUME_VERSION_DIVERGENCE_JACCARD,
+    min_tokens: int = RESUME_VERSION_MIN_TOKENS,
+) -> Optional[FraudSignal]:
+    """Soft Review advisory when Resume-typed files clearly diverge in content.
+
+    Near-identical duplicates (merge copies / re-uploads) are collapsed first.
+    Fires only when ≥2 unique versions remain and the *minimum* pairwise
+    Jaccard word overlap is below ``divergence_jaccard`` (default 0.40).
+    """
+    unique = dedupe_near_identical_resume_versions(
+        versions or [],
+        near_dup_jaccard=near_dup_jaccard,
+        min_tokens=min_tokens,
+    )
+    if len(unique) < 2:
+        return None
+
+    min_overlap = 1.0
+    worst_pair = (unique[0]["name"], unique[1]["name"])
+    for i in range(len(unique)):
+        for j in range(i + 1, len(unique)):
+            overlap = jaccard_token_overlap(unique[i]["tokens"], unique[j]["tokens"])
+            if overlap < min_overlap:
+                min_overlap = overlap
+                worst_pair = (unique[i]["name"], unique[j]["name"])
+
+    if min_overlap >= divergence_jaccard:
+        return None
+
+    pct = int(round(min_overlap * 100))
+    names = [v["name"] for v in unique[:4]]
+    name_list = ", ".join(f"'{n}'" for n in names)
+    if len(unique) > 4:
+        name_list += f" (+{len(unique) - 4} more)"
+    return FraudSignal(
+        code="divergent_resume_versions",
+        label="Clearly divergent résumé files on this candidate",
+        points=POINTS_DIVERGENT_RESUME_VERSIONS,
+        evidence=(
+            f"{len(unique)} distinct Resume-typed files with low content overlap "
+            f"(~{pct}% word overlap between '{worst_pair[0]}' and '{worst_pair[1]}'). "
+            f"Files: {name_list}. Confirm which career history applies."
+        ),
+        details={
+            "unique_versions": len(unique),
+            "min_jaccard": round(min_overlap, 3),
+            "divergence_threshold": divergence_jaccard,
+            "worst_pair": list(worst_pair),
+            "names": names,
+        },
+    )
+
+
 def evaluate_pdf_author_reuse(
     signature: Optional[str],
     other_identities: int = 0,
@@ -1048,6 +1184,10 @@ _QUESTION_TEMPLATES: Dict[str, List[str]] = {
     ],
     "submission_drift": [
         "Walk through what changed in their experience since their prior application.",
+    ],
+    "divergent_resume_versions": [
+        "Confirm which résumé version reflects their current target role and "
+        "walk through the career history that applies.",
     ],
     "pdf_author_reuse": [
         "Ask how this PDF résumé was prepared and whether a third party edited it.",
