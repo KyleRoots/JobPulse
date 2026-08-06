@@ -96,6 +96,7 @@
     .source-dice { background-color: #c41230; }
     .source-linkedin { background-color: #0a66c2; }
     .source-indeed { background-color: #2164f3; }
+    .source-ziprecruiter { background-color: #1b9e3e; }
     .source-other { background-color: #6c757d; }
     .candidate-table th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: rgba(255,255,255,0.5); }
     .candidate-table td { font-size: 0.85rem; vertical-align: middle; }
@@ -324,6 +325,8 @@
                             <span class="badge source-badge source-linkedin">LinkedIn</span>
                             {% elif c.source_platform == 'Indeed Job Board' %}
                             <span class="badge source-badge source-indeed">Indeed</span>
+                            {% elif c.source_platform == 'ZipRecruiter Job Board' %}
+                            <span class="badge source-badge source-ziprecruiter">ZipRecruiter</span>
                             {% else %}
                             <span class="badge source-badge source-other">{{ c.source_platform or 'Unknown' }}</span>
                             {% endif %}

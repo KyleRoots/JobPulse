@@ -1,14 +1,160 @@
 import os
 import json
-import tempfile
 import logging
+from types import SimpleNamespace
 from datetime import datetime, timezone, timedelta
-from flask import request, jsonify
+from flask import jsonify
 from flask_login import login_required
 from extensions import db
 from routes.xml_routes import xml_routes_bp
 
 logger = logging.getLogger(__name__)
+
+
+def _manual_upload_all_feeds():
+    """Generate and upload the full XML feed set for a manual trigger."""
+    from models import GlobalSettings
+    from ftp_service import FTPService
+    from simplified_xml_generator import SimplifiedXMLGenerator
+    from tasks.xml_feeds import _upload_single_file
+    from feeds.feed_config import (
+        channel_feeds_for_upload,
+        SOURCE_LINKEDIN,
+        V2_FILENAME,
+        V2_FILENAME_DEV,
+    )
+
+    def _setting(key):
+        row = GlobalSettings.query.filter_by(setting_key=key).first()
+        return (row.setting_value or '').strip() if row and row.setting_value else ''
+
+    def _resolve_hostname(raw: str) -> str:
+        """Prefer DB hostname; fall back to env if the DB value looks corrupted."""
+        env_host = (os.environ.get('SFTP_HOSTNAME') or os.environ.get('SFTP_HOST') or '').strip()
+        if raw and not raw.startswith('{') and '.' in raw and ' ' not in raw:
+            return raw
+        if env_host:
+            if raw and raw != env_host:
+                logger.warning(
+                    "sftp_hostname DB value looks invalid (%r); using SFTP_HOSTNAME env fallback",
+                    raw[:80],
+                )
+                try:
+                    GlobalSettings.set_value('sftp_hostname', env_host)
+                except Exception as heal_err:
+                    logger.warning("Could not auto-heal sftp_hostname: %s", heal_err)
+            return env_host
+        return raw
+
+    sftp_hostname = _resolve_hostname(_setting('sftp_hostname'))
+    sftp_username = _setting('sftp_username') or (os.environ.get('SFTP_USERNAME') or '').strip()
+    sftp_password = _setting('sftp_password') or (os.environ.get('SFTP_PASSWORD') or '').strip()
+    sftp_directory = _setting('sftp_directory') or (os.environ.get('SFTP_DIRECTORY') or '/').strip() or '/'
+    sftp_port_raw = _setting('sftp_port') or (os.environ.get('SFTP_PORT') or '2222').strip()
+
+    if not (sftp_hostname and sftp_username and sftp_password):
+        return {
+            'success': False,
+            'error': 'SFTP credentials not configured. Please fill in hostname, username, and password.'
+        }
+
+    generator = SimplifiedXMLGenerator(db=db)
+    v2_xml, v2_stats = generator.generate_fresh_xml(source_channel=SOURCE_LINKEDIN)
+
+    channel_results = {}
+    for feed_cfg in channel_feeds_for_upload():
+        key = feed_cfg['key']
+        tearsheet_ids = [] if feed_cfg.get('force_empty') else feed_cfg['tearsheet_ids']
+        xml_content, stats = generator.generate_fresh_xml(
+            tearsheet_ids=tearsheet_ids,
+            source_channel=feed_cfg['source_channel'],
+            allow_empty=True if feed_cfg.get('force_empty') else feed_cfg.get('allow_empty', False),
+            publisher_title=feed_cfg.get('publisher_title'),
+            publisher_link=feed_cfg.get('publisher_link'),
+        )
+        channel_results[key] = {
+            'xml': xml_content,
+            'stats': stats,
+            'filenames': {
+                'production': feed_cfg['filename'],
+                'development': feed_cfg.get('filename_dev', feed_cfg['filename']),
+            },
+        }
+
+    try:
+        port_value = int(sftp_port_raw) if sftp_port_raw else 2222
+    except ValueError:
+        port_value = 2222
+    # WP Engine SFTP is on 2222; port 22 often times out from cloud hosts
+    if port_value == 22:
+        logger.warning("sftp_port=22 is unreliable for WP Engine; using 2222")
+        port_value = 2222
+
+    ftp_service = FTPService(
+        hostname=sftp_hostname,
+        username=sftp_username,
+        password=sftp_password,
+        target_directory=sftp_directory,
+        port=port_value,
+        use_sftp=True
+    )
+    logger.info("SFTP upload target %s:%s (dir=%s)", sftp_hostname, port_value, sftp_directory)
+
+    current_env = (os.environ.get('APP_ENV') or os.environ.get('ENVIRONMENT') or 'production').lower()
+    if current_env not in ['production', 'development']:
+        logger.error("Invalid environment '%s' - defaulting to development for safety", current_env)
+        current_env = 'development'
+
+    v2_filename = V2_FILENAME if current_env == 'production' else V2_FILENAME_DEV
+    upload_errors = []
+    uploaded_files = []
+
+    log_context = SimpleNamespace(logger=logger)
+
+    # One authenticated connection for all feeds; see FTPService.sftp_session.
+    try:
+        with ftp_service.sftp_session():
+            v2_ok, v2_err = _upload_single_file(ftp_service, v2_xml, v2_filename, log_context)
+            if v2_ok:
+                uploaded_files.append({
+                    'key': 'v2',
+                    'filename': v2_filename,
+                    'job_count': v2_stats['job_count'],
+                    'xml_size_bytes': v2_stats['xml_size_bytes'],
+                })
+            else:
+                upload_errors.append(f"v2: {v2_err}")
+
+            for key, result in channel_results.items():
+                remote_filename = result['filenames'][current_env]
+                ok, err = _upload_single_file(ftp_service, result['xml'], remote_filename, log_context)
+                if ok:
+                    uploaded_files.append({
+                        'key': key,
+                        'filename': remote_filename,
+                        'job_count': result['stats']['job_count'],
+                        'xml_size_bytes': result['stats']['xml_size_bytes'],
+                    })
+                else:
+                    upload_errors.append(f"{key}: {err}")
+    except Exception as conn_error:
+        upload_errors.append(
+            f"SFTP connection failed, no feeds uploaded "
+            f"({type(conn_error).__name__}: {conn_error})"
+        )
+        logger.error("SFTP connection failed for manual upload: %s", conn_error)
+
+    return {
+        'success': not upload_errors,
+        'environment': current_env,
+        'target_directory': sftp_directory,
+        'uploaded_files': uploaded_files,
+        'upload_errors': upload_errors,
+        'v2_stats': v2_stats,
+        'channel_stats': {
+            key: result['stats'] for key, result in channel_results.items()
+        },
+    }
 
 
 @xml_routes_bp.route('/automation-status')
@@ -122,34 +268,32 @@ def manual_test_upload():
     """Manual upload testing for dev environment"""
     try:
         from models import GlobalSettings
-        from tasks import automated_upload
 
         logger.info("🧪 Manual test upload initiated")
-
-        from simplified_xml_generator import SimplifiedXMLGenerator
-        generator = SimplifiedXMLGenerator(db=db)
-        xml_content, stats = generator.generate_fresh_xml()
-
-        logger.info(f"📊 Generated test XML: {stats['job_count']} jobs, {stats['xml_size_bytes']} bytes")
 
         sftp_enabled = GlobalSettings.query.filter_by(setting_key='sftp_enabled').first()
         if not (sftp_enabled and sftp_enabled.setting_value == 'true'):
             return jsonify({
                 'success': False,
                 'error': 'SFTP not enabled in settings',
-                'job_count': stats['job_count'],
-                'xml_size': stats['xml_size_bytes']
             })
 
-        upload_result = automated_upload()
+        upload_result = _manual_upload_all_feeds()
+
+        if not upload_result.get('success'):
+            return jsonify({
+                'success': False,
+                'error': '; '.join(upload_result.get('upload_errors', [])) or upload_result.get('error', 'Upload failed'),
+                'uploaded_files': upload_result.get('uploaded_files', []),
+                'environment': upload_result.get('environment'),
+            }), 500
 
         return jsonify({
             'success': True,
             'message': 'Test upload completed',
-            'job_count': stats['job_count'],
-            'xml_size': stats['xml_size_bytes'],
-            'destination': 'configured SFTP directory',
-            'note': 'Upload attempted - check logs for detailed results'
+            'uploaded_files': upload_result['uploaded_files'],
+            'destination': upload_result['target_directory'],
+            'environment': upload_result['environment'],
         })
 
     except Exception as e:
@@ -166,7 +310,6 @@ def manual_upload_now():
     """Manually trigger XML generation and SFTP upload"""
     try:
         from models import GlobalSettings
-        from ftp_service import FTPService
 
         logger.info("📤 Manual upload triggered by user")
 
@@ -177,78 +320,27 @@ def manual_upload_now():
                 'error': 'SFTP is not enabled. Please enable it in settings first.'
             })
 
-        sftp_hostname = GlobalSettings.query.filter_by(setting_key='sftp_hostname').first()
-        sftp_username = GlobalSettings.query.filter_by(setting_key='sftp_username').first()
-        sftp_password = GlobalSettings.query.filter_by(setting_key='sftp_password').first()
-        sftp_directory = GlobalSettings.query.filter_by(setting_key='sftp_directory').first()
-        sftp_port = GlobalSettings.query.filter_by(setting_key='sftp_port').first()
+        upload_result = _manual_upload_all_feeds()
 
-        if not (sftp_hostname and sftp_hostname.setting_value and
-                sftp_username and sftp_username.setting_value and
-                sftp_password and sftp_password.setting_value):
+        if upload_result.get('success'):
+            logger.info("✅ Manual upload successful: %s", ', '.join(
+                f["filename"] for f in upload_result['uploaded_files']
+            ))
             return jsonify({
-                'success': False,
-                'error': 'SFTP credentials not configured. Please fill in hostname, username, and password.'
+                'success': True,
+                'message': 'Successfully uploaded all XML feeds',
+                'uploaded_files': upload_result['uploaded_files'],
+                'environment': upload_result['environment'],
+                'destination': upload_result['target_directory'],
             })
 
-        from simplified_xml_generator import SimplifiedXMLGenerator
-        generator = SimplifiedXMLGenerator(db=db)
-        xml_content, stats = generator.generate_fresh_xml()
-
-        logger.info(f"📊 Generated fresh XML: {stats['job_count']} jobs, {stats['xml_size_bytes']} bytes")
-
-        temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False, encoding='utf-8')
-        temp_file.write(xml_content)
-        temp_file.close()
-
-        try:
-            port_value = int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222
-        except ValueError:
-            port_value = 2222
-
-        target_directory = sftp_directory.setting_value if sftp_directory else "/"
-
-        ftp_service = FTPService(
-            hostname=sftp_hostname.setting_value,
-            username=sftp_username.setting_value,
-            password=sftp_password.setting_value,
-            target_directory=target_directory,
-            port=port_value,
-            use_sftp=True
-        )
-
-        upload_result = ftp_service.upload_file(temp_file.name, 'myticas-job-feed-v2.xml')
-
-        try:
-            os.remove(temp_file.name)
-        except Exception:
-            pass
-
-        if isinstance(upload_result, dict):
-            if upload_result.get('success'):
-                logger.info(f"✅ Manual upload successful: {upload_result.get('message', 'File uploaded')}")
-                return jsonify({
-                    'success': True,
-                    'message': f"Successfully uploaded XML with {stats['job_count']} jobs ({stats['xml_size_bytes']:,} bytes)"
-                })
-            else:
-                logger.error(f"❌ Manual upload failed: {upload_result.get('error', 'Unknown error')}")
-                return jsonify({
-                    'success': False,
-                    'error': upload_result.get('error', 'Upload failed')
-                })
-        else:
-            if upload_result:
-                logger.info("✅ Manual upload successful")
-                return jsonify({
-                    'success': True,
-                    'message': f"Successfully uploaded XML with {stats['job_count']} jobs ({stats['xml_size_bytes']:,} bytes)"
-                })
-            else:
-                return jsonify({
-                    'success': False,
-                    'error': 'Upload failed - check SFTP settings'
-                })
+        logger.error("❌ Manual upload failed: %s", '; '.join(upload_result.get('upload_errors', [])))
+        return jsonify({
+            'success': False,
+            'error': '; '.join(upload_result.get('upload_errors', [])) or upload_result.get('error', 'Upload failed'),
+            'uploaded_files': upload_result.get('uploaded_files', []),
+            'environment': upload_result.get('environment'),
+        }), 500
 
     except Exception as e:
         logger.error(f"❌ Manual upload error: {str(e)}")

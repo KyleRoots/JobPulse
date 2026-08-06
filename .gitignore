@@ -1,4 +1,7 @@
-# Environment variables
+# Migration artifacts (contain prod DB dumps)
+.migration/
+
+# Environment variables (never commit — Railway/Replit use platform secrets)
 .env
 .env.local
 .env.*.local

@@ -282,26 +282,37 @@ class OrchestrationMixin:
         from app import db
         from models import CandidateJobMatch, VettingAuditLog
 
+        # Snapshot scalars BEFORE any re-vet clears CandidateVettingLog rows.
+        # `_trigger_revet` → clear_candidate_vetting_state deletes the log; later
+        # attribute access raised ObjectDeletedError ("… has been deleted").
+        log_id = vetting_log.id
+        candidate_id = vetting_log.bullhorn_candidate_id
+        candidate_name = vetting_log.candidate_name
+        applied_job_id = vetting_log.applied_job_id
+        applied_job_title = vetting_log.applied_job_title
+        resume_text = vetting_log.resume_text or ''
+        highest_match_score = vetting_log.highest_match_score
+
         is_qualified_audit = (mode == 'qualified_false_positive')
         try:
             applied_match = CandidateJobMatch.query.filter_by(
-                vetting_log_id=vetting_log.id,
+                vetting_log_id=log_id,
                 is_applied_job=True
             ).first()
 
             if not applied_match:
                 applied_match = CandidateJobMatch.query.filter_by(
-                    vetting_log_id=vetting_log.id
+                    vetting_log_id=log_id
                 ).order_by(CandidateJobMatch.match_score.desc()).first()
 
             if not applied_match:
                 audit_log = VettingAuditLog(
-                    candidate_vetting_log_id=vetting_log.id,
-                    bullhorn_candidate_id=vetting_log.bullhorn_candidate_id,
-                    candidate_name=vetting_log.candidate_name,
-                    job_id=vetting_log.applied_job_id,
-                    job_title=vetting_log.applied_job_title,
-                    original_score=vetting_log.highest_match_score,
+                    candidate_vetting_log_id=log_id,
+                    bullhorn_candidate_id=candidate_id,
+                    candidate_name=candidate_name,
+                    job_id=applied_job_id,
+                    job_title=applied_job_title,
+                    original_score=highest_match_score,
                     finding_type='no_issue',
                     action_taken='no_action',
                     audit_finding='No job match records found to audit'
@@ -313,13 +324,13 @@ class OrchestrationMixin:
                 return
 
             cooldown_reason = self._check_audit_cooldown(
-                vetting_log.bullhorn_candidate_id,
+                candidate_id,
                 applied_match.bullhorn_job_id,
             )
             if cooldown_reason:
                 logger.info(
                     f"🛑 Screening audit ({mode}): skipping candidate "
-                    f"{vetting_log.bullhorn_candidate_id} ({vetting_log.candidate_name}) "
+                    f"{candidate_id} ({candidate_name}) "
                     f"/ job {applied_match.bullhorn_job_id} — {cooldown_reason}"
                 )
                 return
@@ -336,9 +347,9 @@ class OrchestrationMixin:
                     else 'Heuristic checks passed — no issues detected'
                 )
                 audit_log = VettingAuditLog(
-                    candidate_vetting_log_id=vetting_log.id,
-                    bullhorn_candidate_id=vetting_log.bullhorn_candidate_id,
-                    candidate_name=vetting_log.candidate_name,
+                    candidate_vetting_log_id=log_id,
+                    bullhorn_candidate_id=candidate_id,
+                    candidate_name=candidate_name,
                     job_id=applied_match.bullhorn_job_id,
                     job_title=applied_match.job_title,
                     original_score=applied_match.match_score,
@@ -355,14 +366,14 @@ class OrchestrationMixin:
 
             logger.info(
                 f"⚠️ Screening audit ({mode}): {len(suspected_issues)} suspected issue(s) "
-                f"for candidate {vetting_log.bullhorn_candidate_id} "
-                f"({vetting_log.candidate_name}) on job {applied_match.bullhorn_job_id}"
+                f"for candidate {candidate_id} "
+                f"({candidate_name}) on job {applied_match.bullhorn_job_id}"
             )
 
             ai_finding = self._run_ai_audit(
                 applied_match,
-                vetting_log.resume_text or '',
-                applied_match.job_title or vetting_log.applied_job_title or '',
+                resume_text,
+                applied_match.job_title or applied_job_title or '',
                 suspected_issues,
                 mode=mode
             )
@@ -383,7 +394,7 @@ class OrchestrationMixin:
             # candidate's highest-scoring match and writes its
             # bullhorn_job_id onto the audit row. If that fallback
             # bullhorn_job_id differs from the canonical
-            # vetting_log.applied_job_id, the audit row's job_id will
+            # applied_job_id, the audit row's job_id will
             # never match a future re-vet's CandidateJobMatch (the re-vet
             # scores the actual applied job, not the fallback) — so
             # backfill_revet_new_score can never populate revet_new_score
@@ -394,25 +405,25 @@ class OrchestrationMixin:
             # re-vet.
             if (
                 action_taken == 'revet_triggered'
-                and vetting_log.applied_job_id is not None
+                and applied_job_id is not None
                 and applied_match.bullhorn_job_id is not None
-                and int(applied_match.bullhorn_job_id) != int(vetting_log.applied_job_id)
+                and int(applied_match.bullhorn_job_id) != int(applied_job_id)
             ):
                 mismatch_reason = (
                     f"Suppressed re-vet — audit was scored against "
                     f"job {applied_match.bullhorn_job_id} (fallback to "
                     f"highest-scoring match because no is_applied_job=True "
                     f"row exists) but the candidate actually applied to "
-                    f"job {vetting_log.applied_job_id}. A re-vet would "
+                    f"job {applied_job_id}. A re-vet would "
                     f"never backfill this row because the new "
                     f"CandidateJobMatch will be keyed to the applied "
                     f"job, not the fallback. Flag for human review."
                 )
                 logger.info(
                     f"🛑 Auditor job-mismatch: candidate "
-                    f"{vetting_log.bullhorn_candidate_id} audit job "
+                    f"{candidate_id} audit job "
                     f"{applied_match.bullhorn_job_id} != applied job "
-                    f"{vetting_log.applied_job_id} — skipping re-vet"
+                    f"{applied_job_id} — skipping re-vet"
                 )
                 action_taken = 'revet_skipped_job_mismatch'
                 audit_finding_text = (
@@ -431,7 +442,7 @@ class OrchestrationMixin:
             # persisted action_taken reflects what actually happened.
             if action_taken == 'revet_triggered':
                 cutoff_outcome = self._check_pre_cutoff_eligibility(
-                    vetting_log.bullhorn_candidate_id,
+                    candidate_id,
                 )
                 if cutoff_outcome is not None:
                     skip_action, skip_reason = cutoff_outcome
@@ -443,7 +454,7 @@ class OrchestrationMixin:
 
             if action_taken == 'revet_triggered':
                 skip_outcome = self._check_revet_caps_and_stability(
-                    vetting_log.bullhorn_candidate_id,
+                    candidate_id,
                     applied_match.bullhorn_job_id,
                 )
                 if skip_outcome is not None:
@@ -458,9 +469,9 @@ class OrchestrationMixin:
                         summary['revets_skipped_stable'] += 1
 
             audit_log = VettingAuditLog(
-                candidate_vetting_log_id=vetting_log.id,
-                bullhorn_candidate_id=vetting_log.bullhorn_candidate_id,
-                candidate_name=vetting_log.candidate_name,
+                candidate_vetting_log_id=log_id,
+                bullhorn_candidate_id=candidate_id,
+                candidate_name=candidate_name,
                 job_id=applied_match.bullhorn_job_id,
                 job_title=applied_match.job_title,
                 original_score=applied_match.match_score,
@@ -475,8 +486,8 @@ class OrchestrationMixin:
 
             if action_taken == 'revet_triggered':
                 revet_new_score = self._trigger_revet(
-                    vetting_log.bullhorn_candidate_id,
-                    vetting_log.id
+                    candidate_id,
+                    log_id
                 )
                 try:
                     audit_log.revet_new_score = revet_new_score
@@ -490,7 +501,7 @@ class OrchestrationMixin:
                 summary['revets_triggered'] += 1
                 logger.info(
                     f"✅ Screening audit ({mode}): re-vet triggered for candidate "
-                    f"{vetting_log.bullhorn_candidate_id} ({vetting_log.candidate_name}). "
+                    f"{candidate_id} ({candidate_name}). "
                     f"Original score: {applied_match.match_score}%, "
                     f"New score: {revet_new_score}%"
                 )
@@ -503,8 +514,8 @@ class OrchestrationMixin:
                 if is_qualified_audit:
                     summary['qualified_issues_found'] += 1
                 summary['details'].append({
-                    'candidate_id': vetting_log.bullhorn_candidate_id,
-                    'candidate_name': vetting_log.candidate_name,
+                    'candidate_id': candidate_id,
+                    'candidate_name': candidate_name,
                     'job_id': applied_match.bullhorn_job_id,
                     'job_title': applied_match.job_title,
                     'original_score': applied_match.match_score,
@@ -519,13 +530,13 @@ class OrchestrationMixin:
         except Exception as e:
             logger.error(
                 f"❌ Screening audit error ({mode}) for candidate "
-                f"{vetting_log.bullhorn_candidate_id}: {str(e)}"
+                f"{candidate_id}: {str(e)}"
             )
             try:
                 audit_log = VettingAuditLog(
-                    candidate_vetting_log_id=vetting_log.id,
-                    bullhorn_candidate_id=vetting_log.bullhorn_candidate_id,
-                    candidate_name=vetting_log.candidate_name,
+                    candidate_vetting_log_id=log_id,
+                    bullhorn_candidate_id=candidate_id,
+                    candidate_name=candidate_name,
                     finding_type='no_issue',
                     action_taken='no_action',
                     audit_finding=f'Audit error ({mode}): {str(e)}'

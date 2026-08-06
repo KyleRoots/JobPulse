@@ -38,11 +38,12 @@ from incremental_monitoring_service import IncrementalMonitoringService
 from job_application_service import JobApplicationService
 from xml_change_monitor import create_xml_monitor
 from tasks import (check_monitor_health, check_environment_status, send_environment_alert,
-                   activity_retention_cleanup, log_monitoring_cycle, email_parsing_timeout_cleanup,
+                   activity_retention_cleanup, email_parsing_timeout_cleanup,
                    run_data_retention_cleanup, run_vetting_health_check, send_vetting_health_alert,
                    run_candidate_vetting_cycle, reference_number_refresh, automated_upload,
                    run_xml_change_monitor, start_scheduler_manual, cleanup_linkedin_source,
-                   enforce_tearsheet_jobs_public, run_requirements_maintenance)
+                   enforce_tearsheet_jobs_public, sync_indeed_tearsheet_publish,
+                   run_requirements_maintenance)
 
 # Configure logging for debugging account manager extraction
 logging.basicConfig(
@@ -155,7 +156,6 @@ from routes.vetting import vetting_bp
 from routes.triggers import triggers_bp
 from routes.automations import automations_bp
 from routes.email import email_bp
-from routes.log_monitoring import log_monitoring_bp
 from routes.job_application import job_application_bp
 from routes.diagnostics import diagnostics_bp
 from routes.ats_monitoring import ats_monitoring_bp
@@ -180,7 +180,6 @@ app.register_blueprint(vetting_bp)
 app.register_blueprint(triggers_bp)
 app.register_blueprint(automations_bp)
 app.register_blueprint(email_bp)
-app.register_blueprint(log_monitoring_bp)
 app.register_blueprint(job_application_bp)
 app.register_blueprint(diagnostics_bp)
 app.register_blueprint(ats_monitoring_bp)
@@ -228,7 +227,6 @@ _MODULE_MAP = {
     '/scout-prospector': 'scout_prospector',
     '/settings': 'system',
     '/email-logs': 'system',
-    '/log-monitoring': 'system',
     '/activity-log': 'system',
     '/dashboard': 'system',
 }

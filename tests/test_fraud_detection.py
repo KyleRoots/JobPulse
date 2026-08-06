@@ -1206,3 +1206,398 @@ def test_fraud_banner_tiebreak_by_id_when_same_created_at(_fraud_db):
     assert 'Review Recommended' in html
     assert 'Newer signal' in html
     assert 'High Fraud Risk' not in html
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase A/B/C differentiator signals
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_submission_drift_years_inflation():
+    sig = fsig.evaluate_submission_drift([
+        {
+            "kind": "years_inflation",
+            "summary": "Claimed years rose from ~3 to ~8 since 2026-01-01",
+            "prior_date": "2026-01-01",
+        }
+    ])
+    assert sig is not None
+    assert sig.code == "submission_drift"
+    assert sig.points == fsig.POINTS_SUBMISSION_DRIFT_MODERATE
+
+
+def test_submission_drift_empty():
+    assert fsig.evaluate_submission_drift([]) is None
+    assert fsig.evaluate_submission_drift(None) is None
+
+
+def _ml_resume_text():
+    """Synthetic ML-career résumé with enough tokens for overlap checks."""
+    skills = (
+        "python pytorch tensorflow scikit learn neural networks deep learning "
+        "machine learning model training feature engineering gpu cuda "
+        "transformer bert llm langchain mlops kubernetesflow kubernetesflow "
+        "data pipelines spark airflow kubernetesflow docker kubernetesflow "
+    )
+    roles = (
+        "Senior Machine Learning Engineer at Acme AI built ranking models. "
+        "ML Scientist at DataCorp trained computer vision classifiers. "
+        "Research Intern published papers on reinforcement learning agents. "
+    )
+    return (skills + roles) * 3
+
+
+def _marketing_resume_text():
+    """Synthetic marketing/CRM résumé — clearly different career content."""
+    skills = (
+        "hubspot salesforce marketo campaign management email nurture "
+        "brand strategy content calendar seo sem google ads analytics "
+        "crm lifecycle funnel conversion copywriting social media "
+        "webinars demand generation abm account based marketing "
+    )
+    roles = (
+        "Marketing Manager at BrandCo led product launch campaigns. "
+        "CRM Specialist at RetailCo owned Salesforce journeys. "
+        "Content Associate wrote blog posts and nurture sequences. "
+    )
+    return (skills + roles) * 3
+
+
+def test_divergent_resume_identical_dupes_no_flag():
+    """Near-identical merge duplicates collapse → no advisory."""
+    text = _ml_resume_text()
+    sig = fsig.evaluate_divergent_resume_versions([
+        {"name": "Resume_A.docx", "text": text},
+        {"name": "Resume_A_copy.docx", "text": text},
+        {"name": "Resume_A_v2.docx", "text": text + "  "},  # trivial whitespace
+    ])
+    assert sig is None
+
+
+def test_divergent_resume_clearly_divergent_pair_flags():
+    """ML vs marketing content on same candidate → Review-band soft advisory."""
+    sig = fsig.evaluate_divergent_resume_versions([
+        {"name": "ML__E.docx", "text": _ml_resume_text()},
+        {"name": "Resume_CV_Marketing.docx", "text": _marketing_resume_text()},
+    ])
+    assert sig is not None
+    assert sig.code == "divergent_resume_versions"
+    assert sig.points == fsig.POINTS_DIVERGENT_RESUME_VERSIONS
+    assert sig.points >= fsig.DEFAULT_REVIEW_THRESHOLD
+    assert sig.points < fsig.DEFAULT_HIGH_RISK_THRESHOLD
+    result = fsig.aggregate([sig])
+    assert result.risk_band == fsig.FraudRiskBand.REVIEW
+    assert "ML__E.docx" in sig.evidence or "Marketing" in sig.evidence
+
+
+def test_divergent_resume_single_file_no_flag():
+    assert fsig.evaluate_divergent_resume_versions([
+        {"name": "Resume.docx", "text": _ml_resume_text()},
+    ]) is None
+    assert fsig.evaluate_divergent_resume_versions([]) is None
+    assert fsig.evaluate_divergent_resume_versions(None) is None
+
+
+def test_divergent_resume_gather_fetch_failure_no_crash(_fraud_db):
+    """Bullhorn file fetch failure must not raise or invent a signal."""
+    db, Assessment, VettingLog, VettingConfig = _fraud_db
+    from fraud_detection.engine import FraudSignalEngine
+    from unittest.mock import MagicMock
+
+    _set_config(
+        db, VettingConfig,
+        fraud_detection_enabled='true',
+        fraud_bullhorn_note_enabled='false',
+        fraud_linkedin_crosscheck_enabled='false',
+        fraud_contact_validation_enabled='false',
+    )
+    bh = MagicMock()
+    bh.get_entity_files.side_effect = RuntimeError("BH unavailable")
+    engine = FraudSignalEngine(bullhorn_service=bh)
+    versions = engine._gather_resume_file_versions(4309619)
+    assert versions == []
+    assert fsig.evaluate_divergent_resume_versions(versions) is None
+
+    candidate = {
+        "id": 9601,
+        "firstName": "Ocean",
+        "lastName": "Towne",
+        "email": "ocean@example.com",
+    }
+    log = VettingLog(
+        bullhorn_candidate_id=9601,
+        candidate_name="Ocean Towne",
+        candidate_email="ocean@example.com",
+        status="processing",
+        resume_text=_ml_resume_text(),
+    )
+    db.session.add(log)
+    db.session.commit()
+    result = engine.assess(candidate, log, include_contact_validation=False)
+    assert result is not None
+    codes = {s["code"] for s in __import__("json").loads(result.signals_json or "[]")}
+    assert "divergent_resume_versions" not in codes
+
+
+def test_pdf_author_reuse_and_recent():
+    sigs = fsig.evaluate_pdf_author_reuse(
+        "jane|word|adobe", other_identities=2, recent_mod=True,
+    )
+    codes = {s.code for s in sigs}
+    assert "pdf_author_reuse" in codes
+    assert "pdf_recent_reskin" in codes
+    assert fsig.evaluate_pdf_author_reuse("", 5) == []
+
+
+def test_email_undeliverable_and_phone_voip():
+    assert fsig.evaluate_email_undeliverable("a@b.com", "valid") is None
+    sig = fsig.evaluate_email_undeliverable("a@b.com", "invalid")
+    assert sig and sig.code == "email_undeliverable"
+    voip = fsig.evaluate_phone_validation("4165551234", valid=True, line_type="voip")
+    assert any(s.code == "phone_voip" for s in voip)
+    bad = fsig.evaluate_phone_validation("4165551234", valid=False)
+    assert any(s.code == "phone_invalid" for s in bad)
+
+
+def test_linkedin_soft_dead_and_cap_below_high_risk():
+    sigs = fsig.evaluate_linkedin_url_status(
+        "linkedin.com/in/x", status="dead",
+    )
+    assert any(s.code == "linkedin_url_dead" for s in sigs)
+    res = fsig.aggregate(sigs, review_threshold=40, high_risk_threshold=75)
+    assert res.risk_band == fsig.FraudRiskBand.REVIEW
+    assert res.risk_score < 75
+
+
+def test_linkedin_name_mismatch():
+    sigs = fsig.evaluate_linkedin_url_status(
+        "linkedin.com/in/x",
+        status="ok",
+        profile_name="Alice Smith",
+        resume_name="Bob Jones",
+    )
+    assert any(s.code == "linkedin_name_mismatch" for s in sigs)
+
+
+def test_suggested_questions_capped():
+    signals = [
+        fsig.FraudSignal("resume_reuse", "Resume reused", 40, "x"),
+        fsig.FraudSignal("jd_mirror", "JD mirror", 40, "y"),
+        fsig.FraudSignal(
+            "submission_drift", "Drift", 40, "z",
+            details={"prior_date": "2026-02-01"},
+        ),
+        fsig.FraudSignal("linkedin_reuse", "LI reuse", 35, "w"),
+    ]
+    qs = fsig.suggested_questions_for_signals(signals, limit=3)
+    assert len(qs) == 3
+    assert any("2026-02-01" in q for q in qs)
+
+
+def test_pdf_signature_skips_generic():
+    from fraud_detection.pdf_meta import pdf_signature
+    assert pdf_signature({"author": "", "creator": "Microsoft Word"}) == ""
+    assert "jane" in pdf_signature({"author": "Jane Doe", "creator": "Word"})
+
+
+def test_extract_max_years_claim():
+    assert fsig.extract_max_years_claim("10+ years of Python and 3 years Java") == 10
+    assert fsig.extract_max_years_claim("no years here") is None
+
+
+def test_fraud_banner_includes_suggested_questions(_fraud_db):
+    db, Assessment, VettingLog, VettingConfig = _fraud_db
+    _set_config(db, VettingConfig, fraud_detection_enabled='true')
+    _make_assessment(db, Assessment, 9401, 'review', 50, [
+        {"code": "resume_reuse", "label": "Resume reused across identities",
+         "points": 40, "evidence": "2 other identities", "details": {}},
+    ])
+    html = _banner_service()._build_fraud_banner_html(9401)
+    assert 'Suggested verification questions' in html
+    assert 'authorize other identities' in html
+
+
+def test_note_text_includes_questions():
+    from fraud_detection.engine import FraudSignalEngine
+    result = fsig.aggregate([
+        fsig.FraudSignal("resume_reuse", "Resume reused", 40, "x"),
+    ])
+    note = FraudSignalEngine._build_note_text(result)
+    assert "Suggested verification questions" in note
+
+
+def test_early_assess_skips_contact_validation_when_flag_false(_fraud_db):
+    """Screening pre-score pass must not call NeverBounce even if toggle is on."""
+    db, Assessment, VettingLog, VettingConfig = _fraud_db
+    from fraud_detection.engine import FraudSignalEngine
+    from unittest.mock import patch
+
+    _set_config(
+        db, VettingConfig,
+        fraud_detection_enabled='true',
+        fraud_contact_validation_enabled='true',
+        fraud_bullhorn_note_enabled='false',
+        fraud_linkedin_crosscheck_enabled='false',
+    )
+    log = VettingLog(
+        bullhorn_candidate_id=9501,
+        candidate_name='Qual Gate',
+        candidate_email='gate@example.com',
+        status='processing',
+    )
+    db.session.add(log)
+    db.session.commit()
+
+    candidate = {
+        'id': 9501,
+        'firstName': 'Qual',
+        'lastName': 'Gate',
+        'email': 'gate@example.com',
+        'phone': '4165550199',
+    }
+    with patch.object(
+        FraudSignalEngine, '_gather_contact_validation', return_value=[],
+    ) as mock_contact:
+        engine = FraudSignalEngine(bullhorn_service=None)
+        result = engine.assess(
+            candidate, log, include_contact_validation=False,
+        )
+        mock_contact.assert_not_called()
+    assert result is not None
+    codes = {s['code'] for s in json.loads(result.signals_json or '[]')}
+    assert 'email_undeliverable' not in codes
+
+
+def test_enrich_contact_validation_merges_and_raises_band(_fraud_db):
+    """Post-qualify enrichment merges paid contact signals into the assessment."""
+    db, Assessment, VettingLog, VettingConfig = _fraud_db
+    from fraud_detection.engine import FraudSignalEngine
+    from unittest.mock import patch
+
+    _set_config(
+        db, VettingConfig,
+        fraud_detection_enabled='true',
+        fraud_contact_validation_enabled='true',
+        fraud_bullhorn_note_enabled='false',
+        fraud_linkedin_crosscheck_enabled='false',
+        fraud_review_threshold='40',
+        fraud_high_risk_threshold='75',
+    )
+    log = VettingLog(
+        bullhorn_candidate_id=9502,
+        candidate_name='Enrich Me',
+        candidate_email='bad@example.com',
+        status='completed',
+        is_qualified=True,
+    )
+    db.session.add(log)
+    db.session.commit()
+
+    base = Assessment(
+        bullhorn_candidate_id=9502,
+        vetting_log_id=log.id,
+        candidate_name='Enrich Me',
+        candidate_email='bad@example.com',
+        risk_score=20,
+        risk_band='clear',
+        signals_json=json.dumps([
+            {'code': 'name_anomaly', 'label': 'Name anomaly',
+             'points': 20, 'evidence': 'url', 'details': {}},
+        ]),
+        trigger='screening',
+        note_created=False,
+    )
+    db.session.add(base)
+    db.session.commit()
+
+    undeliverable = fsig.evaluate_email_undeliverable('bad@example.com', 'invalid')
+    assert undeliverable is not None
+
+    candidate = {
+        'id': 9502,
+        'firstName': 'Enrich',
+        'lastName': 'Me',
+        'email': 'bad@example.com',
+        'phone': '4165550100',
+    }
+    with patch.object(
+        FraudSignalEngine,
+        '_gather_contact_validation',
+        return_value=[undeliverable],
+    ):
+        engine = FraudSignalEngine(bullhorn_service=None)
+        updated = engine.enrich_contact_validation(candidate, log)
+
+    assert updated is not None
+    assert updated.risk_score >= 50  # 20 + 30
+    assert updated.risk_band == 'review'
+    codes = {s['code'] for s in json.loads(updated.signals_json or '[]')}
+    assert 'email_undeliverable' in codes
+    assert 'name_anomaly' in codes
+
+
+def test_enrich_contact_validation_noop_when_toggle_off(_fraud_db):
+    db, Assessment, VettingLog, VettingConfig = _fraud_db
+    from fraud_detection.engine import FraudSignalEngine
+    from unittest.mock import patch
+
+    _set_config(
+        db, VettingConfig,
+        fraud_detection_enabled='true',
+        fraud_contact_validation_enabled='false',
+    )
+    log = VettingLog(
+        bullhorn_candidate_id=9503,
+        candidate_name='Off Toggle',
+        candidate_email='off@example.com',
+        status='completed',
+        is_qualified=True,
+    )
+    db.session.add(log)
+    db.session.commit()
+    db.session.add(Assessment(
+        bullhorn_candidate_id=9503,
+        vetting_log_id=log.id,
+        risk_score=0,
+        risk_band='clear',
+        signals_json='[]',
+        trigger='screening',
+    ))
+    db.session.commit()
+
+    with patch.object(
+        FraudSignalEngine, '_gather_contact_validation', return_value=[],
+    ) as mock_contact:
+        engine = FraudSignalEngine(bullhorn_service=None)
+        assert engine.enrich_contact_validation(
+            {'id': 9503, 'email': 'off@example.com'}, log,
+        ) is None
+        mock_contact.assert_not_called()
+
+
+def test_processing_enrich_skips_when_not_qualified(_fraud_db):
+    """_enrich_fraud_contact_validation must not call engine when not qualified."""
+    db, Assessment, VettingLog, VettingConfig = _fraud_db
+    from candidate_vetting_service import CandidateVettingService
+    from unittest.mock import MagicMock, patch
+
+    _set_config(
+        db, VettingConfig,
+        fraud_detection_enabled='true',
+        fraud_contact_validation_enabled='true',
+    )
+    log = VettingLog(
+        bullhorn_candidate_id=9504,
+        candidate_name='Not Qual',
+        candidate_email='nq@example.com',
+        status='completed',
+        is_qualified=False,
+    )
+    db.session.add(log)
+    db.session.commit()
+
+    svc = CandidateVettingService.__new__(CandidateVettingService)
+    with patch('fraud_detection.engine.FraudSignalEngine') as mock_engine_cls:
+        svc._enrich_fraud_contact_validation(
+            {'id': 9504, 'email': 'nq@example.com'}, log,
+        )
+        mock_engine_cls.assert_not_called()

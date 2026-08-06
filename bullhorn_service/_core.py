@@ -28,7 +28,7 @@ class _BullhornCore:
         'JobSubmissionHistory', 'NoteEntity',
     }
     ENTITY_DEFAULT_FIELDS = {
-        'Candidate': 'id,firstName,lastName,email,phone,mobile,status,source,occupation,companyName,skillSet,owner(id,firstName,lastName),address(address1,city,state,zip,countryName)',
+        'Candidate': 'id,firstName,lastName,email,phone,mobile,status,source,occupation,companyName,skillSet,owner(id,firstName,lastName),address(address1,address2,city,state,zip,countryID,countryCode,countryName)',
         'JobOrder': 'id,title,status,isOpen,isDeleted,isPublic,employmentType,salary,salaryUnit,skillList,clientCorporation(id,name),owner(id,firstName,lastName),address(city,state,countryName)',
         'Placement': 'id,status,dateBegin,dateEnd,salary,payRate,billingFrequency,candidate(id,firstName,lastName),jobOrder(id,title),approvingClientContact(id,firstName,lastName)',
         'JobSubmission': 'id,status,dateWebResponse,source,candidate(id,firstName,lastName),jobOrder(id,title),sendingUser(id,firstName,lastName)',
@@ -81,6 +81,20 @@ class _BullhornCore:
         # Only load from DB if no credentials provided
         if not any([client_id, client_secret, username, password]):
             self._load_credentials()
+
+    def _get_headers(self) -> Dict[str, str]:
+        """REST headers used by callers that put BhRestToken in the header.
+
+        Most BullhornService methods pass BhRestToken as a query param; Sales
+        Rep Sync (and a few older helpers) expect this header form.
+        """
+        return {
+            'BhRestToken': self.rest_token or '',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'User-Agent': 'MyticasJobFeedAutomation/1.0',
+        }
+
     def _safe_json_parse(self, response):
         """
         Safely parse JSON response and detect HTML error pages

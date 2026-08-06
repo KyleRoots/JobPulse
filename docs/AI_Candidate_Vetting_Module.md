@@ -14,6 +14,7 @@ The AI Candidate Vetting Module is an advanced feature of Scout Genius™ that a
 - **Fallback Detection**: Legacy "Online Applicant" status search as backup for candidates entering through other channels
 - **Owner-based detectors**: Pandologic API and Matador API (corporate website New Lead) applicants
 - **Indeed native Apply detector** (Aug 2026): Source-based discovery for `source:Indeed` / `Indeed Job Board` candidates that land as **New Lead + Unassigned** via Bullhorn↔Indeed Apply (outside email inbound). Requires a JobSubmission (applied, not sourced).
+- **Indeed inbound field remap** (Aug 2026): Scheduled task remaps native Apply fields to match email inbound — `New Lead`→`Online Applicant`, `Indeed`→`Indeed Job Board`, Unassigned→Myticas API User (`1147490`) only when still unassigned. Lucene selects still-wrong `source:Indeed` with **no date floor by default** (full backlog; remapped rows drop out). Does not overwrite human owners; Owner Reassignment continues to claim from activity after the API-user default.
 ### 2. Intelligent Resume Analysis
 - **Resume Extraction**: Downloads resume files (PDF, DOCX, DOC, TXT) from candidate profiles in Bullhorn
 - **Three-Layer PDF Processing** (implemented 2026-01-30):
@@ -93,6 +94,52 @@ The AI Candidate Vetting Module is an advanced feature of Scout Genius™ that a
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
+
+### Candidate Country Integrity
+
+Bullhorn native search relies on `Candidate.address.countryID`. Some external
+job boards send city/state but omit country, leaving Bullhorn's United States
+default even for records such as Toronto, ON.
+
+The `candidate_country_normalization` job runs every 15 minutes and reviews a
+bounded set of candidates added in the prior 48 hours. It writes a country only
+when the parsed resume itself corroborates the candidate's city/state and that
+region maps unambiguously to one supported country. Citizenship, passport,
+employer, and education references are not treated as residence. Ambiguous
+region codes require an explicit country on the same resume location line.
+
+The job clamps its high-water cursor to the live lookback window. Cursors older
+than that window are discarded so a bad mark cannot permanently empty the
+search (observed when a year-2000 cursor made Bullhorn return zero hits).
+
+A phased backfill also runs inside the same 15-minute job when enabled:
+
+1. **canada** — non-archived candidates with `countryID=1` and a Canadian
+   province/territory code (ON, BC, AB, …), walked by ascending Bullhorn id
+2. **historical** — older US-default candidates outside the live lookback
+   window (Canadian-province rows excluded), newest-first, for overseas and
+   other high-confidence résumé mappings already in the supported set
+3. **done** — backfill complete; live 48-hour normalization continues
+
+Country entity IDs come from verified defaults overlaid with this tenant's
+Bullhorn `/options/Country` list. Association rules stay curated; the options
+list is used for ID resolution, not for inventing new city/province mappings.
+
+Each correction:
+
+- preserves populated city, state, street, and postal fields;
+- writes Bullhorn's canonical country entity ID;
+- reads the record back to verify the searchable value changed; and
+- records the before/after values and evidence in
+  `candidate_country_correction_log`.
+
+The automation is controlled by
+`candidate_country_normalization_enabled`,
+`candidate_country_normalization_lookback_hours`,
+`candidate_country_normalization_batch_size`,
+`candidate_country_backfill_enabled`,
+`candidate_country_backfill_phase`, and
+`candidate_country_backfill_batch_size`.
 
 ### AI Prompt Strategy
 
@@ -324,6 +371,7 @@ Each entry includes:
 
 | Date | Version | Changes |
 |------|---------|---------|
+| 2026-08-04 | 1.3 | Added indeed_inbound_remap (New Lead/Indeed/Unassigned → Online Applicant/Indeed Job Board/Myticas API User; full source backlog by default; preserves human owners for activity-based reassignment) |
 | 2026-08-03 | 1.2 | Added detect_indeed_applicants for native Indeed Apply New Lead coverage (source-based + JobSubmission gate) |
 | 2026-01-30 | 1.1 | Enhanced resume formatting with three-layer PDF processing (PyMuPDF + deterministic text normalization + GPT-4o AI formatting) for proper HTML display in Bullhorn |
 | 2026-01-30 | 1.0 | Initial release with ParsedEmail detection, GPT-4o matching, CC-based notifications |

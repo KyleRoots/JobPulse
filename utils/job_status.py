@@ -48,3 +48,14 @@ def is_job_eligible(job: Mapping[str, Any]) -> bool:
         return False
 
     return True
+
+
+def job_can_qualify(job: Mapping[str, Any]) -> bool:
+    """Return True when a scored job may drive Qualified + recruiter email.
+
+    Applied-job injection still scores closed/ineligible JobOrders for
+    APPLIED POSITION transparency in notes, but those matches must never
+    set ``is_qualified`` or notify recruiters (Aug 2026: Luke Duwel /
+    job 34990 Lost - Competition after Indeed remap bump).
+    """
+    return is_job_eligible(job)

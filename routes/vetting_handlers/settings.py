@@ -51,6 +51,8 @@ def vetting_settings():
         'fraud_detection_enabled': False,
         'fraud_bullhorn_note_enabled': False,
         'fraud_note_all_bands_enabled': False,
+        'fraud_contact_validation_enabled': False,
+        'fraud_linkedin_crosscheck_enabled': True,
         'fraud_review_threshold': 40,
         'fraud_high_risk_threshold': 75,
         # Mailbox-Pull ingestion (emergency contingency bypass)
@@ -76,7 +78,10 @@ def vetting_settings():
                        'screening_audit_enabled', 'recruiter_activity_check_enabled',
                        'scout_vetting_enabled', 'recruiter_decision_skip_enabled',
                        'fraud_detection_enabled', 'fraud_bullhorn_note_enabled',
-                       'fraud_note_all_bands_enabled', 'mailbox_pull_enabled'):
+                       'fraud_note_all_bands_enabled',
+                       'fraud_contact_validation_enabled',
+                       'fraud_linkedin_crosscheck_enabled',
+                       'mailbox_pull_enabled'):
                 settings[key] = value.lower() == 'true'
             elif key in ('match_threshold', 'batch_size',
                          'recruiter_activity_lookback_minutes',
@@ -167,6 +172,8 @@ def vetting_settings():
         CandidateVettingLog.is_sandbox != True
     ).order_by(CandidateVettingLog.updated_at.desc()).limit(50).all()
 
+    from screening.compliance import SCREENING_RULES_VERSION
+
     return render_template('vetting_settings.html',
                           settings=settings,
                           stats=stats,
@@ -177,6 +184,7 @@ def vetting_settings():
                           recent_issues=recent_issues,
                           pending_candidates=pending_candidates,
                           recent_vetting=recent_vetting,
+                          compliance_rules_version=SCREENING_RULES_VERSION,
                           active_page='screening_config')
 
 
@@ -211,6 +219,8 @@ def save_vetting_settings():
         fraud_detection_enabled = 'fraud_detection_enabled' in request.form
         fraud_bullhorn_note_enabled = 'fraud_bullhorn_note_enabled' in request.form
         fraud_note_all_bands_enabled = 'fraud_note_all_bands_enabled' in request.form
+        fraud_contact_validation_enabled = 'fraud_contact_validation_enabled' in request.form
+        fraud_linkedin_crosscheck_enabled = 'fraud_linkedin_crosscheck_enabled' in request.form
         fraud_review_raw = request.form.get('fraud_review_threshold', '40')
         fraud_high_risk_raw = request.form.get('fraud_high_risk_threshold', '75')
         # Mailbox-Pull ingestion (emergency contingency bypass)
@@ -409,6 +419,10 @@ def save_vetting_settings():
              'true' if fraud_bullhorn_note_enabled else 'false'),
             ('fraud_note_all_bands_enabled',
              'true' if fraud_note_all_bands_enabled else 'false'),
+            ('fraud_contact_validation_enabled',
+             'true' if fraud_contact_validation_enabled else 'false'),
+            ('fraud_linkedin_crosscheck_enabled',
+             'true' if fraud_linkedin_crosscheck_enabled else 'false'),
             ('fraud_review_threshold', str(fraud_review)),
             ('fraud_high_risk_threshold', str(fraud_high_risk)),
             ('mailbox_pull_enabled',
@@ -499,6 +513,102 @@ def save_vetting_settings():
         flash(f'Error saving settings: {str(e)}', 'error')
 
     return redirect(url_for('vetting.vetting_settings'))
+
+
+@vetting_bp.route('/screening/compliance-metrics')
+@login_required
+def screening_compliance_metrics():
+    """JSON snapshot for weekly bias/quality monitoring (Phase A)."""
+    from flask import jsonify
+    from screening.compliance import build_compliance_metrics, SCREENING_RULES_VERSION
+    try:
+        from utils.environment_context import get_current_environment
+        env = get_current_environment()
+        env_id = getattr(env, 'id', None) if env is not None else None
+    except Exception:
+        env_id = None
+
+    days = request.args.get('days', 7, type=int)
+    payload = build_compliance_metrics(days=days, environment_id=env_id)
+    payload['rules_version_current'] = SCREENING_RULES_VERSION
+    return jsonify(payload)
+
+
+@vetting_bp.route('/screening/fraud-calibration')
+@login_required
+def fraud_calibration_sample():
+    """JSON sample of Review/High-Risk fraud assessments for weekly labeling."""
+    from datetime import timedelta
+    from flask import jsonify
+    import json as _json
+    from models import CandidateFraudAssessment
+
+    days = request.args.get('days', 14, type=int)
+    unlabeled_only = request.args.get('unlabeled_only', '0') in ('1', 'true', 'yes')
+    cutoff = datetime.utcnow() - timedelta(days=max(1, min(days, 90)))
+    q = (
+        CandidateFraudAssessment.query
+        .filter(CandidateFraudAssessment.created_at >= cutoff)
+        .filter(CandidateFraudAssessment.risk_band.in_(['review', 'high_risk']))
+        .order_by(CandidateFraudAssessment.created_at.desc())
+    )
+    if unlabeled_only:
+        q = q.filter(CandidateFraudAssessment.calibration_label.is_(None))
+    rows = q.limit(200).all()
+    out = []
+    for r in rows:
+        try:
+            sigs = _json.loads(r.signals_json or '[]')
+        except (TypeError, ValueError):
+            sigs = []
+        codes = [
+            s.get('code') for s in sigs
+            if isinstance(s, dict) and (s.get('points') or 0) > 0
+        ]
+        out.append({
+            'id': r.id,
+            'created_at': r.created_at.isoformat() if r.created_at else None,
+            'bullhorn_candidate_id': r.bullhorn_candidate_id,
+            'candidate_name': r.candidate_name,
+            'risk_band': r.risk_band,
+            'risk_score': r.risk_score,
+            'signal_codes': codes,
+            'calibration_label': r.calibration_label,
+            'calibration_notes': r.calibration_notes,
+        })
+    return jsonify({
+        'days': days,
+        'count': len(out),
+        'label_values': ['tp', 'fp', 'nudge', 'ignore'],
+        'assessments': out,
+    })
+
+
+@vetting_bp.route('/screening/fraud-calibration/<int:assessment_id>', methods=['POST'])
+@login_required
+def fraud_calibration_label(assessment_id: int):
+    """Set calibration_label on one assessment: tp|fp|nudge|ignore."""
+    from flask import jsonify
+    from models import CandidateFraudAssessment
+
+    db = get_db()
+    payload = request.get_json(silent=True) or {}
+    label = str(payload.get('label') or request.form.get('label') or '').strip().lower()
+    notes = str(payload.get('notes') or request.form.get('notes') or '').strip()
+    if label not in ('tp', 'fp', 'nudge', 'ignore', ''):
+        return jsonify({'ok': False, 'error': 'label must be tp|fp|nudge|ignore'}), 400
+    row = CandidateFraudAssessment.query.get(assessment_id)
+    if row is None:
+        return jsonify({'ok': False, 'error': 'not found'}), 404
+    row.calibration_label = label or None
+    row.calibration_notes = notes[:2000] if notes else None
+    row.calibration_labeled_at = datetime.utcnow() if label else None
+    db.session.commit()
+    return jsonify({
+        'ok': True,
+        'id': row.id,
+        'calibration_label': row.calibration_label,
+    })
 
 
 @vetting_bp.route('/screening/health-check', methods=['POST'])

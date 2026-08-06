@@ -34,6 +34,9 @@ logger = logging.getLogger(__name__)
 PRICING: dict[str, tuple[float, float, float]] = {
     'gpt-5':            (1.25, 0.125, 10.00),
     'gpt-5.4':          (2.50, 0.25,  15.00),  # reconciled vs OpenAI bill 2026-06-02 (was 1.25/0.125/10.00, ~1.6x undercount)
+    'gpt-5.6-sol':      (5.00, 0.50,  30.00),
+    'gpt-5.6-terra':    (2.00, 0.20,  12.00),  # Jul 30 2026 price cut
+    'gpt-5.6-luna':     (0.20, 0.02,   1.20),  # Jul 30 2026 price cut
     'gpt-5-mini':       (0.25, 0.025,  2.00),
     'gpt-4.1':          (2.00, 0.50,   8.00),
     'gpt-4.1-mini':     (0.40, 0.10,   1.60),
@@ -58,7 +61,7 @@ def resolve_model(site_id: str, default_model: str) -> str:
 def estimate_cost(model: str, input_tokens: int, cached_input_tokens: int,
                   output_tokens: int) -> Decimal:
     """Estimate USD cost for a single call."""
-    rate_in, rate_cached, rate_out = PRICING.get(model, _PRICING_DEFAULT)
+    rate_in, rate_cached, rate_out = _lookup_pricing(model)
     billable_input = max(0, input_tokens - cached_input_tokens)
     cost = (
         (billable_input    * rate_in     / 1_000_000.0) +
@@ -66,6 +69,19 @@ def estimate_cost(model: str, input_tokens: int, cached_input_tokens: int,
         (output_tokens     * rate_out    / 1_000_000.0)
     )
     return Decimal(f'{cost:.6f}')
+
+
+def _lookup_pricing(model: str) -> tuple[float, float, float]:
+    """Exact model key, else longest prefix match (dated snapshots), else default."""
+    if not model:
+        return _PRICING_DEFAULT
+    if model in PRICING:
+        return PRICING[model]
+    # Dated snapshots e.g. gpt-5.4-2026-03-05 / gpt-5.6-terra-...
+    matches = [k for k in PRICING if model.startswith(k)]
+    if matches:
+        return PRICING[max(matches, key=len)]
+    return _PRICING_DEFAULT
 
 
 def _extract_usage(response: Any) -> tuple[int, int, int]:

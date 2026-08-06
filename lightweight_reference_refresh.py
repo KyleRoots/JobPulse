@@ -220,6 +220,56 @@ def save_references_to_database(xml_content):
         logger.error(f"❌ Error saving references to database: {str(e)}")
         return False
 
+
+def refresh_all_feed_references(generator):
+    """Rotate reference numbers for every job across all published XML feeds.
+
+    Pulls Bullhorn jobs from v2 tearsheets plus STSI Indeed (1640) and
+    ZipRecruiter (1641), assigns new ``referencenumber`` values, and persists
+    them to ``JobReferenceNumber``. The 30-minute upload cycle then applies
+    those DB values when regenerating each feed file.
+
+    Does not upload XML — callers that need immediate SFTP should regenerate
+    each feed separately after this returns successfully.
+    """
+    from feeds.feed_config import all_xml_feed_tearsheet_ids, SOURCE_LINKEDIN
+
+    tearsheet_ids = all_xml_feed_tearsheet_ids()
+    logger.info(
+        "Starting reference refresh across all XML feed tearsheets: %s",
+        tearsheet_ids,
+    )
+
+    xml_content, stats = generator.generate_fresh_xml(
+        tearsheet_ids=tearsheet_ids,
+        source_channel=SOURCE_LINKEDIN,
+        allow_empty=True,
+    )
+    logger.info(
+        "Generated combined refresh XML: %s jobs, %s bytes (tearsheets=%s)",
+        stats.get('job_count'),
+        stats.get('xml_size_bytes'),
+        stats.get('tearsheets_processed'),
+    )
+
+    result = lightweight_refresh_references_from_content(xml_content)
+    result['stats'] = stats
+    result['tearsheet_ids'] = tearsheet_ids
+    result['feeds_covered'] = ['v2', 'stsi_indeed', 'stsi_ziprecruiter']
+
+    if not result.get('success'):
+        return result
+
+    db_ok = save_references_to_database(result['xml_content'])
+    result['database_saved'] = db_ok
+    if not db_ok:
+        result['success'] = False
+        result['error'] = 'Failed to save reference numbers to database'
+        logger.critical("CRITICAL: all-feed reference refresh DB save failed")
+
+    return result
+
+
 def get_existing_references_from_database():
     """
     Load existing reference numbers from database

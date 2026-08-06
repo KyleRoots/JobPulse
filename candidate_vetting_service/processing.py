@@ -23,7 +23,12 @@ logger = logging.getLogger('candidate_vetting_service')
 class CandidateProcessingMixin:
     """Mixin implementing the single-candidate vetting pipeline."""
 
-    def _run_fraud_assessment(self, candidate: Dict, vetting_log: CandidateVettingLog) -> None:
+    def _run_fraud_assessment(
+        self,
+        candidate: Dict,
+        vetting_log: CandidateVettingLog,
+        pdf_metadata: Optional[Dict] = None,
+    ) -> None:
         """Run the advisory fraud assessment for a candidate (fail-soft).
 
         Gated by the ``fraud_detection_enabled`` config flag. Wrapped so that
@@ -73,11 +78,15 @@ class CandidateProcessingMixin:
                              exc_info=True)
 
             engine = FraudSignalEngine(bullhorn_service=bullhorn_service)
+            # Paid NeverBounce/Twilio are deferred until after qualification
+            # (see _enrich_fraud_contact_validation). Free signals still run now.
             assessment = engine.assess(
                 candidate, vetting_log, trigger='screening',
                 applied_job_description=applied_job_description,
                 candidate_country=candidate_country,
                 job_country=job_country,
+                pdf_metadata=pdf_metadata,
+                include_contact_validation=False,
             )
             if assessment is not None:
                 logger.info(
@@ -91,9 +100,60 @@ class CandidateProcessingMixin:
                 exc_info=True,
             )
 
+    def _enrich_fraud_contact_validation(
+        self,
+        candidate: Dict,
+        vetting_log: CandidateVettingLog,
+    ) -> None:
+        """Run NeverBounce/Twilio for Qualified candidates only (fail-soft).
+
+        No-op when fraud detection or contact validation is disabled, or when
+        the candidate did not qualify for any role. Must never break screening.
+        """
+        try:
+            if not getattr(vetting_log, 'is_qualified', False):
+                return
+
+            from models import VettingConfig
+            fraud_on = str(
+                VettingConfig.get_value('fraud_detection_enabled', 'false')
+            ).strip().lower() == 'true'
+            contact_on = str(
+                VettingConfig.get_value('fraud_contact_validation_enabled', 'false')
+            ).strip().lower() == 'true'
+            if not fraud_on or not contact_on:
+                return
+
+            from fraud_detection.engine import FraudSignalEngine
+            bullhorn_service = None
+            try:
+                bullhorn_service = self._get_bullhorn_service()
+            except Exception:
+                bullhorn_service = None
+
+            engine = FraudSignalEngine(bullhorn_service=bullhorn_service)
+            assessment = engine.enrich_contact_validation(candidate, vetting_log)
+            if assessment is not None:
+                logger.info(
+                    f"🛡️ Contact validation enriched candidate "
+                    f"{candidate.get('id')}: {assessment.risk_band} "
+                    f"(score {assessment.risk_score})"
+                )
+        except Exception as e:
+            logger.warning(
+                f"Contact validation enrichment skipped for candidate "
+                f"{candidate.get('id') if candidate else '?'}: {e}",
+                exc_info=True,
+            )
+
     def process_candidate(self, candidate: Dict, cached_jobs: Optional[List[Dict]] = None) -> Optional[CandidateVettingLog]:
         """
-        Process a single candidate through the full vetting pipeline.
+        Process a single candidate through the scoring pipeline (resume + matches).
+
+        Does NOT create the Bullhorn note or send recruiter emails — those run in
+        ``run_vetting_cycle`` post-processing (``create_candidate_note`` then
+        ``send_recruiter_notifications``). Callers that invoke this method outside
+        the cycle must run those steps themselves for qualified candidates.
 
         Args:
             candidate: Candidate dictionary from Bullhorn
@@ -140,10 +200,14 @@ class CandidateProcessingMixin:
                     bullhorn_candidate_id=candidate_id
                 ).first()
                 if existing_log:
-                    if existing_log.highest_match_score == 0 and existing_log.status == 'completed':
+                    if (
+                        existing_log.status == 'incomplete'
+                        or (existing_log.highest_match_score == 0 and existing_log.status == 'completed')
+                    ):
                         logger.info(
                             f"🔄 Re-analyzing candidate {candidate_id} ({candidate_name}) — "
-                            f"previous vetting had 0% scores (likely from aggressive filter threshold)"
+                            f"previous vetting status={existing_log.status} "
+                            f"score={existing_log.highest_match_score}%"
                         )
                         CandidateJobMatch.query.filter_by(vetting_log_id=existing_log.id).delete()
                         existing_log.status = 'processing'
@@ -175,6 +239,7 @@ class CandidateProcessingMixin:
                 vetting_log.applied_job_title = sanitize_text(job_order.get('title'))
 
             resume_text = None
+            pdf_metadata = {}
 
             raw_description = candidate.get('description') if candidate else None
             logger.info(f"📄 Candidate description field present: {bool(raw_description)}, type: {type(raw_description).__name__}, length: {len(str(raw_description)) if raw_description else 0}")
@@ -188,9 +253,15 @@ class CandidateProcessingMixin:
 
                 logger.info(f"📄 After cleaning: {len(description)} chars, first 200: {description[:200]}")
 
-                if len(description) >= 100:
+                from utils.resume_text_quality import is_garbled_resume_text
+                if len(description) >= 100 and not is_garbled_resume_text(description):
                     resume_text = sanitize_text(description)
                     logger.info(f"📄 Using candidate description field: {len(resume_text)} chars")
+                elif is_garbled_resume_text(description):
+                    logger.warning(
+                        f"📄 Candidate description looks garbled ({len(description)} chars) — "
+                        f"ignoring Overview text and re-extracting from resume file"
+                    )
                 else:
                     logger.info(f"Description too short ({len(description)} chars), will try file download")
             else:
@@ -203,9 +274,21 @@ class CandidateProcessingMixin:
                 if file_content and filename:
                     resume_text = self.extract_resume_text(file_content, filename)
                     if resume_text:
+                        from utils.resume_text_quality import is_garbled_resume_text
+                        if is_garbled_resume_text(resume_text):
+                            logger.warning(
+                                f"Extracted resume text still looks garbled for {filename} "
+                                f"({len(resume_text)} chars) — screening may be unreliable"
+                            )
                         logger.info(f"Extracted {len(resume_text)} characters from resume file")
                     else:
                         logger.warning(f"Could not extract text from resume: {filename}")
+                    # Capture PDF metadata for fraud forensics before bytes discard.
+                    try:
+                        from fraud_detection.pdf_meta import extract_pdf_metadata
+                        pdf_metadata = extract_pdf_metadata(file_content)
+                    except Exception:
+                        logger.debug("PDF metadata capture skipped", exc_info=True)
                 else:
                     logger.warning(f"No resume file found for candidate {candidate_id}")
 
@@ -230,8 +313,11 @@ class CandidateProcessingMixin:
             # --- Fraud / fake-candidate detection (advisory, non-blocking) ---
             # Runs BEFORE screening so recruiters see the risk badge alongside
             # match results. Fully gated + fail-soft: it can NEVER break the
-            # screening pipeline. Deterministic signals only — zero AI cost.
-            self._run_fraud_assessment(candidate, vetting_log)
+            # screening pipeline. Deterministic signals only — zero AI cost
+            # (optional contact/LinkedIn checks are separately gated).
+            self._run_fraud_assessment(
+                candidate, vetting_log, pdf_metadata=pdf_metadata or None,
+            )
 
             if cached_jobs is not None:
                 jobs = list(cached_jobs)
@@ -250,6 +336,40 @@ class CandidateProcessingMixin:
                                 vetting_log.applied_job_id
                             )
                         if applied_job_data:
+                            # Remap / dateLastModified bumps can re-detect old
+                            # Online Applicants whose only submission is a
+                            # closed job. If we already screened that pair,
+                            # skip — do not re-qualify or re-email recruiters
+                            # (Aug 2026: candidate 4657295 × job 34990).
+                            from utils.job_status import job_can_qualify
+                            if not job_can_qualify(applied_job_data):
+                                prior_same_job = CandidateVettingLog.query.filter(
+                                    CandidateVettingLog.bullhorn_candidate_id == candidate_id,
+                                    CandidateVettingLog.applied_job_id == vetting_log.applied_job_id,
+                                    CandidateVettingLog.status.in_(['completed', 'processing']),
+                                    CandidateVettingLog.id != vetting_log.id,
+                                ).order_by(CandidateVettingLog.created_at.desc()).first()
+                                if prior_same_job:
+                                    logger.info(
+                                        f"⏭️ Skipping re-screen of candidate {candidate_id}: "
+                                        f"applied job {vetting_log.applied_job_id} is ineligible "
+                                        f"(isOpen={applied_job_data.get('isOpen')}, "
+                                        f"status={applied_job_data.get('status')!r}) and was "
+                                        f"already screened (prior vetting_log id={prior_same_job.id})"
+                                    )
+                                    vetting_log.status = 'completed'
+                                    vetting_log.analyzed_at = datetime.utcnow()
+                                    vetting_log.is_qualified = False
+                                    vetting_log.highest_match_score = 0.0
+                                    vetting_log.total_jobs_matched = 0
+                                    vetting_log.error_message = (
+                                        f"Skipped: applied job {vetting_log.applied_job_id} "
+                                        f"closed/ineligible and previously screened "
+                                        f"(log {prior_same_job.id})"
+                                    )[:500]
+                                    db.session.commit()
+                                    return vetting_log
+
                             jobs.append(applied_job_data)
                             logger.info(
                                 f"🎯 Injected applied job {vetting_log.applied_job_id} "
@@ -475,12 +595,19 @@ class CandidateProcessingMixin:
                 job = job_with_req['job']
                 prefetched_req = job_with_req['requirements']
                 job_id = job.get('id')
+                # Related (non-applied) tearsheet matches use short prose to
+                # cut output tokens; applied role keeps full near-miss detail.
+                _applied_id = getattr(vetting_log, 'applied_job_id', None)
+                _related_brief = bool(
+                    _applied_id is not None and job_id != _applied_id
+                )
                 try:
                     analysis = self.analyze_candidate_job_match(
                         cached_resume_text, job, candidate_location,
                         prefetched_requirements=prefetched_req,
                         prefetched_global_requirements=prefetched_global_reqs,
-                        screening_profile=screening_profile
+                        screening_profile=screening_profile,
+                        related_job_brief=_related_brief,
                     )
 
                     mini_score = analysis.get('match_score', 0)
@@ -513,7 +640,8 @@ class CandidateProcessingMixin:
                                 prefetched_requirements=prefetched_req,
                                 model_override='gpt-5.4',
                                 prefetched_global_requirements=prefetched_global_reqs,
-                                screening_profile=screening_profile
+                                screening_profile=screening_profile,
+                                related_job_brief=_related_brief,
                             )
 
                             gpt4o_score = escalated_analysis.get('match_score', 0)
@@ -570,10 +698,23 @@ class CandidateProcessingMixin:
                     logger.error(f"Error analyzing job {job_id}: {error_str}")
                     if '429' in error_str and 'quota' in error_str.lower():
                         type(self)._consecutive_quota_errors += 1
+                    _lower = error_str.lower()
+                    _infra = (
+                        '401' in error_str
+                        or '403' in error_str
+                        or 'insufficient permissions' in _lower
+                        or 'authentication' in _lower
+                        or 'invalid_api_key' in _lower
+                        or 'incorrect api key' in _lower
+                    )
                     return {
                         'job': job,
                         'job_id': job_id,
-                        'analysis': {'match_score': 0, 'match_summary': f'Analysis failed: {error_str}'},
+                        'analysis': {
+                            'match_score': 0,
+                            'match_summary': f'Analysis failed: {error_str}',
+                            '_infra_failure': _infra,
+                        },
                         'error': error_str
                     }
 
@@ -594,6 +735,25 @@ class CandidateProcessingMixin:
                     analysis_results.append(result)
 
             logger.info(f"✅ Parallel analysis complete: {len(analysis_results)} jobs processed")
+
+            # OpenAI auth / permission outages: do not permanently NQ the candidate
+            # on fake 0% diagnostics. Leave the log incomplete so the next cycle retries.
+            infra_failures = [
+                r for r in analysis_results
+                if (r.get('analysis') or {}).get('_infra_failure')
+            ]
+            if infra_failures and len(infra_failures) == len(analysis_results):
+                sample = (infra_failures[0].get('analysis') or {}).get('match_summary', '')[:240]
+                logger.error(
+                    f"🚫 Infra failure on ALL {len(infra_failures)} job analyses for "
+                    f"candidate {candidate_id} — aborting without NQ note. Sample: {sample}"
+                )
+                vetting_log.status = 'incomplete'
+                vetting_log.error_message = sanitize_text(
+                    f"OpenAI infra failure (auth/permissions) — will retry. {sample}"
+                )[:500]
+                db.session.commit()
+                return vetting_log
 
             for result in analysis_results:
                 job = result['job']
@@ -630,6 +790,15 @@ class CandidateProcessingMixin:
 
                 is_applied_job = vetting_log.applied_job_id == job_id if vetting_log.applied_job_id else False
 
+                # Skip persisting individual infra-failed analyses when mixed with
+                # successful scores — they are not real 0% matches.
+                if analysis.get('_infra_failure'):
+                    logger.warning(
+                        f"  🚫 Skipping infra-failed analysis for job {job_id}: "
+                        f"{(analysis.get('match_summary') or '')[:160]}"
+                    )
+                    continue
+
                 job_threshold = job_threshold_cache.get(job_id, global_threshold)
 
                 _prestige_employer = analysis.get('_prestige_employer')
@@ -648,6 +817,14 @@ class CandidateProcessingMixin:
                         f"score {_original}→{_final_score} (+{PRESTIGE_BOOST_POINTS}pts) for job {job_id}"
                     )
 
+                from utils.job_status import job_can_qualify
+                score_clears_threshold = (
+                    (_final_score >= job_threshold)
+                    and not analysis.get('is_location_barrier', False)
+                )
+                can_qualify = job_can_qualify(job)
+                match_is_qualified = score_clears_threshold and can_qualify
+
                 match_record = CandidateJobMatch(
                     vetting_log_id=vetting_log.id,
                     bullhorn_job_id=job_id,
@@ -660,7 +837,7 @@ class CandidateProcessingMixin:
                     recruiter_bullhorn_id=recruiter_id,
                     match_score=_final_score,
                     technical_score=analysis.get('technical_score'),
-                    is_qualified=(_final_score >= job_threshold) and not analysis.get('is_location_barrier', False),
+                    is_qualified=match_is_qualified,
                     is_applied_job=is_applied_job,
                     match_summary=sanitize_text(analysis.get('match_summary', '')),
                     skills_match=sanitize_text(analysis.get('skills_match', '')),
@@ -679,7 +856,14 @@ class CandidateProcessingMixin:
                     qualified_matches.append(match_record)
                     logger.info(f"  ✅ Match: {job.get('title')} - {analysis.get('match_score')}%{threshold_note}")
                 else:
-                    if analysis.get('is_location_barrier', False) and analysis.get('match_score', 0) >= job_threshold:
+                    if score_clears_threshold and not can_qualify:
+                        logger.info(
+                            f"  🚫 Closed/ineligible job suppress qualify: {job.get('title')} "
+                            f"scored {_final_score}% (>= {int(job_threshold)}%) but "
+                            f"isOpen={job.get('isOpen')} status={job.get('status')!r} — "
+                            f"is_qualified=False (no recruiter email)"
+                        )
+                    elif analysis.get('is_location_barrier', False) and analysis.get('match_score', 0) >= job_threshold:
                         logger.info(
                             f"  📍 Location barrier override: {job.get('title')} scored {analysis.get('match_score')}% "
                             f"(>= {int(job_threshold)}% threshold) but is_qualified=False due to location mismatch"
@@ -760,7 +944,11 @@ class CandidateProcessingMixin:
                                     job_threshold = job_threshold_cache.get(
                                         match_record.bullhorn_job_id, global_threshold
                                     )
-                                    match_record.is_qualified = new_score >= job_threshold
+                                    from utils.job_status import job_can_qualify
+                                    match_record.is_qualified = (
+                                        new_score >= job_threshold
+                                        and job_can_qualify(job)
+                                    )
                                     if match_record.is_qualified:
                                         qualified_matches.append(match_record)
                                     logger.info(
@@ -784,10 +972,20 @@ class CandidateProcessingMixin:
             vetting_log.is_qualified = len(qualified_matches) > 0
             vetting_log.total_jobs_matched = len(qualified_matches)
 
+            try:
+                from screening.compliance import stamp_vetting_log_compliance
+                stamp_vetting_log_compliance(vetting_log, self)
+            except Exception as compliance_err:
+                logger.warning(f"Compliance metadata stamp failed (non-fatal): {compliance_err}")
+
             if all_match_results:
                 vetting_log.highest_match_score = max(m.match_score for m in all_match_results)
 
             db.session.commit()
+
+            # Paid contact checks only after we know the candidate qualified —
+            # NeverBounce/Twilio must not burn credits on clear rejects.
+            self._enrich_fraud_contact_validation(candidate, vetting_log)
 
             logger.info(f"✅ Completed analysis for {candidate_name} (ID: {candidate_id}): {len(qualified_matches)} qualified matches out of {len(all_match_results)} jobs")
 

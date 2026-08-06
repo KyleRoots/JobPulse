@@ -399,11 +399,23 @@ def seed_bullhorn_monitors(db, BullhornMonitor):
                 'notification_email': 'apply@myticas.com'
             },
             {
-                'name': 'Sponsored - STSI',
+                'name': 'Sponsored - STSI - LinkedIn',
                 'tearsheet_id': 1531,
-                'tearsheet_name': 'Sponsored - STSI',
-                'notification_email': ''  # No email for STSI
-            }
+                'tearsheet_name': 'Sponsored - STSI - LinkedIn',
+                'notification_email': ''
+            },
+            {
+                'name': 'Sponsored - STSI - Indeed',
+                'tearsheet_id': 1640,
+                'tearsheet_name': 'Sponsored - STSI - Indeed',
+                'notification_email': ''
+            },
+            {
+                'name': 'Sponsored - STSI - Zip Recruiter',
+                'tearsheet_id': 1641,
+                'tearsheet_name': 'Sponsored - STSI - Zip Recruiter',
+                'notification_email': ''
+            },
         ]
 
         monitors_created = []
@@ -513,6 +525,28 @@ def seed_vetting_config(db, VettingConfig):
             'admin_notification_email': 'kroots@myticas.com',
             'health_alert_email': 'kroots@myticas.com',
             'send_recruiter_emails': 'false',      # Always off by default; user enables via UI
+            # OpenAI spend alerting (Jul 2026). The vetting health check only
+            # tests connectivity, so runaway loops making successful calls kept
+            # it green while burning ~$6.4k/mo. Thresholds are sized against a
+            # clean run rate of ~$50-90/day: warn at ~2x a busy day, critical at
+            # ~3x. Empty ai_cost_alert_email falls back to health_alert_email.
+            'ai_cost_alert_enabled': 'true',
+            'ai_cost_alert_warn_usd_24h': '150',
+            'ai_cost_alert_critical_usd_24h': '250',
+            'ai_cost_alert_cooldown_hours': '6',
+            'ai_cost_alert_email': '',
+            # Correct Bullhorn's US default when recent candidate resume
+            # location evidence uniquely maps city/state to another country.
+            # Explicitly enabled for the Jul 30 2026 production rollout.
+            'candidate_country_normalization_enabled': 'true',
+            'candidate_country_normalization_lookback_hours': '48',
+            'candidate_country_normalization_batch_size': '1000',
+            # Phased backfill: canada province wrong-US first, then older
+            # US-default records outside the live 48h window. Same high-
+            # confidence résumé gates; Bullhorn Country options supply IDs.
+            'candidate_country_backfill_enabled': 'true',
+            'candidate_country_backfill_phase': 'canada',
+            'candidate_country_backfill_batch_size': '200',
             # Embedding pre-filter settings (Layer 1)
             'embedding_filter_enabled': 'true',    # Killswitch: set to 'false' to bypass filter
             'embedding_similarity_threshold': '0.25',  # Conservative default; user tightens via UI
@@ -607,6 +641,10 @@ def seed_vetting_config(db, VettingConfig):
             # High-Risk. Requires fraud_bullhorn_note_enabled to also be on.
             # Default OFF so the historical High-Risk-only behavior is preserved.
             'fraud_note_all_bands_enabled': 'false',
+            # NeverBounce + Twilio Lookup (requires Railway secrets). Default OFF.
+            'fraud_contact_validation_enabled': 'false',
+            # Soft public LinkedIn URL check (URL on résumé only). Default ON.
+            'fraud_linkedin_crosscheck_enabled': 'true',
             # Banding thresholds (risk score 0-100). High-Risk >= high; Review
             # in [review, high); Clear < review.
             'fraud_review_threshold': '40',
@@ -748,75 +786,84 @@ def seed_reference_refresh_log(db):
 
 def seed_recruiter_mappings(db, RecruiterMapping):
     """
-    Seed recruiter to LinkedIn tag mappings (idempotent)
+    Seed recruiter to LinkedIn tag mappings (idempotent).
 
-    Args:
-        db: SQLAlchemy database instance
-        RecruiterMapping: RecruiterMapping model class
+    Source of truth: LinkedIn seat report (seat-report.csv) plus Bullhorn
+    name aliases. Rows not in this master list are pruned so departed seats
+    and stale tags cannot keep attributing jobs incorrectly.
     """
-    # Master list of recruiter name to LinkedIn tag mappings
+    # Master list: (Bullhorn display name, LinkedIn seat tag)
+    # CSV seats + aliases for spelling variants / service accounts.
     recruiter_mappings = [
+        # --- Active LinkedIn seats (from seat-report.csv) ---
         ('Adam Gebara', '#LI-AG1'),
-        ('Amanda Messina', '#LI-AM1'),
-        ('Amanda Messina (Smith)', '#LI-AM1'),
-        ('Austin Zachrich', '#LI-AZ1'),
+        ('Anna Wujciak-Flynn', '#LI-AW1'),
         ('Bryan Chinzorig', '#LI-BC1'),
         ('Chris Carter', '#LI-CC1'),
-        ('Christine Carter', '#LI-CC1'),
-        ('Dan Sifer', '#LI-DS1'),
+        ('Christine Carter', '#LI-CC1'),  # Bullhorn alias
         ('Daniel Sifer', '#LI-DS1'),
+        ('Dan Sifer', '#LI-DS1'),  # Bullhorn alias
         ('Dawn Geistert-Dixon', '#LI-DG1'),
         ('Dominic Scaletta', '#LI-DS2'),
-        ('Innocent Nangoma', '#LI-IN1'),
-        ('Jayne Kritschgau', '#LI-JK1'),
+        ('Doug Billot', '#LI-DB1'),
+        ('Jasmine Harvey', '#LI-JH1'),
         ('Julie Johnson', '#LI-JJ1'),
-        ('Kaniz Abedin', '#LI-KA1'),
-        ('Kyle Roots', '#LI-KR1'),
         ('Kellie Miller', '#LI-KM1'),
-        ('Lisa Keirsted', '#LI-DS1'),
+        ('Kyle Roots', '#LI-KR1'),
+        ('Lisa Keirsted', '#LI-LM1'),  # alias — must NOT map to #LI-DS1
         ('Lisa Mattis-Keirsted', '#LI-LM1'),
-        ('Maddie Lewis', '#LI-ML1'),
         ('Madhu Sinha', '#LI-MS1'),
         ('Matheo Theodossiou', '#LI-MT1'),
-        ('Michael Billiu', '#LI-MB1'),
         ('Michael Theodossiou', '#LI-MT2'),
-        ('Michelle Corino', '#LI-MC1'),
-        ('Mike Gebara', '#LI-MG1'),
         ('Mike Scalzitti', '#LI-MS2'),
-        ('Myticas Recruiter', '#LI-RS1'),
-        ('Nick Theodossiou', '#LI-NT1'),
-        ('Rachel Mann', '#LI-RM1'),
+        ('Michael Scalzitti', '#LI-MS2'),  # Bullhorn alias
+        ('Myticas Recruiter', '#LI-RS1'),  # service account → Reena's seat
+        ('Rachel Johnson', '#LI-RM1'),
+        ('Rachel Mann', '#LI-RM1'),  # same person / email rmann@
         ('Rachelle Fite', '#LI-RF1'),
-        ('Reena Setya', '#LI-RS2'),
+        ('Reena Setya', '#LI-RS1'),
         ('Runa Parmar', '#LI-RP1'),
-        ('Ryan Green', '#LI-RG1'),
         ('Ryan Oliver', '#LI-RO1'),
         ('Sarah Ferris', '#LI-SF1'),
         ('Sarah Ferris CSP', '#LI-SF1'),
         ('Shikha Gurung', '#LI-SG1'),
         ('Tarra Dziurman', '#LI-TD1'),
+        ('Tarra Dziuman', '#LI-TD1'),  # Bullhorn spelling variant
         ('Tray Prewitt', '#LI-TP1'),
     ]
 
+    keep_names = {name for name, _ in recruiter_mappings}
     mappings_created = 0
     mappings_updated = 0
+    mappings_removed = 0
 
     for recruiter_name, linkedin_tag in recruiter_mappings:
         existing_mapping = RecruiterMapping.query.filter_by(recruiter_name=recruiter_name).first()
 
         if existing_mapping:
-            # Update if tag changed
             if existing_mapping.linkedin_tag != linkedin_tag:
                 existing_mapping.linkedin_tag = linkedin_tag
                 mappings_updated += 1
         else:
-            # Create new mapping
-            new_mapping = RecruiterMapping(
+            db.session.add(RecruiterMapping(
                 recruiter_name=recruiter_name,
-                linkedin_tag=linkedin_tag
-            )
-            db.session.add(new_mapping)
+                linkedin_tag=linkedin_tag,
+            ))
             mappings_created += 1
+
+    # Full cleanup: drop seats/aliases no longer in the LinkedIn seat report.
+    stale = (
+        RecruiterMapping.query
+        .filter(~RecruiterMapping.recruiter_name.in_(keep_names))
+        .all()
+    )
+    for row in stale:
+        logger.info(
+            f"🧹 Removing obsolete recruiter mapping: "
+            f"{row.recruiter_name} → {row.linkedin_tag}"
+        )
+        db.session.delete(row)
+        mappings_removed += 1
 
     db.session.commit()
 
@@ -824,7 +871,9 @@ def seed_recruiter_mappings(db, RecruiterMapping):
         logger.info(f"✅ Created {mappings_created} new recruiter mappings")
     if mappings_updated > 0:
         logger.info(f"🔄 Updated {mappings_updated} recruiter mappings")
-    if mappings_created == 0 and mappings_updated == 0:
+    if mappings_removed > 0:
+        logger.info(f"🧹 Removed {mappings_removed} obsolete recruiter mappings")
+    if mappings_created == 0 and mappings_updated == 0 and mappings_removed == 0:
         logger.info(f"✅ All {len(recruiter_mappings)} recruiter mappings already up to date")
 
 

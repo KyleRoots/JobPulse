@@ -15,6 +15,7 @@ All signals here are DETERMINISTIC — zero OpenAI cost.
 
 from __future__ import annotations
 
+import hashlib
 import re
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -63,6 +64,36 @@ POINTS_JD_MIRROR_HEAVY = 55
 # AI-style writing markers are INFORMATIONAL ONLY (0 points): surfaced for context,
 # never scored, never an accusation. Detectors are unreliable on resume/bullet text.
 POINTS_AI_STYLE_MARKERS = 0
+# Multi-submission drift: same contact / candidate ID, changing claims over time.
+POINTS_SUBMISSION_DRIFT_LIGHT = 22
+POINTS_SUBMISSION_DRIFT_MODERATE = 40
+# Divergent Resume-typed files on the same Bullhorn candidate (soft Review advisory).
+# Alone hits Review (≥40); not enough for High-Risk. Distinct from submission_drift
+# (claim changes across applies) — this is file-content diversity on one profile.
+POINTS_DIVERGENT_RESUME_VERSIONS = 40
+# PDF Author/Producer signature reused across different candidate names.
+POINTS_PDF_AUTHOR_REUSE = 35
+# Soft amplifier when ModDate is very recent AND author reuse already fired.
+POINTS_PDF_RECENT_RESKIN = 12
+# Third-party contact validation (NeverBounce / Twilio Lookup).
+POINTS_EMAIL_UNDELIVERABLE = 30
+POINTS_PHONE_INVALID = 25
+POINTS_PHONE_VOIP = 10
+# LinkedIn soft cross-check (URL-only). Cap so these alone never reach High-Risk.
+POINTS_LINKEDIN_URL_DEAD = 42
+POINTS_LINKEDIN_NAME_MISMATCH = 25
+LINKEDIN_SOFT_CODES = frozenset({"linkedin_url_dead", "linkedin_name_mismatch"})
+
+# Divergent-resume tuning (word-token Jaccard on extracted text).
+# Near-identical merge duplicates collapse first (same content saved twice).
+RESUME_VERSION_NEAR_DUP_JACCARD = 0.90
+# Clear divergence: min pairwise Jaccard among unique versions below this fires.
+# Tuned so light tailoring (same career, different emphasis) stays quiet, while
+# unrelated careers (e.g. ML vs marketing/CRM) on one candidate flag Review.
+RESUME_VERSION_DIVERGENCE_JACCARD = 0.40
+RESUME_VERSION_MIN_TOKENS = 40
+RESUME_VERSION_MAX_FILES = 5
+_RESUME_TOKEN_RE = re.compile(r"[a-z0-9]{2,}", re.IGNORECASE)
 
 # JD-mirror tuning: minimum contiguous word-run length to count as a verbatim lift
 # (8 identical consecutive words is strongly copy-paste, not coincidental overlap),
@@ -792,14 +823,455 @@ def evaluate_ai_style_markers(
     )
 
 
+# ---------------------------------------------------------------------------
+# Multi-submission drift / PDF forensics / contact / LinkedIn soft checks
+# ---------------------------------------------------------------------------
+
+_YEARS_CLAIM_RE = re.compile(
+    r"(\d{1,2})\s*\+?\s*(?:years?|yrs?)\b",
+    re.IGNORECASE,
+)
+_YEAR_TOKEN_RE = re.compile(r"\b((?:19|20)\d{2})\b")
+
+
+def extract_max_years_claim(text: Optional[str]) -> Optional[int]:
+    """Best-effort max 'N years' claim from résumé text (deterministic)."""
+    if not text:
+        return None
+    vals = [int(m.group(1)) for m in _YEARS_CLAIM_RE.finditer(str(text))]
+    vals = [v for v in vals if 1 <= v <= 50]
+    return max(vals) if vals else None
+
+
+def extract_year_span(text: Optional[str]) -> Optional[int]:
+    """Difference between earliest and latest 4-digit years in the text."""
+    if not text:
+        return None
+    years = [int(m.group(1)) for m in _YEAR_TOKEN_RE.finditer(str(text))]
+    years = [y for y in years if 1970 <= y <= date.today().year + 1]
+    if len(years) < 2:
+        return None
+    span = max(years) - min(years)
+    return span if 0 < span <= 55 else None
+
+
+def evaluate_submission_drift(
+    changes: Optional[Sequence[Dict[str, Any]]] = None,
+) -> Optional[FraudSignal]:
+    """Flag claim drift across prior submissions for the same contact/ID.
+
+    ``changes`` is a list of human-readable change dicts gathered by the engine,
+    each with at least ``kind`` and ``summary``. Graduated weight by severity.
+    """
+    items = [c for c in (changes or []) if isinstance(c, dict) and c.get("summary")]
+    if not items:
+        return None
+    kinds = {str(c.get("kind") or "") for c in items}
+    moderate_kinds = {"years_inflation", "linkedin_changed", "name_changed"}
+    is_moderate = bool(kinds & moderate_kinds) and (
+        len(items) >= 2 or "years_inflation" in kinds
+    )
+    points = (
+        POINTS_SUBMISSION_DRIFT_MODERATE if is_moderate
+        else POINTS_SUBMISSION_DRIFT_LIGHT
+    )
+    evidence = "; ".join(str(c["summary"]) for c in items[:3])
+    prior_date = next(
+        (str(c.get("prior_date") or "") for c in items if c.get("prior_date")),
+        "",
+    )
+    return FraudSignal(
+        code="submission_drift",
+        label="Claims changed across prior submissions",
+        points=points,
+        evidence=evidence,
+        details={
+            "changes": list(items)[:10],
+            "prior_date": prior_date,
+            "severity": "moderate" if is_moderate else "light",
+        },
+    )
+
+
+def resume_content_tokens(text: Optional[str]) -> frozenset:
+    """Lowercased alphanumeric word tokens for résumé overlap comparison."""
+    if not text:
+        return frozenset()
+    return frozenset(_RESUME_TOKEN_RE.findall(str(text).lower()))
+
+
+def jaccard_token_overlap(a: frozenset, b: frozenset) -> float:
+    """Jaccard similarity of two token sets; 1.0 when both empty."""
+    if not a and not b:
+        return 1.0
+    if not a or not b:
+        return 0.0
+    union = len(a | b)
+    if union == 0:
+        return 1.0
+    return len(a & b) / union
+
+
+def dedupe_near_identical_resume_versions(
+    versions: Sequence[Dict[str, Any]],
+    near_dup_jaccard: float = RESUME_VERSION_NEAR_DUP_JACCARD,
+    min_tokens: int = RESUME_VERSION_MIN_TOKENS,
+) -> List[Dict[str, Any]]:
+    """Collapse near-identical résumé versions (hash or high Jaccard).
+
+    Each item needs ``name`` and ``text`` (or precomputed ``tokens``).
+    Returns unique representatives in input order. Short/empty parses are
+    dropped so garbage extractions cannot fabricate divergence.
+    """
+    unique: List[Dict[str, Any]] = []
+    for raw in versions or []:
+        if not isinstance(raw, dict):
+            continue
+        text = str(raw.get("text") or "")
+        tokens = raw.get("tokens")
+        if not isinstance(tokens, frozenset):
+            tokens = resume_content_tokens(text)
+        if len(tokens) < min_tokens:
+            continue
+        content_hash = str(raw.get("content_hash") or "")
+        if not content_hash and text:
+            content_hash = hashlib.md5(text.encode("utf-8")).hexdigest()
+        is_dup = False
+        for kept in unique:
+            if content_hash and content_hash == kept.get("content_hash"):
+                is_dup = True
+                break
+            if jaccard_token_overlap(tokens, kept["tokens"]) >= near_dup_jaccard:
+                is_dup = True
+                break
+        if is_dup:
+            continue
+        unique.append({
+            "name": str(raw.get("name") or "resume")[:200],
+            "text": text,
+            "tokens": tokens,
+            "content_hash": content_hash,
+            "file_id": raw.get("file_id"),
+        })
+    return unique
+
+
+def evaluate_divergent_resume_versions(
+    versions: Optional[Sequence[Dict[str, Any]]] = None,
+    *,
+    near_dup_jaccard: float = RESUME_VERSION_NEAR_DUP_JACCARD,
+    divergence_jaccard: float = RESUME_VERSION_DIVERGENCE_JACCARD,
+    min_tokens: int = RESUME_VERSION_MIN_TOKENS,
+) -> Optional[FraudSignal]:
+    """Soft Review advisory when Resume-typed files clearly diverge in content.
+
+    Near-identical duplicates (merge copies / re-uploads) are collapsed first.
+    Fires only when ≥2 unique versions remain and the *minimum* pairwise
+    Jaccard word overlap is below ``divergence_jaccard`` (default 0.40).
+    """
+    unique = dedupe_near_identical_resume_versions(
+        versions or [],
+        near_dup_jaccard=near_dup_jaccard,
+        min_tokens=min_tokens,
+    )
+    if len(unique) < 2:
+        return None
+
+    min_overlap = 1.0
+    worst_pair = (unique[0]["name"], unique[1]["name"])
+    for i in range(len(unique)):
+        for j in range(i + 1, len(unique)):
+            overlap = jaccard_token_overlap(unique[i]["tokens"], unique[j]["tokens"])
+            if overlap < min_overlap:
+                min_overlap = overlap
+                worst_pair = (unique[i]["name"], unique[j]["name"])
+
+    if min_overlap >= divergence_jaccard:
+        return None
+
+    pct = int(round(min_overlap * 100))
+    names = [v["name"] for v in unique[:4]]
+    name_list = ", ".join(f"'{n}'" for n in names)
+    if len(unique) > 4:
+        name_list += f" (+{len(unique) - 4} more)"
+    return FraudSignal(
+        code="divergent_resume_versions",
+        label="Clearly divergent résumé files on this candidate",
+        points=POINTS_DIVERGENT_RESUME_VERSIONS,
+        evidence=(
+            f"{len(unique)} distinct Resume-typed files with low content overlap "
+            f"(~{pct}% word overlap between '{worst_pair[0]}' and '{worst_pair[1]}'). "
+            f"Files: {name_list}. Confirm which career history applies."
+        ),
+        details={
+            "unique_versions": len(unique),
+            "min_jaccard": round(min_overlap, 3),
+            "divergence_threshold": divergence_jaccard,
+            "worst_pair": list(worst_pair),
+            "names": names,
+        },
+    )
+
+
+def evaluate_pdf_author_reuse(
+    signature: Optional[str],
+    other_identities: int = 0,
+    recent_mod: bool = False,
+) -> List[FraudSignal]:
+    """Flag PDF Author/Producer signature shared across different names."""
+    out: List[FraudSignal] = []
+    if not signature or other_identities < 1:
+        return out
+    n = int(other_identities)
+    out.append(FraudSignal(
+        code="pdf_author_reuse",
+        label="PDF metadata signature reused across identities",
+        points=POINTS_PDF_AUTHOR_REUSE,
+        evidence=(
+            f"Same PDF Author/Producer fingerprint appears on {n} other "
+            f"candidate {'identity' if n == 1 else 'identities'}."
+        ),
+        details={"signature": signature[:120], "other_identities": n},
+    ))
+    if recent_mod:
+        out.append(FraudSignal(
+            code="pdf_recent_reskin",
+            label="Recently modified PDF with shared metadata signature",
+            points=POINTS_PDF_RECENT_RESKIN,
+            evidence=(
+                "PDF ModDate is recent and the Author/Producer signature is "
+                "shared with other identities — possible agency reskin."
+            ),
+            details={"signature": signature[:120], "recent_mod": True},
+        ))
+    return out
+
+
+def evaluate_email_undeliverable(
+    email: Optional[str],
+    result: Optional[str],
+) -> Optional[FraudSignal]:
+    """Flag NeverBounce (or similar) undeliverable / invalid email results."""
+    if not email or not result:
+        return None
+    # Only hard-fail on clear negatives — not "unknown"/"catchall".
+    hard = {"invalid", "disposable", "undeliverable"}
+    r = str(result).strip().lower()
+    if r not in hard:
+        return None
+    return FraudSignal(
+        code="email_undeliverable",
+        label="Email failed deliverability check",
+        points=POINTS_EMAIL_UNDELIVERABLE,
+        evidence=f"Contact validation result for this address: {r}.",
+        details={"result": r},
+    )
+
+
+def evaluate_phone_validation(
+    phone: Optional[str],
+    valid: Optional[bool] = None,
+    line_type: Optional[str] = None,
+) -> List[FraudSignal]:
+    """Twilio Lookup outcomes: invalid line and soft VOIP flag."""
+    out: List[FraudSignal] = []
+    if not phone:
+        return out
+    if valid is False:
+        out.append(FraudSignal(
+            code="phone_invalid",
+            label="Phone failed carrier lookup",
+            points=POINTS_PHONE_INVALID,
+            evidence="Phone number is invalid or unassigned per carrier lookup.",
+            details={"line_type": line_type or ""},
+        ))
+        return out
+    lt = (line_type or "").strip().lower()
+    if lt in ("voip", "nonfixedvoip", "non_fixed_voip"):
+        out.append(FraudSignal(
+            code="phone_voip",
+            label="Phone is VOIP / virtual line",
+            points=POINTS_PHONE_VOIP,
+            evidence=f"Carrier lookup classifies this number as {lt}.",
+            details={"line_type": lt},
+        ))
+    return out
+
+
+def evaluate_linkedin_url_status(
+    linkedin_url: Optional[str],
+    status: Optional[str],
+    profile_name: Optional[str] = None,
+    resume_name: Optional[str] = None,
+) -> List[FraudSignal]:
+    """Soft LinkedIn cross-check for a URL already on the résumé.
+
+    ``status``: 'ok' | 'dead' | 'private' | 'blocked' | 'error'
+    Name mismatch only fires when status is ok and both names are present with
+    a strong mismatch. Soft signals alone are capped below High-Risk in
+    ``aggregate``.
+    """
+    out: List[FraudSignal] = []
+    if not linkedin_url or not status:
+        return out
+    st = str(status).strip().lower()
+    if st == "dead":
+        out.append(FraudSignal(
+            code="linkedin_url_dead",
+            label="LinkedIn profile URL unreachable",
+            points=POINTS_LINKEDIN_URL_DEAD,
+            evidence=(
+                f"Résumé LinkedIn URL ({linkedin_url}) returned 404/removed. "
+                "LinkedIn may be outdated — verify on call."
+            ),
+            details={"linkedin_url": linkedin_url, "status": st},
+        ))
+        return out
+    if st in ("private", "blocked", "error"):
+        out.append(FraudSignal(
+            code="linkedin_unverified",
+            label="LinkedIn profile could not be verified",
+            points=0,  # informational — private/blocked is common
+            evidence=(
+                f"Could not verify public profile ({st}). "
+                "LinkedIn may be outdated or restricted — verify on call."
+            ),
+            details={
+                "linkedin_url": linkedin_url,
+                "status": st,
+                "informational": True,
+            },
+        ))
+        return out
+    if st == "ok" and profile_name and resume_name:
+        pn = normalize_name(profile_name)
+        rn = normalize_name(resume_name)
+        if pn and rn and pn != rn and pn not in rn and rn not in pn:
+            out.append(FraudSignal(
+                code="linkedin_name_mismatch",
+                label="LinkedIn profile name mismatch",
+                points=POINTS_LINKEDIN_NAME_MISMATCH,
+                evidence=(
+                    f"Public profile name '{profile_name}' does not match "
+                    f"résumé name '{resume_name}'. Wrong profile or outdated "
+                    "LinkedIn — verify on call."
+                ),
+                details={
+                    "linkedin_url": linkedin_url,
+                    "profile_name": profile_name[:120],
+                    "resume_name": resume_name[:120],
+                },
+            ))
+    return out
+
+
+# Static recruiter call questions keyed by signal code (no AI cost).
+_QUESTION_TEMPLATES: Dict[str, List[str]] = {
+    "resume_reuse": [
+        "Ask them to confirm they did not authorize other identities to use this résumé.",
+    ],
+    "identity_reuse_phone": [
+        "Ask them to confirm they own this phone number and explain any shared use.",
+    ],
+    "identity_reuse_email": [
+        "Ask them to confirm they own this email address and explain any shared use.",
+    ],
+    "linkedin_reuse": [
+        "Ask them to open their LinkedIn and confirm they own the profile URL on the résumé.",
+    ],
+    "jd_mirror": [
+        "Ask them to explain the copied posting wording in their own words with a concrete project example.",
+    ],
+    "submission_drift": [
+        "Walk through what changed in their experience since their prior application.",
+    ],
+    "divergent_resume_versions": [
+        "Confirm which résumé version reflects their current target role and "
+        "walk through the career history that applies.",
+    ],
+    "pdf_author_reuse": [
+        "Ask how this PDF résumé was prepared and whether a third party edited it.",
+    ],
+    "pdf_recent_reskin": [
+        "Ask when this résumé file was last updated and by whom.",
+    ],
+    "third_party_submission": [
+        "Confirm they submitted this application themselves (not via an agency shell).",
+    ],
+    "email_undeliverable": [
+        "Confirm a working email address they check daily.",
+    ],
+    "phone_invalid": [
+        "Confirm a working phone number and preferred contact method.",
+    ],
+    "phone_voip": [
+        "Confirm this is their primary contact number (VOIP lines are fine if reachable).",
+    ],
+    "linkedin_url_dead": [
+        "Ask for a current LinkedIn URL or explain why the résumé link is unreachable.",
+    ],
+    "linkedin_name_mismatch": [
+        "Confirm the LinkedIn profile on the résumé is theirs and matches their legal name.",
+    ],
+    "disposable_email": [
+        "Ask for a permanent professional or personal email (not a temporary inbox).",
+    ],
+    "work_future_date": [
+        "Clarify employment dates that appear to be in the future on the résumé.",
+    ],
+    "work_overlap": [
+        "Clarify overlapping full-time roles and which was primary.",
+    ],
+}
+
+
+def suggested_questions_for_signals(
+    signals: Sequence[Optional[FraudSignal]],
+    limit: int = 3,
+) -> List[str]:
+    """Return up to ``limit`` concrete verification questions for fired signals."""
+    questions: List[str] = []
+    seen = set()
+    scored = sorted(
+        [s for s in signals if s is not None and (s.points or 0) > 0],
+        key=lambda s: s.points,
+        reverse=True,
+    )
+    for sig in scored:
+        templates = _QUESTION_TEMPLATES.get(sig.code) or []
+        # Specialize submission_drift with prior date when available.
+        if sig.code == "submission_drift":
+            prior = (sig.details or {}).get("prior_date") or ""
+            if prior:
+                templates = [
+                    f"Walk through what changed in their experience since their "
+                    f"prior application on {prior}."
+                ]
+        for q in templates:
+            if q not in seen:
+                seen.add(q)
+                questions.append(q)
+                if len(questions) >= limit:
+                    return questions
+    return questions
+
+
 def aggregate(
     signals: Sequence[Optional[FraudSignal]],
     review_threshold: int = DEFAULT_REVIEW_THRESHOLD,
     high_risk_threshold: int = DEFAULT_HIGH_RISK_THRESHOLD,
 ) -> FraudAssessmentResult:
-    """Sum signal weights into a capped 0-100 score and assign a band."""
+    """Sum signal weights into a capped 0-100 score and assign a band.
+
+    Soft LinkedIn-only scores are capped below High-Risk so a stale/wrong
+    profile never alone becomes a hard fraud accusation.
+    """
     clean = [s for s in signals if s is not None]
     score = min(100, sum(s.points for s in clean))
+
+    scored = [s for s in clean if (s.points or 0) > 0]
+    if scored and all(s.code in LINKEDIN_SOFT_CODES for s in scored):
+        score = min(score, high_risk_threshold - 1)
 
     if score >= high_risk_threshold:
         band = FraudRiskBand.HIGH_RISK

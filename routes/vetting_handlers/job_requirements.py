@@ -199,6 +199,8 @@ def refresh_job_requirements(job_id):
         extracted_requirements = vetting_service.extract_job_requirements(job_id, job_title, job_description)
 
         if extracted_requirements:
+            from utils.requirements_format import normalize_requirements_to_bullets
+            extracted_requirements = normalize_requirements_to_bullets(extracted_requirements)
             job_req = JobVettingRequirements.query.filter_by(bullhorn_job_id=job_id).first()
             if job_req:
                 job_req.ai_interpreted_requirements = extracted_requirements

@@ -373,6 +373,29 @@ Resume text:
                         candidate_id = self._resolve_archive_redirect(match, bullhorn_service)
                         if candidate_id is None:
                             continue
+                        # Phone-only hits can collide with junk/dummy shells that
+                        # reused a real mobile (e.g. "Happy Friday" vs Kyle Roots).
+                        # When both sides have full names and they disagree, require
+                        # the same AI identity check used for name matches.
+                        if self._phone_match_names_conflict(first_name, last_name, match):
+                            confidence = self._ai_validate_duplicate(
+                                first_name, last_name, email, phone, match
+                            )
+                            if confidence < 0.7:
+                                self.logger.info(
+                                    f"Phone match skipped — name mismatch with low AI "
+                                    f"confidence ({confidence}): existing "
+                                    f"{match.get('firstName')} {match.get('lastName')} "
+                                    f"(ID: {match.get('id')}) vs new "
+                                    f"{first_name} {last_name}"
+                                )
+                                continue
+                            self.logger.info(
+                                f"DUPLICATE FOUND by phone+AI: candidate {candidate_id} "
+                                f"(existing: {match.get('firstName')} {match.get('lastName')}, "
+                                f"phone={match.get('phone')}), confidence={confidence}"
+                            )
+                            return candidate_id, max(confidence, 0.9)
                         self.logger.info(f"DUPLICATE FOUND by phone: candidate {candidate_id} "
                                        f"(existing: {match.get('firstName')} {match.get('lastName')}, "
                                        f"phone={match.get('phone')}), confidence=0.9")
@@ -411,6 +434,23 @@ Resume text:
         except Exception as e:
             self.logger.error(f"DUPLICATE CHECK ERROR: {type(e).__name__}: {e} — falling through to new candidate creation")
             return None, 0.0
+
+    @staticmethod
+    def _phone_match_names_conflict(
+        first_name: str, last_name: str, existing: Dict
+    ) -> bool:
+        """True when both sides have a full name and they are not identical.
+
+        Used to gate phone-only duplicate hits so a shared mobile on an unrelated
+        shell record does not auto-enrich under the wrong name.
+        """
+        new_first = (first_name or '').strip().lower()
+        new_last = (last_name or '').strip().lower()
+        old_first = (existing.get('firstName') or '').strip().lower()
+        old_last = (existing.get('lastName') or '').strip().lower()
+        if not (new_first and new_last and old_first and old_last):
+            return False
+        return new_first != old_first or new_last != old_last
 
     def _ai_validate_duplicate(self, first_name: str, last_name: str, email: str,
                                phone: str, existing: Dict) -> float:
@@ -503,8 +543,13 @@ Consider: name spelling variations, nicknames, contact info matches.
             return {}
 
         enrichable_fields = [
-            'phone', 'mobile', 'occupation', 'companyName', 'skillSet',
+            # Primary email when blank — avoids leaving returning applicants on
+            # empty email shells after a phone-matched enrich (email2/email3 alone
+            # are not enough for recruiters or later email-based dedupe).
+            'email', 'phone', 'mobile', 'occupation', 'companyName', 'skillSet',
             'employmentPreference', 'email2', 'email3',
+            # LinkedIn profile URL (Bullhorn LinkedIn custom field)
+            'customText9',
         ]
 
         enriched = {}
@@ -526,6 +571,28 @@ Consider: name spelling variations, nicknames, contact info matches.
                 if new_addr_val and not existing_addr_val:
                     addr_update[addr_field] = new_addr_val
                     self.logger.info(f"  Enriching blank address.{addr_field} with: {new_addr_val}")
+
+            # Country is the one address field that may be corrected even when
+            # populated: external boards often leave Bullhorn's US default
+            # while supplying Toronto, ON. Require the same deterministic,
+            # resume-correlated evidence as the scheduled normalizer; never
+            # overwrite from the AI country value alone.
+            from utils.candidate_country import infer_country_from_resume
+            country_resolution = infer_country_from_resume(
+                new_addr.get('city') or existing_addr.get('city'),
+                new_addr.get('state') or existing_addr.get('state'),
+                new_data.get('description'),
+            )
+            if country_resolution:
+                target_country_id = country_resolution.country.bullhorn_id
+                if existing_addr.get('countryID') != target_country_id:
+                    addr_update['countryID'] = target_country_id
+                    self.logger.info(
+                        "  Correcting address.countryID %r -> %r from "
+                        "resume-correlated city/state evidence",
+                        existing_addr.get('countryID'),
+                        target_country_id,
+                    )
             if addr_update:
                 enriched['address'] = addr_update
 

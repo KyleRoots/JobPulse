@@ -7,7 +7,12 @@ logger = logging.getLogger(__name__)
 
 
 def reference_number_refresh():
-    """Automatic refresh of all reference numbers every 120 hours while preserving all other XML data"""
+    """Automatic refresh of all reference numbers every 120 hours while preserving all other XML data.
+
+    Covers every published XML feed tearsheet set (v2 + STSI Indeed + ZipRecruiter),
+    persists rotated refs to JobReferenceNumber, and relies on the 30-minute upload
+    cycle to republish each feed file with the new values.
+    """
     from app import app
     from extensions import db
     with app.app_context():
@@ -21,21 +26,23 @@ def reference_number_refresh():
                 app.logger.info(f"Reference refresh already completed today at {existing_refresh.refresh_time}")
                 return
 
-            app.logger.info("Starting 120-hour reference number refresh...")
+            app.logger.info(
+                "Starting 120-hour reference number refresh across all XML feeds "
+                "(v2 + STSI Indeed + ZipRecruiter)..."
+            )
 
             from simplified_xml_generator import SimplifiedXMLGenerator
+            from lightweight_reference_refresh import refresh_all_feed_references
 
             generator = SimplifiedXMLGenerator(db=db)
-
-            xml_content, stats = generator.generate_fresh_xml()
-            app.logger.info(f"Generated fresh XML: {stats['job_count']} jobs, {stats['xml_size_bytes']} bytes")
-
-            from lightweight_reference_refresh import lightweight_refresh_references_from_content
-
-            result = lightweight_refresh_references_from_content(xml_content)
+            result = refresh_all_feed_references(generator)
 
             if result['success']:
-                app.logger.info(f"Reference refresh complete: {result['jobs_updated']} jobs updated in {result['time_seconds']:.2f} seconds")
+                app.logger.info(
+                    f"Reference refresh complete: {result['jobs_updated']} jobs updated "
+                    f"across feeds {result.get('feeds_covered')} "
+                    f"in {result['time_seconds']:.2f} seconds"
+                )
 
                 try:
                     refresh_log = RefreshLog(
@@ -52,16 +59,16 @@ def reference_number_refresh():
                     app.logger.error(f"Failed to log refresh completion: {str(log_error)}")
                     db.session.rollback()
 
-                from lightweight_reference_refresh import save_references_to_database
-                db_save_success = save_references_to_database(result['xml_content'])
-
-                if not db_save_success:
+                if not result.get('database_saved'):
                     error_msg = "Database-first architecture requires successful DB save - 120-hour refresh FAILED"
                     app.logger.critical(f"CRITICAL: {error_msg}")
                     raise Exception(error_msg)
 
                 app.logger.info("DATABASE-FIRST: Reference numbers successfully saved to database")
-                app.logger.info("Reference refresh complete: Reference numbers updated in database (30-minute upload cycle will use these values)")
+                app.logger.info(
+                    "Reference refresh complete: refs updated for all feed tearsheets "
+                    "(30-minute upload cycle will publish v2 + Indeed + ZipRecruiter)"
+                )
 
                 try:
                     from email_service import EmailService
@@ -77,13 +84,18 @@ def reference_number_refresh():
                             'execution_time': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
                             'processing_time': result['time_seconds'],
                             'jobs_updated': result['jobs_updated'],
-                            'database_saved': db_save_success,
-                            'note': 'Reference numbers saved to database - 30-minute upload cycle will use these values'
+                            'database_saved': result.get('database_saved'),
+                            'feeds_covered': ', '.join(result.get('feeds_covered') or []),
+                            'tearsheet_ids': result.get('tearsheet_ids'),
+                            'note': (
+                                'Reference numbers saved for v2 + STSI Indeed + ZipRecruiter — '
+                                '30-minute upload cycle will publish all three feeds'
+                            ),
                         }
 
                         email_sent = email_service.send_reference_number_refresh_notification(
                             to_email=email_setting.setting_value,
-                            schedule_name="120-Hour Reference Number Refresh",
+                            schedule_name="120-Hour Reference Number Refresh (All Feeds)",
                             total_jobs=result['jobs_updated'],
                             refresh_details=refresh_details,
                             status="success"
@@ -104,10 +116,14 @@ def reference_number_refresh():
                     app.logger.error(f"Failed to send refresh confirmation email: {str(email_error)}")
 
                 try:
+                    feeds = ', '.join(result.get('feeds_covered') or [])
                     activity = BullhornActivity(
                         monitor_id=None,
                         activity_type='reference_refresh',
-                        details=f'Daily automatic refresh: {result["jobs_updated"]} reference numbers updated',
+                        details=(
+                            f'Daily automatic refresh (all feeds: {feeds}): '
+                            f'{result["jobs_updated"]} reference numbers updated'
+                        ),
                         notification_sent=True,
                         created_at=datetime.utcnow()
                     )
@@ -136,7 +152,7 @@ def reference_number_refresh():
 
                         email_sent = email_service.send_reference_number_refresh_notification(
                             to_email=email_setting.setting_value,
-                            schedule_name="120-Hour Reference Number Refresh",
+                            schedule_name="120-Hour Reference Number Refresh (All Feeds)",
                             total_jobs=0,
                             refresh_details=refresh_details,
                             status="error",
@@ -180,8 +196,12 @@ def _upload_single_file(ftp_service, xml_content, remote_filename, app):
             app.logger.info(f"'{remote_filename}' uploaded successfully")
             return True, None
         else:
-            app.logger.error(f"'{remote_filename}' upload failed")
-            return False, "Upload returned False"
+            # Surface why it failed. The service records the underlying reason
+            # (auth rejected, timeout, bad path); without it the failure e-mail
+            # only says "returned False", which tells an operator nothing.
+            err = getattr(ftp_service, 'last_error', None) or "Upload returned False"
+            app.logger.error(f"'{remote_filename}' upload failed: {err}")
+            return False, err
     except Exception as e:
         app.logger.error(f"'{remote_filename}' upload error: {e}")
         return False, str(e)
@@ -195,11 +215,17 @@ def _upload_single_file(ftp_service, xml_content, remote_filename, app):
 
 def automated_upload():
     """Automatically upload fresh XML every 30 minutes if automation is enabled.
-    Generates a single v2 feed (myticas-job-feed-v2.xml) with all tearsheets and
-    all STSI (1531) jobs included (no tag filtering).
+    Generates v2 feed (myticas-job-feed-v2.xml) plus STSI channel feeds for
+    Indeed and ZipRecruiter on the same cycle.
     """
     from app import app
     from extensions import db
+    from feeds.feed_config import (
+        channel_feeds_for_upload,
+        V2_FILENAME,
+        V2_FILENAME_DEV,
+        SOURCE_LINKEDIN,
+    )
     with app.app_context():
         app.logger.info("AUTOMATED UPLOAD: Function invoked by scheduler")
         try:
@@ -215,19 +241,51 @@ def automated_upload():
                 app.logger.warning("Automated upload skipped: SFTP not enabled")
                 return
 
-            app.logger.info("Starting automated 30-minute upload cycle (single v2 feed)...")
+            app.logger.info("Starting automated 30-minute upload cycle (v2 + STSI channel feeds)...")
 
             from simplified_xml_generator import SimplifiedXMLGenerator
             generator = SimplifiedXMLGenerator(db=db)
 
-            app.logger.info("Generating v2 feed (all tearsheets, all STSI jobs)...")
-            v2_xml, v2_stats = generator.generate_fresh_xml()
+            app.logger.info("Generating v2 feed (Myticas tearsheets + STSI LinkedIn)...")
+            v2_xml, v2_stats = generator.generate_fresh_xml(source_channel=SOURCE_LINKEDIN)
             app.logger.info(f"v2 feed: {v2_stats['job_count']} jobs, {v2_stats['xml_size_bytes']:,} bytes")
 
-            app.logger.info("CHECKPOINT 1: v2 XML feed generated successfully")
+            channel_results = {}
+            for feed_cfg in channel_feeds_for_upload():
+                key = feed_cfg['key']
+                if feed_cfg.get('force_empty'):
+                    app.logger.info(
+                        f"Parking {key} XML feed (Indeed native Plan B enabled) — "
+                        f"uploading empty feed to retire XML syndication"
+                    )
+                    tearsheet_ids = []
+                else:
+                    tearsheet_ids = feed_cfg['tearsheet_ids']
+                    app.logger.info(f"Generating {key} feed from tearsheets {tearsheet_ids}...")
+                xml_content, stats = generator.generate_fresh_xml(
+                    tearsheet_ids=tearsheet_ids,
+                    source_channel=feed_cfg['source_channel'],
+                    allow_empty=True if feed_cfg.get('force_empty') else feed_cfg.get('allow_empty', False),
+                    publisher_title=feed_cfg.get('publisher_title'),
+                    publisher_link=feed_cfg.get('publisher_link'),
+                )
+                channel_results[key] = {
+                    'xml': xml_content,
+                    'stats': stats,
+                    'filenames': {
+                        'production': feed_cfg['filename'],
+                        'development': feed_cfg.get('filename_dev', feed_cfg['filename']),
+                    },
+                }
+                app.logger.info(
+                    f"{key} feed: {stats['job_count']} jobs, {stats['xml_size_bytes']:,} bytes"
+                )
+
+            app.logger.info("CHECKPOINT 1: All XML feeds generated successfully")
             app.logger.info("Reference numbers loaded from DATABASE (database-first approach)")
 
             v2_upload_ok = False
+            channel_upload_ok = {key: False for key in channel_results}
             upload_error_message = None
 
             try:
@@ -237,23 +295,46 @@ def automated_upload():
                 sftp_directory = GlobalSettings.query.filter_by(setting_key='sftp_directory').first()
                 sftp_port = GlobalSettings.query.filter_by(setting_key='sftp_port').first()
 
-                if (sftp_hostname and sftp_hostname.setting_value and
-                    sftp_username and sftp_username.setting_value and
-                    sftp_password and sftp_password.setting_value):
+                host_val = (sftp_hostname.setting_value or '').strip() if sftp_hostname else ''
+                user_val = (sftp_username.setting_value or '').strip() if sftp_username else ''
+                pass_val = (sftp_password.setting_value or '').strip() if sftp_password else ''
+                dir_val = (sftp_directory.setting_value or '/').strip() if sftp_directory else '/'
+                env_host = (os.environ.get('SFTP_HOSTNAME') or os.environ.get('SFTP_HOST') or '').strip()
+                if not host_val or host_val.startswith('{') or '.' not in host_val:
+                    if env_host:
+                        app.logger.warning(
+                            "sftp_hostname DB value looks invalid (%r); using SFTP_HOSTNAME env fallback",
+                            (host_val or '')[:80],
+                        )
+                        host_val = env_host
+                        try:
+                            GlobalSettings.set_value('sftp_hostname', env_host)
+                        except Exception:
+                            pass
+                user_val = user_val or (os.environ.get('SFTP_USERNAME') or '').strip()
+                pass_val = pass_val or (os.environ.get('SFTP_PASSWORD') or '').strip()
 
-                    target_directory = sftp_directory.setting_value if sftp_directory else "/"
+                if host_val and user_val and pass_val:
+
+                    target_directory = dir_val or "/"
                     app.logger.info(f"Uploading to configured directory: '{target_directory}'")
 
                     from ftp_service import FTPService
+                    try:
+                        port_value = int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222
+                    except ValueError:
+                        port_value = 2222
+                    if port_value == 22:
+                        port_value = 2222
                     ftp_service = FTPService(
-                        hostname=sftp_hostname.setting_value,
-                        username=sftp_username.setting_value,
-                        password=sftp_password.setting_value,
+                        hostname=host_val,
+                        username=user_val,
+                        password=pass_val,
                         target_directory=target_directory,
-                        port=int(sftp_port.setting_value) if sftp_port and sftp_port.setting_value else 2222,
+                        port=port_value,
                         use_sftp=True
                     )
-                    app.logger.info(f"Using SFTP protocol for thread-safe uploads to {sftp_hostname.setting_value}:{ftp_service.port}")
+                    app.logger.info(f"Using SFTP protocol for thread-safe uploads to {host_val}:{ftp_service.port}")
 
                     current_env = (os.environ.get('APP_ENV') or os.environ.get('ENVIRONMENT') or 'production').lower()
                     app.logger.info(f"Environment: {current_env}")
@@ -262,18 +343,43 @@ def automated_upload():
                         app.logger.error(f"Invalid environment '{current_env}' - defaulting to development for safety")
                         current_env = 'development'
 
-                    v2_filename = "myticas-job-feed-v2.xml" if current_env == 'production' else "myticas-job-feed-v2-dev.xml"
+                    v2_filename = V2_FILENAME if current_env == 'production' else V2_FILENAME_DEV
 
                     app.logger.info(f"{current_env.upper()}: uploading {v2_filename}")
 
-                    v2_upload_ok, v2_err = _upload_single_file(ftp_service, v2_xml, v2_filename, app)
+                    # One authenticated connection for all feeds in the cycle.
+                    try:
+                        with ftp_service.sftp_session():
+                            v2_upload_ok, v2_err = _upload_single_file(
+                                ftp_service, v2_xml, v2_filename, app
+                            )
 
-                    if not v2_upload_ok:
-                        upload_error_message = f"v2: {v2_err}"
+                            if not v2_upload_ok:
+                                upload_error_message = f"v2: {v2_err}"
 
-                    app.logger.info(f"ENVIRONMENT ISOLATION: {current_env} -> uploads ONLY to its designated file")
+                            for key, result in channel_results.items():
+                                remote_filename = result['filenames'][current_env]
+                                app.logger.info(f"{current_env.upper()}: uploading {remote_filename}")
+                                ok, err = _upload_single_file(
+                                    ftp_service, result['xml'], remote_filename, app
+                                )
+                                channel_upload_ok[key] = ok
+                                if not ok:
+                                    err_part = f"{key}: {err}"
+                                    upload_error_message = f"{upload_error_message}; {err_part}" if upload_error_message else err_part
+                    except Exception as conn_error:
+                        # Connection could not be established even after retries,
+                        # so no feed was attempted. Report that plainly rather
+                        # than letting it surface as a generic task crash.
+                        upload_error_message = (
+                            f"SFTP connection failed, no feeds uploaded "
+                            f"({type(conn_error).__name__}: {conn_error})"
+                        )
+                        app.logger.error(upload_error_message)
 
-                    upload_success = v2_upload_ok
+                    app.logger.info(f"ENVIRONMENT ISOLATION: {current_env} -> uploads ONLY to its designated files")
+
+                    upload_success = v2_upload_ok and all(channel_upload_ok.values())
 
                     if upload_success:
                         try:
@@ -307,6 +413,10 @@ def automated_upload():
                             feed_result = json.dumps({
                                 'v2_jobs': v2_stats['job_count'],
                                 'v2_size': v2_stats['xml_size_bytes'],
+                                'stsi_indeed_jobs': channel_results['stsi_indeed']['stats']['job_count'],
+                                'stsi_indeed_size': channel_results['stsi_indeed']['stats']['xml_size_bytes'],
+                                'stsi_ziprecruiter_jobs': channel_results['stsi_ziprecruiter']['stats']['job_count'],
+                                'stsi_ziprecruiter_size': channel_results['stsi_ziprecruiter']['stats']['xml_size_bytes'],
                                 'timestamp': upload_timestamp
                             })
                             feed_setting = GlobalSettings.query.filter_by(setting_key='dual_feed_last_result').first()
@@ -323,7 +433,11 @@ def automated_upload():
                             db.session.commit()
                             app.logger.info(f"Updated last upload timestamp: {upload_timestamp}")
                             app.logger.info(f"Updated next upload timestamp: {next_upload_timestamp}")
-                            app.logger.info(f"Feed stats saved: v2={v2_stats['job_count']} jobs")
+                            app.logger.info(
+                                f"Feed stats saved: v2={v2_stats['job_count']}, "
+                                f"indeed={channel_results['stsi_indeed']['stats']['job_count']}, "
+                                f"zip={channel_results['stsi_ziprecruiter']['stats']['job_count']} jobs"
+                            )
                         except Exception as ts_error:
                             app.logger.error(f"Failed to track upload timestamp: {str(ts_error)}")
                 else:
@@ -348,6 +462,10 @@ def automated_upload():
                             'execution_time': format_eastern_time(current_time),
                             'jobs_count': v2_stats['job_count'],
                             'xml_size': f"{v2_stats['xml_size_bytes']:,} bytes",
+                            'stsi_indeed_jobs_count': channel_results['stsi_indeed']['stats']['job_count'],
+                            'stsi_indeed_xml_size': f"{channel_results['stsi_indeed']['stats']['xml_size_bytes']:,} bytes",
+                            'stsi_ziprecruiter_jobs_count': channel_results['stsi_ziprecruiter']['stats']['job_count'],
+                            'stsi_ziprecruiter_xml_size': f"{channel_results['stsi_ziprecruiter']['stats']['xml_size_bytes']:,} bytes",
                             'upload_attempted': True,
                             'upload_success': upload_success,
                             'upload_error': upload_error_message,

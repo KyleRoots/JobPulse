@@ -157,6 +157,81 @@ CTA_PHRASES = {
     "scout genius",
 }
 
+# Job-title vocabulary. Production failure (2026-08-06): LinkedIn apply-form
+# submitted firstName="Senior" / lastName="Business Analyst" (the candidate's
+# occupation) while the résumé AI correctly extracted "Uday Vasireddy". Email
+# subject preference then shipped the title to Bullhorn as the candidate name
+# (#4673968). These tokens/phrases reject title-shaped (first, last) pairs
+# without blocking rare real surnames like "Senior" alone ("John Senior").
+JOB_TITLE_SENIORITY_TOKENS = {
+    "senior", "junior", "principal", "staff", "lead", "sr", "jr",
+    "associate", "entry", "mid", "midlevel", "mid-level",
+}
+
+JOB_TITLE_ROLE_TOKENS = {
+    "analyst", "engineer", "developer", "manager", "architect",
+    "consultant", "specialist", "director", "coordinator",
+    "administrator", "admin", "officer", "designer", "scientist",
+    "programmer", "technician", "recruiter", "accountant",
+    "executive", "president", "founder", "intern", "trainee",
+    "assistant", "supervisor", "strategist", "owner", "lead",
+    "sme", "ba", "pm", "po", "qa", "sdet", "devops",
+}
+
+JOB_TITLE_DOMAIN_TOKENS = {
+    "business", "software", "data", "product", "project", "systems",
+    "system", "network", "cloud", "full", "stack", "fullstack",
+    "frontend", "backend", "front", "back", "end", "ux", "ui",
+    "technical", "tech", "sales", "marketing", "finance",
+    "financial", "operations", "ops", "security", "cyber",
+    "machine", "learning", "web", "mobile", "platform",
+    "infrastructure", "solutions", "solution", "enterprise",
+    "digital", "information", "quality", "assurance", "scrum",
+    "agile", "delivery", "program", "portfolio", "release",
+    "site", "reliability", "sre", "database", "warehouse",
+}
+
+# Exact / near-exact multi-word titles commonly pasted into name fields.
+JOB_TITLE_PHRASES = {
+    "business analyst",
+    "senior business analyst",
+    "junior business analyst",
+    "software engineer",
+    "senior software engineer",
+    "software developer",
+    "senior software developer",
+    "product manager",
+    "senior product manager",
+    "project manager",
+    "senior project manager",
+    "product owner",
+    "technical product owner",
+    "scrum master",
+    "data scientist",
+    "data engineer",
+    "data analyst",
+    "devops engineer",
+    "site reliability engineer",
+    "solutions architect",
+    "solution architect",
+    "technical architect",
+    "qa engineer",
+    "quality assurance",
+    "full stack developer",
+    "fullstack developer",
+    "front end developer",
+    "frontend developer",
+    "back end developer",
+    "backend developer",
+    "program manager",
+    "engineering manager",
+    "account manager",
+    "sales manager",
+    "hr manager",
+    "recruiter",
+    "talent acquisition",
+}
+
 
 def is_cta_phrase(text: Optional[str]) -> bool:
     """Return True if ``text`` is a job-board call-to-action phrase.
@@ -181,6 +256,57 @@ def is_cta_phrase(text: Optional[str]) -> bool:
             return True
     return False
 
+
+def is_job_title_phrase(text: Optional[str]) -> bool:
+    """Return True if ``text`` looks like a job title rather than a person name.
+
+    Production failure: apply-form / LinkedIn subject used the candidate's
+    occupation ("Senior Business Analyst") where first/last name belong.
+    ``is_valid_name`` previously accepted those tokens because they are
+    alphabetic and title-cased.
+
+    Match layers (any hit → True):
+
+    1. Exact / substring hit against :data:`JOB_TITLE_PHRASES`.
+    2. First token is seniority (``Senior``, ``Lead``, …) AND any later
+       token is a role (``Analyst``, ``Engineer``, …).
+    3. Every token (2+) is in the union of seniority / role / domain
+       title vocabulary (e.g. ``Business Analyst``, ``Senior Business``
+       after a role word was stripped). Bare ``John Senior`` still
+       passes because ``John`` is not title vocabulary.
+    """
+    if not text:
+        return False
+    normalised = " ".join(text.strip().lower().split())
+    if not normalised:
+        return False
+    for phrase in JOB_TITLE_PHRASES:
+        if phrase == normalised or f" {phrase} " in f" {normalised} ":
+            return True
+        if normalised.startswith(phrase + " ") or normalised.endswith(" " + phrase):
+            return True
+
+    tokens = [t.strip(".,;:") for t in re.split(r"[\s\-]+", normalised) if t.strip(".,;:")]
+    if len(tokens) < 2:
+        return False
+
+    title_vocab = (
+        JOB_TITLE_SENIORITY_TOKENS
+        | JOB_TITLE_ROLE_TOKENS
+        | JOB_TITLE_DOMAIN_TOKENS
+    )
+    if tokens[0] in JOB_TITLE_SENIORITY_TOKENS and any(
+        t in JOB_TITLE_ROLE_TOKENS for t in tokens[1:]
+    ):
+        return True
+    # All-vocab pairs catch incomplete titles ("Senior Business") and
+    # domain+role titles ("Business Analyst") without requiring a role
+    # token — real surnames like "John Senior" stay allowed.
+    if all(t in title_vocab for t in tokens):
+        return True
+    return False
+
+
 NAME_TOKEN_RE = r"[A-Za-z][A-Za-z'\-]*"
 # Non-greedy multi-token name capture so trailing suffix anchors match
 # correctly. Allows 1-5 additional tokens after the first.
@@ -201,6 +327,152 @@ def is_valid_name_token(token: str) -> bool:
     if len(cleaned) > 40:
         return False
     return True
+
+
+# Domains / local-parts that appear in job-board notification HTML but are
+# never the candidate's real contact address (Easy Apply / digest emails).
+JOB_BOARD_RELAY_DOMAINS = frozenset({
+    'ziprecruiter.com',
+    'indeed.com',
+    'indeedemail.com',
+    'linkedin.com',
+    'lnkd.in',
+    'dice.com',
+    'glassdoor.com',
+    'monster.com',
+    'careerbuilder.com',
+})
+
+JOB_BOARD_RELAY_LOCALPARTS = frozenset({
+    'noreply', 'no-reply', 'donotreply', 'do-not-reply',
+    'mailer-daemon', 'notifications', 'notify', 'bounce',
+})
+
+# Our own intake / ops mailboxes. Zip/Indeed Easy Apply bodies greet
+# ``Hi apply@myticas.com`` — a generic body scrape would treat that as the
+# candidate email and collapse every applicant onto the Bullhorn record that
+# already owns apply@ (prod incident: Candidate 4380273 "ISMS SME").
+OWNED_INTAKE_DOMAINS = frozenset({
+    'myticas.com',
+    'stsigroup.com',
+    'scoutgenius.ai',
+})
+
+OWNED_INTAKE_LOCALPARTS = frozenset({
+    'apply', 'info', 'jobs', 'careers', 'noreply', 'no-reply',
+    'donotreply', 'do-not-reply', 'parser', 'notifications',
+})
+
+# Exact addresses always treated as non-candidate (even if domain list drifts).
+OWNED_INTAKE_ADDRESSES = frozenset({
+    'apply@myticas.com',
+    'apply@stsigroup.com',
+    'info@myticas.com',
+    'info@stsigroup.com',
+})
+
+
+def is_owned_intake_mailbox(email: Optional[str]) -> bool:
+    """True for our apply/info mailboxes that must never be a candidate email."""
+    if not email or not isinstance(email, str):
+        return False
+    value = email.strip().lower()
+    if '@' not in value:
+        return False
+    if value in OWNED_INTAKE_ADDRESSES:
+        return True
+    # GRAPH_MAILBOX_UPN (and similar) — whatever mailbox we poll is never the applicant.
+    for env_key in ('GRAPH_MAILBOX_UPN', 'APPLY_EMAIL'):
+        configured = (os.environ.get(env_key) or '').strip().lower()
+        if configured and value == configured:
+            return True
+    local, _, domain = value.partition('@')
+    if not local or not domain:
+        return False
+    if local in OWNED_INTAKE_LOCALPARTS and domain in OWNED_INTAKE_DOMAINS:
+        return True
+    return False
+
+
+def is_job_board_relay_email(email: Optional[str]) -> bool:
+    """True for board/ops addresses that must not become Bullhorn candidate email.
+
+    Easy Apply notifications often embed ``noreply@ziprecruiter.com`` (etc.) in
+    the HTML. Generic body scrapers would otherwise prefer that over the real
+    address recovered from the résumé.
+
+    Also rejects our own intake mailboxes (``apply@myticas.com`` etc.) which
+    appear in ZipRecruiter greeting lines and must never win contact coalesce.
+    """
+    if not email or not isinstance(email, str):
+        return False
+    value = email.strip().lower()
+    if '@' not in value:
+        return False
+    if is_owned_intake_mailbox(value):
+        return True
+    local, _, domain = value.partition('@')
+    if not local or not domain:
+        return False
+    if local in JOB_BOARD_RELAY_LOCALPARTS:
+        return True
+    # Strip one subdomain level for match (e.g. mail.ziprecruiter.com)
+    parts = domain.split('.')
+    for i in range(len(parts) - 1):
+        candidate = '.'.join(parts[i:])
+        if candidate in JOB_BOARD_RELAY_DOMAINS:
+            return True
+    return False
+
+
+def coalesce_candidate_email(*candidates: Optional[str]) -> Optional[str]:
+    """Return the first usable candidate email, skipping board/relay/intake addresses."""
+    for raw in candidates:
+        if not raw or not str(raw).strip():
+            continue
+        value = str(raw).strip().lower()
+        if is_job_board_relay_email(value):
+            continue
+        return value
+    return None
+
+
+def resolve_linkedin_profile_url(*sources: Optional[str]) -> Optional[str]:
+    """Return a clickable LinkedIn ``/in/`` profile URL from résumé/body text.
+
+    Used as a third contact channel (alongside email/phone) so name + LinkedIn
+    alone can still create a Bullhorn candidate. Maps to Bullhorn ``customText9``.
+    Returns ``None`` when no personal ``/in/`` profile is found (company pages
+    and empty sources are ignored).
+    """
+    try:
+        from fraud_detection.signals import extract_linkedin_url
+    except ImportError:  # pragma: no cover — package always present in app
+        return None
+    canonical = extract_linkedin_url(*sources)
+    if not canonical:
+        return None
+    # extract_linkedin_url returns ``linkedin.com/in/<slug>``; store absolute URL
+    # so recruiters can open it from the Bullhorn LinkedIn field in one click.
+    if canonical.startswith("http://") or canonical.startswith("https://"):
+        return canonical
+    return f"https://www.{canonical}"
+
+
+def has_candidate_contact(
+    email: Optional[str] = None,
+    phone: Optional[str] = None,
+    linkedin_url: Optional[str] = None,
+) -> bool:
+    """True when at least one recruiter-reachable contact channel is present."""
+    if email and str(email).strip() and not is_job_board_relay_email(email):
+        return True
+    if phone and str(phone).strip():
+        return True
+    if linkedin_url and str(linkedin_url).strip():
+        return True
+    return False
+
 
 
 def is_work_auth_phrase(text: Optional[str]) -> bool:
@@ -276,6 +548,13 @@ def is_valid_name(first_name: Optional[str], last_name: Optional[str]) -> bool:
     # extractor and committed to Bullhorn as firstName="Invite" /
     # lastName="Friend" for two real candidates.
     if is_cta_phrase(combined):
+        return False
+
+    # Reject job-title-shaped pairs ("Senior Business Analyst",
+    # "Software Engineer"). Production failure: apply-form submitted
+    # occupation as first/last and inbound preferred the email subject
+    # over the AI résumé name (#4673968 Uday Vasireddy).
+    if is_job_title_phrase(combined):
         return False
 
     # Validate first name: must be a single valid token
@@ -475,6 +754,23 @@ def parse_name_from_filename(filename: str) -> Tuple[Optional[str], Optional[str
     if not filtered:
         return None, None
 
+    # Strip trailing job-title tokens so filenames like
+    # "Uday_Vasireddy_Senior_Business_Analyst.docx" yield the person
+    # name rather than absorbing the occupation suffix into last_name.
+    # Continue while len > 1 so a title-only filename
+    # ("Senior_Business_Analyst.docx") collapses to a mononym / empty
+    # rather than leaving the remnant pair "Senior Business".
+    title_vocab = (
+        JOB_TITLE_SENIORITY_TOKENS
+        | JOB_TITLE_ROLE_TOKENS
+        | JOB_TITLE_DOMAIN_TOKENS
+    )
+    while len(filtered) > 1 and filtered[-1].lower().strip("()[]{}") in title_vocab:
+        filtered.pop()
+
+    if not filtered:
+        return None, None
+
     candidate = " ".join(filtered)
     first, last = split_full_name(candidate)
 
@@ -483,6 +779,15 @@ def parse_name_from_filename(filename: str) -> Tuple[Optional[str], Optional[str
     if first and first.lower() in INVALID_NAME_TOKENS:
         return None, None
     if last and last.split()[0].lower() in INVALID_NAME_TOKENS:
+        return None, None
+
+    # Reject when the remaining (first, last) is still a job title
+    # (e.g. filename was only "Senior_Business_Analyst.docx").
+    if first and last and is_job_title_phrase(f"{first} {last}"):
+        return None, None
+    # Title-only filenames that collapsed to a single seniority/role
+    # token (mononym) are not usable person names.
+    if first and not last and first.lower() in title_vocab:
         return None, None
 
     return first, last

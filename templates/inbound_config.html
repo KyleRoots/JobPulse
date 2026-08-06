@@ -169,7 +169,7 @@
                     </div>
                     <div id="dual-feed-stats" class="row g-3 mt-2" style="display: none;">
                         <div class="col-12">
-                            <small class="text-muted d-block mb-1">Dual Feed (Last Upload)</small>
+                            <small class="text-muted d-block mb-1">Feed Stats (Last Upload)</small>
                         </div>
                         <div class="col-6 col-md-3">
                             <small style="color: #4a9678;">v2 Feed</small><br>
@@ -177,8 +177,13 @@
                             <small class="text-muted"> jobs</small>
                         </div>
                         <div class="col-6 col-md-3">
-                            <small style="color: #e8a838;">Pando Feed</small><br>
-                            <span id="pando-jobs" class="text-white" style="font-size: 0.875rem;">—</span>
+                            <small style="color: #2164f3;">STSI Indeed</small><br>
+                            <span id="indeed-jobs" class="text-white" style="font-size: 0.875rem;">—</span>
+                            <small class="text-muted"> jobs</small>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <small style="color: #e8a838;">STSI ZipRecruiter</small><br>
+                            <span id="ziprecruiter-jobs" class="text-white" style="font-size: 0.875rem;">—</span>
                             <small class="text-muted"> jobs</small>
                         </div>
                     </div>
@@ -336,8 +341,11 @@
                     const dualFeedSection = document.getElementById('dual-feed-stats');
                     if (data.dual_feed && dualFeedSection) {
                         dualFeedSection.style.display = 'flex';
-                        document.getElementById('v2-jobs').textContent = data.dual_feed.v2_jobs || '—';
-                        document.getElementById('pando-jobs').textContent = data.dual_feed.pando_jobs || '—';
+                        document.getElementById('v2-jobs').textContent = data.dual_feed.v2_jobs ?? '—';
+                        document.getElementById('indeed-jobs').textContent =
+                            data.dual_feed.stsi_indeed_jobs ?? data.dual_feed.pando_jobs ?? '—';
+                        document.getElementById('ziprecruiter-jobs').textContent =
+                            data.dual_feed.stsi_ziprecruiter_jobs ?? '—';
                     }
                 } else {
                     if (statusEl) {

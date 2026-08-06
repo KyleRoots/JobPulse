@@ -25,16 +25,45 @@ def _is_numeric_id(value):
     return bool(re.match(r'^\d+$', value.strip()))
 
 
-def _resolve_user(rest_url, headers, user_id):
+def _auth_params(bullhorn_service, **extra):
+    """Bullhorn REST expects BhRestToken as a query param, not only a header.
+
+    Putting the token only in headers produced HTTP 400 on query/ClientCorporation
+    (URL had no BhRestToken). Matches bullhorn_service.query_entity / entity calls.
+    """
+    params = {'BhRestToken': bullhorn_service.rest_token}
+    params.update(extra)
+    return params
+
+
+def _redact_token(text, token):
+    if not text or not token:
+        return text
+    return text.replace(token, "[REDACTED]")
+
+
+def _safe_error(exc, bullhorn_service):
+    """Strip BhRestToken from exception text (requests embeds full URL)."""
+    return _redact_token(str(exc), getattr(bullhorn_service, "rest_token", None))
+
+
+def _check_response(resp, context):
+    """Raise without requests' URL-bearing HTTPError (would leak BhRestToken in logs)."""
+    if resp.status_code >= 400:
+        body = (resp.text or "")[:200]
+        raise RuntimeError(f"{context}: HTTP {resp.status_code} {body}")
+
+
+def _resolve_user(rest_url, bullhorn_service, user_id):
     global _user_cache
     if user_id in _user_cache:
         return _user_cache[user_id]
 
     try:
         url = f"{rest_url}entity/CorporateUser/{user_id}"
-        params = {"fields": "id,firstName,lastName,name"}
-        resp = requests.get(url, headers=headers, params=params, timeout=15)
-        resp.raise_for_status()
+        params = _auth_params(bullhorn_service, fields="id,firstName,lastName,name")
+        resp = requests.get(url, params=params, timeout=15)
+        _check_response(resp, f"CorporateUser {user_id} lookup")
         user = resp.json().get("data", {})
 
         first = (user.get("firstName") or "").strip()
@@ -49,7 +78,10 @@ def _resolve_user(rest_url, headers, user_id):
         _user_cache[user_id] = full_name
         return full_name
     except Exception as e:
-        logger.warning(f"Failed to resolve CorporateUser {user_id}: {e}")
+        logger.warning(
+            f"Failed to resolve CorporateUser {user_id}: "
+            f"{_safe_error(e, bullhorn_service)}"
+        )
         _user_cache[user_id] = None
         return None
 
@@ -76,7 +108,8 @@ def run_salesrep_sync(bullhorn_service, source_field=None, display_field=None):
             bullhorn_service.base_url = None
             bullhorn_service.authenticate()
         rest_url = bullhorn_service.base_url
-        headers = bullhorn_service._get_headers()
+        if not rest_url.endswith('/'):
+            rest_url = rest_url + '/'
     except Exception as e:
         logger.error(f"Sales Rep Sync: Failed to get Bullhorn connection: {e}")
         return {"success": False, "error": str(e)}
@@ -91,17 +124,22 @@ def run_salesrep_sync(bullhorn_service, source_field=None, display_field=None):
 
     try:
         while True:
-            url = f"{rest_url}query/ClientCorporation"
-            params = {
-                "where": f"{source_field} IS NOT NULL AND {source_field} <> ''",
-                "fields": fields,
-                "count": batch_size,
-                "start": start_idx,
-                "orderBy": "id"
-            }
+            # ClientCorporation customText is Lucene-indexed; /query/ BQL rejects
+            # ``<> ''`` (and often IS NOT NULL) on customText fields → HTTP 400.
+            # Search with field:* returns non-empty values; empty/non-numeric IDs
+            # are skipped client-side below.
+            url = f"{rest_url}search/ClientCorporation"
+            params = _auth_params(
+                bullhorn_service,
+                query=f"{source_field}:*",
+                fields=fields,
+                count=batch_size,
+                start=start_idx,
+                sort="id",
+            )
 
-            resp = requests.get(url, headers=headers, params=params, timeout=30)
-            resp.raise_for_status()
+            resp = requests.get(url, params=params, timeout=30)
+            _check_response(resp, "Sales Rep Sync scan")
             data = resp.json()
             companies = data.get("data", [])
 
@@ -118,7 +156,7 @@ def run_salesrep_sync(bullhorn_service, source_field=None, display_field=None):
                 if not _is_numeric_id(source_val):
                     continue
 
-                resolved_name = _resolve_user(rest_url, headers, source_val)
+                resolved_name = _resolve_user(rest_url, bullhorn_service, source_val)
                 if not resolved_name:
                     continue
 
@@ -137,11 +175,12 @@ def run_salesrep_sync(bullhorn_service, source_field=None, display_field=None):
                     update_url = f"{rest_url}entity/ClientCorporation/{company_id}"
                     update_resp = requests.post(
                         update_url,
-                        headers={**headers, "Content-Type": "application/json"},
+                        params=_auth_params(bullhorn_service),
+                        headers={"Content-Type": "application/json", "Accept": "application/json"},
                         json={display_field: resolved_name},
                         timeout=15
                     )
-                    update_resp.raise_for_status()
+                    _check_response(update_resp, f"Update ClientCorporation {company_id}")
                     updated.append({
                         "company_id": company_id,
                         "company_name": company_name,
@@ -150,22 +189,26 @@ def run_salesrep_sync(bullhorn_service, source_field=None, display_field=None):
                     })
                     logger.info(f"  ✅ Updated {company_name} (ID:{company_id}): '{current_display}' → '{resolved_name}'")
                 except Exception as e:
+                    safe_err = _safe_error(e, bullhorn_service)
                     errors.append({
                         "company_id": company_id,
                         "company_name": company_name,
-                        "error": str(e)
+                        "error": safe_err
                     })
-                    logger.warning(f"  ❌ Failed to update {company_name} (ID:{company_id}): {e}")
+                    logger.warning(
+                        f"  ❌ Failed to update {company_name} (ID:{company_id}): {safe_err}"
+                    )
 
             if len(companies) < batch_size:
                 break
             start_idx += batch_size
 
     except Exception as e:
-        logger.error(f"Sales Rep Sync: Error during scan: {e}")
+        safe_err = _safe_error(e, bullhorn_service)
+        logger.error(f"Sales Rep Sync: Error during scan: {safe_err}")
         return {
             "success": False,
-            "error": str(e),
+            "error": safe_err,
             "scanned": total_scanned,
             "mismatches": len(mismatches),
             "updated": len(updated),

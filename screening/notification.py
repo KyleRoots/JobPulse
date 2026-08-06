@@ -763,16 +763,20 @@ class NotificationMixin:
 
             # Clear candidates have no fired signals — show the static list of
             # checks performed so the green banner still demonstrates coverage.
+            # Wording notes "when data available" for honesty.
             if band == 'clear' and not reasons_html:
                 _checks = [
                     'Email domain & address format',
                     'Contact-detail consistency',
-                    'Work-history timeline',
+                    'Work-history timeline (when available)',
                     'Resume-content uniqueness',
                     'Identity consistency',
                     'Profile near-duplicate check',
                     'Application velocity',
                     'LinkedIn profile reuse',
+                    'Multi-submission claim drift',
+                    'Divergent résumé file versions',
+                    'PDF metadata fingerprint (when PDF)',
                     'Name completeness',
                     'Third-party-submission pattern',
                     'Job-description verbatim match',
@@ -785,6 +789,39 @@ class NotificationMixin:
                     '<ul style="margin:8px 0 0 0; padding-left:18px; list-style:none;'
                     f' font-size:13px; color:#495057;">{_items}</ul>'
                 )
+
+            # Suggested verification questions (Review / High-Risk only).
+            questions_html = ''
+            if band in ('review', 'high_risk') and contributing:
+                try:
+                    from fraud_detection.signals import (
+                        FraudSignal,
+                        suggested_questions_for_signals,
+                    )
+                    sig_objs = []
+                    for s in contributing:
+                        sig_objs.append(FraudSignal(
+                            code=str(s.get('code') or ''),
+                            label=str(s.get('label') or ''),
+                            points=int(s.get('points') or 0),
+                            evidence=str(s.get('evidence') or ''),
+                            details=s.get('details') or {},
+                        ))
+                    qs = suggested_questions_for_signals(sig_objs, limit=3)
+                    if qs:
+                        _q_items = ''.join(
+                            f'<li style="margin:2px 0;">{_html.escape(q)}</li>'
+                            for q in qs
+                        )
+                        questions_html = (
+                            '<p style="margin:10px 0 0 0; font-size:12px; '
+                            'font-weight:600; color:#495057;">'
+                            'Suggested verification questions</p>'
+                            '<ul style="margin:4px 0 0 0; padding-left:18px; '
+                            f'font-size:13px; color:#495057;">{_q_items}</ul>'
+                        )
+                except Exception:
+                    questions_html = ''
 
             # Muted informational note (all bands) — explicitly not a risk score.
             informational_html = ''
@@ -813,6 +850,7 @@ class NotificationMixin:
                         {disclaimer}
                     </p>
                     {reasons_html}
+                    {questions_html}
                     {informational_html}
                 </div>
             """

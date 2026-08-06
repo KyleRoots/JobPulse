@@ -1,0 +1,32 @@
+---
+description: Commit, push, and update README when shipping code changes
+alwaysApply: true
+---
+
+# GitHub & README sync
+
+When you finish a change, fix, enhancement, or upgrade that affects behavior, configuration, or operations:
+
+1. **Commit to git** — group related changes in focused commits with clear messages (why, not just what).
+2. **Push to GitHub** — push the working branch after commits unless the user asked to hold off.
+3. **Update README** — when the change affects setup, deployment, features, env vars, feeds, screening, or ops:
+   - Update root `README.md` (Recent Major Updates, relevant feature sections, URLs).
+   - Update topic READMEs under `docs/` when that area changed.
+   - Bump "Last Updated" and version note when shipping user-visible work.
+
+## Skip README updates for
+
+- Pure refactors with no behavior change
+- Test-only or comment-only diffs
+- Trivial formatting
+
+## Before pushing
+
+- Do not commit secrets (`.env`, credentials, API keys).
+- Run focused tests when the change touches screening, feeds, or migrations.
+- If deploy already happened (e.g. Railway), the commit message should note what is live.
+
+## Default branch workflow
+
+- Work on feature branches; push with `-u origin HEAD` when new.
+- Offer a PR to `main` when a feature set is complete unless the user says otherwise.

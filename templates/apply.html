@@ -320,6 +320,31 @@
             /* Reduced clearance for desktop */
         }
 
+        .ai-screening-notice {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 12px;
+            padding: 1rem 1.1rem;
+            margin-bottom: 1.25rem;
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.88);
+        }
+
+        .ai-screening-notice-title {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .ai-screening-notice a {
+            color: #9fd4ff;
+            text-decoration: underline;
+        }
+
+        .ai-screening-notice-body {
+            margin-bottom: 0.35rem;
+            line-height: 1.45;
+        }
+
         /* Tablet spacing - tighter */
         @media (max-width: 992px) and (min-width: 769px) {
             .application-container {
@@ -488,6 +513,8 @@
                             </div>
                         </div>
                     </div>
+
+                    {% include 'partials/ai_screening_notice.html' %}
 
                     <!-- Validation Warning -->
                     <div id="validationWarning" class="validation-warning">

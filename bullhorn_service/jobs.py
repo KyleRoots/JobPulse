@@ -11,6 +11,35 @@ import requests  # noqa: F401  (used by methods via self.session)
 logger = logging.getLogger(__name__)
 
 
+def _reconcile_tearsheet_search_results(
+    search_jobs: List[Dict],
+    entity_job_ids: set,
+    entity_membership_complete: bool,
+) -> List[Dict]:
+    """Suppress stale, ineligible Search-index memberships.
+
+    Bullhorn's Search index can continue returning ``tearsheets.id:<id>`` for
+    closed/on-hold jobs after the Entity association has been removed.  We
+    cannot blindly intersect with Entity membership because Entity can lag in
+    the opposite direction for newly-added jobs.  Preserve Search-only jobs
+    that are still eligible, but suppress Search-only jobs that are already
+    ineligible and therefore cannot legitimately belong in a sponsored feed.
+    """
+    if not entity_membership_complete:
+        return search_jobs
+
+    from utils.job_status import is_job_eligible
+
+    normalized_entity_ids = {str(job_id) for job_id in entity_job_ids}
+    return [
+        job for job in search_jobs
+        if (
+            str(job.get('id')) in normalized_entity_ids
+            or is_job_eligible(job)
+        )
+    ]
+
+
 class JobsMixin:
     """Mixin providing jobs-related Bullhorn API methods."""
 
@@ -94,6 +123,7 @@ class JobsMixin:
             entity_response = self.session.get(entity_url, params=entity_params, timeout=60)
             entity_total = 0
             entity_job_ids = set()
+            entity_membership_complete = False
             
             if entity_response.status_code == 200:
                 entity_data = self._safe_json_parse(entity_response)
@@ -142,6 +172,10 @@ class JobsMixin:
                         if len(entity_job_ids) < entity_total:
                             logger.error(f"Tearsheet {tearsheet_id}: Entity pagination incomplete! Collected {len(entity_job_ids)} IDs but Entity API reports {entity_total}. Aborting orphan filtering to prevent data loss.")
                             entity_job_ids = set()  # Clear IDs to disable orphan filtering
+                        else:
+                            entity_membership_complete = True
+                    else:
+                        entity_membership_complete = True
             
             # For larger tearsheets, use search API to get all jobs
             query = f"tearsheets.id:{tearsheet_id}"
@@ -197,18 +231,30 @@ class JobsMixin:
                     break
             # Apply job exclusion filter
             filtered_jobs = self._filter_excluded_jobs(all_jobs)
+
+            reconciled_jobs = _reconcile_tearsheet_search_results(
+                filtered_jobs,
+                entity_job_ids,
+                entity_membership_complete,
+            )
+            stale_ineligible_count = len(filtered_jobs) - len(reconciled_jobs)
+            if stale_ineligible_count:
+                logger.warning(
+                    f"Tearsheet {tearsheet_id}: suppressed "
+                    f"{stale_ineligible_count} stale Search-index job(s) that "
+                    f"are absent from Entity membership and already ineligible"
+                )
+            filtered_jobs = reconciled_jobs
             
             # Log discrepancies between Entity API and Search API
-            # NOTE: Search API's tearsheets.id index is the authoritative source
-            # of tearsheet membership. Entity API frequently under-reports job
-            # counts due to Bullhorn consistency lag, causing valid jobs to be
-            # dropped if used for filtering. We log discrepancies but always
-            # trust the Search API results.
+            # Search is retained for eligible Search-only jobs because Entity
+            # can lag when a job is newly added. Closed/on-hold Search-only
+            # rows are suppressed above because Search also lags after removal.
             if entity_total > 0 and len(all_jobs) != entity_total:
                 logger.warning(
                     f"Tearsheet {tearsheet_id}: Entity API reports {entity_total} jobs "
                     f"but Search API returned {len(all_jobs)}. "
-                    f"Using Search API results (authoritative for tearsheet membership)."
+                    f"Reconciled eligible Search additions with Entity removals."
                 )
             
             # Normalize addresses - parse city/state from address1 if nested fields are empty

@@ -59,6 +59,10 @@ def run_schema_migrations(db):
         ("parsed_email", "recovery_message_id", "VARCHAR(255)"),
         ("bullhorn_monitor", "environment_id", "INTEGER"),
         ("candidate_fraud_assessment", "environment_id", "INTEGER"),
+        # Fraud notifier differentiators (July 2026)
+        ("candidate_fraud_assessment", "calibration_label", "VARCHAR(20)"),
+        ("candidate_fraud_assessment", "calibration_notes", "TEXT"),
+        ("candidate_fraud_assessment", "calibration_labeled_at", "TIMESTAMP"),
         ("job_embedding", "environment_id", "INTEGER"),
         ("candidate_profile_embedding", "environment_id", "INTEGER"),
         ("recruiter_notification_ledger", "environment_id", "INTEGER"),
@@ -74,6 +78,22 @@ def run_schema_migrations(db):
         ("bullhorn_environment", "salesrep_sync_enabled", "BOOLEAN"),
         ("bullhorn_environment", "salesrep_source_field", "VARCHAR(50)"),
         ("bullhorn_environment", "salesrep_display_field", "VARCHAR(50)"),
+        # Screening compliance metadata (Phase A, July 2026)
+        ("candidate_vetting_log", "screening_rules_version", "VARCHAR(32)"),
+        ("candidate_vetting_log", "screening_model_used", "VARCHAR(64)"),
+        ("candidate_vetting_log", "screening_prompt_profile", "VARCHAR(50)"),
+        ("candidate_vetting_log", "screening_rules_json", "TEXT"),
+        # Job-description content hash — skip AI re-extract when Bullhorn's
+        # dateLastModified advances without the JD text changing (Jul 2026).
+        ("job_vetting_requirements", "source_description_hash", "VARCHAR(64)"),
+        # Debounce marker for tearsheet-absence cleanup — stops the
+        # delete/re-extract churn between auto-removal and requirements
+        # maintenance (Jul 2026).
+        ("job_vetting_requirements", "tearsheet_absent_since", "TIMESTAMP"),
+        # Create-only requirements-spec notify stamp — defer until job is on
+        # Scout Screening snapshot list; backfill existing rows so we do not
+        # re-email historical specs (Aug 2026).
+        ("job_vetting_requirements", "spec_create_notified_at", "TIMESTAMP"),
     ]
 
     _SAFE_IDENTIFIER = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
@@ -97,6 +117,30 @@ def run_schema_migrations(db):
         except Exception as e:
             db.session.rollback()
             logger.warning(f"⚠️ Migration skipped for {table}.{column}: {str(e)}")
+
+    # Backfill spec_create_notified_at for pre-existing AI requirement specs so
+    # the deferred Scout Screening notify flush does not re-email historical rows
+    # (including ones already emailed under the pre-gate path). Idempotent.
+    try:
+        result = db.session.execute(text("""
+            UPDATE job_vetting_requirements
+            SET spec_create_notified_at = COALESCE(
+                created_at,
+                last_ai_interpretation,
+                CURRENT_TIMESTAMP
+            )
+            WHERE ai_interpreted_requirements IS NOT NULL
+              AND spec_create_notified_at IS NULL
+        """))
+        db.session.commit()
+        updated = result.rowcount if result.rowcount is not None and result.rowcount >= 0 else 0
+        if updated:
+            logger.info(
+                f"✅ Backfilled spec_create_notified_at on {updated} job_vetting_requirements row(s)"
+            )
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ spec_create_notified_at backfill skipped: {str(e)}")
 
     # Index the normalized phone column for the fraud identity-reuse lookup
     # (added May 2026). Mirrors the name SQLAlchemy would auto-generate so
@@ -659,3 +703,41 @@ def migrate_qualified_audit_sample_rate_to_zero(db):
     the Quality Auditor visibility dashboard (`/admin/ai-cost/auditor`).
     """
     return
+
+
+def migrate_screening_compliance_guardrails(db):
+    """Sync global screening prompt with compliance guardrails from version-controlled file.
+
+    VettingConfig seeding preserves existing ``global_custom_requirements`` values,
+    so production DBs may still hold the pre-compliance prompt after deploy. This
+    one-time migration replaces the stored prompt with ``config/global_screening_prompt.txt``
+    when the mandatory guardrails block is missing. Idempotent once the marker is present.
+    """
+    from models import VettingConfig
+    from seeding.settings import _load_global_screening_prompt
+
+    marker = 'COMPLIANCE GUARDRAILS (MANDATORY'
+    try:
+        row = VettingConfig.query.filter_by(setting_key='global_custom_requirements').first()
+        if not row or not (row.setting_value or '').strip():
+            logger.info("ℹ️ No global_custom_requirements row — seed will create from file")
+            return
+
+        if marker in (row.setting_value or ''):
+            logger.info("ℹ️ global_custom_requirements already includes compliance guardrails")
+            return
+
+        file_prompt = _load_global_screening_prompt()
+        if not file_prompt or marker not in file_prompt:
+            logger.warning("⚠️ Compliance prompt file missing guardrails — migration skipped")
+            return
+
+        row.setting_value = file_prompt
+        db.session.commit()
+        logger.info(
+            "✅ Synced global_custom_requirements with compliance guardrails "
+            f"({len(file_prompt)} chars)"
+        )
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ Screening compliance guardrails migration skipped: {str(e)}")

@@ -322,6 +322,7 @@ from seeding.migrations import (  # noqa: E402
     migrate_legacy_custom_requirements,
     migrate_recruiter_lookback_to_24h,
     migrate_qualified_audit_sample_rate_to_zero,
+    migrate_screening_compliance_guardrails,
     log_critical_settings_state,
 )
 
@@ -453,7 +454,7 @@ def seed_database(db, User):
         log_critical_settings_state(db)
 
         # AUTO-RELEASE: Release any stuck vetting lock on deploy
-        # When Render restarts the service, the previous lock becomes stale
+        # When the service restarts, the previous lock becomes stale
         try:
             from models import VettingConfig
             lock = VettingConfig.query.filter_by(setting_key='vetting_in_progress').first()
@@ -471,6 +472,7 @@ def seed_database(db, User):
         migrate_legacy_custom_requirements(db)
         migrate_recruiter_lookback_to_24h(db)
         migrate_qualified_audit_sample_rate_to_zero(db)
+        migrate_screening_compliance_guardrails(db)
 
         seed_support_contacts(db)
 

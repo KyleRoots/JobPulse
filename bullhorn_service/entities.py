@@ -431,6 +431,9 @@ class EntitiesMixin:
             response = self.session.get(url, params=params, timeout=30)
 
             if response.status_code == 401:
+                # authenticate() short-circuits on an existing token, so clear
+                # it or the retry reuses the token the server just rejected.
+                self.rest_token = None
                 if self.authenticate():
                     params['BhRestToken'] = self.rest_token
                     response = self.session.get(url, params=params, timeout=30)
@@ -458,6 +461,9 @@ class EntitiesMixin:
             response = self.session.get(url, params=params, timeout=30)
 
             if response.status_code == 401:
+                # authenticate() short-circuits on an existing token, so clear
+                # it or the retry reuses the token the server just rejected.
+                self.rest_token = None
                 if self.authenticate():
                     params['BhRestToken'] = self.rest_token
                     response = self.session.get(url, params=params, timeout=30)
@@ -519,6 +525,9 @@ class EntitiesMixin:
             response = self.session.get(url, params=params, timeout=30)
 
             if response.status_code == 401:
+                # authenticate() short-circuits on an existing token, so clear
+                # it or the retry reuses the token the server just rejected.
+                self.rest_token = None
                 if self.authenticate():
                     params['BhRestToken'] = self.rest_token
                     response = self.session.get(url, params=params, timeout=30)

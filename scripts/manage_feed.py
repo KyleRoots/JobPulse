@@ -104,7 +104,9 @@ def rebuild_feed(limit=None, skip_upload=False):
     tearsheet_configs = [
         {'tearsheet_id': 1234, 'name': 'Open Tech Opportunities (OTT)', 'company': 'Myticas Consulting'},
         {'tearsheet_id': 1267, 'name': 'VMS Active Jobs', 'company': 'Myticas Consulting'},
-        {'tearsheet_id': 1556, 'name': 'Sponsored - STSI', 'company': 'STSI (Staffing Technical Services Inc.)'},
+        {'tearsheet_id': 1531, 'name': 'Sponsored - STSI - LinkedIn', 'company': 'STSI (Staffing Technical Services Inc.)'},
+        {'tearsheet_id': 1640, 'name': 'Sponsored - STSI - Indeed', 'company': 'STSI (Staffing Technical Services Inc.)'},
+        {'tearsheet_id': 1641, 'name': 'Sponsored - STSI - Zip Recruiter', 'company': 'STSI (Staffing Technical Services Inc.)'},
         {'tearsheet_id': 1300, 'name': 'Grow (GR)', 'company': 'Myticas Consulting'},
         {'tearsheet_id': 1523, 'name': 'Chicago (CHI)', 'company': 'Myticas Consulting'}
     ]

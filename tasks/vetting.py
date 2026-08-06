@@ -44,8 +44,9 @@ def run_requirements_maintenance():
 
     Two responsibilities:
       A) Re-interpret modified jobs — calls check_and_refresh_changed_jobs() which compares
-         Bullhorn dateLastModified vs last_ai_interpretation and re-runs AI extraction
-         for any job whose description has changed since the last interpretation.
+         Bullhorn dateLastModified vs last_ai_interpretation, then gates AI re-extraction
+         on a SHA-256 of the job description text (source_description_hash) so metadata-only
+         Bullhorn bumps do not re-burn extraction tokens.
       B) Extract for new jobs — finds any jobs currently in monitored tearsheets that have
          no JobVettingRequirements record yet and extracts requirements via AI.
 
@@ -103,6 +104,23 @@ def _run_requirements_maintenance_for_env(env, CandidateVettingService, JobVetti
         active_jobs = svc.get_active_jobs_from_tearsheets()
         if not active_jobs:
             return
+
+        # Defense in depth: Bullhorn's Search index can retain stale
+        # tearsheet associations after a closed/on-hold job was removed.
+        # Never spend AI extraction tokens on an ineligible job even if that
+        # stale membership slips past the lower-level reconciliation.
+        from utils.job_status import is_job_eligible
+        active_jobs = [job for job in active_jobs if is_job_eligible(job)]
+        if not active_jobs:
+            return
+
+        # These jobs are demonstrably active, so drop any absence stamp the
+        # auto-removal path left on them. The two paths disagree about the same
+        # jobs every cycle; this is the side that has just proven them present.
+        from utils.requirements_pruning import clear_absence_marks
+        clear_absence_marks(
+            [int(j['id']) for j in active_jobs if j.get('id')]
+        )
 
         existing_query = JobVettingRequirements.query.filter(
             JobVettingRequirements.ai_interpreted_requirements.isnot(None)

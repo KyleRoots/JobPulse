@@ -68,6 +68,21 @@ class XMLNotificationsMixin:
 
             pando_jobs = upload_details.get('pando_jobs_count')
             pando_size = upload_details.get('pando_xml_size')
+            indeed_jobs = upload_details.get('stsi_indeed_jobs_count')
+            indeed_size = upload_details.get('stsi_indeed_xml_size')
+            zip_jobs = upload_details.get('stsi_ziprecruiter_jobs_count')
+            zip_size = upload_details.get('stsi_ziprecruiter_xml_size')
+
+            if indeed_jobs is not None:
+                html_content += f"""
+                                <p><strong>Total Jobs (STSI Indeed feed):</strong> {indeed_jobs}</p>
+                                <p><strong>Indeed File Size:</strong> {indeed_size}</p>
+                """
+            if zip_jobs is not None:
+                html_content += f"""
+                                <p><strong>Total Jobs (STSI ZipRecruiter feed):</strong> {zip_jobs}</p>
+                                <p><strong>ZipRecruiter File Size:</strong> {zip_size}</p>
+                """
             if pando_jobs is not None:
                 html_content += f"""
                                 <p><strong>Total Jobs (pando feed):</strong> {pando_jobs}</p>
@@ -88,10 +103,19 @@ class XMLNotificationsMixin:
                             </div>
                             <div class="details">
                                 <h3>✅ Upload Details</h3>
-                                <p>Two XML job feeds have been automatically uploaded:</p>
+                                <p>XML job feeds have been automatically uploaded:</p>
                                 <ul>
-                                    <li><strong>myticas-job-feed-v2.xml</strong> — {total_jobs} jobs (STSI capped at 10 most recent)</li>
-                                    <li><strong>myticas-job-feed-pando.xml</strong> — {pando_jobs if pando_jobs else 'N/A'} jobs (all jobs, no cap)</li>
+                                    <li><strong>myticas-job-feed-v2.xml</strong> — {total_jobs} jobs (Myticas + STSI LinkedIn)</li>
+            """
+                if indeed_jobs is not None:
+                    html_content += f"""
+                                    <li><strong>stsi-job-feed-indeed.xml</strong> — {indeed_jobs} jobs (STSI Indeed channel)</li>
+                    """
+                if zip_jobs is not None:
+                    html_content += f"""
+                                    <li><strong>stsi-job-feed-ziprecruiter.xml</strong> — {zip_jobs} jobs (STSI ZipRecruiter channel)</li>
+                    """
+                html_content += """
                                 </ul>
                                 <p>The system will continue to upload fresh data every 30 minutes to ensure your job feeds stay current.</p>
                             </div>

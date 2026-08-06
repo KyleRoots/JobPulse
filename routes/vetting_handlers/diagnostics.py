@@ -344,11 +344,26 @@ def retry_failed_notes():
         vetting_service = CandidateVettingService()
         success_count = 0
         fail_count = 0
+        notifications_sent = 0
 
         for log in failed_logs:
             try:
                 if vetting_service.create_candidate_note(log):
                     success_count += 1
+                    # Notes alone are not enough for qualified candidates — the
+                    # normal vetting cycle always follows create_candidate_note
+                    # with send_recruiter_notifications. Without this, repair
+                    # retries leave note_created=True / notifications_sent=False
+                    # (Lawrencia White / Frankie Sneeze pattern, Jul 2026).
+                    if log.is_qualified and not log.notifications_sent:
+                        try:
+                            if vetting_service.send_recruiter_notifications(log) > 0:
+                                notifications_sent += 1
+                        except Exception as notif_err:
+                            current_app.logger.error(
+                                f"Note retry succeeded but recruiter notification "
+                                f"failed for candidate {log.bullhorn_candidate_id}: {notif_err}"
+                            )
                 else:
                     fail_count += 1
             except Exception as e:
@@ -357,12 +372,15 @@ def retry_failed_notes():
 
         remaining = total_failed - success_count
         msg = f'Note retry batch complete: {success_count} created, {fail_count} failed (batch of {len(failed_logs)}).'
+        if notifications_sent:
+            msg += f' {notifications_sent} recruiter notification(s) sent for newly noted qualified logs.'
         if remaining > 0:
             msg += f' {remaining} still pending — click again to process the next batch.'
 
         flash(msg, 'success' if fail_count == 0 else 'warning')
         current_app.logger.info(
             f"Retry failed notes: {success_count}/{len(failed_logs)} succeeded in this batch, "
+            f"{notifications_sent} notifications sent, "
             f"{remaining} remaining of {total_failed} total"
         )
 

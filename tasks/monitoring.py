@@ -47,6 +47,31 @@ def check_monitor_health():
             app.logger.error(traceback.format_exc())
 
 
+# Canonical public health URL for production monitoring.
+# ScoutGenius is the live brand domain; lyntrix was never migrated and is not reachable.
+PRODUCTION_HEALTH_BASE_URL = 'https://app.scoutgenius.ai'
+
+
+def _resolve_production_health_url(current_url: str = None) -> str:
+    """Return the URL we should probe for production up/down monitoring.
+
+    Prefer ScoutGenius. Migrate off stale lyntrix / unset rows. Keep an explicit
+    non-lyntrix override if an operator already set one (e.g. railway.app).
+    """
+    current = (current_url or '').strip().rstrip('/')
+    if current and 'lyntrix' not in current.lower():
+        return current
+
+    for key in ('ENVIRONMENT_HEALTH_URL', 'SCOUTGENIUS_PUBLIC_URL'):
+        configured = (os.environ.get(key) or '').strip()
+        if configured:
+            if not configured.startswith('http'):
+                configured = f'https://{configured}'
+            return configured.rstrip('/')
+
+    return PRODUCTION_HEALTH_BASE_URL
+
+
 def check_environment_status():
     """Check production environment status and send alerts on status changes"""
     from app import app
@@ -56,17 +81,54 @@ def check_environment_status():
         try:
             from models import EnvironmentStatus, EnvironmentAlert
 
-            env_status = EnvironmentStatus.query.filter_by(environment_name='production').first()
-            if not env_status:
+            # Dedupe: historical seeds left multiple 'production' rows which
+            # caused StaleDataError (UPDATE expected 1 row, matched 2). Some
+            # corrupted rows even share the same PK id — use ctid-based SQL
+            # delete so SQLAlchemy's identity map cannot collapse them.
+            try:
+                from sqlalchemy import text
+                deleted = db.session.execute(text(
+                    """
+                    DELETE FROM environment_status a
+                    USING environment_status b
+                    WHERE a.environment_name = b.environment_name
+                      AND a.ctid < b.ctid
+                    """
+                )).rowcount
+                if deleted:
+                    db.session.commit()
+                    app.logger.warning(
+                        f"Deduped {deleted} duplicate environment_status row(s) via ctid"
+                    )
+            except Exception as dedupe_err:
+                db.session.rollback()
+                app.logger.warning(f"environment_status dedupe skipped: {dedupe_err}")
+
+            prod_rows = (
+                EnvironmentStatus.query
+                .filter_by(environment_name='production')
+                .order_by(EnvironmentStatus.id.asc())
+                .all()
+            )
+            if not prod_rows:
                 env_status = EnvironmentStatus(
                     environment_name='production',
-                    environment_url='https://app.scoutgenius.ai',
+                    environment_url=_resolve_production_health_url(),
                     current_status='unknown',
                     alert_email='kroots@myticas.com'
                 )
                 db.session.add(env_status)
                 db.session.commit()
                 app.logger.info("Created initial environment status record for production monitoring")
+            else:
+                env_status = prod_rows[0]
+                resolved = _resolve_production_health_url(env_status.environment_url)
+                if resolved != (env_status.environment_url or '').rstrip('/'):
+                    app.logger.info(
+                        f"Updating environment monitor URL: "
+                        f"{env_status.environment_url!r} → {resolved!r}"
+                    )
+                    env_status.environment_url = resolved
 
             previous_status = env_status.current_status
             current_time = datetime.utcnow()
@@ -482,3 +544,24 @@ def send_vetting_health_alert(health_check):
 
     except Exception as e:
         app.logger.error(f"Failed to send health alert: {str(e)}")
+
+
+def run_ai_cost_alert():
+    """Alert when 24h OpenAI spend crosses a threshold.
+
+    The vetting health check above only verifies connectivity, so a runaway
+    loop making *successful* API calls keeps it green the whole time. This
+    covers the spend dimension it cannot see.
+    """
+    from app import app
+    with app.app_context():
+        try:
+            from services.ai_cost_monitor import run_ai_cost_alert_check
+            result = run_ai_cost_alert_check()
+            if result.get('alert_sent'):
+                app.logger.warning(
+                    f"AI cost alert dispatched: {result['severity']} at "
+                    f"${result['total_usd']:,.2f}/24h"
+                )
+        except Exception as e:
+            app.logger.error(f"AI cost alert task error: {str(e)}")

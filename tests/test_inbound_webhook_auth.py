@@ -37,46 +37,54 @@ class TestGetAlwaysAllowed:
     def test_get_no_secret_env(self, client, monkeypatch):
         """GET is always allowed regardless of env-var configuration."""
         monkeypatch.delenv('SENDGRID_INBOUND_WEBHOOK_SECRET', raising=False)
+        monkeypatch.delenv('SENDGRID_INBOUND_PARSE_ENABLED', raising=False)
         resp = client.get(ENDPOINT)
         assert resp.status_code == 200
         data = resp.get_json()
         assert data['status'] == 'ok'
+        assert data.get('parse_enabled') is False
 
     def test_get_with_secret_env(self, client, monkeypatch):
         """GET is allowed even when the secret IS configured."""
         monkeypatch.setenv('SENDGRID_INBOUND_WEBHOOK_SECRET', GOOD_SECRET)
+        monkeypatch.delenv('SENDGRID_INBOUND_PARSE_ENABLED', raising=False)
         resp = client.get(ENDPOINT)
         assert resp.status_code == 200
+        assert resp.get_json().get('parse_enabled') is True
 
 
 # ---------------------------------------------------------------------------
-# POST — secret env var not configured → 503 fail-closed
+# POST — secret env var not configured → 200 disabled (mailbox-pull primary)
 # ---------------------------------------------------------------------------
 
 class TestPostMissingEnvVar:
-    def test_no_env_var_no_param_returns_503(self, client, monkeypatch):
-        """When the env var is not set, every POST must be rejected with 503."""
+    def test_no_env_var_no_param_returns_200_disabled(self, client, monkeypatch):
+        """Unset secret → 200 acknowledge (stops SendGrid retries); no processing."""
         monkeypatch.delenv('SENDGRID_INBOUND_WEBHOOK_SECRET', raising=False)
+        monkeypatch.delenv('SENDGRID_INBOUND_PARSE_ENABLED', raising=False)
         resp = _post(client, secret_param=None)
-        assert resp.status_code == 503
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['success'] is True
+        assert data.get('status') == 'disabled'
 
-    def test_no_env_var_with_param_still_503(self, client, monkeypatch):
-        """Even if a caller supplies a webhook_secret param, 503 when env not set."""
+    def test_no_env_var_with_param_still_disabled(self, client, monkeypatch):
+        """Even with a webhook_secret param, disabled when env secret not set."""
         monkeypatch.delenv('SENDGRID_INBOUND_WEBHOOK_SECRET', raising=False)
         resp = _post(client, secret_param='anything')
-        assert resp.status_code == 503
+        assert resp.status_code == 200
+        assert resp.get_json().get('status') == 'disabled'
 
-    def test_503_body_is_json_error(self, client, monkeypatch):
-        """503 response carries a JSON body with success=False."""
-        monkeypatch.delenv('SENDGRID_INBOUND_WEBHOOK_SECRET', raising=False)
-        resp = _post(client)
-        data = resp.get_json()
-        assert data is not None
-        assert data['success'] is False
-        assert data.get('error') == 'misconfigured'
+    def test_explicit_disable_flag_returns_200(self, client, monkeypatch):
+        """SENDGRID_INBOUND_PARSE_ENABLED=false disables even if a secret exists."""
+        monkeypatch.setenv('SENDGRID_INBOUND_WEBHOOK_SECRET', GOOD_SECRET)
+        monkeypatch.setenv('SENDGRID_INBOUND_PARSE_ENABLED', 'false')
+        resp = _post(client, secret_param=GOOD_SECRET)
+        assert resp.status_code == 200
+        assert resp.get_json().get('status') == 'disabled'
 
-    def test_processing_not_reached_when_503(self, client, monkeypatch):
-        """No email processing service is invoked when env var is absent."""
+    def test_processing_not_reached_when_disabled(self, client, monkeypatch):
+        """No email processing when the webhook door is closed."""
         monkeypatch.delenv('SENDGRID_INBOUND_WEBHOOK_SECRET', raising=False)
         reached = []
 
@@ -85,7 +93,7 @@ class TestPostMissingEnvVar:
             lambda *a, **kw: reached.append(True) or {'success': True},
         )
         _post(client)
-        assert reached == [], "process_email must NOT be called when auth fails"
+        assert reached == [], "process_email must NOT be called when disabled"
 
 
 # ---------------------------------------------------------------------------

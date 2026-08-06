@@ -301,6 +301,9 @@ class CandidatesMixin:
                 # If authentication expired, try once more
                 if response.status_code == 401:
                     logger.info("Token expired, re-authenticating and retrying file upload...")
+                    # authenticate() short-circuits on an existing token, so
+                    # clear it or the retry reuses the rejected one.
+                    self.rest_token = None
                     if self.authenticate():
                         params['BhRestToken'] = self.rest_token
                         self.session.headers['Content-Type'] = 'application/json'
@@ -399,7 +402,7 @@ class CandidatesMixin:
         try:
             url = f"{self.base_url}entity/Candidate/{candidate_id}"
             params = {
-                'fields': 'id,firstName,lastName,email,phone,mobile,address(address1,city,state,countryName),status,source,occupation,companyName,skillSet,description,owner(id,firstName,lastName)',
+                'fields': 'id,firstName,lastName,email,phone,mobile,address(address1,address2,city,state,zip,countryID,countryCode,countryName),status,source,occupation,companyName,skillSet,description,owner(id,firstName,lastName)',
                 'BhRestToken': self.rest_token
             }
             

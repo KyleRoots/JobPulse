@@ -4,7 +4,9 @@ from typing import Dict, Any
 
 from utils.candidate_name_extraction import (
     build_extraction_summary,
+    coalesce_candidate_email,
     is_cta_phrase,
+    is_job_title_phrase,
     is_valid_name,
     parse_name_from_email_address,
     parse_name_from_filename,
@@ -250,10 +252,36 @@ class ProcessingMixin:
 
             db.session.commit()
 
-            candidate_email = email_candidate.get('email') or resume_data.get('email')
+            # Prefer résumé contact over body scrape. Zip Easy Apply greets
+            # ``Hi apply@myticas.com`` and embeds noreply@ — those are skipped by
+            # coalesce_candidate_email, but résumé-first still wins when both are
+            # present (real LinkedIn/apply-form body emails remain valid fallbacks).
+            candidate_email = coalesce_candidate_email(
+                resume_data.get('email'),
+                email_candidate.get('email'),
+            )
             candidate_phone = email_candidate.get('phone') or resume_data.get('phone')
             first_name = email_candidate.get('first_name') or resume_data.get('first_name')
             last_name = email_candidate.get('last_name') or resume_data.get('last_name')
+
+            # LinkedIn /in/ URL counts as recruiter-reachable contact when
+            # email/phone are missing. Also mapped to Bullhorn customText9.
+            from utils.candidate_name_extraction import (
+                resolve_linkedin_profile_url,
+                has_candidate_contact,
+            )
+            candidate_linkedin = resolve_linkedin_profile_url(
+                resume_data.get('linkedin_url'),
+                email_candidate.get('linkedin_url'),
+                resume_text,
+                resume_data.get('raw_text'),
+                resume_data.get('formatted_html'),
+                body,
+            )
+            if candidate_linkedin:
+                resume_data['linkedin_url'] = candidate_linkedin
+                email_candidate['linkedin_url'] = candidate_linkedin
+                self.logger.info(f"LinkedIn profile contact resolved: {candidate_linkedin}")
 
             # CTA-Reject Guard: if the resolved (first, last) pair is a
             # job-board call-to-action phrase ("Invite Friend", "Apply
@@ -283,8 +311,47 @@ class ProcessingMixin:
                     first_name = None
                     last_name = None
 
+            # Title-Reject Guard: occupation / job-title leaked into the
+            # name fields (apply-form autofill, LinkedIn subject using
+            # headline, or email name == résumé current_title). Prefer
+            # the AI résumé name, then clear so filename / email-local
+            # recovery can run. Production: #4673968 "Senior Business
+            # Analyst" while résumé AI had "Uday Vasireddy".
+            current_title = (resume_data.get('current_title') or '').strip()
+            combined_name = f"{first_name or ''} {last_name or ''}".strip()
+            name_matches_title = bool(
+                combined_name
+                and current_title
+                and combined_name.lower() == current_title.lower()
+            )
+            if first_name and last_name and (
+                is_job_title_phrase(combined_name) or name_matches_title
+            ):
+                self.logger.warning(
+                    f"Title-style name rejected: '{combined_name}' "
+                    f"(matches_title={name_matches_title}). Trying resume_data "
+                    f"alone, then falling to recovery layers."
+                )
+                rd_first = resume_data.get('first_name')
+                rd_last = resume_data.get('last_name')
+                if (rd_first and rd_last
+                        and not is_job_title_phrase(f"{rd_first} {rd_last}")
+                        and is_valid_name(rd_first, rd_last)
+                        and f"{rd_first} {rd_last}".strip().lower() != current_title.lower()):
+                    first_name, last_name = rd_first, rd_last
+                    parsed_email.candidate_name = f"{first_name} {last_name}".strip()
+                    self.logger.info(
+                        f"Title-Reject Guard recovered name from resume_data: "
+                        f"{first_name} {last_name}"
+                    )
+                else:
+                    first_name = None
+                    last_name = None
+
             has_name = is_valid_name(first_name, last_name)
-            has_contact = bool(candidate_email or candidate_phone)
+            has_contact = has_candidate_contact(
+                candidate_email, candidate_phone, candidate_linkedin,
+            )
             has_email_data = bool(email_candidate.get('first_name') or email_candidate.get('email'))
 
             if not is_valid_name(first_name, last_name) and parsed_email.resume_filename:
@@ -294,8 +361,10 @@ class ProcessingMixin:
                         f"Layer 3 (filename) recovered name: {fn_first} {fn_last} "
                         f"from '{parsed_email.resume_filename}'"
                     )
-                    first_name = first_name or fn_first
-                    last_name = last_name or fn_last
+                    # Overwrite — do not keep a truthy-but-poisoned
+                    # first/last via `or` (we only enter this block when
+                    # the current pair failed is_valid_name).
+                    first_name, last_name = fn_first, fn_last
                     parsed_email.candidate_name = f"{first_name} {last_name}".strip()
                     has_name = True
 
@@ -305,8 +374,7 @@ class ProcessingMixin:
                     self.logger.info(
                         f"Layer 3b (email local-part) recovered name: {ea_first} {ea_last}"
                     )
-                    first_name = first_name or ea_first
-                    last_name = last_name or ea_last
+                    first_name, last_name = ea_first, ea_last
                     parsed_email.candidate_name = f"{first_name} {last_name}".strip()
                     has_name = True
 
@@ -337,11 +405,25 @@ class ProcessingMixin:
                         candidate_phone = ai_recovered['phone'].strip()
                         parsed_email.candidate_phone = candidate_phone
                         self.logger.info(f"Layer 5 recovered phone: {candidate_phone}")
-                    has_contact = bool(candidate_email or candidate_phone)
+                    if not candidate_linkedin and ai_recovered.get('linkedin_url'):
+                        candidate_linkedin = resolve_linkedin_profile_url(
+                            ai_recovered.get('linkedin_url'),
+                        )
+                        if candidate_linkedin:
+                            resume_data['linkedin_url'] = candidate_linkedin
+                            email_candidate['linkedin_url'] = candidate_linkedin
+                            self.logger.info(
+                                f"Layer 5 recovered LinkedIn: {candidate_linkedin}"
+                            )
+                    has_contact = has_candidate_contact(
+                        candidate_email, candidate_phone, candidate_linkedin,
+                    )
                     db.session.commit()
 
             has_name = bool(first_name or last_name)
-            has_contact = bool(candidate_email or candidate_phone)
+            has_contact = has_candidate_contact(
+                candidate_email, candidate_phone, candidate_linkedin,
+            )
 
             # Always overwrite source dicts — including to None when the
             # CTA-Reject Guard above (or any other recovery layer) ended
@@ -353,6 +435,12 @@ class ProcessingMixin:
             resume_data['first_name'] = first_name
             email_candidate['last_name'] = last_name
             resume_data['last_name'] = last_name
+            email_candidate['email'] = candidate_email
+            resume_data['email'] = resume_data.get('email') or candidate_email
+            parsed_email.candidate_email = candidate_email
+            parsed_email.candidate_phone = candidate_phone
+            if first_name or last_name:
+                parsed_email.candidate_name = f"{first_name or ''} {last_name or ''}".strip()
 
             extraction_summary = build_extraction_summary(
                 resume_data=resume_data or {},
@@ -412,7 +500,11 @@ class ProcessingMixin:
                 elif not resume_data or len(resume_data) == 0:
                     error_msg = "AI could not extract any information from resume and no candidate info in email body"
                 else:
-                    error_msg = "Could not extract candidate name or contact information from email or resume (all 5 fallback layers exhausted)"
+                    error_msg = (
+                        "Could not extract candidate name or contact information "
+                        "(email, phone, or LinkedIn profile) from email or resume "
+                        "(all 5 fallback layers exhausted)"
+                    )
 
                 self.logger.warning(f"Early validation failed: {error_msg}")
                 parsed_email.status = 'failed'

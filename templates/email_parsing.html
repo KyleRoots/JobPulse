@@ -38,6 +38,10 @@
         background-color: #2164f3;
     }
 
+    .source-ziprecruiter {
+        background-color: #1b9e3e;
+    }
+
     .source-other {
         background-color: #6c757d;
     }
@@ -60,6 +64,7 @@
     <option value="Dice">Dice</option>
     <option value="LinkedIn Job Board">LinkedIn</option>
     <option value="Indeed Job Board">Indeed</option>
+    <option value="ZipRecruiter Job Board">ZipRecruiter</option>
     <option value="Other">Other</option>
 </select>
 <button class="btn btn-outline-light btn-sm" onclick="refreshData()">
@@ -177,6 +182,8 @@
                             <span class="badge source-badge source-linkedin">LinkedIn</span>
                             {% elif email.source_platform == 'Indeed Job Board' %}
                             <span class="badge source-badge source-indeed">Indeed</span>
+                            {% elif email.source_platform == 'ZipRecruiter Job Board' %}
+                            <span class="badge source-badge source-ziprecruiter">ZipRecruiter</span>
                             {% else %}
                             <span class="badge source-badge source-other">{{ email.source_platform or 'Unknown'
                                 }}</span>
@@ -350,10 +357,16 @@
         const classes = {
             'Dice': 'source-dice',
             'LinkedIn Job Board': 'source-linkedin',
-            'Indeed Job Board': 'source-indeed'
+            'Indeed Job Board': 'source-indeed',
+            'ZipRecruiter Job Board': 'source-ziprecruiter',
         };
         const cls = classes[source] || 'source-other';
-        const label = source === 'LinkedIn Job Board' ? 'LinkedIn' : (source || 'Unknown');
+        const labels = {
+            'LinkedIn Job Board': 'LinkedIn',
+            'Indeed Job Board': 'Indeed',
+            'ZipRecruiter Job Board': 'ZipRecruiter',
+        };
+        const label = labels[source] || (source || 'Unknown');
         return `<span class="badge source-badge ${cls}">${label}</span>`;
     }
 

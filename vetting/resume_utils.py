@@ -201,16 +201,34 @@ def extract_text_from_pdf(file_content: bytes) -> Optional[str]:
         doc.close()
         extracted_text = "\n".join(text_parts).strip()
         logger.info(f"PDF extraction successful: {len(extracted_text)} chars extracted")
-        
-        if len(extracted_text) < 50 and content_size > 5000:
-            logger.info(f"🔍 Image-based PDF detected ({len(extracted_text)} chars from {content_size} byte file) — attempting AI vision OCR")
+
+        from utils.resume_text_quality import is_garbled_resume_text
+        needs_ocr = (
+            (len(extracted_text) < 50 and content_size > 5000)
+            or is_garbled_resume_text(extracted_text)
+        )
+        if needs_ocr and content_size > 5000:
+            reason = (
+                "garbled extract"
+                if is_garbled_resume_text(extracted_text)
+                else "image-based / short extract"
+            )
+            logger.info(
+                f"🔍 PDF OCR fallback ({reason}: {len(extracted_text)} chars from "
+                f"{content_size} byte file) — attempting AI vision OCR"
+            )
             ocr_text = _ocr_pdf_with_vision(file_content)
-            if ocr_text and len(ocr_text) > len(extracted_text):
-                logger.info(f"📸 AI vision OCR successful: {len(ocr_text)} chars extracted from image-based PDF")
+            if ocr_text and len(ocr_text) > len(extracted_text) and not is_garbled_resume_text(ocr_text):
+                logger.info(f"📸 AI vision OCR successful: {len(ocr_text)} chars extracted from PDF")
                 return ocr_text
-            else:
-                logger.warning(f"AI vision OCR did not improve extraction (got {len(ocr_text) if ocr_text else 0} chars)")
-        
+            if ocr_text and is_garbled_resume_text(extracted_text) and not is_garbled_resume_text(ocr_text):
+                logger.info(f"📸 AI vision OCR replaced garbled extract: {len(ocr_text)} chars")
+                return ocr_text
+            logger.warning(
+                f"AI vision OCR did not improve extraction "
+                f"(got {len(ocr_text) if ocr_text else 0} chars)"
+            )
+
         return extracted_text
     except ImportError:
         logger.warning("PyMuPDF not installed - trying pdfminer")

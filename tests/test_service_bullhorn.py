@@ -194,6 +194,73 @@ class TestBullhornServiceJobRetrieval:
         assert result is None or isinstance(result, dict)
 
 
+class TestTearsheetSearchReconciliation:
+    """Bullhorn Search may retain removed tearsheet memberships indefinitely."""
+
+    def test_suppresses_search_only_ineligible_jobs(self):
+        from bullhorn_service.jobs import _reconcile_tearsheet_search_results
+
+        jobs = [
+            {'id': 1, 'title': 'Current', 'isOpen': True, 'status': 'Accepting Candidates'},
+            {'id': 2, 'title': 'Closed stale', 'isOpen': False, 'status': 'Accepting Candidates'},
+            {'id': 3, 'title': 'Hold stale', 'isOpen': True, 'status': 'Hold - Client Hold'},
+        ]
+
+        result = _reconcile_tearsheet_search_results(
+            jobs,
+            entity_job_ids={1},
+            entity_membership_complete=True,
+        )
+
+        assert [job['id'] for job in result] == [1]
+
+    def test_preserves_eligible_search_only_job_during_entity_add_lag(self):
+        """Do not blindly intersect: Entity can lag after a legitimate add."""
+        from bullhorn_service.jobs import _reconcile_tearsheet_search_results
+
+        jobs = [
+            {'id': '10', 'title': 'Entity member', 'isOpen': True, 'status': 'Open'},
+            {'id': '11', 'title': 'New Search-only job', 'isOpen': True, 'status': 'Open'},
+        ]
+
+        result = _reconcile_tearsheet_search_results(
+            jobs,
+            entity_job_ids={10},
+            entity_membership_complete=True,
+        )
+
+        assert [job['id'] for job in result] == ['10', '11']
+
+    def test_keeps_ineligible_entity_member_for_auto_removal(self):
+        """A genuine member must reach monitoring so DELETE can remove it once."""
+        from bullhorn_service.jobs import _reconcile_tearsheet_search_results
+
+        job = {
+            'id': 20,
+            'title': 'Hold member',
+            'isOpen': True,
+            'status': 'Hold - Client Hold',
+        }
+
+        assert _reconcile_tearsheet_search_results(
+            [job],
+            entity_job_ids={20},
+            entity_membership_complete=True,
+        ) == [job]
+
+    def test_does_not_filter_when_entity_pagination_is_incomplete(self):
+        """Fail open when Bullhorn did not provide a complete membership set."""
+        from bullhorn_service.jobs import _reconcile_tearsheet_search_results
+
+        job = {'id': 30, 'isOpen': False, 'status': 'Archive'}
+
+        assert _reconcile_tearsheet_search_results(
+            [job],
+            entity_job_ids=set(),
+            entity_membership_complete=False,
+        ) == [job]
+
+
 class TestBullhornServiceUserRetrieval:
     """Test BullhornService user-related methods."""
     

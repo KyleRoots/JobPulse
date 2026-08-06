@@ -767,6 +767,7 @@ class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMi
         self,
         lookback_days: int = 7,
         max_candidates: int = 10,
+        max_attempt_hours: float = 12.0,
     ) -> List[Dict]:
         """Re-enqueue candidates whose audit log fired ``revet_triggered``
         but whose ``revet_new_score`` is still NULL because no fresh
@@ -805,6 +806,12 @@ class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMi
                 reclassified by hand.
             max_candidates: Per-cycle cap so a backlog of stuck rows
                 cannot starve regular pipeline work.
+            max_attempt_hours: Hard stop on how long a single audit row may
+                keep re-enqueuing. Because each re-enqueue deletes the
+                candidate's vetting state and re-scores them against every
+                tearsheet job, a row that can never back-fill would otherwise
+                burn a full multi-job screen every cycle, indefinitely. See
+                the un-backfillable cases handled below.
 
         Returns:
             List of candidate dicts shaped like the other detectors so
@@ -842,6 +849,7 @@ class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMi
         skipped_already_revetted = 0
         skipped_active_session = 0
         skipped_clear_failed = 0
+        resolved_unbackfillable = 0
 
         for audit in pending_audits:
             if len(candidates_to_enqueue) >= max_candidates:
@@ -895,6 +903,85 @@ class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMi
                 continue
             if post_audit_match_exists:
                 skipped_already_revetted += 1
+                continue
+
+            # Loop guard. This row can only ever back-fill if some future
+            # vetting run scores ``audit.job_id``. Two cases make that
+            # impossible, and in both of them a re-enqueue deletes the
+            # candidate's vetting state and re-screens them against every
+            # tearsheet job — every cycle, forever. Jul 2026: audit row
+            # 18513 re-screened one candidate every ~3 minutes for a day
+            # (~$5.7k/mo run-rate of pure waste) because its audited job
+            # had dropped out of the candidate's scored set. Terminate
+            # such rows as ``revet_skipped_job_mismatch``, the same label
+            # the auditor uses for an un-backfillable job pairing.
+            terminal_reason = None
+            if audit.job_id is not None:
+                try:
+                    post_audit_run = (
+                        CandidateVettingLog.query
+                        .filter(
+                            CandidateVettingLog.bullhorn_candidate_id == candidate_id,
+                            CandidateVettingLog.status == 'completed',
+                            CandidateVettingLog.created_at > audit.created_at,
+                        )
+                        .order_by(CandidateVettingLog.id.desc())
+                        .first()
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"⚠️ Pending-revet detector: post-audit run lookup "
+                        f"failed for candidate {candidate_id} "
+                        f"({type(e).__name__}: {e}); skipping"
+                    )
+                    continue
+                if post_audit_run is not None:
+                    # The re-vet already ran; the audited job simply was not
+                    # in its match set (job closed, removed from the
+                    # tearsheet, filtered out by the embedding pre-filter, or
+                    # the candidate's applied job advanced to a newer req).
+                    terminal_reason = (
+                        f"Re-vet completed (vetting log {post_audit_run.id}) "
+                        f"but produced no match for audited job "
+                        f"{audit.job_id}, so revet_new_score can never be "
+                        f"back-filled."
+                    )
+
+            audit_age_hours = (
+                datetime.utcnow() - audit.created_at
+            ).total_seconds() / 3600
+            if terminal_reason is None and audit_age_hours > max_attempt_hours:
+                terminal_reason = (
+                    f"Re-vet still un-scored {audit_age_hours:.1f}h after the "
+                    f"audit (cap {max_attempt_hours}h)."
+                )
+
+            if terminal_reason is not None:
+                try:
+                    audit.action_taken = 'revet_skipped_job_mismatch'
+                    audit.audit_finding = (
+                        f"{audit.audit_finding or ''}\n\n"
+                        f"[Auto] {terminal_reason} Stopped re-enqueuing to "
+                        f"avoid unbounded re-screening; flag for human review."
+                    ).strip()
+                    db.session.commit()
+                except Exception as e:
+                    try:
+                        db.session.rollback()
+                    except Exception:
+                        pass
+                    logger.warning(
+                        f"⚠️ Pending-revet detector: failed to terminate "
+                        f"audit row {audit.id} "
+                        f"({type(e).__name__}: {e})"
+                    )
+                    continue
+                resolved_unbackfillable += 1
+                logger.warning(
+                    f"🛑 Pending-revet detector: audit row {audit.id} "
+                    f"(candidate {candidate_id}, job {audit.job_id}) marked "
+                    f"revet_skipped_job_mismatch — {terminal_reason}"
+                )
                 continue
 
             # Clear stale vetting state so ``_self_screen_cooldown_active``
@@ -965,12 +1052,14 @@ class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMi
             or skipped_already_revetted
             or skipped_active_session
             or skipped_clear_failed
+            or resolved_unbackfillable
         ):
             logger.info(
                 f"🔁 Pending revets: {len(candidates_to_enqueue)} re-enqueued, "
                 f"{skipped_already_revetted} already-revetted (back-fill pending), "
                 f"{skipped_active_session} blocked by active Scout session, "
                 f"{skipped_clear_failed} failed clear, "
+                f"{resolved_unbackfillable} terminated as un-backfillable, "
                 f"out of {len(pending_audits)} stuck audit row(s) in last "
                 f"{lookback_days}d"
             )

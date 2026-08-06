@@ -77,18 +77,24 @@ def scheduler_dashboard():
 
     if dual_feed_data:
         ts_str = dual_feed_data.get('timestamp', '')
-        size_bytes = dual_feed_data.get('v2_size', 0)
-        job_count = dual_feed_data.get('v2_jobs', 0)
-        display_size = f"{size_bytes / 1024:.1f} KB" if size_bytes else "—"
-        active_xml_files.append({
-            'filename': 'myticas-job-feed-v2.xml',
-            'file_size': size_bytes,
-            'display_size': display_size,
-            'last_modified': None,
-            'server_time': ts_str,
-            'is_active': True,
-            'job_count': job_count
-        })
+        feed_entries = [
+            ('myticas-job-feed-v2.xml', 'v2_jobs', 'v2_size'),
+            ('stsi-job-feed-indeed.xml', 'stsi_indeed_jobs', 'stsi_indeed_size'),
+            ('stsi-job-feed-ziprecruiter.xml', 'stsi_ziprecruiter_jobs', 'stsi_ziprecruiter_size'),
+        ]
+        for filename, jobs_key, size_key in feed_entries:
+            size_bytes = dual_feed_data.get(size_key, 0) or 0
+            job_count = dual_feed_data.get(jobs_key, 0)
+            display_size = f"{size_bytes / 1024:.1f} KB" if size_bytes else "—"
+            active_xml_files.append({
+                'filename': filename,
+                'file_size': size_bytes,
+                'display_size': display_size,
+                'last_modified': None,
+                'server_time': ts_str,
+                'is_active': True,
+                'job_count': job_count
+            })
     else:
         for filename in ['myticas-job-feed.xml']:
             if os.path.exists(filename):

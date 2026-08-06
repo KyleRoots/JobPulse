@@ -180,6 +180,23 @@
 {% endif %}
 {% endwith %}
 
+<div class="alert alert-info border-info mb-4" role="alert">
+    <h6 class="alert-heading mb-2"><i class="fas fa-shield-alt me-2"></i>AI Screening Compliance Policy</h6>
+    <p class="mb-2 small">
+        <strong>Scout Screening is decision-support only.</strong> AI scores and notes help recruiters
+        prioritize and explain fit — recruiters make all final employment decisions. Do not treat
+        a low score as an automatic rejection without human review.
+    </p>
+    <p class="mb-2 small">
+        Rules version: <code>{{ compliance_rules_version }}</code>
+        · <a href="{{ url_for('vetting.screening_compliance_metrics') }}" class="alert-link" target="_blank" rel="noopener">View compliance metrics (7-day)</a>
+    </p>
+    <p class="mb-0 small text-muted">
+        Proxy analyses (work authorization, clearance, location, prestige) document job-requirement gaps
+        for recruiter review — they are not sole disqualifiers.
+    </p>
+</div>
+
 <!-- Metrics Row - Horizontal Cards (matching Dashboard style) -->
 <div class="metrics-row">
     <div class="metric-card blue">
@@ -567,13 +584,17 @@
                                 <small class="text-muted">
                                     Advisory-only risk scoring using signals already captured
                                     (resume reuse, identity reuse, disposable emails, impossible
-                                    work history, application velocity, LinkedIn-profile reuse
-                                    across identities, incomplete-name + non-personal-email
+                                    work history, application velocity, LinkedIn-profile reuse,
+                                    multi-submission claim drift, PDF metadata fingerprints when
+                                    a PDF is available, incomplete-name + non-personal-email
                                     "third-party submission" pattern, and verbatim copying of the
-                                    job description). AI-writing-style markers are shown as
+                                    job description). Optional contact validation (NeverBounce /
+                                    Twilio) and soft LinkedIn URL checks are separately toggled.
+                                    AI-writing-style markers are shown as
                                     <em>informational only</em> (never scored). <strong>Never
                                     blocks or skips screening</strong> — it flags risk in the
-                                    recruiter portal. Fully deterministic — no AI cost.
+                                    recruiter portal and suggests verification questions on
+                                    Review/High-Risk. Fully fail-soft.
                                 </small>
                             </div>
                             <label class="toggle-switch">
@@ -620,6 +641,39 @@
                             <label class="toggle-switch">
                                 <input type="checkbox" name="fraud_note_all_bands_enabled"
                                        {% if settings.fraud_note_all_bands_enabled %}checked{% endif %}>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center gap-3 mt-3 pt-3 border-top" style="border-color: rgba(255,255,255,0.08) !important;">
+                            <div>
+                                <strong class="d-block mb-1">Contact validation (NeverBounce + Twilio)</strong>
+                                <small class="text-muted">
+                                    Calls NeverBounce / Twilio Lookup only for
+                                    <strong>Qualified</strong> candidates (after match
+                                    threshold is met) — not on every screen.
+                                    Requires <code>NEVERBOUNCE_API_KEY</code> and Twilio
+                                    env vars. Leave OFF until keys are smoke-tested.
+                                    Fail-soft if missing.
+                                </small>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="fraud_contact_validation_enabled"
+                                       {% if settings.fraud_contact_validation_enabled %}checked{% endif %}>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center gap-3 mt-3 pt-3 border-top" style="border-color: rgba(255,255,255,0.08) !important;">
+                            <div>
+                                <strong class="d-block mb-1">LinkedIn URL soft cross-check</strong>
+                                <small class="text-muted">
+                                    Public fetch of the résumé LinkedIn URL only (no name search).
+                                    Soft amber for dead URLs / strong name mismatch — never High-Risk alone.
+                                    Default ON when fraud detection is enabled.
+                                </small>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="fraud_linkedin_crosscheck_enabled"
+                                       {% if settings.fraud_linkedin_crosscheck_enabled %}checked{% endif %}>
                                 <span class="toggle-slider"></span>
                             </label>
                         </div>

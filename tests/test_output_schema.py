@@ -314,6 +314,392 @@ def test_years_hard_gate_parity_with_stub_recheck():
         )
 
 
+def test_compact_scoring_uses_json_schema_and_lower_token_cap(monkeypatch):
+    """Production compact-output cutover: schema response_format + 2200 token cap."""
+    import importlib
+    import screening.prompt_builder as pb
+
+    importlib.reload(pb)
+    monkeypatch.setenv("SCREENING_COMPACT_OUTPUT", "true")
+
+    captured = {}
+
+    class _Usage:
+        prompt_tokens = 100
+        prompt_tokens_details = None
+
+    class _Choice:
+        message = type("M", (), {"content": json.dumps({
+            "match_score": 40,
+            "technical_score": 40,
+            "match_summary": "Clear reject — wrong domain.",
+            "skills_match": "N/A",
+            "experience_match": "N/A",
+            "gaps_identified": "No relevant experience found.",
+            "key_requirements": "Python",
+            "years_analysis": {},
+            "recency_analysis": {
+                "most_recent_role_relevant": False,
+                "relevance_justification": "N/A",
+                "months_since_relevant_work": 0,
+                "penalty_applied": 0,
+            },
+            "employment_gap_analysis": {
+                "gap_months": 0,
+                "penalty_applied": 0,
+                "largest_midcareer_gap_months": 0,
+                "midcareer_gap_penalty_applied": 0,
+            },
+            "experience_level_classification": {
+                "classification": "ENTRY",
+                "total_professional_years": 1.0,
+                "highest_role_type": "PROFESSIONAL_FULLTIME",
+            },
+        })})()
+        finish_reason = "stop"
+
+    class _Resp:
+        choices = [_Choice()]
+        usage = _Usage()
+
+    class _StubClient:
+        class chat:
+            class completions:
+                @staticmethod
+                def create(**kwargs):
+                    captured["kwargs"] = kwargs
+                    return _Resp()
+
+    class _Service:
+        openai_client = _StubClient()
+        model = "gpt-4.1-mini"
+
+        def _get_screening_profile(self):
+            return "standard"
+
+        def _get_job_custom_requirements(self, job_id):
+            return ""
+
+        def _get_global_requirements(self):
+            return ""
+
+        def _recheck_years_calculation(self, *args, **kwargs):
+            return None
+
+    monkeypatch.setattr(
+        "services.openai_helper.resolve_model",
+        lambda site, default: default,
+    )
+    monkeypatch.setattr(
+        "services.openai_helper.log_call",
+        lambda *a, **k: None,
+    )
+
+    result = pb.PromptBuilderMixin.analyze_candidate_job_match(
+        _Service(),
+        resume_text="Retail cashier with no engineering background.",
+        job={
+            "id": 1,
+            "title": "Data Engineer",
+            "description": "Need Databricks and Spark",
+            "address": {"city": "Toronto", "state": "ON", "countryName": "Canada"},
+        },
+        candidate_location={
+            "city": "Toronto",
+            "state": "ON",
+            "countryName": "Canada",
+        },
+        prefetched_requirements="",
+        prefetched_global_requirements="",
+        screening_profile="standard",
+    )
+    assert int(result["match_score"]) == 40
+    assert captured["kwargs"]["response_format"]["type"] == "json_schema"
+    assert captured["kwargs"]["max_completion_tokens"] == 2200
+
+
+def test_related_job_brief_uses_lower_token_cap(monkeypatch):
+    """Non-applied related roles use a tighter completion-token ceiling."""
+    import importlib
+    import screening.prompt_builder as pb
+
+    importlib.reload(pb)
+    monkeypatch.setenv("SCREENING_COMPACT_OUTPUT", "true")
+
+    captured = {}
+
+    class _Usage:
+        prompt_tokens = 100
+        prompt_tokens_details = None
+
+    class _Choice:
+        message = type("M", (), {"content": json.dumps({
+            "match_score": 55,
+            "technical_score": 55,
+            "match_summary": "Partial related overlap.",
+            "skills_match": "Python",
+            "experience_match": "2 years",
+            "gaps_identified": "Missing Kubernetes.",
+            "key_requirements": "K8s",
+            "years_analysis": {},
+            "recency_analysis": {
+                "most_recent_role_relevant": False,
+                "relevance_justification": "N/A",
+                "months_since_relevant_work": 0,
+                "penalty_applied": 0,
+            },
+            "employment_gap_analysis": {
+                "gap_months": 0,
+                "penalty_applied": 0,
+                "largest_midcareer_gap_months": 0,
+                "midcareer_gap_penalty_applied": 0,
+            },
+            "experience_level_classification": {
+                "classification": "MID",
+                "total_professional_years": 4.0,
+                "highest_role_type": "PROFESSIONAL_FULLTIME",
+            },
+        })})()
+        finish_reason = "stop"
+
+    class _Resp:
+        choices = [_Choice()]
+        usage = _Usage()
+
+    class _StubClient:
+        class chat:
+            class completions:
+                @staticmethod
+                def create(**kwargs):
+                    captured["kwargs"] = kwargs
+                    return _Resp()
+
+    class _Service:
+        openai_client = _StubClient()
+        model = "gpt-4.1-mini"
+
+        def _get_screening_profile(self):
+            return "standard"
+
+        def _get_job_custom_requirements(self, job_id):
+            return ""
+
+        def _get_global_requirements(self):
+            return ""
+
+        def _recheck_years_calculation(self, *args, **kwargs):
+            return None
+
+    monkeypatch.setattr(
+        "services.openai_helper.resolve_model",
+        lambda site, default: default,
+    )
+    monkeypatch.setattr(
+        "services.openai_helper.log_call",
+        lambda *a, **k: None,
+    )
+
+    result = pb.PromptBuilderMixin.analyze_candidate_job_match(
+        _Service(),
+        resume_text="Python developer.",
+        job={
+            "id": 2,
+            "title": "Platform Engineer",
+            "description": "Need Kubernetes",
+            "address": {"city": "Toronto", "state": "ON", "countryName": "Canada"},
+        },
+        candidate_location={
+            "city": "Toronto",
+            "state": "ON",
+            "countryName": "Canada",
+        },
+        prefetched_requirements="",
+        prefetched_global_requirements="",
+        screening_profile="standard",
+        related_job_brief=True,
+    )
+    assert int(result["match_score"]) == 55
+    assert captured["kwargs"]["max_completion_tokens"] == 1400
+    system_msg = captured["kwargs"]["messages"][0]["content"]
+    assert "RELATED-JOB BREVITY" in system_msg
+
+
+def test_build_system_message_includes_clear_reject_brevity():
+    from screening.system_prompt import build_system_message
+
+    message = build_system_message("")
+    assert "CLEAR-REJECT BREVITY" in message
+    assert "BELOW 60" in message
+    assert "RELATED-JOB BREVITY" not in message
+    assert "Do NOT emit a requirement_evidence JSON array" in message
+    assert '"requirement_evidence"' not in message
+    assert '"work_authorization_analysis"' not in message
+    assert '"canadian_clearance_analysis"' not in message
+
+
+def test_build_system_message_related_job_brief():
+    from screening.system_prompt import build_system_message
+
+    message = build_system_message("", related_job_brief=True)
+    assert "RELATED-JOB BREVITY" in message
+    assert "BELOW 70" in message
+    assert "CLEAR-REJECT BREVITY" in message
+
+
+def test_shadow_pick_model_terra_canary_only_on_flagship(monkeypatch):
+    """Terra shadow runs against escalate models; Layer-2 mini is skipped."""
+    import importlib
+    import screening.prompt_builder as pb
+
+    importlib.reload(pb)
+    monkeypatch.delenv("SCREENING_AB_SHADOW_MODEL", raising=False)
+
+    assert pb._shadow_screening_pick_model("gpt-5.4") == "gpt-5.6-terra"
+    assert pb._shadow_screening_pick_model("gpt-5.4-2026-03-05") == "gpt-5.6-terra"
+    assert pb._shadow_screening_pick_model("gpt-4.1-mini") is None
+    assert pb._shadow_screening_pick_model("gpt-4.1-mini-2025-04-14") is None
+
+    monkeypatch.setenv("SCREENING_AB_SHADOW_MODEL", "gpt-5.6-luna")
+    assert pb._shadow_screening_pick_model("gpt-5.4") == "gpt-5.6-luna"
+
+
+def test_shadow_max_completion_tokens_default_and_override(monkeypatch):
+    """Shadow compact ceiling defaults to 4000; env override + invalid fallback."""
+    import importlib
+    import screening.prompt_builder as pb
+
+    importlib.reload(pb)
+    monkeypatch.delenv("SCREENING_AB_SHADOW_MAX_COMPLETION_TOKENS", raising=False)
+    assert pb._shadow_screening_max_completion_tokens() == 4000
+
+    monkeypatch.setenv("SCREENING_AB_SHADOW_MAX_COMPLETION_TOKENS", "3500")
+    assert pb._shadow_screening_max_completion_tokens() == 3500
+
+    monkeypatch.setenv("SCREENING_AB_SHADOW_MAX_COMPLETION_TOKENS", "banana")
+    assert pb._shadow_screening_max_completion_tokens() == 4000
+
+    monkeypatch.setenv("SCREENING_AB_SHADOW_MAX_COMPLETION_TOKENS", "100")
+    assert pb._shadow_screening_max_completion_tokens() == 4000
+
+
+def test_shadow_model_ab_uses_raised_token_ceiling(monkeypatch):
+    """Model A/B compact shadow must use the raised ceiling, not prod 2200."""
+    import importlib
+    import screening.prompt_builder as pb
+
+    importlib.reload(pb)
+    monkeypatch.setenv("SHADOW_LOGGING_DISABLED", "false")
+    monkeypatch.setenv("SCREENING_AB_SHADOW_ENABLED", "true")
+    monkeypatch.setenv("SCREENING_AB_SHADOW_SAMPLE_RATE", "1.0")
+    monkeypatch.setenv("SCREENING_COMPACT_OUTPUT", "true")
+    monkeypatch.delenv("SCREENING_AB_SHADOW_MAX_COMPLETION_TOKENS", raising=False)
+
+    captured = {}
+
+    class _Usage:
+        prompt_tokens = 50
+        completion_tokens = 10
+        prompt_tokens_details = None
+
+    class _Choice:
+        message = type("M", (), {"content": json.dumps({
+            "match_score": 82,
+            "match_summary": "ok",
+        })})()
+        finish_reason = "stop"
+
+    class _Resp:
+        choices = [_Choice()]
+        usage = _Usage()
+
+    class _StubClient:
+        class chat:
+            class completions:
+                @staticmethod
+                def create(**kwargs):
+                    captured["kwargs"] = kwargs
+                    return _Resp()
+
+    monkeypatch.setattr(
+        "services.openai_helper.log_call",
+        lambda *a, **k: None,
+    )
+    monkeypatch.setattr(
+        "services.openai_helper._extract_usage",
+        lambda resp: (50, 0, 10),
+    )
+    monkeypatch.setattr(
+        "services.openai_helper.estimate_cost",
+        lambda *a, **k: 0.01,
+    )
+    pb._save_screening_ab_row = lambda row: None  # type: ignore[assignment]
+    pb._shadow_screening_rate_check = lambda: True  # type: ignore[assignment]
+
+    pb._run_screening_shadow(
+        system_message="sys",
+        user_prompt="user",
+        prod_model="gpt-5.4",
+        prod_score=85.0,
+        prod_qualified=True,
+        job_id=1,
+        job_title="Test",
+        openai_client=_StubClient(),
+    )
+    assert captured.get("kwargs"), "shadow call did not fire"
+    assert captured["kwargs"]["model"] == "gpt-5.6-terra"
+    assert captured["kwargs"]["max_completion_tokens"] == 4000
+
+    monkeypatch.setenv("SCREENING_AB_SHADOW_MAX_COMPLETION_TOKENS", "3500")
+    captured.clear()
+    pb._run_screening_shadow(
+        system_message="sys",
+        user_prompt="user",
+        prod_model="gpt-5.4",
+        prod_score=85.0,
+        prod_qualified=True,
+        job_id=1,
+        job_title="Test",
+        openai_client=_StubClient(),
+    )
+    assert captured["kwargs"]["max_completion_tokens"] == 3500
+
+
+def test_shadow_model_ab_skips_when_pick_returns_none(monkeypatch):
+    """Model A/B must not dual-call when prod is Layer-2 mini."""
+    import importlib
+    import screening.prompt_builder as pb
+
+    importlib.reload(pb)
+    monkeypatch.setenv("SHADOW_LOGGING_DISABLED", "false")
+    monkeypatch.setenv("SCREENING_AB_SHADOW_ENABLED", "true")
+    monkeypatch.setenv("SCREENING_AB_SHADOW_SAMPLE_RATE", "1.0")
+
+    calls = []
+
+    class _StubClient:
+        class chat:
+            class completions:
+                @staticmethod
+                def create(**kwargs):
+                    calls.append(kwargs)
+                    raise AssertionError("should not call OpenAI for mini prod")
+
+    pb._save_screening_ab_row = lambda row: None  # type: ignore[assignment]
+    pb._shadow_screening_rate_check = lambda: True  # type: ignore[assignment]
+
+    pb._run_screening_shadow(
+        system_message="sys",
+        user_prompt="user",
+        prod_model="gpt-4.1-mini",
+        prod_score=20.0,
+        prod_qualified=False,
+        job_id=1,
+        job_title="Test",
+        openai_client=_StubClient(),
+    )
+    assert calls == []
+
+
 def test_shadow_harness_schema_audit_mode_smoke():
     """Targeted harness test for `_run_screening_shadow` schema mode.
 
@@ -323,8 +709,6 @@ def test_shadow_harness_schema_audit_mode_smoke():
          through verbatim; row is tagged `{model}|loose` /
          `{model}|strict`; fail-soft on any call error.
     """
-    import os
-    import sys
     import importlib
 
     # Force-reload prompt_builder so env mutations take effect deterministically.

@@ -409,6 +409,58 @@ class TestJustificationEnforcer:
         assert result['match_score'] < 90, \
             f"Too-short justification should trigger penalty, got {result['match_score']}"
 
+    def test_soft_cs_communication_only_overrides(self, service):
+        """Debbie James regression: Crossing Guard 'professional communication' ≠ relevant."""
+        ai_response = self._make_ai_response(82, {
+            "most_recent_role": "School Crossing Guard at ACMS (Aug 2025 - Present)",
+            "most_recent_role_relevant": True,
+            "relevance_justification": (
+                'Communicated professionally with parents, students, and school staff, '
+                'which overlaps with the job\'s customer service and professional '
+                'communication requirements.'
+            ),
+            "second_recent_role": "Administrative Support — Health Plan of Nevada (2013-2020)",
+            "second_recent_role_relevant": True,
+            "last_relevant_role_ended": "September 2020",
+            "months_since_relevant_work": 70,
+            "penalty_applied": 0,
+            "reasoning": "Soft CS overlap"
+        })
+        result = self._run_analysis(service, ai_response)
+        assert result['match_score'] <= 70, \
+            f"Soft-only CS justification should trigger recency penalty, got {result['match_score']}"
+        assert 'outside the target domain' in (result.get('gaps_identified') or ''), \
+            f"Expected recency gap note, got: {result.get('gaps_identified')}"
+
+
+class TestRelevanceJustificationIsWeak:
+    """Unit tests for soft-only vs functional justification helper."""
+
+    def test_debbie_style_soft_only_is_weak(self):
+        from screening.post_processing import relevance_justification_is_weak
+        text = (
+            'Communicated professionally with parents, students, and school staff, '
+            'which overlaps with the job\'s customer service and professional '
+            'communication requirements.'
+        )
+        assert relevance_justification_is_weak(text) is True
+
+    def test_admin_functional_duties_not_weak(self):
+        from screening.post_processing import relevance_justification_is_weak
+        text = (
+            'Performs Excel reporting, data entry, and calendar scheduling matching '
+            'Admin Assistant requirements'
+        )
+        assert relevance_justification_is_weak(text) is False
+
+    def test_csr_with_functional_markers_not_weak(self):
+        from screening.post_processing import relevance_justification_is_weak
+        text = (
+            'Handles inbound customer service calls and Zendesk ticket escalations '
+            'matching the CSR role requirements'
+        )
+        assert relevance_justification_is_weak(text) is False
+
 
 class TestRecencyPromptPresence:
     """Test that the prompt includes recency_analysis instructions."""

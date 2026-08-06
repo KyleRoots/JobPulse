@@ -238,6 +238,8 @@ VISIBLE_JOBS = {
     'linkedin_source_cleanup': 'LinkedIn Source Cleanup',
     'reference_number_refresh': 'Reference Number Refresh',
     'enforce_tearsheet_jobs_public': 'Enforce Jobs Public',
+    'indeed_tearsheet_publish': 'Indeed Tearsheet Publish (1640)',
+    'indeed_inbound_remap': 'Indeed Inbound Field Remap',
     'requirements_maintenance': 'Requirements Maintenance',
     'duplicate_merge_check': 'Duplicate Candidate Merge',
     'owner_reassignment': 'Owner Reassignment (5 min)',
@@ -248,7 +250,7 @@ PROTECTED_JOBS = {'process_bullhorn_monitors', 'candidate_vetting_cycle', 'vetti
 
 INTERNAL_JOBS = {
     'check_monitor_health', 'environment_monitoring', 'refresh_active_job_ids',
-    'activity_cleanup', 'log_monitoring', 'email_parsing_timeout_cleanup',
+    'activity_cleanup', 'email_parsing_timeout_cleanup',
     'data_retention_cleanup',
 }
 

@@ -57,6 +57,12 @@ class CandidateVettingLog(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # Compliance metadata (Phase A — rules/model snapshot per screening run)
+    screening_rules_version = db.Column(db.String(32), nullable=True)
+    screening_model_used = db.Column(db.String(64), nullable=True)
+    screening_prompt_profile = db.Column(db.String(50), nullable=True)
+    screening_rules_json = db.Column(db.Text, nullable=True)
+
     # Multi-tenant discriminator (Task #100): the connected Bullhorn instance
     # this row belongs to. Nullable + backfilled to the default (Myticas)
     # environment so single-tenant behavior is byte-for-byte unchanged.
@@ -158,6 +164,23 @@ class JobVettingRequirements(db.Model):
     scout_vetting_enabled = db.Column(db.Boolean, nullable=True)  # null = follow global, True/False = per-job override
     employer_prestige_boost = db.Column(db.Boolean, default=False)  # Per-job toggle for prestige employer scoring boost
     last_ai_interpretation = db.Column(db.DateTime, nullable=True)
+    # SHA-256 of the Bullhorn job description that produced ai_interpreted_requirements.
+    # Used by check_and_refresh_changed_jobs so Bullhorn dateLastModified bumps that do
+    # not change the description text (recruiter reassignment, status flips, etc.) do
+    # not re-burn gpt-5.4 extraction tokens every maintenance cycle.
+    source_description_hash = db.Column(db.String(64), nullable=True)
+    # First time this job was observed missing from the active tearsheet set.
+    # Cleanup debounces on this instead of deleting on the first miss: the
+    # auto-removal path and the requirements maintenance path disagreed about
+    # the same jobs every 5 minutes, so each delete was immediately followed by
+    # a fresh gpt-5.4 extraction (~$275/mo of churn, Jul 2026). Cleared as soon
+    # as the job is seen active again.
+    tearsheet_absent_since = db.Column(db.DateTime, nullable=True)
+    # When the create-only requirements-spec sanity email was sent (or backfilled
+    # for pre-existing rows). NULL = still pending until the job appears on the
+    # Scout Screening snapshot list. Prevents duplicate emails across extract +
+    # deferred flush paths.
+    spec_create_notified_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

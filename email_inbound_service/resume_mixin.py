@@ -38,16 +38,58 @@ class ResumeMixin:
         candidate['lastName'] = last_name
         candidate['name'] = f"{first_name} {last_name}".strip()
 
-        candidate['email'] = email_data.get('email') or resume_data.get('email')
+        from utils.candidate_name_extraction import coalesce_candidate_email
+
+        # Résumé-first: board notification bodies often greet our apply@ mailbox
+        # or embed noreply@; those are filtered by coalesce, and a real résumé
+        # address must win when both exist.
+        candidate['email'] = coalesce_candidate_email(
+            resume_data.get('email'),
+            email_data.get('email'),
+        )
         candidate['phone'] = email_data.get('phone') or resume_data.get('phone')
+
+        from utils.candidate_name_extraction import resolve_linkedin_profile_url
+        linkedin_url = resolve_linkedin_profile_url(
+            resume_data.get('linkedin_url'),
+            email_data.get('linkedin_url'),
+            resume_data.get('raw_text'),
+            resume_data.get('formatted_html'),
+            resume_data.get('summary'),
+        )
+        if linkedin_url:
+            # Bullhorn LinkedIn / profile URL custom field
+            candidate['customText9'] = linkedin_url
+            resume_data['linkedin_url'] = linkedin_url
 
         candidate['address'] = {}
         if email_data.get('city') or resume_data.get('city'):
             candidate['address']['city'] = email_data.get('city') or resume_data.get('city')
         if email_data.get('state') or resume_data.get('state'):
             candidate['address']['state'] = email_data.get('state') or resume_data.get('state')
-        if resume_data.get('country'):
-            candidate['address']['countryName'] = resume_data.get('country')
+        # Resolve from deterministic resume-correlated location evidence before
+        # trusting the AI country field. This catches Toronto/ON even if the AI
+        # emits United States or omits country. Unknown country names are not
+        # sent name-only because Bullhorn can silently retain its US default.
+        from utils.candidate_country import (
+            bullhorn_country_payload,
+            infer_country_from_resume,
+        )
+        country_resolution = infer_country_from_resume(
+            candidate['address'].get('city'),
+            candidate['address'].get('state'),
+            resume_data.get('raw_text')
+            or resume_data.get('formatted_html')
+            or resume_data.get('summary'),
+        )
+        country_value = (
+            country_resolution.country.name
+            if country_resolution
+            else resume_data.get('country')
+        )
+        country_payload = bullhorn_country_payload(country_value)
+        if country_payload:
+            candidate['address'].update(country_payload)
 
         bullhorn_source = self.SOURCE_TO_BULLHORN.get(source, 'Other')
         candidate['source'] = bullhorn_source
@@ -106,8 +148,7 @@ class ResumeMixin:
         elif resume_data.get('summary'):
             candidate['description'] = resume_data['summary']
 
-        if resume_data.get('linkedin_url'):
-            candidate['customText9'] = resume_data['linkedin_url']
+        # customText9 already set above when a LinkedIn /in/ URL was resolved
 
         return candidate
 

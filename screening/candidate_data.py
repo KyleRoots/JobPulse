@@ -8,7 +8,9 @@ Contains:
   - _fetch_candidate_details: Full candidate entity fetch
   - _fetch_applied_job: Single job fetch for applied-job injection
   - _mark_application_vetted: Mark ParsedEmail as vetted
-  - get_candidate_resume: Download resume file from Bullhorn
+  - get_candidate_resume: Download newest Resume-typed file from Bullhorn
+  - list_resume_labeled_files: Resume-typed/named entityFiles, newest first
+  - select_newest_resume_file: Pure newest-by-dateAdded résumé picker
   - extract_resume_text / _extract_text_from_*: Delegate to vetting.resume_utils
 """
 
@@ -29,6 +31,71 @@ from vetting.resume_utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+_RESUME_DOC_EXTENSIONS = ('.pdf', '.doc', '.docx', '.rtf', '.txt', '.odt')
+
+
+def _file_date_added_ms(file_info: Dict) -> int:
+    """Best-effort Bullhorn ``dateAdded`` (ms) for newest-file selection."""
+    try:
+        return int(file_info.get('dateAdded') or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def list_resume_labeled_files(files: Optional[List[Dict]]) -> List[Dict]:
+    """Return entityFiles whose type or name contains ``resume``, newest first.
+
+    Used by newest-resume selection and divergent-resume fraud advisory.
+    Does not fall back to generic document extensions — those are not
+    Resume-typed versions for integrity comparison.
+    """
+    if not files:
+        return []
+    labeled = []
+    for file_info in files:
+        if not isinstance(file_info, dict):
+            continue
+        type_l = str(file_info.get('type') or '').lower()
+        name_l = str(file_info.get('name') or '').lower()
+        if 'resume' in type_l or 'resume' in name_l:
+            labeled.append(file_info)
+    labeled.sort(key=_file_date_added_ms, reverse=True)
+    return labeled
+
+
+def select_newest_resume_file(files: Optional[List[Dict]]) -> Optional[Dict]:
+    """Pick the résumé file recruiters / screening should use.
+
+    Bullhorn ``entityFiles`` often returns oldest-first. Taking the first
+    file whose type/name contains ``resume`` attaches stale tailored copies
+    (e.g. marketing résumé) while screening used the newest ML/AI version
+    already mirrored into Candidate.description — Ocean Towne 4309619.
+
+    Preference order:
+      1. Newest among type/name containing ``resume``
+      2. Newest among common document extensions
+      3. Newest file overall
+    """
+    if not files:
+        return None
+
+    labeled = list_resume_labeled_files(files)
+    if labeled:
+        return labeled[0]
+
+    docs = []
+    for file_info in files:
+        if not isinstance(file_info, dict):
+            continue
+        name_l = str(file_info.get('name') or '').lower()
+        if name_l.endswith(_RESUME_DOC_EXTENSIONS):
+            docs.append(file_info)
+
+    if docs:
+        return max(docs, key=_file_date_added_ms)
+    valid = [f for f in files if isinstance(f, dict)]
+    return max(valid, key=_file_date_added_ms) if valid else None
 
 
 def _resolve_vetting_cutoff() -> Optional[datetime]:
@@ -191,15 +258,21 @@ class CandidateDataAccessMixin:
         job dict in the same format as get_active_jobs_from_tearsheets() so it
         can be seamlessly added to the job list.
 
-        Only returns jobs with status 'Accepting Candidates' or where isOpen=True.
-        Returns None for closed/deleted/invalid jobs.
+        Applied-job path ALWAYS injects when the JobOrder entity exists —
+        including "half-closed" Bullhorn records (``isOpen=False`` while status
+        remains ``Accepting Candidates``) and fully closed statuses. Tearsheet
+        browsing still uses the strict ``is_job_eligible`` filter; the job a
+        candidate actually applied to is still scored so notes can show
+        APPLIED POSITION context. Closed/ineligible applied jobs must never
+        set ``is_qualified`` or trigger recruiter email (see ``job_can_qualify``).
+        Returns None only when the job cannot be fetched.
 
         Args:
             bullhorn: Authenticated Bullhorn service
             job_id: Bullhorn job order ID
 
         Returns:
-            Job dictionary matching tearsheet format, or None if closed/invalid
+            Job dictionary matching tearsheet format, or None if unfetchable
         """
         if not bullhorn or not bullhorn.rest_token:
             return None
@@ -231,14 +304,17 @@ class CandidateDataAccessMixin:
             if not job_data or not job_data.get('id'):
                 return None
 
+            # Tearsheet pools skip ineligible jobs; applied-job injection does not.
+            # Regression: candidate 4671202 applied to job 35421 (isOpen=False,
+            # status=Accepting Candidates) and was only scored against a related
+            # open role — recruiters lost APPLIED POSITION context.
             from utils.job_status import is_job_eligible
             if not is_job_eligible(job_data):
-                logger.info(
-                    f"Applied job {job_id} is closed "
-                    f"(isOpen={job_data.get('isOpen')}, "
-                    f"status={job_data.get('status')}) — skipping injection"
+                logger.warning(
+                    f"⚠️ Injecting applied job {job_id} despite ineligible flags "
+                    f"(isOpen={job_data.get('isOpen')}, status={job_data.get('status')}) "
+                    f"— applied-job analysis is required for recruiter transparency"
                 )
-                return None
 
             assigned_users = job_data.get('assignedUsers', {})
             if isinstance(assigned_users, dict):
@@ -278,7 +354,12 @@ class CandidateDataAccessMixin:
 
     def get_candidate_resume(self, candidate_id: int) -> Tuple[Optional[bytes], Optional[str]]:
         """
-        Download the candidate's resume file from Bullhorn.
+        Download the candidate's newest résumé file from Bullhorn.
+
+        Prefers the latest ``dateAdded`` among files typed/named as Resume
+        (not the first match in entityFiles order). Used for recruiter-email
+        attachments and as a screening fallback when Candidate.description
+        is empty.
 
         Args:
             candidate_id: Bullhorn candidate ID
@@ -307,23 +388,22 @@ class CandidateDataAccessMixin:
                 logger.info(f"No files found for candidate {candidate_id}")
                 return None, None
 
-            resume_file = None
-            for file_info in files:
-                file_type = file_info.get('type', '').lower()
-                file_name = file_info.get('name', '').lower()
-
-                if 'resume' in file_type or 'resume' in file_name:
-                    resume_file = file_info
-                    break
-
-            if not resume_file and files:
-                resume_file = files[0]
+            # Newest Resume-typed/named file — not first match in API order
+            # (see select_newest_resume_file; Ocean Towne attach mismatch).
+            resume_file = select_newest_resume_file(files)
 
             if not resume_file:
                 return None, None
 
             file_id = resume_file.get('id')
             filename = resume_file.get('name', f'resume_{candidate_id}')
+            logger.info(
+                f"📎 Resume select: candidate {candidate_id} → "
+                f"{filename} (file_id={file_id}, "
+                f"dateAdded={resume_file.get('dateAdded')}, "
+                f"type={resume_file.get('type')!r}, "
+                f"among {len(files)} files)"
+            )
 
             download_url = f"{bullhorn.base_url}file/Candidate/{candidate_id}/{file_id}"
 

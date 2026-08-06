@@ -123,7 +123,9 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
                         MockMonitor('Sponsored - VMS', 1264),
                         MockMonitor('Sponsored - GR', 1499),
                         MockMonitor('Sponsored - CHI', 1257),
-                        MockMonitor('Sponsored - STSI', 1556),
+                        MockMonitor('Sponsored - STSI - LinkedIn', 1531),
+                        MockMonitor('Sponsored - STSI - Indeed', 1640),
+                        MockMonitor('Sponsored - STSI - Zip Recruiter', 1641),
                     ]
                     app.logger.info(f"Using {len(db_monitors)} hardcoded tearsheet monitors (fallback)")
                 else:
@@ -288,20 +290,6 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
         )
         app.logger.info("📦 Scheduled nightly database backup (2 AM UTC → OneDrive)")
 
-    # ── Log Monitoring / Self-Healing ─────────────────────────────────────────
-    if is_primary_worker:
-        from tasks import log_monitoring_cycle
-        log_monitor_interval = int(os.environ.get('LOG_MONITOR_INTERVAL_MINUTES', '15'))
-        scheduler.add_job(
-            func=log_monitoring_cycle,
-            trigger='interval',
-            minutes=log_monitor_interval,
-            id='log_monitoring',
-            name=f'Render Log Monitoring (Self-Healing) - {log_monitor_interval}min',
-            replace_existing=True
-        )
-        app.logger.info(f"📊 Log monitoring enabled - checking Render logs every {log_monitor_interval} minutes")
-
     # ── Email Parsing Timeout Cleanup (every 5 minutes) ───────────────────────
     if is_primary_worker:
         from tasks import email_parsing_timeout_cleanup
@@ -341,6 +329,23 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
             replace_existing=True
         )
         app.logger.info("🩺 Scheduled vetting system health check (every 10 minutes)")
+
+    # ── OpenAI Spend Alert (every 30 minutes) ─────────────────────────────────
+    # The health check above only tests connectivity, so a runaway loop making
+    # successful calls keeps it green. This is the spend dimension it misses.
+    if is_primary_worker:
+        from tasks import run_ai_cost_alert
+        scheduler.add_job(
+            func=run_ai_cost_alert,
+            trigger='interval',
+            minutes=30,
+            id='ai_cost_alert',
+            name='OpenAI Spend Alert (24h rolling)',
+            replace_existing=True,
+            misfire_grace_time=600,
+            coalesce=True
+        )
+        app.logger.info("💸 Scheduled OpenAI spend alert (24h rolling, every 30 minutes)")
 
     # ── AI Candidate Vetting Cycle (every 1 minute) ───────────────────────────
     if is_primary_worker:
@@ -401,6 +406,24 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
             print(f"❌ SCHEDULER INIT: Failed to register automated upload job: {e}", flush=True)
             app.logger.error(f"Failed to register automated upload job: {e}")
 
+    # ── Candidate Country Normalization (every 15 minutes) ───────────────────
+    # Job boards can create Toronto, ON candidates with Bullhorn's US country
+    # default when the upstream payload omits country. The normalizer only
+    # writes when parsed-resume location evidence uniquely corroborates the
+    # city/state association, then records and verifies every correction.
+    if is_primary_worker:
+        from tasks import normalize_candidate_countries
+        scheduler.add_job(
+            func=normalize_candidate_countries,
+            trigger=IntervalTrigger(minutes=15),
+            id='candidate_country_normalization',
+            name='Candidate Country Normalization (15 min)',
+            replace_existing=True,
+            misfire_grace_time=300,
+            coalesce=True,
+        )
+        app.logger.info("🌎 Candidate country normalization scheduled (every 15 minutes)")
+
     # ── LinkedIn Source Cleanup (hourly) ──────────────────────────────────────
     if is_primary_worker:
         from tasks import cleanup_linkedin_source
@@ -426,6 +449,45 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
             coalesce=False
         )
         app.logger.info("🌐 Enforce tearsheet jobs public enabled — runs every 30 minutes to set isPublic=true on all active tearsheet jobs")
+
+    # ── Indeed Tearsheet Native Publish (every 5 minutes, feature-flagged) ───
+    if is_primary_worker:
+        from tasks import sync_indeed_tearsheet_publish
+        scheduler.add_job(
+            func=sync_indeed_tearsheet_publish,
+            trigger=IntervalTrigger(minutes=5),
+            id='indeed_tearsheet_publish',
+            name='Indeed Tearsheet Native Publish (1640)',
+            replace_existing=True,
+            misfire_grace_time=300,
+            coalesce=True,
+        )
+        app.logger.info(
+            "📣 Indeed tearsheet publish sync registered — runs every 5 minutes "
+            "(gated by INDEED_TEARSHEET_PUBLISH_ENABLED)"
+        )
+
+    # ── Indeed Inbound Field Remap (every 5 minutes, feature-flagged) ────────
+    # Native Indeed Apply lands as New Lead + source Indeed + Unassigned.
+    # Remap to Online Applicant + Indeed Job Board + Myticas API User (only when
+    # still Unassigned) so Owner Reassignment can later claim from activity —
+    # same path as LinkedIn email inbound. Gated by INDEED_INBOUND_REMAP_ENABLED
+    # (default ON).
+    if is_primary_worker:
+        from tasks import run_indeed_inbound_remap
+        scheduler.add_job(
+            func=run_indeed_inbound_remap,
+            trigger=IntervalTrigger(minutes=5),
+            id='indeed_inbound_remap',
+            name='Indeed Inbound Field Remap (5 min)',
+            replace_existing=True,
+            misfire_grace_time=300,
+            coalesce=True,
+        )
+        app.logger.info(
+            "🔄 Indeed inbound field remap registered — runs every 5 minutes "
+            "(gated by INDEED_INBOUND_REMAP_ENABLED, default ON)"
+        )
 
     # ── Ownership Reassignment (every 5 minutes) ─────────────────────────────
     if is_primary_worker:

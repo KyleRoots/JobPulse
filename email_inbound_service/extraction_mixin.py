@@ -2,7 +2,9 @@ import re
 from typing import Dict, Any, Optional
 
 from utils.candidate_name_extraction import (
+    coalesce_candidate_email,
     extract_name_from_pattern,
+    is_job_board_relay_email,
     strip_html_to_text,
 )
 
@@ -265,20 +267,30 @@ class ExtractionMixin:
         return result
 
     def _extract_generic_candidate(self, subject: str, body: str) -> Dict[str, Any]:
-        """Generic candidate extraction for unknown sources"""
+        """Generic candidate extraction for unknown sources / Zip Easy Apply."""
         result = {}
 
         body_text = strip_html_to_text(body)
 
-        email_match = re.search(r'([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})', body_text)
-        if email_match:
-            result['email'] = email_match.group(1).lower()
+        # Prefer a real contact address; skip noreply@ / board domains that
+        # appear first in Zip/Indeed notification HTML.
+        for match in re.finditer(
+            r'([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})',
+            body_text or '',
+        ):
+            email = match.group(1).lower()
+            if is_job_board_relay_email(email):
+                continue
+            result['email'] = coalesce_candidate_email(email)
+            break
 
         phone_match = re.search(r'(\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4})', body_text)
         if phone_match:
             result['phone'] = phone_match.group(1)
 
-        first, last = extract_name_from_pattern(subject, r'-\s*')
+        first, last = self._extract_zip_style_subject_name(subject)
+        if not (first or last):
+            first, last = extract_name_from_pattern(subject, r'-\s*')
         if not (first or last):
             first, last = extract_name_from_pattern(subject, r'(?:from|by)\s+')
         if first or last:
@@ -286,3 +298,17 @@ class ExtractionMixin:
             result['last_name'] = last
 
         return result
+
+    @staticmethod
+    def _extract_zip_style_subject_name(subject: str):
+        """Parse Zip Easy Apply subjects like 'Great Match: Name for Job (id)'."""
+        if not subject:
+            return None, None
+        # Drop leading emoji / "External" banners Outlook may prepend.
+        cleaned = re.sub(r'^[^A-Za-z0-9]+', '', subject).strip()
+        cleaned = re.sub(r'(?i)^external\s+', '', cleaned).strip()
+        return extract_name_from_pattern(
+            cleaned,
+            r'(?:great\s+match|new\s+candidate)\s*:\s*',
+            suffix_pattern=r'(?=\s+for\b|\s*$|\s*[\n\r])',
+        )

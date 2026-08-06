@@ -70,6 +70,8 @@ class TestSalesRepEnvResolvers:
 
 # ── 2. Service field parameterization ──────────────────────────────────────
 class _Resp:
+    status_code = 200
+
     def __init__(self, payload):
         self._payload = payload
 
@@ -101,7 +103,7 @@ def _fake_requests(captured, company):
     class FakeRequests:
         @staticmethod
         def get(url, headers=None, params=None, timeout=None):
-            if "query/ClientCorporation" in url:
+            if "search/ClientCorporation" in url:
                 captured["query_params"] = params
                 if captured.get("queried"):
                     return _Resp({"data": []})
@@ -112,8 +114,9 @@ def _fake_requests(captured, company):
             return _Resp({"data": {}})
 
         @staticmethod
-        def post(url, headers=None, json=None, timeout=None):
+        def post(url, headers=None, params=None, json=None, timeout=None):
             captured["post_url"] = url
+            captured["post_params"] = params
             captured["post_json"] = json
             return _Resp({"data": {}})
 
@@ -137,9 +140,12 @@ class TestSalesRepFieldParameterization:
 
         assert result["success"] is True
         assert result["updated"] == 1
-        assert "customText10" in captured["query_params"]["where"]
+        assert captured["query_params"]["BhRestToken"] == "tok"
+        assert captured["query_params"]["query"] == "customText10:*"
+        assert "where" not in captured["query_params"]
         assert "customText10" in captured["query_params"]["fields"]
         assert "customText11" in captured["query_params"]["fields"]
+        assert captured["post_params"]["BhRestToken"] == "tok"
         assert captured["post_json"] == {"customText11": "Jane Doe"}
 
     def test_defaults_to_standard_fields(self, monkeypatch):
@@ -153,6 +159,7 @@ class TestSalesRepFieldParameterization:
         result = svc.run_salesrep_sync(_FakeBullhorn())
 
         assert result["updated"] == 1
+        assert captured["query_params"]["query"] == "customText3:*"
         assert "customText3" in captured["query_params"]["fields"]
         assert captured["post_json"] == {"customText6": "Jane Doe"}
 
@@ -183,3 +190,34 @@ class TestSalesRepFieldParameterization:
 
         assert result["updated"] == 0
         assert "post_json" not in captured
+
+    def test_skips_empty_source_client_side(self, monkeypatch):
+        captured = {}
+        company = {
+            "id": 5, "name": "Acme",
+            "customText3": "   ", "customText6": "Old Rep",
+        }
+        monkeypatch.setattr(svc, "requests", _fake_requests(captured, company))
+
+        result = svc.run_salesrep_sync(_FakeBullhorn())
+
+        assert result["updated"] == 0
+        assert "post_json" not in captured
+
+    def test_scan_http_error_redacts_token(self, monkeypatch):
+        class _FailResp:
+            status_code = 400
+            text = "Bad Request"
+
+        class FailRequests:
+            @staticmethod
+            def get(url, headers=None, params=None, timeout=None):
+                return _FailResp()
+
+        monkeypatch.setattr(svc, "requests", FailRequests)
+        result = svc.run_salesrep_sync(_FakeBullhorn())
+
+        assert result["success"] is False
+        assert "secret-token" not in result["error"]
+        assert "BhRestToken" not in result["error"]
+        assert "HTTP 400" in result["error"]

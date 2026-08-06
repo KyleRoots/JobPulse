@@ -6,6 +6,269 @@ from datetime import datetime, timedelta
 logger = logging.getLogger(__name__)
 
 
+def normalize_candidate_countries():
+    """Correct recent Candidate countries from high-confidence resume evidence."""
+    from app import app
+
+    with app.app_context():
+        try:
+            from models import VettingConfig
+            from services.candidate_country_normalizer import (
+                _lookback_floor_ms,
+                run_candidate_country_backfill,
+                run_candidate_country_normalization,
+            )
+
+            enabled = str(
+                VettingConfig.get_value(
+                    "candidate_country_normalization_enabled",
+                    "true",
+                )
+            ).strip().lower() == "true"
+            if not enabled:
+                return
+
+            try:
+                lookback_hours = float(
+                    VettingConfig.get_value(
+                        "candidate_country_normalization_lookback_hours",
+                        "48",
+                    )
+                )
+            except (TypeError, ValueError):
+                lookback_hours = 48.0
+            try:
+                batch_size = int(
+                    VettingConfig.get_value(
+                        "candidate_country_normalization_batch_size",
+                        "1000",
+                    )
+                )
+            except (TypeError, ValueError):
+                batch_size = 1000
+
+            backfill_enabled = str(
+                VettingConfig.get_value(
+                    "candidate_country_backfill_enabled",
+                    "true",
+                )
+            ).strip().lower() == "true"
+            backfill_phase = str(
+                VettingConfig.get_value(
+                    "candidate_country_backfill_phase",
+                    "canada",
+                )
+            ).strip().lower() or "canada"
+            try:
+                backfill_batch_size = int(
+                    VettingConfig.get_value(
+                        "candidate_country_backfill_batch_size",
+                        "200",
+                    )
+                )
+            except (TypeError, ValueError):
+                backfill_batch_size = 200
+
+            from utils.environment_runner import for_each_active_environment
+
+            def _run(environment):
+                env_key = getattr(environment, "key", "default")
+                cursor_key = (
+                    f"candidate_country_normalization_cursor_ms_{env_key}"
+                )[:100]
+                safe_lookback = max(1.0, min(lookback_hours, 720.0))
+                cursor_raw = VettingConfig.get_value(cursor_key, "")
+                try:
+                    cursor_ms = int(cursor_raw) if cursor_raw else None
+                except (TypeError, ValueError):
+                    cursor_ms = None
+
+                # Ignore cursors older than the live lookback window. A stale
+                # year-2000 high-water mark made Bullhorn return zero hits and
+                # permanently skipped every later correction cycle.
+                floor_ms = _lookback_floor_ms(safe_lookback)
+                if cursor_ms is not None and cursor_ms < floor_ms:
+                    app.logger.warning(
+                        "🌎 Candidate country normalization [%s]: "
+                        "discarding stale cursor_ms=%s below floor_ms=%s",
+                        env_key,
+                        cursor_ms,
+                        floor_ms,
+                    )
+                    cursor_ms = None
+
+                result = run_candidate_country_normalization(
+                    lookback_hours=safe_lookback,
+                    limit=max(1, min(batch_size, 2000)),
+                    trigger="scheduled",
+                    environment=environment,
+                    since_ms=cursor_ms,
+                )
+                # Advance only after a fully successful bounded page. If any
+                # remote write or audit fails, the next cycle retries from the
+                # same cursor; already-corrected rows are idempotent.
+                max_seen = result.get("max_date_added_ms") or 0
+                if (
+                    max_seen >= floor_ms
+                    and result["failed"] == 0
+                    and result["corrected_unlogged"] == 0
+                ):
+                    VettingConfig.set_value(
+                        cursor_key,
+                        max_seen,
+                        "High-water mark for candidate country normalization",
+                    )
+                elif cursor_ms is None and cursor_raw:
+                    # Clear the poisoned cursor so operators see a healthy
+                    # config even when this cycle found nothing to advance.
+                    VettingConfig.set_value(
+                        cursor_key,
+                        "",
+                        "High-water mark for candidate country normalization",
+                    )
+                app.logger.info(
+                    "🌎 Candidate country normalization [%s]: scanned=%s "
+                    "corrected=%s unchanged=%s skipped=%s failed=%s "
+                    "corrected_unlogged=%s floor_ms=%s max_date_added_ms=%s",
+                    env_key,
+                    result["scanned"],
+                    result["corrected"],
+                    result["unchanged"],
+                    result["skipped"],
+                    result["failed"],
+                    result["corrected_unlogged"],
+                    result.get("lookback_floor_ms"),
+                    max_seen,
+                )
+
+                if backfill_enabled and backfill_phase != "done":
+                    _run_country_backfill_batch(
+                        app,
+                        environment,
+                        env_key=env_key,
+                        phase=backfill_phase,
+                        batch_size=backfill_batch_size,
+                        live_lookback_hours=safe_lookback,
+                    )
+                return result
+
+            for_each_active_environment(
+                "candidate_country_normalization",
+                _run,
+                app.logger,
+            )
+        except Exception:
+            app.logger.exception("Candidate country normalization cycle failed")
+
+
+def _run_country_backfill_batch(
+    app,
+    environment,
+    *,
+    env_key: str,
+    phase: str,
+    batch_size: int,
+    live_lookback_hours: float,
+):
+    """Run one phased backfill page and advance durable cursors/phase."""
+    from models import VettingConfig
+    from services.candidate_country_normalizer import (
+        run_candidate_country_backfill,
+    )
+
+    phase_key = "candidate_country_backfill_phase"
+    canada_cursor_key = (
+        f"candidate_country_backfill_canada_after_id_{env_key}"
+    )[:100]
+    historical_cursor_key = (
+        f"candidate_country_backfill_historical_before_ms_{env_key}"
+    )[:100]
+
+    after_id = 0
+    before_ms = None
+    if phase == "canada":
+        raw = VettingConfig.get_value(canada_cursor_key, "0")
+        try:
+            after_id = int(raw or 0)
+        except (TypeError, ValueError):
+            after_id = 0
+    elif phase == "historical":
+        raw = VettingConfig.get_value(historical_cursor_key, "")
+        try:
+            before_ms = int(raw) if raw else None
+        except (TypeError, ValueError):
+            before_ms = None
+
+    result = run_candidate_country_backfill(
+        phase=phase,
+        limit=max(1, min(int(batch_size), 500)),
+        trigger="backfill",
+        environment=environment,
+        after_id=after_id,
+        before_ms=before_ms,
+        live_lookback_hours=live_lookback_hours,
+    )
+
+    if result["failed"] == 0 and result["corrected_unlogged"] == 0:
+        if phase == "canada" and result.get("max_candidate_id"):
+            VettingConfig.set_value(
+                canada_cursor_key,
+                result["max_candidate_id"],
+                "Canada-phase country backfill id cursor",
+            )
+        elif phase == "historical" and result.get("min_date_added_ms"):
+            # Walk older than the oldest record in this newest-first page.
+            VettingConfig.set_value(
+                historical_cursor_key,
+                max(0, int(result["min_date_added_ms"]) - 1),
+                "Historical country backfill upper-bound cursor",
+            )
+
+        if result.get("phase_complete"):
+            next_phase = "historical" if phase == "canada" else "done"
+            VettingConfig.set_value(
+                phase_key,
+                next_phase,
+                "Active candidate country backfill phase",
+            )
+            if next_phase == "historical" and not VettingConfig.get_value(
+                historical_cursor_key,
+                "",
+            ):
+                # Seed historical upper bound just below the live lookback floor.
+                floor_ms = result.get("lookback_floor_ms") or 0
+                VettingConfig.set_value(
+                    historical_cursor_key,
+                    max(0, int(floor_ms) - 1),
+                    "Historical country backfill upper-bound cursor",
+                )
+            app.logger.info(
+                "🌎 Candidate country backfill [%s]: phase=%s complete → %s",
+                env_key,
+                phase,
+                next_phase,
+            )
+
+    app.logger.info(
+        "🌎 Candidate country backfill [%s]: phase=%s scanned=%s "
+        "corrected=%s unchanged=%s skipped=%s failed=%s "
+        "corrected_unlogged=%s max_id=%s min_date_added_ms=%s "
+        "phase_complete=%s",
+        env_key,
+        result.get("phase"),
+        result["scanned"],
+        result["corrected"],
+        result["unchanged"],
+        result["skipped"],
+        result["failed"],
+        result["corrected_unlogged"],
+        result.get("max_candidate_id"),
+        result.get("min_date_added_ms"),
+        result.get("phase_complete"),
+    )
+    return result
+
+
 def start_scheduler_manual():
     """Manually start the scheduler and trigger monitoring"""
     from app import app, lazy_start_scheduler, process_bullhorn_monitors, scheduler

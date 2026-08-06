@@ -63,6 +63,7 @@ from models.vetting import (
 )
 from models.candidate import (
     ParsedResumeCache,
+    CandidateCountryCorrectionLog,
     CandidateMergeLog,
     CandidateProfileEmbedding,
     FuzzyEvaluationQueue,
@@ -96,7 +97,11 @@ from models.openai_telemetry import OpenAICallLog
 from models.cost_forecast import CostForecastOverride, CostForecastScenario
 from models.placement_margin import PlacementMarginCalcLog
 from models.reporting import MonthlyReportRun
-from models.fraud import CandidateFraudAssessment
+from models.fraud import (
+    CandidateFraudAssessment,
+    ResumeDocumentFingerprint,
+    ContactValidationCache,
+)
 from models.environment import BullhornEnvironment, Brand
 
 __all__ = [
@@ -116,7 +121,8 @@ __all__ = [
     'VettingConfig', 'EscalationLog', 'ScoutVettingSession',
     'VettingConversationTurn', 'VettingAuditLog', 'RecruiterNotificationPref', 'RecruiterNotificationLedger',
     # candidate
-    'ParsedResumeCache', 'CandidateMergeLog', 'CandidateProfileEmbedding', 'FuzzyEvaluationQueue',
+    'ParsedResumeCache', 'CandidateCountryCorrectionLog', 'CandidateMergeLog',
+    'CandidateProfileEmbedding', 'FuzzyEvaluationQueue',
     # embedding
     'JobEmbedding', 'EmbeddingFilterLog', 'EmbeddingABLog', 'ScreeningABLog',
     # automation
@@ -134,6 +140,8 @@ __all__ = [
     'MonthlyReportRun',
     # fraud detection
     'CandidateFraudAssessment',
+    'ResumeDocumentFingerprint',
+    'ContactValidationCache',
     # multi-tenant
     'BullhornEnvironment', 'Brand',
 ]

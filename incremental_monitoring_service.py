@@ -533,6 +533,18 @@ This alert was triggered by the zero-job detection safeguard.
             
             if success:
                 self.logger.info(f"    🗑️ AUTO-REMOVED job {job_id} from tearsheet {tearsheet_id}: {reason}")
+
+                # Plan B: leaving Sponsored - STSI - Indeed also full-unpublishes
+                # portal + native Indeed syndication (best-effort, feature-flagged).
+                try:
+                    from feeds.feed_config import TEARSHEET_STSI_INDEED
+                    if int(tearsheet_id) == int(TEARSHEET_STSI_INDEED):
+                        from indeed_publish import unpublish_job_after_tearsheet_remove
+                        unpublish_job_after_tearsheet_remove(int(job_id), int(tearsheet_id))
+                except Exception as unpublish_err:
+                    self.logger.warning(
+                        f"    ⚠️ Indeed auto-unpublish after remove failed for job {job_id}: {unpublish_err}"
+                    )
                 
                 # Track for activity logging
                 self.auto_removed_jobs.append({
@@ -620,11 +632,18 @@ This alert was triggered by the zero-job detection safeguard.
 
                     deletable_ids = [jid for jid in valid_job_ids if jid not in protected_ids]
                     if deletable_ids:
-                        removed_reqs = JobVettingRequirements.query.filter(
-                            JobVettingRequirements.bullhorn_job_id.in_(deletable_ids)
-                        ).delete(synchronize_session=False)
-                        if removed_reqs > 0:
-                            self.logger.info(f"🧹 Cleaned up {removed_reqs} AI requirements for removed jobs")
+                        # Debounced: the first miss only stamps the row. This
+                        # path and requirements maintenance disagreed about the
+                        # same jobs every 5 minutes, so deleting immediately
+                        # meant a fresh gpt-5.4 extraction every cycle.
+                        from utils.requirements_pruning import (
+                            mark_or_delete_absent_requirements,
+                        )
+                        mark_or_delete_absent_requirements(
+                            deletable_ids,
+                            logger=self.logger,
+                            source='auto_removal',
+                        )
                     if protected_ids:
                         self.logger.info(
                             f"🛡️ Edit-preserving guard kept {len(protected_ids)} requirement row(s) "
@@ -661,7 +680,9 @@ This alert was triggered by the zero-job detection safeguard.
             MockMonitor('Sponsored - CLE', 1233),
             MockMonitor('Sponsored - VMS', 1239),
             MockMonitor('Sponsored - GR', 1474),
-            MockMonitor('Sponsored - STSI', 1531)
+            MockMonitor('Sponsored - STSI - LinkedIn', 1531),
+            MockMonitor('Sponsored - STSI - Indeed', 1640),
+            MockMonitor('Sponsored - STSI - Zip Recruiter', 1641),
         ]
         
         for monitor in monitors:
@@ -860,16 +881,46 @@ This alert was triggered by the zero-job detection safeguard.
         return linkedin_tag_only
     
     def _get_recruiter_tag(self, name: str) -> str:
-        """Get LinkedIn recruiter tag for name"""
-        # Simplified mapping - could be expanded
+        """Legacy inline map — prefer RecruiterMapping via XMLIntegrationService.
+
+        Kept only as a last-resort fallback for names that appear in monitoring
+        rebuilds; kept in sync with seeding/settings.py seat-report list.
+        """
         tags = {
-            'Rachel Mann': '#LI-RM1',
-            'Mike Scalzitti': '#LI-MS2',
+            'Adam Gebara': '#LI-AG1',
+            'Anna Wujciak-Flynn': '#LI-AW1',
+            'Bryan Chinzorig': '#LI-BC1',
+            'Chris Carter': '#LI-CC1',
             'Christine Carter': '#LI-CC1',
-            'Runa Parmar': '#LI-RP1',
+            'Daniel Sifer': '#LI-DS1',
+            'Dan Sifer': '#LI-DS1',
+            'Dawn Geistert-Dixon': '#LI-DG1',
             'Dominic Scaletta': '#LI-DS2',
+            'Doug Billot': '#LI-DB1',
+            'Jasmine Harvey': '#LI-JH1',
+            'Julie Johnson': '#LI-JJ1',
+            'Kellie Miller': '#LI-KM1',
+            'Kyle Roots': '#LI-KR1',
+            'Lisa Keirsted': '#LI-LM1',
+            'Lisa Mattis-Keirsted': '#LI-LM1',
+            'Madhu Sinha': '#LI-MS1',
+            'Matheo Theodossiou': '#LI-MT1',
+            'Michael Theodossiou': '#LI-MT2',
+            'Mike Scalzitti': '#LI-MS2',
+            'Michael Scalzitti': '#LI-MS2',
+            'Myticas Recruiter': '#LI-RS1',
+            'Rachel Johnson': '#LI-RM1',
+            'Rachel Mann': '#LI-RM1',
+            'Rachelle Fite': '#LI-RF1',
+            'Reena Setya': '#LI-RS1',
+            'Runa Parmar': '#LI-RP1',
             'Ryan Oliver': '#LI-RO1',
-            'Michael Theodossiou': '#LI-MT2'
+            'Sarah Ferris': '#LI-SF1',
+            'Sarah Ferris CSP': '#LI-SF1',
+            'Shikha Gurung': '#LI-SG1',
+            'Tarra Dziurman': '#LI-TD1',
+            'Tarra Dziuman': '#LI-TD1',
+            'Tray Prewitt': '#LI-TP1',
         }
         return tags.get(name, '')
     

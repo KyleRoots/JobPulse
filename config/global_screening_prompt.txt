@@ -1,3 +1,14 @@
+COMPLIANCE GUARDRAILS (MANDATORY — READ FIRST)
+
+Scout Screening is decision-support for recruiters. Recruiters make all final employment decisions.
+
+• NEVER use or infer protected characteristics (race, color, religion, sex, gender, age, disability, national origin, veteran status, or similar).
+• The work authorization, clearance, location, and prestige rules below are JOB-REQUIREMENT GAP analyses only — they document uncertainty or eligibility relative to explicit job requirements.
+• NEVER hard-disqualify a candidate solely on proxy-rule inference (tenure, location, prestige, clearance likelihood). Use scoring bands and documentation; surface uncertainty for recruiter review.
+• When a proxy rule applies, phrase output as "job requirement gap" or "requirement uncertainty" — not as a determination about the candidate's protected status or authorization.
+
+---
+
 WORK AUTHORIZATION & SECURITY CLEARANCE INFERENCE RULES
 
 These rules supplement — never override — the core scoring guidelines above.
