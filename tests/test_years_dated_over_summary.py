@@ -1,13 +1,19 @@
 """Years-of-experience: dated work history over résumé summary claims.
 
 Nirav Patel regression: résumé summary said "3+ years shipping production AI"
-while the only dated AI role was ~16 months. Scout must score from dated tenure
-and must not write "resume explicitly shows 3+ years…" as if that were proof.
+while the only dated AI role was ~16 months. Scout must score from dated tenure,
+must not write "resume explicitly shows 3+ years…" as if that were proof, and
+must not Qualify / email recruiters on a clear dated shortfall.
 """
 
 from screening.post_processing import (
+    YEARS_CLOSE_MAX_SHORTFALL_YEARS,
+    YEARS_CLOSE_MIN_RATIO,
+    apply_years_tenure_qualify_gate,
+    classify_years_tenure,
     enforce_years_hard_gate,
     sanitize_years_claim_language,
+    years_tenure_allows_qualify,
 )
 from screening.system_prompt import build_system_message
 from screening.compliance import SCREENING_RULES_VERSION
@@ -30,7 +36,24 @@ def _nirav_like_years_analysis():
 
 
 def test_rules_version_bumped_for_dated_tenure():
-    assert SCREENING_RULES_VERSION == '2026.08.06'
+    assert SCREENING_RULES_VERSION == '2026.08.06b'
+
+
+def test_close_band_thresholds_documented():
+    assert YEARS_CLOSE_MAX_SHORTFALL_YEARS == 0.75
+    assert YEARS_CLOSE_MIN_RATIO == 0.85
+
+
+def test_classify_years_tenure_bands():
+    assert classify_years_tenure(3, 3.0) == 'meets'
+    assert classify_years_tenure(3, 3.5) == 'meets'
+    # Close via shortfall ≤ 0.75yr
+    assert classify_years_tenure(3, 2.4) == 'close'
+    # Close via ≥85% of required (3 * 0.85 = 2.55)
+    assert classify_years_tenure(3, 2.55) == 'close'
+    # Nirav-like clear shortfall
+    assert classify_years_tenure(3, 1.3) == 'clear_shortfall'
+    assert classify_years_tenure(5, 1.3) == 'clear_shortfall'
 
 
 def test_system_prompt_requires_dated_tenure_over_summary_claims():
@@ -42,8 +65,8 @@ def test_system_prompt_requires_dated_tenure_over_summary_claims():
     assert 'Domain scope' in prompt
 
 
-def test_nirav_like_shortfall_applies_years_penalty():
-    """Dated ~1.3yr vs 3yr → 1.7yr shortfall → −15 pts (1–2yr band), not summary meet."""
+def test_nirav_like_shortfall_applies_years_penalty_and_blocks_qualify():
+    """Dated ~1.3yr vs 3yr → score penalty + blocks is_qualified path."""
     result = {
         "match_score": 82,
         "match_summary": (
@@ -62,9 +85,9 @@ def test_nirav_like_shortfall_applies_years_penalty():
     assert result["match_score"] == 67  # 82 − 15 (1–2yr shortfall band)
     assert "CRITICAL: AI requires 3yr, candidate has ~1.3yr" in result["gaps_identified"]
     assert "explicitly shows" not in result["match_summary"].lower()
-    assert "dated roles show ~1.3yr" in result["match_summary"].lower() or (
-        "dated ai roles total ~1.3yr" in result["match_summary"].lower()
-    )
+    assert result["_years_tenure_blocks_qualify"] is True
+    assert result["_years_tenure_status"] == "clear_shortfall"
+    assert years_tenure_allows_qualify(result) is False
 
 
 def test_meets_requirement_true_cannot_bypass_dated_shortfall():
@@ -92,6 +115,7 @@ def test_meets_requirement_true_cannot_bypass_dated_shortfall():
     assert result["years_analysis"]["AI"]["meets_requirement"] is False
     assert result["match_score"] == 73  # 88 − 15
     assert "CRITICAL: AI requires 3yr" in result["gaps_identified"]
+    assert years_tenure_allows_qualify(result) is False
 
 
 def test_large_dated_shortfall_still_caps_at_60():
@@ -118,6 +142,65 @@ def test_large_dated_shortfall_still_caps_at_60():
     enforce_years_hard_gate(result, 99003, "Senior AI", "resume", _recheck_fn)
     assert result["match_score"] == 60
     assert "explicitly shows" not in result["match_summary"].lower()
+    assert years_tenure_allows_qualify(result) is False
+
+
+def test_meets_dated_years_allows_qualify():
+    result = {
+        "match_score": 88,
+        "match_summary": "Strong Python match with dated tenure.",
+        "gaps_identified": "",
+        "years_analysis": {
+            "Python": {
+                "required_years": 3,
+                "estimated_years": 5.0,
+                "meets_requirement": True,
+                "calculation": "Jan 2019–Jan 2024 = 60 mo = 5.0yr",
+            }
+        },
+    }
+    apply_years_tenure_qualify_gate(result, job_id=1)
+    assert result["_years_tenure_status"] == "meets"
+    assert result["_years_tenure_blocks_qualify"] is False
+    assert years_tenure_allows_qualify(result) is True
+    assert "YEARS CLOSE" not in (result.get("gaps_identified") or "")
+
+
+def test_close_dated_years_allows_qualify_with_caveat():
+    result = {
+        "match_score": 84,
+        "match_summary": "Solid AI engineer for the role.",
+        "gaps_identified": "",
+        "years_analysis": {
+            "AI": {
+                "required_years": 3,
+                "estimated_years": 2.5,  # shortfall 0.5 ≤ 0.75 → close
+                "meets_requirement": False,
+                "calculation": "Dated AI roles = 2.5yr",
+            }
+        },
+    }
+    apply_years_tenure_qualify_gate(result, job_id=2)
+    assert result["_years_tenure_status"] == "close"
+    assert result["_years_tenure_blocks_qualify"] is False
+    assert years_tenure_allows_qualify(result) is True
+    assert "YEARS CLOSE:" in result["gaps_identified"]
+    assert "dated history" in result["match_summary"].lower()
+
+
+def test_clear_shortfall_blocks_qualify_even_without_score_gate():
+    """Qualify block is independent of score — high score still blocked."""
+    result = {
+        "match_score": 90,
+        "match_summary": "Looks strong overall.",
+        "gaps_identified": "",
+        "years_analysis": _nirav_like_years_analysis(),
+    }
+    apply_years_tenure_qualify_gate(result, job_id=3)
+    assert result["_years_tenure_blocks_qualify"] is True
+    assert years_tenure_allows_qualify(result) is False
+    # Score untouched by qualify gate alone
+    assert result["match_score"] == 90
 
 
 def test_sanitize_explicitly_shows_when_shortfall_present():

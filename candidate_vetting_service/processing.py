@@ -818,12 +818,16 @@ class CandidateProcessingMixin:
                     )
 
                 from utils.job_status import job_can_qualify
+                from screening.post_processing import years_tenure_allows_qualify
                 score_clears_threshold = (
                     (_final_score >= job_threshold)
                     and not analysis.get('is_location_barrier', False)
                 )
                 can_qualify = job_can_qualify(job)
-                match_is_qualified = score_clears_threshold and can_qualify
+                years_ok = years_tenure_allows_qualify(analysis)
+                match_is_qualified = (
+                    score_clears_threshold and can_qualify and years_ok
+                )
 
                 match_record = CandidateJobMatch(
                     vetting_log_id=vetting_log.id,
@@ -861,6 +865,13 @@ class CandidateProcessingMixin:
                             f"  🚫 Closed/ineligible job suppress qualify: {job.get('title')} "
                             f"scored {_final_score}% (>= {int(job_threshold)}%) but "
                             f"isOpen={job.get('isOpen')} status={job.get('status')!r} — "
+                            f"is_qualified=False (no recruiter email)"
+                        )
+                    elif score_clears_threshold and not years_ok:
+                        logger.info(
+                            f"  🚫 Years tenure suppress qualify: {job.get('title')} "
+                            f"scored {_final_score}% (>= {int(job_threshold)}%) but "
+                            f"dated experience clearly below years bar — "
                             f"is_qualified=False (no recruiter email)"
                         )
                     elif analysis.get('is_location_barrier', False) and analysis.get('match_score', 0) >= job_threshold:

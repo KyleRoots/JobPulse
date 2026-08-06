@@ -277,6 +277,166 @@ def enforce_years_hard_gate(result, job_id, job_title, resume_text, recheck_fn):
             result['gaps_identified'] = gap_suffix
 
     sanitize_years_claim_language(result, job_id)
+    apply_years_tenure_qualify_gate(result, job_id)
+
+
+# Close band: dated tenure may still qualify with an explicit caveat.
+# Clear shortfall: never set is_qualified / never send recruiter qualify email.
+# Thresholds (documented product bar — Kyle Aug 2026):
+#   CLOSE if shortfall ≤ 0.75yr (~9 months) OR estimated ≥ 85% of required
+#   CLEAR (block qualify) if below required and not CLOSE
+YEARS_CLOSE_MAX_SHORTFALL_YEARS = 0.75
+YEARS_CLOSE_MIN_RATIO = 0.85
+
+
+def classify_years_tenure(required_years, estimated_years):
+    """Classify dated tenure vs a years requirement.
+
+    Returns one of: ``'meets'``, ``'close'``, ``'clear_shortfall'``.
+
+    Close band (may still qualify with caveat): shortfall ≤ 0.75yr (~9 months,
+    within the documented 6–12 month window) OR estimated ≥ 85% of required.
+    Clear shortfall (never qualify that job): below required and outside close.
+    """
+    required = _safe_float(required_years, default=0.0)
+    estimated = _safe_float(estimated_years, default=None)
+    if required <= 0 or estimated is None:
+        return 'meets'
+    if estimated + 0.05 >= required:
+        return 'meets'
+    shortfall = required - estimated
+    if shortfall <= YEARS_CLOSE_MAX_SHORTFALL_YEARS:
+        return 'close'
+    if estimated >= (required * YEARS_CLOSE_MIN_RATIO) - 1e-9:
+        return 'close'
+    return 'clear_shortfall'
+
+
+def _is_unverified_or_transferable_tenure(data, estimated):
+    """Undated / transferable soft cases are not clear *dated* shortfalls.
+
+    Pavani Kota: missing role dates → UNVERIFIED TENURE note, not auto-DQ via
+    the dated-years qualify block. Score hard-gate penalties still apply.
+    """
+    if not isinstance(data, dict):
+        return False
+    est = _safe_float(estimated, default=None)
+    if est is None or est > 0.05:
+        return False
+    calc = str(data.get('calculation') or data.get('note') or '').lower()
+    gap_type = str(data.get('gap_type') or data.get('status') or '').lower()
+    undated = any(
+        token in calc
+        for token in (
+            'no date', 'without date', 'missing date', 'undated',
+            'date range', 'dates absent', 'cannot calculate',
+            'no employment date', 'inferred', 'no dated', 'lacks dated',
+            'unverified',
+        )
+    )
+    transferable = (
+        'transferable' in gap_type
+        or 'transferable' in calc
+        or 'equivalent' in calc
+    )
+    return undated or transferable
+
+
+def _worst_years_tenure_status(years_analysis):
+    """Return (status, skill, required, estimated) for the worst skill shortfall.
+
+    Status priority: clear_shortfall > close > meets.
+    Skips unverified/transferable soft tenure (not dated clear gaps).
+    """
+    if not isinstance(years_analysis, dict) or not years_analysis:
+        return 'meets', None, None, None
+
+    worst = 'meets'
+    worst_detail = (None, None, None)
+    rank = {'meets': 0, 'close': 1, 'clear_shortfall': 2}
+
+    for skill, data in years_analysis.items():
+        if not isinstance(data, dict):
+            continue
+        required = _safe_float(data.get('required_years'), default=0.0)
+        estimated = _safe_float(data.get('estimated_years'), default=None)
+        if required <= 0 or estimated is None:
+            continue
+        if _is_unverified_or_transferable_tenure(data, estimated):
+            continue
+        # Apply same platform ceiling as the score hard gate so qualify aligns.
+        required = _apply_platform_ceiling(skill, required, job_id=0)
+        status = classify_years_tenure(required, estimated)
+        if rank[status] > rank[worst]:
+            worst = status
+            worst_detail = (skill, required, estimated)
+        elif status == worst and status != 'meets' and worst_detail[0] is not None:
+            # Prefer the largest absolute shortfall when tied.
+            prev_short = (worst_detail[1] or 0) - (worst_detail[2] or 0)
+            cur_short = required - estimated
+            if cur_short > prev_short:
+                worst_detail = (skill, required, estimated)
+
+    return worst, worst_detail[0], worst_detail[1], worst_detail[2]
+
+
+def apply_years_tenure_qualify_gate(result, job_id=None):
+    """Block qualify on clear dated-tenure shortfalls; caveat close cases.
+
+    Recruiter product bar: clear gaps (e.g. ~16 months dated AI vs 3–5yr JD)
+    must not present as Qualified / must not fire Scout qualify emails even if
+    match_score still clears the numeric threshold after score penalties.
+    Close cases (within ~9 months or ≥85% of required) may still qualify with
+    an explicit dated-history caveat in the note.
+    """
+    years_analysis = result.get('years_analysis', {})
+    status, skill, required, estimated = _worst_years_tenure_status(years_analysis)
+
+    result['_years_tenure_status'] = status
+    result['_years_tenure_blocks_qualify'] = False
+    result.pop('_years_tenure_close_caveat', None)
+
+    if status == 'meets' or skill is None:
+        return
+
+    if status == 'clear_shortfall':
+        result['_years_tenure_blocks_qualify'] = True
+        logger.info(
+            f"🚫 Years tenure blocks qualify for job {job_id}: '{skill}' "
+            f"dated ~{estimated:.1f}yr < {required:.0f}yr required "
+            f"(clear shortfall; not close band)"
+        )
+        return
+
+    # close — may still qualify; ensure recruiter-facing caveat
+    caveat = (
+        f"YEARS CLOSE: {skill} dated tenure ~{estimated:.1f}yr vs {required:.0f}yr "
+        f"required — near the bar based on dated role history (not résumé summary); "
+        f"recruiter should confirm depth"
+    )
+    result['_years_tenure_close_caveat'] = caveat
+    gaps = result.get('gaps_identified', '') or ''
+    if 'YEARS CLOSE:' not in gaps:
+        result['gaps_identified'] = f"{gaps} | {caveat}" if gaps else caveat
+
+    summary = result.get('match_summary', '') or ''
+    if summary and 'YEARS CLOSE' not in summary and 'dated tenure' not in summary.lower():
+        result['match_summary'] = (
+            f"{summary.rstrip().rstrip('.')}. "
+            f"Years are tight on dated history (~{estimated:.1f}yr {skill} vs "
+            f"{required:.0f}yr required)."
+        )
+    logger.info(
+        f"⚠️ Years tenure CLOSE for job {job_id}: '{skill}' "
+        f"~{estimated:.1f}yr vs {required:.0f}yr — qualify allowed with caveat"
+    )
+
+
+def years_tenure_allows_qualify(analysis) -> bool:
+    """False when dated tenure clearly fails a years bar (blocks is_qualified)."""
+    if not isinstance(analysis, dict):
+        return True
+    return not bool(analysis.get('_years_tenure_blocks_qualify'))
 
 
 # Phrases that claim dated proof of years when only a résumé summary may support them.

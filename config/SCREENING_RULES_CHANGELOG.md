@@ -3,6 +3,19 @@
 Each production screening result stores `screening_rules_version` so audits can
 identify which rule set produced a score.
 
+## 2026.08.06b — Clear years shortfall blocks qualify
+
+- **Product bar (Kyle):** Clear dated-tenure gaps must not present as Qualified
+  or fire Scout qualify emails even when match_score still clears the numeric
+  threshold (Nirav-like: ~16 months dated AI vs 3–5yr JD).
+- **Close band** (still may qualify, with note caveat): shortfall ≤ **0.75yr**
+  (~9 months) **or** estimated ≥ **85%** of required years.
+- **Clear shortfall** (blocks `is_qualified`): below required and outside the
+  close band. Meets/exceeds dated tenure: qualify unchanged.
+- Wire: `apply_years_tenure_qualify_gate` after years hard gate;
+  `years_tenure_allows_qualify` in match persistence.
+- **Rules version:** `2026.08.06b`
+
 ## 2026.08.06 — Dated tenure over summary claims
 
 - **Bug:** Years bars (e.g. "3–5+ years AI") could be treated as met from résumé
