@@ -2,11 +2,13 @@
 Tests for the May 2026 recruiter-email enhancements:
   1. Subject line includes top-job title + ID (Option A format)
   2. Resume attachment with graceful fallback when Bullhorn fetch fails
+  3. Newest-by-dateAdded résumé selection (not first entityFiles match)
 """
 
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+from screening.candidate_data import select_newest_resume_file
 from screening.notification import (
     NotificationMixin,
     _build_recruiter_subject,
@@ -168,3 +170,83 @@ class TestResumeFetch:
         mixin = self._build_mixin(get_resume_return=(at_cap, 'big.pdf'))
         result = mixin._fetch_resume_attachment(123, 'Jane')
         assert result is not None and len(result) == 1
+
+
+# ---------------------------------------------------------------------------
+# select_newest_resume_file — Ocean Towne-style multi-version profiles
+# ---------------------------------------------------------------------------
+class TestSelectNewestResumeFile:
+
+    def test_picks_newest_resume_not_first_in_list(self):
+        """entityFiles often returns oldest-first; first 'Resume' must not win."""
+        files = [
+            {'id': 1, 'name': 'Resume_CV from Ocean Towne.docx', 'type': 'Resume',
+             'dateAdded': 1704916841400},
+            {'id': 2, 'name': 'Resume of ocean Towne .docx', 'type': 'Resume',
+             'dateAdded': 1775275932297},
+            {'id': 3, 'name': 'ML__E.docx', 'type': 'Resume',
+             'dateAdded': 1786052046267},
+        ]
+        picked = select_newest_resume_file(files)
+        assert picked is not None
+        assert picked['id'] == 3
+        assert picked['name'] == 'ML__E.docx'
+
+    def test_prefers_resume_label_over_newer_non_resume_doc(self):
+        files = [
+            {'id': 10, 'name': 'cover_letter.docx', 'type': 'Cover Letter',
+             'dateAdded': 9_000},
+            {'id': 11, 'name': 'ML__E.docx', 'type': 'Resume',
+             'dateAdded': 5_000},
+        ]
+        picked = select_newest_resume_file(files)
+        assert picked['id'] == 11
+
+    def test_falls_back_to_newest_doc_extension(self):
+        files = [
+            {'id': 1, 'name': 'notes.txt', 'type': 'Other', 'dateAdded': 1},
+            {'id': 2, 'name': 'ocean Towne .docx', 'type': '', 'dateAdded': 100},
+            {'id': 3, 'name': 'photo.png', 'type': 'Other', 'dateAdded': 200},
+        ]
+        picked = select_newest_resume_file(files)
+        assert picked['id'] == 2
+
+    def test_empty_and_none(self):
+        assert select_newest_resume_file(None) is None
+        assert select_newest_resume_file([]) is None
+
+    def test_get_candidate_resume_downloads_newest(self):
+        """End-to-end: get_candidate_resume must download newest Resume file."""
+        from screening.candidate_data import CandidateDataAccessMixin
+
+        class _Stub(CandidateDataAccessMixin):
+            def _get_bullhorn_service(self):
+                return self._bh
+
+        stub = _Stub()
+        session = MagicMock()
+        list_resp = MagicMock(status_code=200)
+        list_resp.json.return_value = {
+            'EntityFiles': [
+                {'id': 1, 'name': 'Resume_old.docx', 'type': 'Resume',
+                 'dateAdded': 100},
+                {'id': 99, 'name': 'ML__E.docx', 'type': 'Resume',
+                 'dateAdded': 999},
+            ]
+        }
+        dl_resp = MagicMock(status_code=200)
+        dl_resp.content = b'NEWEST-BYTES'
+        dl_resp.headers = {'Content-Type': 'application/octet-stream'}
+        session.get.side_effect = [list_resp, dl_resp]
+        stub._bh = SimpleNamespace(
+            base_url='https://bh.example/',
+            rest_token='tok',
+            session=session,
+        )
+
+        content, filename = stub.get_candidate_resume(4309619)
+        assert content == b'NEWEST-BYTES'
+        assert filename == 'ML__E.docx'
+        # Second GET is the file download for id 99
+        dl_url = session.get.call_args_list[1][0][0]
+        assert dl_url.endswith('/file/Candidate/4309619/99')

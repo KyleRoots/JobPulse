@@ -8,7 +8,8 @@ Contains:
   - _fetch_candidate_details: Full candidate entity fetch
   - _fetch_applied_job: Single job fetch for applied-job injection
   - _mark_application_vetted: Mark ParsedEmail as vetted
-  - get_candidate_resume: Download resume file from Bullhorn
+  - get_candidate_resume: Download newest Resume-typed file from Bullhorn
+  - select_newest_resume_file: Pure newest-by-dateAdded résumé picker
   - extract_resume_text / _extract_text_from_*: Delegate to vetting.resume_utils
 """
 
@@ -29,6 +30,52 @@ from vetting.resume_utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+_RESUME_DOC_EXTENSIONS = ('.pdf', '.doc', '.docx', '.rtf', '.txt', '.odt')
+
+
+def _file_date_added_ms(file_info: Dict) -> int:
+    """Best-effort Bullhorn ``dateAdded`` (ms) for newest-file selection."""
+    try:
+        return int(file_info.get('dateAdded') or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def select_newest_resume_file(files: Optional[List[Dict]]) -> Optional[Dict]:
+    """Pick the résumé file recruiters / screening should use.
+
+    Bullhorn ``entityFiles`` often returns oldest-first. Taking the first
+    file whose type/name contains ``resume`` attaches stale tailored copies
+    (e.g. marketing résumé) while screening used the newest ML/AI version
+    already mirrored into Candidate.description — Ocean Towne 4309619.
+
+    Preference order:
+      1. Newest among type/name containing ``resume``
+      2. Newest among common document extensions
+      3. Newest file overall
+    """
+    if not files:
+        return None
+
+    labeled = []
+    docs = []
+    for file_info in files:
+        if not isinstance(file_info, dict):
+            continue
+        type_l = str(file_info.get('type') or '').lower()
+        name_l = str(file_info.get('name') or '').lower()
+        if 'resume' in type_l or 'resume' in name_l:
+            labeled.append(file_info)
+        elif name_l.endswith(_RESUME_DOC_EXTENSIONS):
+            docs.append(file_info)
+
+    if labeled:
+        return max(labeled, key=_file_date_added_ms)
+    if docs:
+        return max(docs, key=_file_date_added_ms)
+    valid = [f for f in files if isinstance(f, dict)]
+    return max(valid, key=_file_date_added_ms) if valid else None
 
 
 def _resolve_vetting_cutoff() -> Optional[datetime]:
@@ -287,7 +334,12 @@ class CandidateDataAccessMixin:
 
     def get_candidate_resume(self, candidate_id: int) -> Tuple[Optional[bytes], Optional[str]]:
         """
-        Download the candidate's resume file from Bullhorn.
+        Download the candidate's newest résumé file from Bullhorn.
+
+        Prefers the latest ``dateAdded`` among files typed/named as Resume
+        (not the first match in entityFiles order). Used for recruiter-email
+        attachments and as a screening fallback when Candidate.description
+        is empty.
 
         Args:
             candidate_id: Bullhorn candidate ID
@@ -316,23 +368,22 @@ class CandidateDataAccessMixin:
                 logger.info(f"No files found for candidate {candidate_id}")
                 return None, None
 
-            resume_file = None
-            for file_info in files:
-                file_type = file_info.get('type', '').lower()
-                file_name = file_info.get('name', '').lower()
-
-                if 'resume' in file_type or 'resume' in file_name:
-                    resume_file = file_info
-                    break
-
-            if not resume_file and files:
-                resume_file = files[0]
+            # Newest Resume-typed/named file — not first match in API order
+            # (see select_newest_resume_file; Ocean Towne attach mismatch).
+            resume_file = select_newest_resume_file(files)
 
             if not resume_file:
                 return None, None
 
             file_id = resume_file.get('id')
             filename = resume_file.get('name', f'resume_{candidate_id}')
+            logger.info(
+                f"📎 Resume select: candidate {candidate_id} → "
+                f"{filename} (file_id={file_id}, "
+                f"dateAdded={resume_file.get('dateAdded')}, "
+                f"type={resume_file.get('type')!r}, "
+                f"among {len(files)} files)"
+            )
 
             download_url = f"{bullhorn.base_url}file/Candidate/{candidate_id}/{file_id}"
 

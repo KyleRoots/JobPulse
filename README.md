@@ -414,6 +414,10 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
+### August 2026: Recruiter email attaches newest Bullhorn résumé
+- **Problem**: Scout recruiter emails renamed the attachment to `{Name}_Resume.docx` but fetched the **first** entityFiles hit whose type/name contained "resume" (often oldest-first). Screening preferred Candidate.description (already refreshed from the newest file), so emails could attach a stale tailored résumé while the body pitched skills from a newer version ([Ocean Towne](https://cls45.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?Entity=Candidate&id=4309619) — marketing `Resume_CV…` attached vs `ML__E.docx` scored).
+- **Fix**: `select_newest_resume_file` in `screening/candidate_data.py` — pick newest by `dateAdded` among Resume-typed/named files (then doc extensions). Same helper used by `get_candidate_resume` for attachments and screening file fallback.
+
 ### August 2026: Reject job-title-as-name on inbound
 - **Problem**: LinkedIn apply-form submissions sometimes put the candidate's occupation in `firstName`/`lastName` (e.g. "Senior" / "Business Analyst"). Inbound preferred that email/subject name over the AI résumé parse, creating Bullhorn records with the title as the candidate name (e.g. #4673968 — real name Uday Vasireddy was on the résumé and in the filename).
 - **Fix**: `is_job_title_phrase` in `utils/candidate_name_extraction.py` (wired into `is_valid_name`), Title-Reject Guard in inbound processing (prefer résumé AI name; fall back to filename with title-suffix stripping), and overwrite (not `or`) when recovering over an invalid name.
