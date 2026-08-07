@@ -12,8 +12,12 @@ class TestScreeningCompliance:
         assert SCREENING_RULES_VERSION
 
     def test_privacy_contact_by_host(self):
+        # Both apply hosts share EXO intake; apply@stsigroup.com is not provisioned.
         assert get_privacy_contact_for_host('apply.myticas.com') == 'apply@myticas.com'
-        assert get_privacy_contact_for_host('apply.stsigroup.com') == 'apply@stsigroup.com'
+        assert get_privacy_contact_for_host('apply.stsigroup.com') == 'apply@myticas.com'
+        assert get_privacy_contact_for_host('www.apply.stsigroup.com') == 'apply@myticas.com'
+        assert get_privacy_contact_for_host('') == 'apply@myticas.com'
+        assert get_privacy_contact_for_host(None) == 'apply@myticas.com'
 
     def test_rules_metadata_includes_version(self):
         meta = get_screening_rules_metadata(service=None)

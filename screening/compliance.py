@@ -24,10 +24,15 @@ SCREENING_RESUME_RETENTION_MONTHS = 24
 
 
 def get_privacy_contact_for_host(host: str) -> str:
-    """Candidate-facing privacy / screening inquiry contact by apply domain."""
-    host_l = (host or '').lower()
-    if 'stsigroup.com' in host_l:
-        return 'apply@stsigroup.com'
+    """Candidate-facing privacy / screening inquiry contact by apply domain.
+
+    Myticas and STSI apply hosts both use the shared EXO intake mailbox
+    ``apply@myticas.com`` (Graph / seeding). ``apply@stsigroup.com`` is not
+    provisioned and bounces (550 5.4.1); STSI apply is web-only at
+    apply.stsigroup.com.
+
+    ``host`` is kept for API stability / future per-brand contacts.
+    """
     return 'apply@myticas.com'
 
 

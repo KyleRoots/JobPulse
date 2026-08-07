@@ -364,6 +364,8 @@ OWNED_INTAKE_LOCALPARTS = frozenset({
 })
 
 # Exact addresses always treated as non-candidate (even if domain list drifts).
+# apply@stsigroup.com is not a live EXO mailbox (bounces) but remains denylisted
+# so legacy/body scrapes never treat it as the applicant.
 OWNED_INTAKE_ADDRESSES = frozenset({
     'apply@myticas.com',
     'apply@stsigroup.com',
