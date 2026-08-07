@@ -40,7 +40,7 @@ A comprehensive Flask-based web application that automates XML job feed processi
 - **Dual-Domain Setup**:
   - `app.scoutgenius.ai` — main Scout Genius app
   - `apply.myticas.com` — Myticas job applications
-  - `apply.stsigroup.com` — STSI job applications (web form only; email intake + privacy mailto is `apply@myticas.com` — `apply@stsigroup.com` is not provisioned)
+  - `apply.stsigroup.com` — STSI job applications (web form; privacy contact mailto is `stsioffice@stsigroup.com` — `apply@stsigroup.com` is not provisioned)
 
 ---
 
@@ -58,7 +58,7 @@ A comprehensive Flask-based web application that automates XML job feed processi
 ### 1b. Scout Screening (AI Candidate Vetting)
 - **Automated vetting cycle**: Scores inbound applicants against open jobs; recruiters make final decisions
 - **Cheap-first routing**: `screening_routing_mode` (`off` | `canary` | `enforce`) — Enforce skips GPT-5.4 on clear rejects
-- **Compliance (Phase A, July 2026)**: Apply-form AI notices, rules version stamping (`screening/compliance.py`), guardrailed global prompt, compliance metrics endpoint. Privacy mailto on Myticas and STSI apply forms is `apply@myticas.com` (shared EXO intake; not `apply@stsigroup.com`)
+- **Compliance (Phase A, July 2026)**: Apply-form AI notices, rules version stamping (`screening/compliance.py`), guardrailed global prompt, compliance metrics endpoint. Privacy contact link shows **Contact Us Here** (not the raw address): Myticas → `mailto:apply@myticas.com`; STSI → `mailto:stsioffice@stsigroup.com` (not `apply@stsigroup.com`)
 - **Rules changelog**: `config/SCREENING_RULES_CHANGELOG.md`
 
 ### 2. Database-Backed Reference Number System ✨ NEW
@@ -431,7 +431,7 @@ Check dashboard for automation status:
 - **Fix**: `is_job_title_phrase` in `utils/candidate_name_extraction.py` (wired into `is_valid_name`), Title-Reject Guard in inbound processing (prefer résumé AI name; fall back to filename with title-suffix stripping), and overwrite (not `or`) when recovering over an invalid name.
 
 ### August 2026: Indeed inbound field remap + Scout Screening coverage
-- **STSI privacy mailto (Aug 7)**: Apply-form AI screening notice on `apply.stsigroup.com` now mailto `apply@myticas.com` (real EXO/Graph intake). `apply@stsigroup.com` was never provisioned and bounced 550 5.4.1.
+- **Apply privacy “Contact Us Here” (Aug 7)**: AI screening notice link text is **Contact Us Here** (not the raw address). Myticas → `mailto:apply@myticas.com`; STSI (`apply.stsigroup.com`) → `mailto:stsioffice@stsigroup.com`. `apply@stsigroup.com` was never provisioned and must not be shown.
 - **New requirement-spec notify (Aug 5)**: When Scout first creates an AI `JobVettingRequirements` row (not updates/regens) **and the job is on the Scout Screening list** (`BullhornMonitor.last_job_snapshot` — same source as My Matches & Jobs / Job-Level Settings), JobPulse emails `REQUIREMENTS_SPEC_NOTIFY_EMAIL` (default `kroots@myticas.com`) with job title/ID, Bullhorn deep link, and an interpreted-requirements excerpt for sanity-check vs the JD. Specs saved before the job appears in the snapshot are deferred until the next snapshot refresh (idempotent via `spec_create_notified_at`). Fail-soft; toggle with `REQUIREMENTS_SPEC_NOTIFY_ENABLED` (default ON).
 - **Closed applied jobs never qualify (Aug 4)**: After Indeed remap backlog bumped `dateLastModified` on old Online Applicants, Scout re-screened candidates against closed applied jobs, marked them Qualified, and emailed assigned recruiters (incident: [Luke Duwel](https://cls45.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?Entity=Candidate&id=4657295) × [Procurement Specialist #34990](https://cls45.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?Entity=JobOrder&id=34990) Lost - Competition → Christine Carter). Fix: `job_can_qualify()` — closed/ineligible jobs never set `is_qualified`; prior screen of the same closed applied job short-circuits re-processing.
 - **Indeed inbound field remap (Aug 4)**: Scheduled `indeed_inbound_remap` (every 5 min, `INDEED_INBOUND_REMAP_ENABLED` default ON) remaps native Indeed Apply candidates from **New Lead / source Indeed / Unassigned User** → **Online Applicant / Indeed Job Board / Myticas API User (1147490)**. Exact `source:Indeed` only (skips `Indeed Resume Search` and already-`Indeed Job Board`). Owner is set to Myticas API User **only when still Unassigned** — never overwrites a human owner. **Backlog included**: default Lucene query has **no date floor** (like LinkedIn source cleanup) so existing still-wrong Indeed records are remapped across cycles (200/run); remapped rows leave the query and later runs stay cheap. Optional `INDEED_INBOUND_REMAP_LOOKBACK_HOURS` (>0) narrows by `dateLastModified`. Mirrors LinkedIn/email inbound so Owner Reassignment can later claim from recruiter activity.

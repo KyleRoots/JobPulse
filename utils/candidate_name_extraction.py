@@ -366,9 +366,11 @@ OWNED_INTAKE_LOCALPARTS = frozenset({
 # Exact addresses always treated as non-candidate (even if domain list drifts).
 # apply@stsigroup.com is not a live EXO mailbox (bounces) but remains denylisted
 # so legacy/body scrapes never treat it as the applicant.
+# stsioffice@ is the STSI apply-form privacy mailto (not in OWNED_INTAKE_LOCALPARTS).
 OWNED_INTAKE_ADDRESSES = frozenset({
     'apply@myticas.com',
     'apply@stsigroup.com',
+    'stsioffice@stsigroup.com',
     'info@myticas.com',
     'info@stsigroup.com',
 })

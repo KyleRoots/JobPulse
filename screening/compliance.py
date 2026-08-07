@@ -22,18 +22,31 @@ SCREENING_PRODUCT_NAME = 'Scout Screening (Scout Genius)'
 # Recommended resume retention for compliance posture (enforced by cleanup job later).
 SCREENING_RESUME_RETENTION_MONTHS = 24
 
+# Visible link text on apply-form AI notices (mailto href stays the real address).
+PRIVACY_CONTACT_DISPLAY_LABEL = 'Contact Us Here'
+
+PRIVACY_CONTACT_MYTICAS = 'apply@myticas.com'
+PRIVACY_CONTACT_STSI = 'stsioffice@stsigroup.com'
+
 
 def get_privacy_contact_for_host(host: str) -> str:
-    """Candidate-facing privacy / screening inquiry contact by apply domain.
+    """Candidate-facing privacy / screening inquiry mailto by apply domain.
 
-    Myticas and STSI apply hosts both use the shared EXO intake mailbox
-    ``apply@myticas.com`` (Graph / seeding). ``apply@stsigroup.com`` is not
-    provisioned and bounces (550 5.4.1); STSI apply is web-only at
-    apply.stsigroup.com.
+    - Myticas hosts (``apply.myticas.com``, default) → ``apply@myticas.com``
+    - STSI hosts (``*stsigroup.com*``) → ``stsioffice@stsigroup.com``
 
-    ``host`` is kept for API stability / future per-brand contacts.
+    ``apply@stsigroup.com`` is not provisioned and must not be shown.
+    UI copy uses :data:`PRIVACY_CONTACT_DISPLAY_LABEL`; this returns the
+    address for the ``mailto:`` href only.
     """
-    return 'apply@myticas.com'
+    if host and 'stsigroup.com' in str(host).lower():
+        return PRIVACY_CONTACT_STSI
+    return PRIVACY_CONTACT_MYTICAS
+
+
+def get_privacy_contact_display_label() -> str:
+    """Visible text for the apply-form privacy contact link."""
+    return PRIVACY_CONTACT_DISPLAY_LABEL
 
 
 def get_screening_rules_metadata(service) -> Dict[str, Any]:

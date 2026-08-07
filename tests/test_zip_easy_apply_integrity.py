@@ -48,6 +48,9 @@ class TestBoardRelayEmail:
         assert is_owned_intake_mailbox('apply@myticas.com') is True
         assert is_job_board_relay_email('apply@myticas.com') is True
         assert is_job_board_relay_email('info@myticas.com') is True
+        # STSI privacy contact must not be scraped as a candidate email
+        assert is_owned_intake_mailbox('stsioffice@stsigroup.com') is True
+        assert is_job_board_relay_email('stsioffice@stsigroup.com') is True
 
     def test_coalesce_skips_apply_greeting_for_resume_email(self):
         # Zip body greets "Hi apply@myticas.com" — must not beat résumé contact.
