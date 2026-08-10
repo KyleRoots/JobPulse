@@ -637,7 +637,7 @@ class TestRelatedMatchNoteBrevity:
             "Industrial building mechanical/HVAC design and U.S. Mechanical Code/IMC "
             "required; resume shows industrial systems in India, but not US facilities work."
         )
-        out = NoteBuilderMixin._complete_brief_clause(text, max_len=180)
+        out = NoteBuilderMixin._complete_brief_clause(text, max_len=140)
         assert out == "Revit required (4+ years); no evidence of Revit found in resume."
         assert '…' not in out
 
@@ -646,7 +646,7 @@ class TestRelatedMatchNoteBrevity:
 
         # One giant clause, no sentence break, over max — prefer empty over mid-cut
         text = "x" * 250
-        assert NoteBuilderMixin._complete_brief_clause(text, max_len=180) == ''
+        assert NoteBuilderMixin._complete_brief_clause(text, max_len=140) == ''
 
     def test_select_other_matches_omits_trailing_clear_rejects(self):
         from screening.note_builder import NoteBuilderMixin
@@ -659,9 +659,10 @@ class TestRelatedMatchNoteBrevity:
             Mock(bullhorn_job_id=34829, match_score=0.0),
         ]
         selected = NoteBuilderMixin._select_other_matches_for_note(matches)
-        assert len(selected) == 2
-        assert all(not brief for _, brief in selected)
-        assert {m.bullhorn_job_id for m, _ in selected} == {35036, 34829}
+        # Top 1 full only; remaining clear rejects omitted
+        assert len(selected) == 1
+        assert selected[0][0].bullhorn_job_id == 35036
+        assert selected[0][1] is False
 
     def test_select_other_matches_keeps_trailing_near_miss_brief(self):
         from screening.note_builder import NoteBuilderMixin
@@ -669,14 +670,29 @@ class TestRelatedMatchNoteBrevity:
         matches = [
             Mock(bullhorn_job_id=1, match_score=75.0),
             Mock(bullhorn_job_id=2, match_score=72.0),
-            Mock(bullhorn_job_id=3, match_score=65.0),
-            Mock(bullhorn_job_id=4, match_score=10.0),
+            Mock(bullhorn_job_id=3, match_score=66.0),
+            Mock(bullhorn_job_id=4, match_score=62.0),
+            Mock(bullhorn_job_id=5, match_score=10.0),
+        ]
+        selected = NoteBuilderMixin._select_other_matches_for_note(matches)
+        # Top 1 full; additional ≥65 brief; 62 and 10 omitted
+        assert [(m.bullhorn_job_id, brief) for m, brief in selected] == [
+            (1, False),
+            (2, True),
+            (3, True),
+        ]
+
+    def test_select_other_matches_omits_mid_band_below_brief_floor(self):
+        from screening.note_builder import NoteBuilderMixin
+
+        matches = [
+            Mock(bullhorn_job_id=1, match_score=80.0),
+            Mock(bullhorn_job_id=2, match_score=64.0),
+            Mock(bullhorn_job_id=3, match_score=60.0),
         ]
         selected = NoteBuilderMixin._select_other_matches_for_note(matches)
         assert [(m.bullhorn_job_id, brief) for m, brief in selected] == [
             (1, False),
-            (2, False),
-            (3, True),
         ]
 
     def test_saitharun_style_note_omits_truncated_trailing_gaps(self, app):
@@ -744,7 +760,8 @@ class TestRelatedMatchNoteBrevity:
             note_text = mock_bullhorn.create_candidate_note.call_args[0][1]
             assert 'OTHER TOP MATCHES:' in note_text
             assert '35036' in note_text
-            assert '34829' in note_text
+            # Second related role is now brief-eligible only at ≥65; 20% omitted
+            assert '34829' not in note_text
             # Trailing clear rejects omitted — no mid-sentence ellipsis artifacts
             assert '35323' not in note_text
             assert '34828' not in note_text

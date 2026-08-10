@@ -207,10 +207,11 @@ def _shadow_screening_sample_rate() -> float:
 def _shadow_screening_max_completion_tokens() -> int:
     """Completion-token ceiling for challenger shadow scoring only.
 
-    Compact production scoring uses 2200, but gpt-5.6-terra often spends
-    reasoning tokens inside the same budget and hits finish=length →
-    empty_response (~35% at 2200). Raise shadow-only to 4000 so the
-    scoring JSON can finish without a large cost blowup (shadow remains
+    Compact production scoring uses 1800 (applied/escalate) / 1200
+    (related brief), but gpt-5.6-terra often spends reasoning tokens
+    inside the same budget and hits finish=length → empty_response
+    (~35% at the old 2200). Raise shadow-only to 4000 so the scoring
+    JSON can finish without a large cost blowup (shadow remains
     sampled + hourly-capped). Override with
     SCREENING_AB_SHADOW_MAX_COMPLETION_TOKENS. Production escalate /
     flagship and Layer-2 mini paths are unchanged.
@@ -430,7 +431,7 @@ def _run_screening_shadow(
                 if _compact:
                     from screening.output_schema import build_response_format
                     _shadow_response_format = build_response_format(strict=False)
-                    # Shadow-only: higher than prod compact 2200 so Terra
+                    # Shadow-only: higher than prod compact 1800 so Terra
                     # reasoning does not truncate to empty_response.
                     _shadow_max_out = _shadow_screening_max_completion_tokens()
                 else:
@@ -1014,12 +1015,15 @@ GLOBAL SCREENING INSTRUCTIONS (apply to all jobs):
             )
             # Soft ceiling: clear rejects / related-job briefs write far less;
             # keep headroom for applied near-qualify / qualify write-ups.
+            # Aug 10 2026 compression: 2200→1800 (applied/escalate), 1400→1200
+            # (related). Aug 1–10 gpt-5.4 p90 out ≈900–1400; ≥1700 was <0.2%
+            # of calls so 1800 retains near-miss headroom without inviting essays.
             if not _compact:
                 _max_out = 3750
             elif related_job_brief:
-                _max_out = 1400
+                _max_out = 1200
             else:
-                _max_out = 2200
+                _max_out = 1800
             response = self.openai_client.chat.completions.create(
                 model=_model,
                 messages=[

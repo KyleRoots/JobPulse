@@ -315,7 +315,7 @@ def test_years_hard_gate_parity_with_stub_recheck():
 
 
 def test_compact_scoring_uses_json_schema_and_lower_token_cap(monkeypatch):
-    """Production compact-output cutover: schema response_format + 2200 token cap."""
+    """Production compact-output cutover: schema response_format + 1800 token cap."""
     import importlib
     import screening.prompt_builder as pb
 
@@ -415,7 +415,7 @@ def test_compact_scoring_uses_json_schema_and_lower_token_cap(monkeypatch):
     )
     assert int(result["match_score"]) == 40
     assert captured["kwargs"]["response_format"]["type"] == "json_schema"
-    assert captured["kwargs"]["max_completion_tokens"] == 2200
+    assert captured["kwargs"]["max_completion_tokens"] == 1800
 
 
 def test_related_job_brief_uses_lower_token_cap(monkeypatch):
@@ -519,9 +519,10 @@ def test_related_job_brief_uses_lower_token_cap(monkeypatch):
         related_job_brief=True,
     )
     assert int(result["match_score"]) == 55
-    assert captured["kwargs"]["max_completion_tokens"] == 1400
+    assert captured["kwargs"]["max_completion_tokens"] == 1200
     system_msg = captured["kwargs"]["messages"][0]["content"]
     assert "RELATED-JOB BREVITY" in system_msg
+    assert "≤25 words" in system_msg or "<=25 words" in system_msg or "aim ≤25 words" in system_msg
 
 
 def test_build_system_message_includes_clear_reject_brevity():
@@ -530,6 +531,8 @@ def test_build_system_message_includes_clear_reject_brevity():
     message = build_system_message("")
     assert "CLEAR-REJECT BREVITY" in message
     assert "BELOW 60" in message
+    assert "at most ONE decisive" in message
+    assert "aim ≤25 words" in message
     assert "RELATED-JOB BREVITY" not in message
     assert "Do NOT emit a requirement_evidence JSON array" in message
     assert '"requirement_evidence"' not in message
@@ -543,6 +546,7 @@ def test_build_system_message_related_job_brief():
     message = build_system_message("", related_job_brief=True)
     assert "RELATED-JOB BREVITY" in message
     assert "BELOW 70" in message
+    assert "at most one decisive complete gap" in message
     assert "CLEAR-REJECT BREVITY" in message
 
 
@@ -583,7 +587,7 @@ def test_shadow_max_completion_tokens_default_and_override(monkeypatch):
 
 
 def test_shadow_model_ab_uses_raised_token_ceiling(monkeypatch):
-    """Model A/B compact shadow must use the raised ceiling, not prod 2200."""
+    """Model A/B compact shadow must use the raised ceiling, not prod 1800."""
     import importlib
     import screening.prompt_builder as pb
 

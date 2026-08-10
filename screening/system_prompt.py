@@ -567,11 +567,12 @@ If the job description requires any Canadian Government security clearance — i
 
 CLEAR-REJECT BREVITY (cost control — does NOT change scoring arithmetic):
 If your intended match_score is BELOW 60 (clear / weak reject), keep prose SHORT:
-- match_summary: ONE complete sentence (never end mid-clause or mid-word)
-- gaps_identified: at most TWO short complete bullets (use " | " separators), naming only the decisive gaps — each bullet must be a finished thought
-- skills_match / experience_match: one short phrase each (or "N/A — insufficient overlap")
-- key_requirements: top 3 mandatory items only
-- relevance_justification: "N/A" when most_recent_role_relevant is false; otherwise one short clause
+- match_summary: ONE short complete sentence (aim ≤25 words; never end mid-clause or mid-word)
+- gaps_identified: at most ONE decisive complete bullet naming the single biggest miss — finished thought only (no second gap unless a location penalty must also be documented, then use " | " with at most two)
+- skills_match / experience_match: "N/A" or ≤8 words each
+- key_requirements: top 2 mandatory items only
+- relevance_justification: "N/A" when most_recent_role_relevant is false; otherwise one short clause (≤12 words)
+- years_analysis calculation: one short arithmetic clause (no essay)
 Never truncate prose mid-sentence. Prefer a shorter finished sentence over a longer cut-off one.
 Do NOT reduce the thoroughness of your scoring arithmetic, years_analysis estimates, or penalty application — only the written prose verbosity. For match_score >= 60, keep the normal recruiter-facing detail.
 
@@ -579,7 +580,7 @@ Respond in JSON format with these exact fields only (do not add other top-level 
 {{{{
     "technical_score": 0,
     "match_score": 0,
-    "match_summary": "<overall fit summary — 2-3 sentences when score >= 60; ONE sentence when score < 60. If there is a country mismatch, say \'The candidate is based in [country] but the job requires [work type] work from [job country], creating a location compliance issue.\'>",
+    "match_summary": "<overall fit summary — 2-3 sentences when score >= 60; ONE short sentence (≤25 words) when score < 60. If there is a country mismatch, say \'The candidate is based in [country] but the job requires [work type] work from [job country], creating a location compliance issue.\'>",
     "skills_match": "<skills from the resume that match job requirements>",
     "experience_match": "<experience from the resume relevant to the job>",
     "gaps_identified": "<mandatory gaps as a single string — use \' | \' between gaps. Not a JSON array.>",
@@ -645,12 +646,12 @@ IMPORTANT: You MUST complete the full technical assessment (years_analysis, skil
 
 NOTES QUALITY (MANDATORY):
 For match_score >= 60, gaps_identified and match_summary must provide enough reasoning for a recruiter who has NOT read the resume to understand why the candidate scored as they did. When more than one gap exists, use bullet-point format (separate with " | "). Each gap must state: (1) what is required, (2) what was found in the resume (or "not found"), and (3) why it does not satisfy the requirement.
-For match_score < 60 (clear / weak reject), follow CLEAR-REJECT BREVITY above — one-sentence summary and at most two decisive gaps. Do not pad prose.
+For match_score < 60 (clear / weak reject), follow CLEAR-REJECT BREVITY above — one short sentence summary and at most one decisive gap (plus location penalty line when required). Do not pad prose.
 {'' if not related_job_brief else '''
 RELATED-JOB BREVITY (cost control — does NOT change scoring arithmetic):
 This call is for a RELATED / non-applied open role (not the job the candidate applied to).
-- If your intended match_score is BELOW 70: keep prose SHORT at that score — this OVERRIDES NOTES QUALITY above (same limits as CLEAR-REJECT BREVITY: one complete sentence summary, at most two complete gaps, short skills/experience phrases). Never end mid-sentence.
-- If your intended match_score is 70 or above (strong related / likely qualify): use normal NOTES QUALITY detail so recruiters can act on a real alternate match.
+- If your intended match_score is BELOW 70: keep prose SHORT at that score — this OVERRIDES NOTES QUALITY above (same limits as CLEAR-REJECT BREVITY: one short complete sentence summary ≤25 words, at most one decisive complete gap, skills/experience "N/A" or ≤8 words). Never end mid-sentence.
+- If your intended match_score is 70 or above (strong related / likely qualify): use normal NOTES QUALITY detail so recruiters can act on a real alternate match — stay concise (prefer 2 sentences / ≤3 gap bullets) but do not gut the write-up.
 Do NOT reduce scoring arithmetic, years_analysis, or penalty application — only written prose verbosity for weaker related roles.
 '''}
 SCORING GUIDELINES (apply to technical_score — location penalty adjusts match_score separately):

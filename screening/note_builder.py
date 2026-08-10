@@ -295,14 +295,17 @@ class NoteBuilderMixin:
             logger.warning(f"_build_revet_banner: failed for candidate {candidate_id}: {e!r}")
             return []
 
-    # Trailing OTHER TOP MATCHES (after the top 2): omit clear rejects from
-    # the note. Aligns with CLEAR-REJECT BREVITY floor — weak related roles
-    # already cost scoring tokens; mid-sentence gap cuts looked like errors
-    # (Saitharun Madipadaga / 4673413).
-    _RELATED_NOTE_TRAILING_MIN_SCORE = 60.0
+    # OTHER TOP MATCHES (NOT RECOMMENDED): one full related write-up, then
+    # brief complete lines for additional near-misses. Clear rejects are
+    # omitted — weak related roles already cost scoring tokens; mid-sentence
+    # gap cuts looked like errors (Saitharun Madipadaga / 4673413).
+    _RELATED_NOTE_FULL_SLOTS = 1
+    _RELATED_NOTE_BRIEF_MIN_SCORE = 65.0
+    # Back-compat alias used by older tests / callers.
+    _RELATED_NOTE_TRAILING_MIN_SCORE = _RELATED_NOTE_BRIEF_MIN_SCORE
 
     @staticmethod
-    def _complete_brief_clause(text: str, max_len: int = 180) -> str:
+    def _complete_brief_clause(text: str, max_len: int = 140) -> str:
         """One complete gap/summary clause for brief note blocks.
 
         Never mid-sentence truncate with an ellipsis. Prefer the first
@@ -335,12 +338,12 @@ class NoteBuilderMixin:
         return ''
 
     @classmethod
-    def _select_other_matches_for_note(cls, other_matches: Sequence, limit: int = 5):
+    def _select_other_matches_for_note(cls, other_matches: Sequence, limit: int = 4):
         """Ranked related matches for NOT RECOMMENDED notes.
 
-        Top 2 always get a full write-up. Remaining slots only include
-        near-misses (score >= 60) as brief complete lines — clear-reject
-        trailing roles are omitted entirely.
+        Top 1 gets a full write-up. Additional slots only include near-misses
+        (score >= 65) as brief complete lines — clear-reject / weak related
+        roles are omitted entirely (Aug 10 compression).
         """
         ranked = sorted(
             other_matches,
@@ -349,9 +352,9 @@ class NoteBuilderMixin:
         )[:limit]
         selected = []
         for idx, match in enumerate(ranked):
-            if idx < 2:
+            if idx < cls._RELATED_NOTE_FULL_SLOTS:
                 selected.append((match, False))
-            elif (match.match_score or 0) >= cls._RELATED_NOTE_TRAILING_MIN_SCORE:
+            elif (match.match_score or 0) >= cls._RELATED_NOTE_BRIEF_MIN_SCORE:
                 selected.append((match, True))
         return selected
 
@@ -385,18 +388,18 @@ class NoteBuilderMixin:
         if is_applied:
             lines.append(f"  ⭐ APPLIED TO THIS POSITION")
 
-        # Compact trailing related matches: score + one complete gap clause
+        # Compact related matches: score + one complete gap clause
         # (no full Summary/Skills dossier, never mid-sentence ellipsis).
         if brief:
             one_liner = ''
             if show_gaps and match.gaps_identified:
                 gaps_text = self._normalize_gaps_text(match.gaps_identified, candidate_id)
-                one_liner = self._complete_brief_clause(gaps_text)
+                one_liner = self._complete_brief_clause(gaps_text, max_len=140)
                 if one_liner:
                     lines.append(f"  Gaps: {one_liner}")
             if not one_liner and match.match_summary:
                 summary = self._complete_brief_clause(
-                    (match.match_summary or '').strip(), max_len=160
+                    (match.match_summary or '').strip(), max_len=120
                 )
                 if summary:
                     lines.append(f"  Summary: {summary}")
@@ -896,8 +899,8 @@ class NoteBuilderMixin:
             
             for match, brief in displayed_other:
                 note_lines.append(f"")
-                # Full write-up for top 2 related scores; trailing near-misses
-                # only (score >= 60) use a complete one-liner — never mid-cut.
+                # Full write-up for top related score; additional near-misses
+                # only (score >= 65) use a complete one-liner — never mid-cut.
                 note_lines += self._format_match_note_block(
                     match, job_threshold_map, show_gaps=True,
                     candidate_id=vetting_log.bullhorn_candidate_id,
