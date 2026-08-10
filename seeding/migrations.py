@@ -145,13 +145,21 @@ def run_schema_migrations(db):
     # Index the normalized phone column for the fraud identity-reuse lookup
     # (added May 2026). Mirrors the name SQLAlchemy would auto-generate so
     # create_all() on a fresh DB and this ALTER path converge on one index.
+    # Catalog-check first to avoid ShareLock on the hot vetting_log table.
     try:
-        db.session.execute(text(
-            'CREATE INDEX IF NOT EXISTS ix_candidate_vetting_log_candidate_phone '
-            'ON candidate_vetting_log (candidate_phone)'
-        ))
-        db.session.commit()
-        logger.info("✅ Ensured index ix_candidate_vetting_log_candidate_phone")
+        exists = db.session.execute(text(
+            "SELECT 1 FROM pg_indexes WHERE indexname = 'ix_candidate_vetting_log_candidate_phone'"
+        )).fetchone()
+        if exists:
+            logger.info("✅ Ensured index ix_candidate_vetting_log_candidate_phone")
+        else:
+            db.session.execute(text("SET LOCAL lock_timeout = '5s'"))
+            db.session.execute(text(
+                'CREATE INDEX IF NOT EXISTS ix_candidate_vetting_log_candidate_phone '
+                'ON candidate_vetting_log (candidate_phone)'
+            ))
+            db.session.commit()
+            logger.info("✅ Ensured index ix_candidate_vetting_log_candidate_phone")
     except Exception as e:
         db.session.rollback()
         logger.warning(f"⚠️ Index ensure skipped for candidate_phone: {str(e)}")
@@ -160,12 +168,20 @@ def run_schema_migrations(db):
     # (added June 2026). Mirrors the name SQLAlchemy auto-generates so a fresh-DB
     # create_all() and this ALTER path converge on one index.
     try:
-        db.session.execute(text(
-            'CREATE INDEX IF NOT EXISTS ix_candidate_vetting_log_candidate_linkedin_url '
-            'ON candidate_vetting_log (candidate_linkedin_url)'
-        ))
-        db.session.commit()
-        logger.info("✅ Ensured index ix_candidate_vetting_log_candidate_linkedin_url")
+        exists = db.session.execute(text(
+            "SELECT 1 FROM pg_indexes "
+            "WHERE indexname = 'ix_candidate_vetting_log_candidate_linkedin_url'"
+        )).fetchone()
+        if exists:
+            logger.info("✅ Ensured index ix_candidate_vetting_log_candidate_linkedin_url")
+        else:
+            db.session.execute(text("SET LOCAL lock_timeout = '5s'"))
+            db.session.execute(text(
+                'CREATE INDEX IF NOT EXISTS ix_candidate_vetting_log_candidate_linkedin_url '
+                'ON candidate_vetting_log (candidate_linkedin_url)'
+            ))
+            db.session.commit()
+            logger.info("✅ Ensured index ix_candidate_vetting_log_candidate_linkedin_url")
     except Exception as e:
         db.session.rollback()
         logger.warning(f"⚠️ Index ensure skipped for candidate_linkedin_url: {str(e)}")
@@ -174,17 +190,28 @@ def run_schema_migrations(db):
     # table (Task #100). Mirrors the name SQLAlchemy auto-generates
     # (ix_<table>_environment_id) so a fresh-DB create_all() and this ALTER path
     # converge on one index.
+    #
+    # Catalog-check first: CREATE INDEX still takes ShareLock even with
+    # IF NOT EXISTS, which can stall behind writers on hot tables during deploy.
     for _env_table in (
         'candidate_vetting_log', 'candidate_job_match', 'job_vetting_requirements',
         'parsed_email', 'bullhorn_monitor', 'candidate_fraud_assessment',
         'job_embedding', 'candidate_profile_embedding', 'recruiter_notification_ledger',
     ):
+        _idx_name = f'ix_{_env_table}_environment_id'
         try:
+            exists = db.session.execute(text(
+                "SELECT 1 FROM pg_indexes WHERE indexname = :n"
+            ), {'n': _idx_name}).fetchone()
+            if exists:
+                continue
+            db.session.execute(text("SET LOCAL lock_timeout = '5s'"))
             db.session.execute(text(
-                f'CREATE INDEX IF NOT EXISTS ix_{_env_table}_environment_id '
+                f'CREATE INDEX IF NOT EXISTS {_idx_name} '
                 f'ON {_env_table} (environment_id)'
             ))
             db.session.commit()
+            logger.info(f"✅ Created index {_idx_name}")
         except Exception as e:
             db.session.rollback()
             logger.warning(f"⚠️ Index ensure skipped for {_env_table}.environment_id: {str(e)}")
@@ -203,6 +230,11 @@ def run_schema_migrations(db):
     # Safe ordering note: the legacy unique still guarantees one row per <col> at
     # this point, so the composite index always builds without conflict; the
     # seed-time backfill then stamps environment_id on those rows.
+    #
+    # CRITICAL: When the swap is already complete, skip entirely. Unconditional
+    # `DROP CONSTRAINT IF EXISTS` still needs AccessExclusiveLock and will hang
+    # deploys (and block live SELECTs) behind idle-in-transaction sessions —
+    # Aug 2026 Railway /health failures on main tip.
     _unique_swaps = (
         ('job_vetting_requirements',
          'job_vetting_requirements_bullhorn_job_id_key',
@@ -219,16 +251,42 @@ def run_schema_migrations(db):
     )
     for _tbl, _legacy_uq, _plain_idx, _col, _composite_uq in _unique_swaps:
         try:
-            db.session.execute(text(
-                f'ALTER TABLE {_tbl} DROP CONSTRAINT IF EXISTS {_legacy_uq}'
-            ))
-            db.session.execute(text(
-                f'CREATE INDEX IF NOT EXISTS {_plain_idx} ON {_tbl} ({_col})'
-            ))
-            db.session.execute(text(
-                f'CREATE UNIQUE INDEX IF NOT EXISTS {_composite_uq} '
-                f'ON {_tbl} (environment_id, {_col})'
-            ))
+            state = db.session.execute(text("""
+                SELECT
+                  EXISTS (
+                    SELECT 1 FROM pg_indexes WHERE indexname = :composite
+                  ) AS has_composite,
+                  EXISTS (
+                    SELECT 1 FROM pg_constraint WHERE conname = :legacy
+                  ) AS has_legacy,
+                  EXISTS (
+                    SELECT 1 FROM pg_indexes WHERE indexname = :plain
+                  ) AS has_plain
+            """), {
+                'composite': _composite_uq,
+                'legacy': _legacy_uq,
+                'plain': _plain_idx,
+            }).mappings().first()
+            if state and state['has_composite'] and not state['has_legacy'] and state['has_plain']:
+                logger.info(
+                    f"ℹ️ Per-environment unique {_composite_uq} already in place on {_tbl}"
+                )
+                continue
+
+            db.session.execute(text("SET LOCAL lock_timeout = '5s'"))
+            if state is None or state['has_legacy']:
+                db.session.execute(text(
+                    f'ALTER TABLE {_tbl} DROP CONSTRAINT IF EXISTS {_legacy_uq}'
+                ))
+            if state is None or not state['has_plain']:
+                db.session.execute(text(
+                    f'CREATE INDEX IF NOT EXISTS {_plain_idx} ON {_tbl} ({_col})'
+                ))
+            if state is None or not state['has_composite']:
+                db.session.execute(text(
+                    f'CREATE UNIQUE INDEX IF NOT EXISTS {_composite_uq} '
+                    f'ON {_tbl} (environment_id, {_col})'
+                ))
             db.session.commit()
             logger.info(f"✅ Ensured per-environment unique {_composite_uq} on {_tbl}")
         except Exception as e:
@@ -239,11 +297,17 @@ def run_schema_migrations(db):
     # unique index so the no-argument get_bullhorn_service() default-credential
     # path can never become ambiguous. Idempotent.
     try:
-        db.session.execute(text(
-            'CREATE UNIQUE INDEX IF NOT EXISTS uq_bullhorn_environment_single_default '
-            'ON bullhorn_environment (is_default) WHERE is_default'
-        ))
-        db.session.commit()
+        exists = db.session.execute(text(
+            "SELECT 1 FROM pg_indexes WHERE indexname = 'uq_bullhorn_environment_single_default'"
+        )).fetchone()
+        if not exists:
+            db.session.execute(text("SET LOCAL lock_timeout = '5s'"))
+            db.session.execute(text(
+                'CREATE UNIQUE INDEX IF NOT EXISTS uq_bullhorn_environment_single_default '
+                'ON bullhorn_environment (is_default) WHERE is_default'
+            ))
+            db.session.commit()
+            logger.info("✅ Created uq_bullhorn_environment_single_default")
     except Exception as e:
         db.session.rollback()
         logger.warning(f"⚠️ Index ensure skipped for bullhorn_environment single-default: {str(e)}")
