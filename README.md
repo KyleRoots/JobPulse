@@ -414,6 +414,10 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
+### August 2026: Ops early-warning Phase 1
+- **Signals + Kyle email**: Scheduled `ops_early_warning` (15 min) watches inbound `ParsedEmail` completed-with-NULL `bullhorn_candidate_id` rate vs baseline, screening stall (inflight age / failures / zero progress), protected scheduler job misses, and SFTP freshness when uploads are enabled. Warn/critical emails go to `kroots@myticas.com` (override via `OPS_EARLY_WARNING_EMAIL` or `ops_early_warning_email`), with fingerprint + cooldown (same pattern as AI cost alerts). Observe-only — no auto-heal, no auto-merge.
+- **Admin tile**: `/admin/health` adds **Ops Early Warning**. Design + blast-radius notes: `.agents/memory/ops-early-warning.md`. Cursor Automation investigate→PR text is a **draft only** (human merge).
+
 ### August 2026: Main-branch Railway + Render cleanup
 - **Deploy source**: Production JobPulse on Railway now tracks `main` (promoted from the long-lived `cursor/railway-entra-graph-auth-b09e` deploy branch).
 - **Render removed**: Dropped Render API log monitoring (scheduler job, service, admin UI, and credential-bearing workflow docs). Railway logging/observability unchanged. Legacy `log_monitoring_*` DB tables remain for retention cleanup only.

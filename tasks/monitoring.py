@@ -565,3 +565,30 @@ def run_ai_cost_alert():
                 )
         except Exception as e:
             app.logger.error(f"AI cost alert task error: {str(e)}")
+
+
+def run_ops_early_warning():
+    """Phase 1 ops early-warning: inbound/screening/scheduler/SFTP signals → email.
+
+    Observe-only. Fingerprint + cooldown suppress repeats. Never auto-heals.
+    See `.agents/memory/ops-early-warning.md`.
+    """
+    from app import app
+    with app.app_context():
+        try:
+            from services.ops_early_warning import run_ops_early_warning_check
+            result = run_ops_early_warning_check()
+            if result.get('alert_sent'):
+                app.logger.warning(
+                    "Ops early-warning alert dispatched: %s fingerprint=%s",
+                    result.get('severity'),
+                    result.get('fingerprint'),
+                )
+            elif result.get('evaluated') and result.get('severity') != 'none':
+                app.logger.info(
+                    "Ops early-warning: %s — %s",
+                    result.get('severity'),
+                    result.get('reason'),
+                )
+        except Exception as e:
+            app.logger.error(f"Ops early-warning task error: {str(e)}")

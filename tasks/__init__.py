@@ -5,6 +5,7 @@ from .monitoring import (
     run_vetting_health_check,
     send_vetting_health_alert,
     run_ai_cost_alert,
+    run_ops_early_warning,
 )
 from .cleanup import (
     activity_retention_cleanup,
@@ -46,6 +47,7 @@ __all__ = [
     "run_vetting_health_check",
     "send_vetting_health_alert",
     "run_ai_cost_alert",
+    "run_ops_early_warning",
     "run_candidate_vetting_cycle",
     "reference_number_refresh",
     "automated_upload",

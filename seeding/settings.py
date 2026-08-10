@@ -535,6 +535,26 @@ def seed_vetting_config(db, VettingConfig):
             'ai_cost_alert_critical_usd_24h': '250',
             'ai_cost_alert_cooldown_hours': '6',
             'ai_cost_alert_email': '',
+            # Phase 1 ops early-warning (Aug 2026). Observe-only email to Kyle
+            # on inbound NULL-BH cliffs, screening stall, protected job misses,
+            # SFTP freshness. Fingerprint + cooldown; env OPS_EARLY_WARNING_EMAIL
+            # overrides. Empty ops_early_warning_email → health_alert_email.
+            'ops_early_warning_enabled': 'true',
+            'ops_early_warning_cooldown_hours': '6',
+            'ops_early_warning_email': '',
+            'ops_early_warning_inbound_window_hours': '2',
+            'ops_early_warning_inbound_min_completed': '5',
+            'ops_early_warning_inbound_null_warn': '0.40',
+            'ops_early_warning_inbound_null_critical': '0.70',
+            'ops_early_warning_stall_oldest_warn_min': '30',
+            'ops_early_warning_stall_oldest_critical_min': '60',
+            'ops_early_warning_stall_failed_warn': '25',
+            'ops_early_warning_stall_failed_critical': '50',
+            'ops_early_warning_stall_zero_progress_min': '20',
+            'ops_early_warning_miss_warn': '3',
+            'ops_early_warning_miss_critical': '6',
+            'ops_early_warning_sftp_warn_min': '60',
+            'ops_early_warning_sftp_critical_min': '360',
             # Correct Bullhorn's US default when recent candidate resume
             # location evidence uniquely maps city/state to another country.
             # Explicitly enabled for the Jul 30 2026 production rollout.

@@ -347,6 +347,23 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
         )
         app.logger.info("💸 Scheduled OpenAI spend alert (24h rolling, every 30 minutes)")
 
+    # ── Ops Early-Warning (every 15 minutes) ──────────────────────────────────
+    # Inbound NULL-BH rate, screening stall, protected job misses, SFTP freshness.
+    # Emails Kyle with fingerprint/cooldown. Observe-only — no auto-heal.
+    if is_primary_worker:
+        from tasks import run_ops_early_warning
+        scheduler.add_job(
+            func=run_ops_early_warning,
+            trigger='interval',
+            minutes=15,
+            id='ops_early_warning',
+            name='Ops Early-Warning (Phase 1)',
+            replace_existing=True,
+            misfire_grace_time=600,
+            coalesce=True,
+        )
+        app.logger.info("🚨 Scheduled ops early-warning (every 15 minutes)")
+
     # ── AI Candidate Vetting Cycle (every 1 minute) ───────────────────────────
     if is_primary_worker:
         from tasks import run_candidate_vetting_cycle

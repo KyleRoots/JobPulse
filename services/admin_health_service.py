@@ -114,6 +114,7 @@ class AdminHealthService:
             self.tile_ai_cost_24h,
             self.tile_skip_gates,
             self.tile_monthly_report,
+            self.tile_ops_early_warning,
         ]
         tiles: List[HealthTile] = []
         for collector in collectors:
@@ -841,6 +842,58 @@ class AdminHealthService:
                 value='Check failed',
                 subtext=str(exc)[:160],
                 remediation='Inspect monthly_report_run table and models/reporting.py.',
+                last_checked=self._now_iso,
+            )
+
+    def tile_ops_early_warning(self) -> HealthTile:
+        """Live Phase 1 ops early-warning signal rollup (inbound/stall/jobs/SFTP)."""
+        try:
+            from services.ops_early_warning import evaluate_signals, SEVERITY_CRITICAL, SEVERITY_WARNING
+            summary = evaluate_signals(self._now)
+            severity = summary.get('severity') or 'none'
+            active = summary.get('active_titles') or []
+            count = int(summary.get('signal_count') or 0)
+
+            if severity == SEVERITY_CRITICAL:
+                status = 'red'
+                value = 'Critical'
+                remediation = (
+                    'Ops early-warning critical — check inbound NULL BH rate, '
+                    'screening stall, protected jobs, SFTP. Email may have been sent to Kyle.'
+                )
+            elif severity == SEVERITY_WARNING:
+                status = 'amber'
+                value = 'Warning'
+                remediation = 'Ops early-warning warning — review /admin/health signals and recent logs.'
+            else:
+                status = 'green'
+                value = 'Quiet'
+                remediation = ''
+
+            if active:
+                subtext = f'{count} signal(s): ' + ', '.join(active[:4])
+            else:
+                subtext = 'No warn/critical signals in current window'
+
+            return HealthTile(
+                key='ops_early_warning',
+                label='Ops Early Warning',
+                icon='fa-bell',
+                status=status,
+                value=value,
+                subtext=subtext[:160],
+                remediation=remediation,
+                last_checked=self._now_iso,
+            )
+        except Exception as exc:
+            return HealthTile(
+                key='ops_early_warning',
+                label='Ops Early Warning',
+                icon='fa-bell',
+                status='unknown',
+                value='Check failed',
+                subtext=str(exc)[:160],
+                remediation='Inspect services/ops_early_warning.py and scheduler job ops_early_warning.',
                 last_checked=self._now_iso,
             )
 

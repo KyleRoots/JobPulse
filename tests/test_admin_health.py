@@ -183,14 +183,14 @@ class TestAdminHealthService:
     def test_collect_all_returns_eleven_tiles(self, app):
         with app.app_context():
             tiles = AdminHealthService().collect_all()
-            assert len(tiles) == 11
+            assert len(tiles) == 12
             assert all(isinstance(t, HealthTile) for t in tiles)
             keys = {t.key for t in tiles}
             assert keys == {
                 'database', 'scheduler', 'bullhorn_auth', 'openai',
                 'inflight_vetting', 'failed_vetting_24h',
                 'sftp_uploads', 'onedrive_token', 'ai_cost_24h',
-                'skip_gates', 'monthly_report',
+                'skip_gates', 'monthly_report', 'ops_early_warning',
             }
 
     def test_database_tile_green_when_query_succeeds(self, app):
