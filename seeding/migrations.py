@@ -619,23 +619,22 @@ def run_schema_migrations(db):
         db.session.rollback()
         logger.warning(f"⚠️ Autovacuum tuning skipped for candidate_profile_embedding: {str(e)}")
 
-    # global_settings.setting_key must be unique (model declares unique=True) but
-    # prod historically lost the constraint — duplicate scheduler_last_run_* rows
-    # froze Automation Hub / ops early-warning stamps (Aug 2026 false CRITICAL).
-    # Catalog-check first; dedupe then CREATE UNIQUE INDEX with lock_timeout.
+    # global_settings integrity (Aug 2026 ops false-positive root cause):
+    # Prod lost BOTH the PRIMARY KEY on id and UNIQUE on setting_key. Duplicate
+    # ids across different keys made ORM UPDATEs match 2 rows → StaleDataError
+    # in scheduler listeners, freezing last-run stamps while jobs kept running.
+    # Catalog-check + lock_timeout; reassign colliding ids before ADD PK.
     _gs_uq = 'global_settings_setting_key_key'
     try:
         has_uq = db.session.execute(text(
             "SELECT 1 FROM pg_indexes WHERE indexname = :n "
             "UNION ALL SELECT 1 FROM pg_constraint WHERE conname = :n"
         ), {'n': _gs_uq}).fetchone()
-        if has_uq:
-            logger.info(f"ℹ️ Unique index/constraint {_gs_uq} already present on global_settings")
-        else:
+        if not has_uq:
             deleted = db.session.execute(text("""
                 DELETE FROM global_settings gs
-                WHERE gs.id NOT IN (
-                    SELECT DISTINCT ON (setting_key) id
+                WHERE gs.ctid NOT IN (
+                    SELECT DISTINCT ON (setting_key) ctid
                     FROM global_settings
                     ORDER BY setting_key,
                              updated_at DESC NULLS LAST,
@@ -655,9 +654,54 @@ def run_schema_migrations(db):
             ))
             db.session.commit()
             logger.info(f"✅ Ensured unique index {_gs_uq} on global_settings.setting_key")
+        else:
+            logger.info(f"ℹ️ Unique index/constraint {_gs_uq} already present on global_settings")
     except Exception as e:
         db.session.rollback()
         logger.warning(f"⚠️ global_settings setting_key unique ensure skipped: {str(e)}")
+
+    try:
+        has_pk = db.session.execute(text("""
+            SELECT 1 FROM pg_constraint
+            WHERE conrelid = 'global_settings'::regclass AND contype = 'p'
+        """)).fetchone()
+        if has_pk:
+            logger.info("ℹ️ PRIMARY KEY already present on global_settings")
+        else:
+            # Bump sequence past current max, then reassign colliding ids.
+            db.session.execute(text("""
+                SELECT setval(
+                    pg_get_serial_sequence('global_settings', 'id'),
+                    GREATEST(
+                        (SELECT COALESCE(MAX(id), 1) FROM global_settings),
+                        1
+                    )
+                )
+            """))
+            reassigned = db.session.execute(text("""
+                WITH dups AS (
+                    SELECT ctid,
+                           ROW_NUMBER() OVER (PARTITION BY id ORDER BY ctid) AS rn
+                    FROM global_settings
+                )
+                UPDATE global_settings gs
+                SET id = nextval(pg_get_serial_sequence('global_settings', 'id'))
+                FROM dups
+                WHERE gs.ctid = dups.ctid AND dups.rn > 1
+            """))
+            db.session.commit()
+            n = reassigned.rowcount if reassigned.rowcount is not None else 0
+            if n:
+                logger.info(f"✅ Reassigned {n} colliding global_settings.id value(s)")
+            db.session.execute(text("SET LOCAL lock_timeout = '5s'"))
+            db.session.execute(text(
+                'ALTER TABLE global_settings ADD PRIMARY KEY (id)'
+            ))
+            db.session.commit()
+            logger.info("✅ Added PRIMARY KEY on global_settings(id)")
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ global_settings PRIMARY KEY ensure skipped: {str(e)}")
 
 
 def log_critical_settings_state(db):

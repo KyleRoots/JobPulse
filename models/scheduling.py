@@ -159,36 +159,56 @@ class GlobalSettings(db.Model):
     def set_value(cls, key, value, description=None, category=None):
         """Set a setting value, creating if it doesn't exist.
 
-        Collapses duplicate setting_key rows (keeps newest) so scheduler
-        last-run listeners cannot silently update a stale twin while readers
-        see another.
+        Updates by ``setting_key`` via SQL (not ORM flush-by-PK). Prod
+        ``global_settings`` historically lacked a PRIMARY KEY, so multiple
+        rows shared the same ``id`` and SQLAlchemy UPDATEs matched 2+ rows
+        → StaleDataError, silently freezing scheduler_last_run_* stamps.
         """
         from extensions import db
-        rows = (
-            cls.query.filter_by(setting_key=key)
-            .order_by(cls.updated_at.desc().nullslast(), cls.id.desc())
-            .all()
-        )
-        if rows:
-            setting = rows[0]
-            setting.setting_value = str(value)
-            setting.updated_at = datetime.utcnow()
-            if description:
-                setting.description = description
-            if category:
-                setting.category = category
-            for orphan in rows[1:]:
-                db.session.delete(orphan)
-        else:
-            setting = cls(
-                setting_key=key,
-                setting_value=str(value),
-                description=description,
-                category=category,
-            )
-            db.session.add(setting)
+        from sqlalchemy import text
+
+        now = datetime.utcnow()
+        str_value = str(value)
+        # Collapse any setting_key twins first (unique index should prevent new ones).
+        db.session.execute(text("""
+            DELETE FROM global_settings gs
+            WHERE gs.setting_key = :key
+              AND gs.ctid NOT IN (
+                  SELECT ctid FROM global_settings
+                  WHERE setting_key = :key
+                  ORDER BY updated_at DESC NULLS LAST, id DESC
+                  LIMIT 1
+              )
+        """), {'key': key})
+        result = db.session.execute(text("""
+            UPDATE global_settings
+            SET setting_value = :value,
+                updated_at = :now,
+                description = COALESCE(:description, description),
+                category = COALESCE(:category, category)
+            WHERE setting_key = :key
+        """), {
+            'key': key,
+            'value': str_value,
+            'now': now,
+            'description': description,
+            'category': category,
+        })
+        if result.rowcount == 0:
+            db.session.execute(text("""
+                INSERT INTO global_settings
+                    (setting_key, setting_value, description, category, created_at, updated_at)
+                VALUES
+                    (:key, :value, :description, :category, :now, :now)
+            """), {
+                'key': key,
+                'value': str_value,
+                'description': description,
+                'category': category,
+                'now': now,
+            })
         db.session.commit()
-        return setting
+        return cls.query.filter_by(setting_key=key).first()
 
 
 # Backward-compat alias preserved from monolithic models.py

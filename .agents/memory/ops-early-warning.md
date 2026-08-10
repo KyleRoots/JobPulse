@@ -89,9 +89,9 @@ Kyle received CRITICAL emails (~10:11 / ~10:26 ET) while production was healthy:
 | Signal | Looked like | Actual |
 |---|---|---|
 | `screening_stall` CRITICAL (`inflight=1`, `oldest_age_min≈146k`) | Queue stuck | One Apr 30 `processing` zombie (`candidate_vetting_log.id=1165`); completions still flowing |
-| `scheduler_missed` CRITICAL (~34d since last run) | Protected jobs dead | Jobs executing in Railway logs; duplicate `global_settings.scheduler_last_run_*` rows (no unique index) froze stamps at ~Jul 7 |
+| `scheduler_missed` CRITICAL (~34d since last run) | Protected jobs dead | Jobs executing; `global_settings` lacked PRIMARY KEY (duplicate `id`s across keys) + duplicate `setting_key`s → listener `StaleDataError` froze stamps at ~Jul 7 |
 | `sftp_freshness` WARNING (~66m) | Upload lag | Noisy: `automated_upload` is every 30m; warn was 60m |
 
-**Remediation shipped:** mark zombie failed; dedupe `global_settings` + restore unique on `setting_key`; harden `GlobalSettings.get/set_value` to prefer newest and collapse twins; stall ignores zombie-only inflight when recent completions > 0; miss signal ignores absurd frozen stamps; SFTP warn default 90m. Next email cycle should be quiet (or fingerprint-recover) unless a real cliff appears.
+**Remediation shipped:** mark zombie failed; dedupe `global_settings` + restore UNIQUE(`setting_key`) + PRIMARY KEY(`id`) (reassign colliding ids); `GlobalSettings.set_value` updates by `setting_key` via SQL (avoids ORM flush-by-PK); stall ignores zombie-only inflight when recent completions > 0; miss signal ignores absurd frozen stamps; SFTP warn default 90m. Next email cycle should be quiet (or fingerprint-recover) unless a real cliff appears.
 
 Hard stops unchanged: never auto BH rotate / qualify rewrite / auto-merge; Terra/NB stay off.
