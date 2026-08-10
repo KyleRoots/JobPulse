@@ -1,4 +1,5 @@
-- [Ops early-warning Phase 1](ops-early-warning.md) — health signals + Kyle email (fingerprint/cooldown); never auto BH rotate / qualify rewrite / auto-merge.
+- [Screening output-token glance](screening-output-token-glance.md) — after Aug 10 compression (`29cba024`): `/admin/ai-cost` sum÷calls or SQL `AVG(output_tokens)` on `screening.scoring`; no finish_reason column.
+- [Ops early-warning Phase 1](ops-early-warning.md) — health signals + Kyle email (fingerprint/cooldown); never auto BH rotate / qualify rewrite / auto-merge. Aug 10 day-1 CRITICALs were false positives (zombie inflight + frozen duplicate last-run stamps); stall/miss/SFTP signals hardened.
 - [Schema rollout convention](schema-rollout.md) — Alembic is NOT the live boot path; column/index adds must go in the model + seeding/migrations.py idempotent ALTERs + an Alembic migration for parity.
 - [candidate_profile_embedding size](embedding-table-size.md) — its ~180MB is real live data (~6.7k rows of TEXT embeddings in TOAST), not bloat; the "150 rows" was never-analyzed stale stats.
 - [Prod read-replica verification](prod-readonly-verification.md) — catalog facts (columns/indexes/reloptions) + row data replicate; pg_stat_user_tables counters are replica-local and read never/0, don't alarm on them.

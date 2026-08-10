@@ -143,23 +143,49 @@ class GlobalSettings(db.Model):
 
     @classmethod
     def get_value(cls, key, default=None):
-        """Get a setting value by key"""
-        setting = cls.query.filter_by(setting_key=key).first()
+        """Get a setting value by key.
+
+        Prefer the newest row when duplicates exist (prod historically lacked a
+        unique index on setting_key, so .first() could return a frozen stamp).
+        """
+        setting = (
+            cls.query.filter_by(setting_key=key)
+            .order_by(cls.updated_at.desc().nullslast(), cls.id.desc())
+            .first()
+        )
         return setting.setting_value if setting else default
 
     @classmethod
     def set_value(cls, key, value, description=None, category=None):
-        """Set a setting value, creating if it doesn't exist"""
+        """Set a setting value, creating if it doesn't exist.
+
+        Collapses duplicate setting_key rows (keeps newest) so scheduler
+        last-run listeners cannot silently update a stale twin while readers
+        see another.
+        """
         from extensions import db
-        setting = cls.query.filter_by(setting_key=key).first()
-        if setting:
+        rows = (
+            cls.query.filter_by(setting_key=key)
+            .order_by(cls.updated_at.desc().nullslast(), cls.id.desc())
+            .all()
+        )
+        if rows:
+            setting = rows[0]
             setting.setting_value = str(value)
+            setting.updated_at = datetime.utcnow()
             if description:
                 setting.description = description
             if category:
                 setting.category = category
+            for orphan in rows[1:]:
+                db.session.delete(orphan)
         else:
-            setting = cls(setting_key=key, setting_value=str(value), description=description, category=category)
+            setting = cls(
+                setting_key=key,
+                setting_value=str(value),
+                description=description,
+                category=category,
+            )
             db.session.add(setting)
         db.session.commit()
         return setting

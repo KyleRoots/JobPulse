@@ -551,9 +551,13 @@ def seed_vetting_config(db, VettingConfig):
             'ops_early_warning_stall_failed_warn': '25',
             'ops_early_warning_stall_failed_critical': '50',
             'ops_early_warning_stall_zero_progress_min': '20',
+            'ops_early_warning_stall_zombie_age_min': '1440',
             'ops_early_warning_miss_warn': '3',
             'ops_early_warning_miss_critical': '6',
-            'ops_early_warning_sftp_warn_min': '60',
+            'ops_early_warning_miss_stamp_absurd_max_min': '1440',
+            'ops_early_warning_miss_boot_grace_min': '10',
+            # 30m upload cadence → warn at 90m (~3 cycles); 60m was noisy.
+            'ops_early_warning_sftp_warn_min': '90',
             'ops_early_warning_sftp_critical_min': '360',
             # Correct Bullhorn's US default when recent candidate resume
             # location evidence uniquely maps city/state to another country.

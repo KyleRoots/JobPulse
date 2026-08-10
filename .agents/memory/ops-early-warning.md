@@ -28,9 +28,9 @@ Phase 1 **reuses** SendGrid + `health_alert_email` fallback, VettingConfig state
 ## Phase 1 signals (highest ROI)
 
 1. **Inbound NULL Bullhorn ID rate** — Among recent `ParsedEmail` with `status='completed'`, elevated share with `bullhorn_candidate_id IS NULL` vs healthy baseline (~6–12% null / ~88–94% write). Outage cliff ≈ ~0% writes while completed volume stays normal. See inbound-bullhorn-outage-signal.md.
-2. **Screening stall** — High inflight age, elevated 24h failed rate, or zero completed progress while `vetting_enabled` and scheduler claim healthy (extends `/admin/health` inflight/failed tiles into email).
-3. **Protected scheduler misses** — `process_bullhorn_monitors`, `candidate_vetting_cycle`, `vetting_health_check`: last-run age exceeds expected interval × N.
-4. **Optional / included if cheap:** SFTP freshness when automated uploads are enabled (`last_sftp_upload_time` stale) — same age bands as the admin tile.
+2. **Screening stall** — High inflight age, elevated 24h failed rate, or zero completed progress while `vetting_enabled` and scheduler claim healthy (extends `/admin/health` inflight/failed tiles into email). **Zombie guard:** when `completed_last_Nm > 0` and every inflight row is older than `ops_early_warning_stall_zombie_age_min` (default 24h), age/zero-progress do not CRITICAL.
+3. **Protected scheduler misses** — `process_bullhorn_monitors`, `candidate_vetting_cycle`, `vetting_health_check`: last-run age exceeds expected interval × N. **Absurd-stamp guard:** ages ≥ `ops_early_warning_miss_stamp_absurd_max_min` (default 24h) are treated as frozen metadata, not live misses. Boot grace for missing stamps.
+4. **Optional / included if cheap:** SFTP freshness when automated uploads are enabled (`last_sftp_upload_time` stale) — warn default **90m** (30m upload cadence; 60m was noisy), critical 360m.
 
 Implementation: `services/ops_early_warning.py`, job id `ops_early_warning` (every 15 min), tile `ops_early_warning` on `/admin/health`.
 
@@ -78,6 +78,20 @@ Config knobs (VettingConfig, defaults in `seeding/settings.py`): `ops_early_warn
 ## Residual gaps
 
 - Quiet nights with few inbound rows: min-sample gate avoids false alarms; a true outage with zero inbound won't fire inbound signal (scheduler/SFTP/screening still can).
-- `scheduler_last_run_*` absent until first post-boot execution — grace window after process start.
+- `scheduler_last_run_*` absent until first post-boot execution — grace window after process start (`ops_early_warning_miss_boot_grace_min`, default 10m).
 - Admin tile is a snapshot of last evaluation stamp, not a live re-query of every signal on page load (page load runs collectors; email path is the scheduled job).
 - No multi-channel page; email only.
+
+## Aug 10 2026 false-positive incident (Phase 1 day-1)
+
+Kyle received CRITICAL emails (~10:11 / ~10:26 ET) while production was healthy:
+
+| Signal | Looked like | Actual |
+|---|---|---|
+| `screening_stall` CRITICAL (`inflight=1`, `oldest_age_min≈146k`) | Queue stuck | One Apr 30 `processing` zombie (`candidate_vetting_log.id=1165`); completions still flowing |
+| `scheduler_missed` CRITICAL (~34d since last run) | Protected jobs dead | Jobs executing in Railway logs; duplicate `global_settings.scheduler_last_run_*` rows (no unique index) froze stamps at ~Jul 7 |
+| `sftp_freshness` WARNING (~66m) | Upload lag | Noisy: `automated_upload` is every 30m; warn was 60m |
+
+**Remediation shipped:** mark zombie failed; dedupe `global_settings` + restore unique on `setting_key`; harden `GlobalSettings.get/set_value` to prefer newest and collapse twins; stall ignores zombie-only inflight when recent completions > 0; miss signal ignores absurd frozen stamps; SFTP warn default 90m. Next email cycle should be quiet (or fingerprint-recover) unless a real cliff appears.
+
+Hard stops unchanged: never auto BH rotate / qualify rewrite / auto-merge; Terra/NB stay off.

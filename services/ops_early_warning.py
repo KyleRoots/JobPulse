@@ -39,6 +39,9 @@ DEFAULT_STALL_OLDEST_CRITICAL_MIN = 60.0
 DEFAULT_STALL_FAILED_WARN = 25
 DEFAULT_STALL_FAILED_CRITICAL = 50
 DEFAULT_STALL_ZERO_PROGRESS_MIN = 20.0
+# Inflight older than this is a zombie (crash leftover), not a live stall —
+# ignore for CRITICAL age when recent completions prove the pipeline is moving.
+DEFAULT_STALL_ZOMBIE_AGE_MIN = 24.0 * 60.0
 
 # Protected jobs: expected interval minutes × miss counts.
 PROTECTED_JOB_INTERVALS_MIN = {
@@ -48,9 +51,15 @@ PROTECTED_JOB_INTERVALS_MIN = {
 }
 DEFAULT_MISS_WARN = 3
 DEFAULT_MISS_CRITICAL = 6
+# Last-run stamps older than this are treated as frozen/broken metadata
+# (duplicate GlobalSettings rows historically), not as "missed N× cycles".
+DEFAULT_MISS_STAMP_ABSURD_MAX_MIN = 24.0 * 60.0
+# After process boot, missing stamps are normal until the first execution.
+DEFAULT_MISS_BOOT_GRACE_MIN = 10.0
 
 # SFTP freshness when uploads enabled (minutes).
-DEFAULT_SFTP_WARN_MIN = 60.0
+# automated_upload runs every 30m; warn at 90m ≈ 3 missed cycles (60m was noisy).
+DEFAULT_SFTP_WARN_MIN = 90.0
 DEFAULT_SFTP_CRITICAL_MIN = 360.0
 
 CONFIG_ENABLED = 'ops_early_warning_enabled'
@@ -65,8 +74,11 @@ CONFIG_STALL_CRIT_MIN = 'ops_early_warning_stall_oldest_critical_min'
 CONFIG_STALL_FAIL_WARN = 'ops_early_warning_stall_failed_warn'
 CONFIG_STALL_FAIL_CRIT = 'ops_early_warning_stall_failed_critical'
 CONFIG_STALL_ZERO_MIN = 'ops_early_warning_stall_zero_progress_min'
+CONFIG_STALL_ZOMBIE_MIN = 'ops_early_warning_stall_zombie_age_min'
 CONFIG_MISS_WARN = 'ops_early_warning_miss_warn'
 CONFIG_MISS_CRIT = 'ops_early_warning_miss_critical'
+CONFIG_MISS_ABSURD_MAX = 'ops_early_warning_miss_stamp_absurd_max_min'
+CONFIG_MISS_BOOT_GRACE = 'ops_early_warning_miss_boot_grace_min'
 CONFIG_SFTP_WARN = 'ops_early_warning_sftp_warn_min'
 CONFIG_SFTP_CRIT = 'ops_early_warning_sftp_critical_min'
 
@@ -161,8 +173,18 @@ def classify_missed_runs(
     interval_min: float,
     miss_warn: int,
     miss_critical: int,
+    *,
+    absurd_max_min: Optional[float] = None,
 ) -> str:
+    """Classify protected-job miss severity from last-run age.
+
+    When ``absurd_max_min`` is set and age exceeds it, return ``none`` —
+    multi-day-old stamps are frozen metadata (historically duplicate
+    GlobalSettings rows), not evidence the job missed N short intervals.
+    """
     if age_min is None or interval_min <= 0:
+        return SEVERITY_NONE
+    if absurd_max_min is not None and age_min >= absurd_max_min:
         return SEVERITY_NONE
     misses = age_min / interval_min
     if misses >= miss_critical:
@@ -170,6 +192,31 @@ def classify_missed_runs(
     if misses >= miss_warn:
         return SEVERITY_WARNING
     return SEVERITY_NONE
+
+
+def classify_screening_stall_age(
+    oldest_age_min: Optional[float],
+    *,
+    inflight: int,
+    completed_recent: int,
+    warn_min: float,
+    critical_min: float,
+    zombie_age_min: float,
+) -> str:
+    """Age-based stall severity with zombie suppression.
+
+    When the pipeline is completing work and every inflight row is older than
+    ``zombie_age_min``, do not treat ancient leftovers as a live stall.
+    """
+    if inflight <= 0 or oldest_age_min is None:
+        return SEVERITY_NONE
+    if (
+        completed_recent > 0
+        and zombie_age_min > 0
+        and oldest_age_min >= zombie_age_min
+    ):
+        return SEVERITY_NONE
+    return classify_age_minutes(oldest_age_min, warn_min, critical_min)
 
 
 def should_send_alert(
@@ -329,6 +376,7 @@ def _collect_screening_stall(now: datetime) -> HealthSignal:
     fail_warn = _config_int(CONFIG_STALL_FAIL_WARN, DEFAULT_STALL_FAILED_WARN)
     fail_crit = _config_int(CONFIG_STALL_FAIL_CRIT, DEFAULT_STALL_FAILED_CRITICAL)
     zero_progress_min = _config_float(CONFIG_STALL_ZERO_MIN, DEFAULT_STALL_ZERO_PROGRESS_MIN)
+    zombie_age_min = _config_float(CONFIG_STALL_ZOMBIE_MIN, DEFAULT_STALL_ZOMBIE_AGE_MIN)
     if oldest_crit < oldest_warn:
         oldest_warn, oldest_crit = oldest_crit, oldest_warn
     if fail_crit < fail_warn:
@@ -357,9 +405,33 @@ def _collect_screening_stall(now: datetime) -> HealthSignal:
         CandidateVettingLog.created_at >= progress_cutoff,
     ).count()
 
+    # When completions are flowing, score stall age on live inflight only —
+    # ancient crash leftovers must not CRITICAL the pipeline.
+    live_oldest_age = oldest_age
+    zombie_only = False
+    if (
+        inflight > 0
+        and completed_recent > 0
+        and zombie_age_min > 0
+        and oldest_age is not None
+        and oldest_age >= zombie_age_min
+    ):
+        live_cutoff = now - timedelta(minutes=zombie_age_min)
+        live_oldest = (
+            inflight_q.filter(CandidateVettingLog.created_at >= live_cutoff)
+            .order_by(CandidateVettingLog.created_at.asc())
+            .first()
+        )
+        if live_oldest and live_oldest.created_at:
+            live_oldest_age = (now - live_oldest.created_at).total_seconds() / 60.0
+        else:
+            live_oldest_age = None
+            zombie_only = True
+
     age_sev = (
-        classify_age_minutes(oldest_age, oldest_warn, oldest_crit)
-        if inflight else SEVERITY_NONE
+        classify_age_minutes(live_oldest_age, oldest_warn, oldest_crit)
+        if inflight and not zombie_only
+        else SEVERITY_NONE
     )
     fail_sev = classify_count(failed_24h, fail_warn, fail_crit)
 
@@ -370,6 +442,7 @@ def _collect_screening_stall(now: datetime) -> HealthSignal:
         and completed_recent == 0
         and oldest_age is not None
         and oldest_age >= zero_progress_min
+        and (zombie_age_min <= 0 or oldest_age < zombie_age_min)
     ):
         zero_sev = (
             SEVERITY_CRITICAL
@@ -388,6 +461,10 @@ def _collect_screening_stall(now: datetime) -> HealthSignal:
         f'completed_last_{zero_progress_min:g}m={completed_recent}',
         f'vetting_enabled={vetting_on}',
     ]
+    if zombie_only:
+        parts.append(
+            f'zombie_inflight_ignored=true (age>={zombie_age_min:g}m with recent completions)'
+        )
     return HealthSignal(
         key='screening_stall',
         severity=severity,
@@ -396,6 +473,10 @@ def _collect_screening_stall(now: datetime) -> HealthSignal:
         metrics={
             'inflight': inflight,
             'oldest_age_min': round(oldest_age, 2) if oldest_age is not None else None,
+            'live_oldest_age_min': (
+                round(live_oldest_age, 2) if live_oldest_age is not None else None
+            ),
+            'zombie_only': zombie_only,
             'failed_24h': failed_24h,
             'completed_recent': completed_recent,
             'vetting_enabled': vetting_on,
@@ -419,26 +500,64 @@ def _parse_last_run_ts(raw: Optional[str]) -> Optional[datetime]:
         return None
 
 
+def _process_boot_age_min() -> Optional[float]:
+    """Best-effort minutes since this worker process started (for boot grace)."""
+    try:
+        import psutil  # type: ignore
+        create_ts = psutil.Process(os.getpid()).create_time()
+        return max(0.0, (datetime.utcnow().timestamp() - create_ts) / 60.0)
+    except Exception:
+        try:
+            # Fallback: /proc not available on macOS; use a coarse env stamp if set.
+            raw = os.environ.get('RAILWAY_DEPLOYMENT_CREATED_AT') or ''
+            if raw:
+                started = datetime.fromisoformat(raw.replace('Z', ''))
+                return max(0.0, (datetime.utcnow() - started).total_seconds() / 60.0)
+        except Exception:
+            pass
+    return None
+
+
 def _collect_scheduler_misses(now: datetime) -> HealthSignal:
     from models import GlobalSettings
 
     miss_warn = _config_int(CONFIG_MISS_WARN, DEFAULT_MISS_WARN)
     miss_crit = _config_int(CONFIG_MISS_CRIT, DEFAULT_MISS_CRITICAL)
+    absurd_max = _config_float(CONFIG_MISS_ABSURD_MAX, DEFAULT_MISS_STAMP_ABSURD_MAX_MIN)
+    boot_grace = _config_float(CONFIG_MISS_BOOT_GRACE, DEFAULT_MISS_BOOT_GRACE_MIN)
     if miss_crit < miss_warn:
         miss_warn, miss_crit = miss_crit, miss_warn
+
+    boot_age = _process_boot_age_min()
+    in_boot_grace = boot_age is not None and boot_age < boot_grace
 
     worst = SEVERITY_NONE
     missed_jobs: List[Dict] = []
     details: List[str] = []
+    frozen_stamps: List[str] = []
 
     for job_id, interval in PROTECTED_JOB_INTERVALS_MIN.items():
         raw = GlobalSettings.get_value(f'scheduler_last_run_{job_id}', None)
         last_dt = _parse_last_run_ts(raw)
         if last_dt is None:
-            details.append(f'{job_id}: no last-run stamp yet')
+            if in_boot_grace:
+                details.append(
+                    f'{job_id}: no last-run stamp yet (boot grace {boot_age:.1f}m < {boot_grace:g}m)'
+                )
+            else:
+                details.append(f'{job_id}: no last-run stamp yet')
             continue
         age_min = (now - last_dt).total_seconds() / 60.0
-        sev = classify_missed_runs(age_min, float(interval), miss_warn, miss_crit)
+        if absurd_max > 0 and age_min >= absurd_max:
+            frozen_stamps.append(job_id)
+            details.append(
+                f'{job_id}: last-run stamp frozen at {age_min:.0f}m '
+                f'(>= {absurd_max:g}m absurd ceiling) — ignored as miss signal'
+            )
+            continue
+        sev = classify_missed_runs(
+            age_min, float(interval), miss_warn, miss_crit, absurd_max_min=absurd_max
+        )
         if sev != SEVERITY_NONE:
             missed_jobs.append({
                 'job_id': job_id,
@@ -453,7 +572,7 @@ def _collect_scheduler_misses(now: datetime) -> HealthSignal:
             )
             worst = max_severity([worst, sev])
 
-    if not missed_jobs and all('no last-run' in d for d in details):
+    if not missed_jobs and not frozen_stamps and all('no last-run' in d for d in details):
         detail = (
             'Protected jobs have no last-run stamps yet (common right after boot); '
             'not alarming.'
@@ -471,8 +590,12 @@ def _collect_scheduler_misses(now: datetime) -> HealthSignal:
         detail=detail,
         metrics={
             'missed_jobs': missed_jobs,
+            'frozen_stamp_jobs': frozen_stamps,
             'miss_warn': miss_warn,
             'miss_critical': miss_crit,
+            'absurd_max_min': absurd_max,
+            'boot_grace_min': boot_grace,
+            'boot_age_min': round(boot_age, 2) if boot_age is not None else None,
         },
     )
 

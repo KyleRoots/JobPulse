@@ -619,6 +619,46 @@ def run_schema_migrations(db):
         db.session.rollback()
         logger.warning(f"⚠️ Autovacuum tuning skipped for candidate_profile_embedding: {str(e)}")
 
+    # global_settings.setting_key must be unique (model declares unique=True) but
+    # prod historically lost the constraint — duplicate scheduler_last_run_* rows
+    # froze Automation Hub / ops early-warning stamps (Aug 2026 false CRITICAL).
+    # Catalog-check first; dedupe then CREATE UNIQUE INDEX with lock_timeout.
+    _gs_uq = 'global_settings_setting_key_key'
+    try:
+        has_uq = db.session.execute(text(
+            "SELECT 1 FROM pg_indexes WHERE indexname = :n "
+            "UNION ALL SELECT 1 FROM pg_constraint WHERE conname = :n"
+        ), {'n': _gs_uq}).fetchone()
+        if has_uq:
+            logger.info(f"ℹ️ Unique index/constraint {_gs_uq} already present on global_settings")
+        else:
+            deleted = db.session.execute(text("""
+                DELETE FROM global_settings gs
+                WHERE gs.id NOT IN (
+                    SELECT DISTINCT ON (setting_key) id
+                    FROM global_settings
+                    ORDER BY setting_key,
+                             updated_at DESC NULLS LAST,
+                             id DESC
+                )
+            """))
+            db.session.commit()
+            removed = deleted.rowcount if deleted.rowcount is not None else 0
+            if removed:
+                logger.info(
+                    f"✅ Deduped global_settings: removed {removed} duplicate setting_key row(s)"
+                )
+            db.session.execute(text("SET LOCAL lock_timeout = '5s'"))
+            db.session.execute(text(
+                f'CREATE UNIQUE INDEX IF NOT EXISTS {_gs_uq} '
+                f'ON global_settings (setting_key)'
+            ))
+            db.session.commit()
+            logger.info(f"✅ Ensured unique index {_gs_uq} on global_settings.setting_key")
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ global_settings setting_key unique ensure skipped: {str(e)}")
+
 
 def log_critical_settings_state(db):
     """

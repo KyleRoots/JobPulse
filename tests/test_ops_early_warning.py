@@ -14,6 +14,7 @@ from services.ops_early_warning import (
     classify_missed_runs,
     classify_age_minutes,
     classify_count,
+    classify_screening_stall_age,
     max_severity,
     run_ops_early_warning_check,
     should_send_alert,
@@ -70,6 +71,12 @@ class TestClassifyMissedAndAge:
     def test_missed_runs_ok(self):
         assert classify_missed_runs(8, 5, 3, 6) == SEVERITY_NONE
 
+    def test_missed_runs_absurd_stamp_ignored(self):
+        # ~34-day frozen stamp must not CRITICAL a 5-minute job
+        assert classify_missed_runs(
+            49600, 5, 3, 6, absurd_max_min=24 * 60
+        ) == SEVERITY_NONE
+
     def test_age_bands(self):
         assert classify_age_minutes(45, 30, 60) == SEVERITY_WARNING
         assert classify_age_minutes(90, 30, 60) == SEVERITY_CRITICAL
@@ -78,6 +85,26 @@ class TestClassifyMissedAndAge:
     def test_count_bands(self):
         assert classify_count(30, 25, 50) == SEVERITY_WARNING
         assert classify_count(50, 25, 50) == SEVERITY_CRITICAL
+
+    def test_zombie_inflight_suppressed_when_completions_flow(self):
+        assert classify_screening_stall_age(
+            146880,
+            inflight=1,
+            completed_recent=3,
+            warn_min=30,
+            critical_min=60,
+            zombie_age_min=24 * 60,
+        ) == SEVERITY_NONE
+
+    def test_live_stall_still_critical_without_completions(self):
+        assert classify_screening_stall_age(
+            90,
+            inflight=2,
+            completed_recent=0,
+            warn_min=30,
+            critical_min=60,
+            zombie_age_min=24 * 60,
+        ) == SEVERITY_CRITICAL
 
 
 class TestFingerprintAndSend:

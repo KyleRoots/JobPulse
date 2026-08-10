@@ -576,8 +576,11 @@ def _register_scheduler_listeners():
                         f'scheduler_last_run_{event.job_id}',
                         _json.dumps({'timestamp': datetime.utcnow().isoformat(), 'success': True})
                     )
-            except Exception:
-                pass
+            except Exception as exc:
+                app.logger.warning(
+                    'scheduler last-run stamp failed for %s: %s: %s',
+                    event.job_id, type(exc).__name__, exc,
+                )
 
         def _on_job_error(event):
             try:
@@ -587,8 +590,11 @@ def _register_scheduler_listeners():
                         f'scheduler_last_run_{event.job_id}',
                         _json.dumps({'timestamp': datetime.utcnow().isoformat(), 'success': False})
                     )
-            except Exception:
-                pass
+            except Exception as exc:
+                app.logger.warning(
+                    'scheduler last-run error stamp failed for %s: %s: %s',
+                    event.job_id, type(exc).__name__, exc,
+                )
 
         def _on_job_missed(event):
             if event.job_id == 'automated_upload':
