@@ -51,7 +51,14 @@ def run_retry_failed_screening_notes(batch_size: int = 25) -> dict:
     Also retries recruiter notifications when the note exists (or was just
     written) but notifications_sent is still False — covers Location Review
     and Qualified paths that the UI retry previously limited to is_qualified.
+
+    Notification retries are intentionally limited to a recent analyzed_at
+    window. Production has thousands of historical completed rows with
+    notifications_sent=False (mostly ordinary NQs); without a time gate the
+    first cycles would walk that backlog and risk recruiter email spam.
     """
+    from datetime import datetime, timedelta
+
     from app import app
 
     summary = {
@@ -73,6 +80,9 @@ def run_retry_failed_screening_notes(batch_size: int = 25) -> dict:
                 return summary
 
             batch_size = max(1, min(int(batch_size or 25), 100))
+            # Keep note repairs available for older misses, but never fan out
+            # recruiter emails for historical notifications_sent=False rows.
+            notify_since = datetime.utcnow() - timedelta(hours=24)
 
             # Notes missing entirely
             missing_note_logs = (
@@ -88,13 +98,14 @@ def run_retry_failed_screening_notes(batch_size: int = 25) -> dict:
 
             # Notes present but recruiter notify never fired (Location Review /
             # Qualified). Cap separately so a backlog of silent NQs cannot
-            # starve note repairs.
+            # starve note repairs. Time-gate to recent screens only.
             missing_notif_logs = (
                 CandidateVettingLog.query.filter(
                     CandidateVettingLog.status == 'completed',
                     CandidateVettingLog.note_created == True,
                     CandidateVettingLog.notifications_sent == False,
                     CandidateVettingLog.is_sandbox != True,
+                    CandidateVettingLog.analyzed_at >= notify_since,
                     # Only rows that may still need a recruiter email:
                     # qualified OR location-review near-miss (highest_match
                     # near threshold). Broad NQ spam is intentionally skipped.
@@ -119,7 +130,11 @@ def run_retry_failed_screening_notes(batch_size: int = 25) -> dict:
                 try:
                     if vetting_service.create_candidate_note(log):
                         summary['notes_created'] += 1
-                        if not log.notifications_sent:
+                        analyzed_at = log.analyzed_at
+                        recent_enough = (
+                            analyzed_at is not None and analyzed_at >= notify_since
+                        )
+                        if not log.notifications_sent and recent_enough:
                             try:
                                 n = vetting_service.send_recruiter_notifications(log)
                                 if n > 0:

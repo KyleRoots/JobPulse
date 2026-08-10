@@ -86,3 +86,60 @@ def test_retry_failed_screening_notes_idle_when_clean(app):
         summary = run_retry_failed_screening_notes(batch_size=10)
         assert summary['status'] == 'idle'
         assert summary['pending'] == 0
+
+
+def test_retry_failed_screening_notes_skips_stale_unsent_notif(app, monkeypatch):
+    """Historical notifications_sent=False rows must not enter the notify batch."""
+    from datetime import datetime, timedelta
+    from app import db
+    from models import CandidateVettingLog, VettingConfig
+    import candidate_vetting_service as cvs_pkg
+    from tasks.vetting import run_retry_failed_screening_notes
+
+    with app.app_context():
+        VettingConfig.query.filter_by(setting_key='vetting_enabled').delete()
+        db.session.add(VettingConfig(setting_key='vetting_enabled', setting_value='true'))
+        db.session.commit()
+
+        CandidateVettingLog.query.filter(
+            CandidateVettingLog.status == 'completed',
+            CandidateVettingLog.note_created == False,
+        ).delete(synchronize_session=False)
+        CandidateVettingLog.query.filter(
+            CandidateVettingLog.bullhorn_candidate_id == 9990001,
+        ).delete(synchronize_session=False)
+        db.session.commit()
+
+        stale = CandidateVettingLog(
+            bullhorn_candidate_id=9990001,
+            candidate_name='Stale Unsent',
+            status='completed',
+            is_qualified=False,
+            highest_match_score=78.0,
+            note_created=True,
+            bullhorn_note_id=1,
+            notifications_sent=False,
+            analyzed_at=datetime.utcnow() - timedelta(days=7),
+            is_sandbox=False,
+        )
+        db.session.add(stale)
+        db.session.commit()
+
+        calls = {'notif': 0}
+
+        class _FakeSvc:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def create_candidate_note(self, vetting_log):
+                return True
+
+            def send_recruiter_notifications(self, vetting_log):
+                calls['notif'] += 1
+                return 1
+
+        monkeypatch.setattr(cvs_pkg, 'CandidateVettingService', _FakeSvc)
+
+        summary = run_retry_failed_screening_notes(batch_size=10)
+        assert summary['status'] == 'idle', summary
+        assert calls['notif'] == 0

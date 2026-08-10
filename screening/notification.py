@@ -1273,6 +1273,10 @@ class NotificationMixin:
                 for match in prestige_matches:
                     match.notification_sent = True
                     match.notification_sent_at = datetime.utcnow()
+                # Same as qualified / Location Review — flip the log flag so
+                # scheduled retries do not keep re-selecting this row.
+                vetting_log.notifications_sent = True
+                vetting_log.notification_count = (vetting_log.notification_count or 0) + 1
                 db.session.commit()
                 # Cross-revet dedupe ledger (Task #95).
                 _record_ledger_sent(
@@ -1663,6 +1667,12 @@ class NotificationMixin:
                 for match in location_matches:
                     match.notification_sent = True
                     match.notification_sent_at = datetime.utcnow()
+                # Mirror the qualified path — without this, Location Review
+                # leaves notifications_sent=False and scheduled retries keep
+                # re-selecting the same logs forever (thousands of historical
+                # rows in prod had this pattern as of Aug 10 2026).
+                vetting_log.notifications_sent = True
+                vetting_log.notification_count = (vetting_log.notification_count or 0) + 1
                 db.session.commit()
                 # Cross-revet dedupe ledger (Task #95).
                 _record_ledger_sent(
