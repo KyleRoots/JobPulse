@@ -12,6 +12,7 @@ EXPECTED_TAGS = {
     'Lisa Mattis-Keirsted': '#LI-LM1',
     'Jasmine Harvey': '#LI-JH1',
     'Doug Billot': '#LI-DB1',
+    'Alexa Nasrallah': '#LI-AN1',
     'Anna Wujciak-Flynn': '#LI-AW1',
     'Daniel Sifer': '#LI-DS1',
     'Dan Sifer': '#LI-DS1',

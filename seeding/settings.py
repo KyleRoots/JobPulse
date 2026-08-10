@@ -821,6 +821,7 @@ def seed_recruiter_mappings(db, RecruiterMapping):
     recruiter_mappings = [
         # --- Active LinkedIn seats (from seat-report.csv) ---
         ('Adam Gebara', '#LI-AG1'),
+        ('Alexa Nasrallah', '#LI-AN1'),
         ('Anna Wujciak-Flynn', '#LI-AW1'),
         ('Bryan Chinzorig', '#LI-BC1'),
         ('Chris Carter', '#LI-CC1'),

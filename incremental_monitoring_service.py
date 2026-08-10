@@ -888,6 +888,7 @@ This alert was triggered by the zero-job detection safeguard.
         """
         tags = {
             'Adam Gebara': '#LI-AG1',
+            'Alexa Nasrallah': '#LI-AN1',
             'Anna Wujciak-Flynn': '#LI-AW1',
             'Bryan Chinzorig': '#LI-BC1',
             'Chris Carter': '#LI-CC1',
