@@ -1092,6 +1092,41 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
         )
         app.logger.info("🔍 Screening quality audit job scheduled — runs every 15 minutes when enabled")
 
+    # ── Retry failed Scout Screening notes (every 10 minutes) ─────────────────
+    # Completed screens with note_created=False leave Bullhorn showing only the
+    # AI Resume Summary; self-screen cooldown + ParsedEmail.vetted_at then block
+    # natural re-detection (Terry Vallo 4674305, Aug 10 2026). This job mirrors
+    # /screening/retry-failed-notes so misses self-heal without a full re-screen.
+    if is_primary_worker:
+        def run_failed_note_retry():
+            with app.app_context():
+                try:
+                    from tasks import run_retry_failed_screening_notes
+                    result = run_retry_failed_screening_notes(batch_size=25)
+                    if result.get('status') not in ('idle', 'disabled'):
+                        app.logger.info(
+                            "📝 Failed-note retry: "
+                            f"notes_created={result.get('notes_created', 0)}, "
+                            f"notes_failed={result.get('notes_failed', 0)}, "
+                            f"notifications_sent={result.get('notifications_sent', 0)}, "
+                            f"pending_seen={result.get('pending', 0)}"
+                        )
+                except Exception as e:
+                    app.logger.error(f"❌ Failed-note retry error: {e}")
+                finally:
+                    db.session.remove()
+
+        scheduler.add_job(
+            func=run_failed_note_retry,
+            trigger=IntervalTrigger(minutes=10),
+            id='retry_failed_screening_notes',
+            name='Retry Failed Scout Screening Notes (10 min)',
+            replace_existing=True,
+            misfire_grace_time=300,
+            coalesce=True,
+        )
+        app.logger.info("📝 Failed Scout note retry scheduled — every 10 minutes")
+
     # ── Monthly Performance Report (1st of month @ 9 AM, hourly auto-send sweep) ─
     if is_primary_worker:
         def run_monthly_report_preview():

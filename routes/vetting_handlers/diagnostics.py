@@ -350,12 +350,13 @@ def retry_failed_notes():
             try:
                 if vetting_service.create_candidate_note(log):
                     success_count += 1
-                    # Notes alone are not enough for qualified candidates — the
-                    # normal vetting cycle always follows create_candidate_note
-                    # with send_recruiter_notifications. Without this, repair
-                    # retries leave note_created=True / notifications_sent=False
-                    # (Lawrencia White / Frankie Sneeze pattern, Jul 2026).
-                    if log.is_qualified and not log.notifications_sent:
+                    # Notes alone are not enough — the normal vetting cycle always
+                    # follows create_candidate_note with send_recruiter_notifications.
+                    # Without this, repair retries leave note_created=True /
+                    # notifications_sent=False (Lawrencia White / Frankie Sneeze,
+                    # Jul 2026). Also covers Location Review (not is_qualified),
+                    # e.g. Terry Vallo 4674305 Aug 10 2026.
+                    if not log.notifications_sent:
                         try:
                             if vetting_service.send_recruiter_notifications(log) > 0:
                                 notifications_sent += 1

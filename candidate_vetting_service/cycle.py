@@ -235,6 +235,17 @@ class VettingCycleMixin:
                         if not vetting_log.note_created:
                             if self.create_candidate_note(vetting_log):
                                 summary['notes_created'] += 1
+                            else:
+                                # Completed screens with note_created=False are invisible
+                                # in Bullhorn (AI Resume Summary only). Cooldown + vetted_at
+                                # then block natural retries — scheduled
+                                # run_retry_failed_screening_notes self-heals these.
+                                logger.error(
+                                    f"❌ Scout note write failed for candidate "
+                                    f"{vetting_log.bullhorn_candidate_id} "
+                                    f"vetting_log_id={vetting_log.id} "
+                                    f"event=note_write_failed"
+                                )
                         else:
                             logger.info(f"⏭️ Skipping note creation - already exists for candidate {vetting_log.bullhorn_candidate_id}")
 

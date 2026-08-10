@@ -20,6 +20,7 @@ from .xml_feeds import (
 from .vetting import (
     run_candidate_vetting_cycle,
     run_requirements_maintenance,
+    run_retry_failed_screening_notes,
 )
 from .bullhorn_maintenance import (
     start_scheduler_manual,
@@ -49,6 +50,7 @@ __all__ = [
     "run_ai_cost_alert",
     "run_ops_early_warning",
     "run_candidate_vetting_cycle",
+    "run_retry_failed_screening_notes",
     "reference_number_refresh",
     "automated_upload",
     "run_xml_change_monitor",

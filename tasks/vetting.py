@@ -38,6 +38,142 @@ def run_candidate_vetting_cycle():
             app.logger.error(f"Candidate vetting cycle error: {str(e)}")
 
 
+def run_retry_failed_screening_notes(batch_size: int = 25) -> dict:
+    """Retry Bullhorn Scout notes for completed screens that never got a note.
+
+    Terry Vallo (4674305) pattern (Aug 10 2026): screening completed and
+    scored (Location Review / NQ), ParsedEmail was marked vetted, and the
+    self-screen cooldown blocked re-detection — but note_created stayed
+    False, so Bullhorn showed only the AI Resume Summary. The manual
+    /screening/retry-failed-notes endpoint already repairs this; this job
+    runs the same repair on a schedule so misses self-heal.
+
+    Also retries recruiter notifications when the note exists (or was just
+    written) but notifications_sent is still False — covers Location Review
+    and Qualified paths that the UI retry previously limited to is_qualified.
+    """
+    from app import app
+
+    summary = {
+        'pending': 0,
+        'notes_created': 0,
+        'notes_failed': 0,
+        'notifications_sent': 0,
+        'errors': [],
+    }
+
+    with app.app_context():
+        try:
+            from models import CandidateVettingLog, VettingConfig
+            from candidate_vetting_service import CandidateVettingService
+
+            config = VettingConfig.query.filter_by(setting_key='vetting_enabled').first()
+            if not config or config.setting_value.lower() != 'true':
+                summary['status'] = 'disabled'
+                return summary
+
+            batch_size = max(1, min(int(batch_size or 25), 100))
+
+            # Notes missing entirely
+            missing_note_logs = (
+                CandidateVettingLog.query.filter(
+                    CandidateVettingLog.status == 'completed',
+                    CandidateVettingLog.note_created == False,
+                    CandidateVettingLog.is_sandbox != True,
+                )
+                .order_by(CandidateVettingLog.analyzed_at.desc())
+                .limit(batch_size)
+                .all()
+            )
+
+            # Notes present but recruiter notify never fired (Location Review /
+            # Qualified). Cap separately so a backlog of silent NQs cannot
+            # starve note repairs.
+            missing_notif_logs = (
+                CandidateVettingLog.query.filter(
+                    CandidateVettingLog.status == 'completed',
+                    CandidateVettingLog.note_created == True,
+                    CandidateVettingLog.notifications_sent == False,
+                    CandidateVettingLog.is_sandbox != True,
+                    # Only rows that may still need a recruiter email:
+                    # qualified OR location-review near-miss (highest_match
+                    # near threshold). Broad NQ spam is intentionally skipped.
+                    (
+                        (CandidateVettingLog.is_qualified == True)
+                        | (CandidateVettingLog.highest_match_score >= 65)
+                    ),
+                )
+                .order_by(CandidateVettingLog.analyzed_at.desc())
+                .limit(batch_size)
+                .all()
+            )
+
+            summary['pending'] = len(missing_note_logs) + len(missing_notif_logs)
+            if summary['pending'] == 0:
+                summary['status'] = 'idle'
+                return summary
+
+            vetting_service = CandidateVettingService()
+
+            for log in missing_note_logs:
+                try:
+                    if vetting_service.create_candidate_note(log):
+                        summary['notes_created'] += 1
+                        if not log.notifications_sent:
+                            try:
+                                n = vetting_service.send_recruiter_notifications(log)
+                                if n > 0:
+                                    summary['notifications_sent'] += 1
+                            except Exception as notif_err:
+                                logger.error(
+                                    "Note retry succeeded but notification failed for "
+                                    f"candidate {log.bullhorn_candidate_id}: {notif_err}"
+                                )
+                    else:
+                        summary['notes_failed'] += 1
+                        logger.error(
+                            "Scheduled note retry failed for candidate "
+                            f"{log.bullhorn_candidate_id} vetting_log_id={log.id} "
+                            "event=note_retry_failed"
+                        )
+                except Exception as e:
+                    summary['notes_failed'] += 1
+                    summary['errors'].append(str(e)[:200])
+                    logger.error(
+                        f"Scheduled note retry exception for candidate "
+                        f"{log.bullhorn_candidate_id}: {e}"
+                    )
+
+            for log in missing_notif_logs:
+                try:
+                    n = vetting_service.send_recruiter_notifications(log)
+                    if n > 0:
+                        summary['notifications_sent'] += 1
+                except Exception as e:
+                    summary['errors'].append(str(e)[:200])
+                    logger.error(
+                        f"Scheduled notification retry exception for candidate "
+                        f"{log.bullhorn_candidate_id}: {e}"
+                    )
+
+            logger.info(
+                "Scheduled screening note retry: "
+                f"notes_created={summary['notes_created']}, "
+                f"notes_failed={summary['notes_failed']}, "
+                f"notifications_sent={summary['notifications_sent']}, "
+                f"pending_seen={summary['pending']} "
+                "event=note_retry_cycle"
+            )
+            summary['status'] = 'ok'
+            return summary
+
+        except Exception as e:
+            logger.error(f"run_retry_failed_screening_notes error: {e}")
+            summary['status'] = 'error'
+            summary['errors'].append(str(e)[:200])
+            return summary
+
+
 def run_requirements_maintenance():
     """
     Scheduled job (every 5 minutes): keep AI job requirements up to date automatically.
