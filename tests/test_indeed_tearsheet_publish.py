@@ -1,5 +1,6 @@
 """Tests for Indeed tearsheet → native Bullhorn JobBoard publish (Plan B)."""
 
+import pytest
 from unittest.mock import MagicMock, patch
 
 from indeed_publish.categories import category_id_by_name, category_choices
@@ -463,3 +464,58 @@ class TestForceUnpublish:
             out = force_unpublish_jobs([35409, 35410])
         assert out['unpublished'] == []
         assert out['skipped']
+
+
+class TestUIClientLoginRetry:
+    def test_retryable_401_only(self):
+        from indeed_publish.ui_client import BullhornUIClientError, _is_retryable_login_error
+
+        assert _is_retryable_login_error(
+            BullhornUIClientError('UI login rejected (401 — check credentials / password expiry)')
+        )
+        assert not _is_retryable_login_error(
+            BullhornUIClientError('UI login requires MFA — use a service account without MFA')
+        )
+        assert not _is_retryable_login_error(
+            BullhornUIClientError('BH_UI_USERNAME / BH_UI_PASSWORD not configured')
+        )
+
+    def test_login_with_retry_recovers_after_transient_401(self):
+        from indeed_publish.ui_client import BullhornUIClient, BullhornUIClientError
+
+        client = BullhornUIClient(
+            base_url='https://cls45.bullhornstaffing.com',
+            username='svc',
+            password='secret',
+            private_label_id='52989',
+        )
+        calls = {'n': 0}
+
+        def fake_login():
+            calls['n'] += 1
+            if calls['n'] == 1:
+                raise BullhornUIClientError(
+                    'UI login rejected (401 — check credentials / password expiry)'
+                )
+
+        with patch.object(client, 'login', side_effect=fake_login), \
+             patch('indeed_publish.ui_client.time.sleep'):
+            client.login_with_retry(max_attempts=2, backoff_seconds=0)
+        assert calls['n'] == 2
+
+    def test_login_with_retry_raises_after_exhausted_attempts(self):
+        from indeed_publish.ui_client import BullhornUIClient, BullhornUIClientError
+
+        client = BullhornUIClient(
+            base_url='https://cls45.bullhornstaffing.com',
+            username='svc',
+            password='secret',
+            private_label_id='52989',
+        )
+        err = BullhornUIClientError(
+            'UI login rejected (401 — check credentials / password expiry)'
+        )
+        with patch.object(client, 'login', side_effect=err), \
+             patch('indeed_publish.ui_client.time.sleep'), \
+             pytest.raises(BullhornUIClientError, match='401'):
+            client.login_with_retry(max_attempts=2, backoff_seconds=0)

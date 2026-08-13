@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from typing import Any, Dict, Optional
 from urllib.parse import urlencode, urljoin
 
@@ -16,6 +17,16 @@ DEFAULT_UNIVERSAL_LOGIN_URL = 'https://universal-east.bullhornstaffing.com/unive
 
 class BullhornUIClientError(RuntimeError):
     pass
+
+
+def _is_retryable_login_error(exc: BullhornUIClientError) -> bool:
+    """Transient Bullhorn auth glitches (401, 5xx) — not config/MFA failures."""
+    msg = str(exc)
+    if '401' in msg:
+        return True
+    if 'Universal login HTTP 5' in msg:
+        return True
+    return False
 
 
 def _eastern_tz_fields() -> Dict[str, str]:
@@ -159,6 +170,42 @@ class BullhornUIClient:
             'Bullhorn UI session established for Indeed publish automation (user_id=%s)',
             self.current_user_id,
         )
+
+    def login_with_retry(
+        self,
+        *,
+        max_attempts: int = 2,
+        backoff_seconds: float = 3.0,
+    ) -> None:
+        """Login once; on transient 401/5xx, fresh session + backoff then retry."""
+        last_exc: Optional[BullhornUIClientError] = None
+        for attempt in range(1, max_attempts + 1):
+            try:
+                if attempt > 1:
+                    time.sleep(backoff_seconds)
+                    self.session = requests.Session()
+                    self.session.headers.update({
+                        'User-Agent': (
+                            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
+                            'AppleWebKit/537.36 (KHTML, like Gecko) '
+                            'Chrome/120.0.0.0 Safari/537.36'
+                        ),
+                    })
+                    self._logged_in = False
+                    logger.warning(
+                        'Bullhorn UI login retry %s/%s after: %s',
+                        attempt,
+                        max_attempts,
+                        last_exc,
+                    )
+                self.login()
+                return
+            except BullhornUIClientError as exc:
+                last_exc = exc
+                if attempt >= max_attempts or not _is_retryable_login_error(exc):
+                    raise
+        if last_exc:
+            raise last_exc
 
     def ensure_login(self) -> None:
         if not self._logged_in:

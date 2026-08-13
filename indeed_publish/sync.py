@@ -311,7 +311,7 @@ class IndeedTearsheetPublishService:
 
         ui = self._build_ui_client()
         try:
-            ui.login()
+            ui.login_with_retry()
             if self.config.get('current_user_id'):
                 ui.set_current_user_id(self.config['current_user_id'])
             elif not ui.current_user_id:
@@ -601,7 +601,7 @@ def unpublish_job_after_tearsheet_remove(job_id: int, tearsheet_id: int) -> bool
         svc = IndeedTearsheetPublishService(config=cfg)
         job = svc._fetch_job_detail(bh, int(job_id)) or {'id': int(job_id)}
         ui = svc._build_ui_client()
-        ui.login()
+        ui.login_with_retry()
         if not ui.current_user_id:
             resolved = svc._resolve_ui_user_id(bh)
             if resolved:
@@ -665,7 +665,7 @@ def force_unpublish_jobs(job_ids: List[int]) -> Dict[str, Any]:
     svc = IndeedTearsheetPublishService(config=cfg)
     ui = svc._build_ui_client()
     try:
-        ui.login()
+        ui.login_with_retry()
         if cfg.get('current_user_id'):
             ui.set_current_user_id(cfg['current_user_id'])
         elif not ui.current_user_id:
