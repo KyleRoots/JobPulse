@@ -538,6 +538,9 @@ def test_build_system_message_includes_clear_reject_brevity():
     assert '"requirement_evidence"' not in message
     assert '"work_authorization_analysis"' not in message
     assert '"canadian_clearance_analysis"' not in message
+    assert "Score 0 only when there is no overlapping domain" in message
+    assert "would be nice to have" in message
+    assert "Do NOT disqualify for a missing nice-to-have" in message
 
 
 def test_build_system_message_related_job_brief():
@@ -812,3 +815,28 @@ def test_loose_extra_fields_are_ignored_by_post_processing():
     # And they did not bleed into any consumed field:
     assert "requirement_evidence" not in with_extras["match_summary"]
     assert "work_authorization" not in with_extras["gaps_identified"].lower()
+
+
+def test_custom_requirements_block_honors_nice_to_have():
+    from screening.prompt_builder import build_custom_requirements_block
+
+    assert build_custom_requirements_block("") == ""
+    assert build_custom_requirements_block("   ") == ""
+    block = build_custom_requirements_block(
+        "Associate's in drafting\n"
+        "Experience using Revit either in the classroom or on the job would be nice to have"
+    )
+    assert "evaluate against ALL" not in block
+    assert "MANDATORY SCREENING REQUIREMENTS" not in block
+    assert "nice to have" in block.lower()
+    assert "must NOT disqualify" in block
+    assert "modest bonus" in block
+    assert "Associate's in drafting" in block
+
+
+def test_related_job_brief_keeps_adjacent_skills_rule():
+    from screening.system_prompt import build_system_message
+
+    message = build_system_message("", related_job_brief=True)
+    assert "adjacent skills ≤8 words not N/A" in message
+

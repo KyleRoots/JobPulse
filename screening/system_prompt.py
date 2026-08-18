@@ -408,14 +408,18 @@ CRITICAL RULES:
       - This penalty stacks with the current-employment gap penalty above (they measure different things).
     - Report your finding in the employment_gap_analysis JSON section.
 
-REQUIREMENTS EVALUATION (when no custom requirements are provided):
-IMPORTANT: Identify and focus ONLY on MANDATORY requirements from the job description:
+REQUIREMENTS EVALUATION (job description AND recruiter-edited Configure Screening text):
+IMPORTANT: Identify and focus ONLY on MANDATORY requirements:
 - Required skills (often marked as "required", "must have", "essential")
 - Minimum years of experience specified
 - Required certifications or licenses
 - Required education level
+- Recruiter-edited lines that are NOT marked optional
 
-DO NOT penalize candidates for missing "nice-to-have" or "preferred" qualifications.
+NICE-TO-HAVE / PREFERRED (including recruiter-edited wording such as "would be nice to have"):
+- Do NOT disqualify for a missing nice-to-have / preferred item.
+- Do NOT make a missing preferred item the decisive gap or a CRITICAL years miss.
+- If the candidate HAS the preferred skill, apply a modest bonus (typically +3 to +8 technical_score); they can still fail on mandatory gaps.
 Be lenient on soft skills - focus primarily on technical/hard skill requirements.{global_reqs_section}
 
 YEARS OF EXPERIENCE ANALYSIS (MANDATORY):
@@ -567,12 +571,13 @@ If the job description requires any Canadian Government security clearance — i
 
 CLEAR-REJECT BREVITY (cost control — does NOT change scoring arithmetic):
 If your intended match_score is BELOW 60 (clear / weak reject), keep prose SHORT:
-- match_summary: ONE short complete sentence (aim ≤25 words; never end mid-clause or mid-word)
-- gaps_identified: at most ONE decisive complete bullet naming the single biggest miss — finished thought only (no second gap unless a location penalty must also be documented, then use " | " with at most two)
-- skills_match / experience_match: "N/A" or ≤8 words each
+- match_summary: ONE short complete sentence (aim ≤25 words; never end mid-clause or mid-word). If the résumé is adjacent same-domain but wrong function (e.g. HVAC service vs HVAC design), say that in the sentence — do not imply they have no relevant background.
+- gaps_identified: at most ONE decisive complete bullet naming the single biggest MANDATORY miss — finished thought only (no second gap unless a location penalty must also be documented, then use " | " with at most two). Do not use a missing nice-to-have as that gap.
+- skills_match / experience_match: ≤8 words of what they actually have when the résumé shows any on-domain or adjacent skills. Use "N/A" only when there is truly no overlapping domain.
 - key_requirements: top 2 mandatory items only
 - relevance_justification: "N/A" when most_recent_role_relevant is false; otherwise one short clause (≤12 words)
 - years_analysis calculation: one short arithmetic clause (no essay)
+- Score 0 only when there is no overlapping domain at all. Adjacent same-domain / wrong-function misses should land roughly 5–25 (still a clear reject). Do not invent fit to push toward 60+.
 Never truncate prose mid-sentence. Prefer a shorter finished sentence over a longer cut-off one.
 Do NOT reduce the thoroughness of your scoring arithmetic, years_analysis estimates, or penalty application — only the written prose verbosity. For match_score >= 60, keep the normal recruiter-facing detail.
 
@@ -650,7 +655,7 @@ For match_score < 60 (clear / weak reject), follow CLEAR-REJECT BREVITY above �
 {'' if not related_job_brief else '''
 RELATED-JOB BREVITY (cost control — does NOT change scoring arithmetic):
 This call is for a RELATED / non-applied open role (not the job the candidate applied to).
-- If your intended match_score is BELOW 70: keep prose SHORT at that score — this OVERRIDES NOTES QUALITY above (same limits as CLEAR-REJECT BREVITY: one short complete sentence summary ≤25 words, at most one decisive complete gap, skills/experience "N/A" or ≤8 words). Never end mid-sentence.
+- If your intended match_score is BELOW 70: keep prose SHORT at that score — this OVERRIDES NOTES QUALITY above (same limits as CLEAR-REJECT BREVITY: one short complete sentence summary ≤25 words, at most one decisive complete gap, adjacent skills ≤8 words not N/A). Never end mid-sentence.
 - If your intended match_score is 70 or above (strong related / likely qualify): use normal NOTES QUALITY detail so recruiters can act on a real alternate match — stay concise (prefer 2 sentences / ≤3 gap bullets) but do not gut the write-up.
 Do NOT reduce scoring arithmetic, years_analysis, or penalty application — only written prose verbosity for weaker related roles.
 '''}
