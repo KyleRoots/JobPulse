@@ -596,6 +596,46 @@ def run_schema_migrations(db):
         except Exception as e:
             logger.warning(f"⚠️ Prospector table check failed for '{table_name}': {str(e)}")
 
+    # Myticas client onboarding notify ledger (Aug 2026). New table — create_all
+    # also creates it; this is belt-and-suspenders if create_all is skipped.
+    try:
+        db.session.execute(text("""
+            CREATE TABLE IF NOT EXISTS client_onboarding_notify_log (
+                id BIGSERIAL PRIMARY KEY,
+                created_at TIMESTAMP NOT NULL,
+                bullhorn_company_id INTEGER NOT NULL,
+                company_name VARCHAR(255),
+                company_status VARCHAR(80),
+                company_type VARCHAR(80),
+                trigger_type VARCHAR(20) NOT NULL,
+                trigger_entity_id INTEGER,
+                sales_rep_name VARCHAR(255),
+                sales_rep_email VARCHAR(255),
+                sales_rep_source VARCHAR(40),
+                intended_to VARCHAR(255),
+                intended_cc VARCHAR(255),
+                actual_to VARCHAR(255),
+                live_mode BOOLEAN NOT NULL DEFAULT FALSE,
+                email_sent BOOLEAN NOT NULL DEFAULT FALSE,
+                skip_reason VARCHAR(120),
+                notes TEXT,
+                CONSTRAINT uq_client_ob_notify_company UNIQUE (bullhorn_company_id)
+            )
+        """))
+        db.session.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_client_onboarding_notify_log_created_at "
+            "ON client_onboarding_notify_log (created_at)"
+        ))
+        db.session.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_client_ob_notify_company_created "
+            "ON client_onboarding_notify_log (bullhorn_company_id, created_at)"
+        ))
+        db.session.commit()
+        logger.info("✅ Ensured client_onboarding_notify_log table")
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ client_onboarding_notify_log ensure skipped: {str(e)}")
+
     # Autovacuum tuning for candidate_profile_embedding (added May 2026).
     # This table holds large embedding vectors in a TOASTed TEXT column that is
     # re-upserted whenever a candidate profile changes. With default autovacuum

@@ -199,6 +199,37 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
         )
         app.logger.info("📐 Placement Net Margin poller enabled (10-sec interval)")
 
+    # ── Myticas client onboarding notify (every 10 seconds) ───────────────────
+    if is_primary_worker:
+        def run_client_ob_notify_poll():
+            """Drain Sendout + Interview events; email Finance once per company."""
+            with app.app_context():
+                try:
+                    from bullhorn_service import BullhornService
+                    from client_onboarding_notify.config import is_enabled
+                    from client_onboarding_notify.worker import poll_and_process
+                    if not is_enabled():
+                        return
+                    bh = BullhornService()
+                    if not bh.authenticate():
+                        app.logger.warning("client_ob_notify_poll: auth failed; skipping tick")
+                        return
+                    summary = poll_and_process(bh)
+                    if summary.get("events_drained"):
+                        app.logger.info(f"📋 client_ob_notify_poll: {summary}")
+                except Exception as e:
+                    app.logger.error(f"client_ob_notify_poll error: {e}", exc_info=True)
+
+        scheduler.add_job(
+            func=run_client_ob_notify_poll,
+            trigger=IntervalTrigger(seconds=10),
+            id="client_ob_notify_poll",
+            name="Myticas Client Onboarding Notify (10 sec)",
+            replace_existing=True,
+            max_instances=1,
+        )
+        app.logger.info("📋 Client onboarding notify poller enabled (10-sec interval)")
+
     # ── Monitor Health Check (every 2 hours) ──────────────────────────────────
     if is_primary_worker:
         from tasks import check_monitor_health

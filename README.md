@@ -61,6 +61,9 @@ A comprehensive Flask-based web application that automates XML job feed processi
 - **Compliance (Phase A, July 2026)**: Apply-form AI notices, rules version stamping (`screening/compliance.py`), guardrailed global prompt, compliance metrics endpoint. Privacy contact link shows **Contact Us Here** (not the raw address): Myticas → `mailto:apply@myticas.com`; STSI → `mailto:stsioffice@stsigroup.com` (not `apply@stsigroup.com`)
 - **Rules changelog**: `config/SCREENING_RULES_CHANGELOG.md`
 
+### 1c. Myticas client onboarding notify
+Observe-only email when a Myticas company first gets a **Client Submission (Sendout)** or **Interview**. Accounting is reminded to create Location / Billing Profiles / Invoice Terms before Placement/hours; Sales is reminded to complete the Ottawa checklist (attached). Once per company; no Bullhorn writes. Test mode (`CLIENT_OB_NOTIFY_LIVE=false`) sends only to Kyle.
+
 ### 2. Database-Backed Reference Number System ✨ NEW
 **Problem Solved (October 2025)**: Live XML URL returns 403 Forbidden, causing reference numbers to revert to old values.
 
@@ -233,6 +236,13 @@ INDEED_TEARSHEET_PUBLISH_NOTIFY_EMAIL=kroots@myticas.com
 # Default lookback 0 = full source backlog (no date floor); set >0 to narrow.
 # INDEED_INBOUND_REMAP_ENABLED=true
 # INDEED_INBOUND_REMAP_LOOKBACK_HOURS=0
+
+# Myticas client onboarding notify (observe-only). Default ON in test mode:
+# all mail to kroots@myticas.com until CLIENT_OB_NOTIFY_LIVE=true.
+# CLIENT_OB_NOTIFY_ENABLED=true
+# CLIENT_OB_NOTIFY_LIVE=false
+# CLIENT_OB_NOTIFY_TEST_EMAIL=kroots@myticas.com
+# CLIENT_OB_NOTIFY_ACCOUNTING_EMAIL=accounting@myticas.com
 ```
 
 Optional overrides: `ENVIRONMENT_HEALTH_URL` / `SCOUTGENIUS_PUBLIC_URL` for env-monitor probe URL.
@@ -413,6 +423,8 @@ Check dashboard for automation status:
 ---
 
 ## 📈 Recent Major Updates
+
+- **Myticas client onboarding notify (Aug 19)**: Observe-only. First **Client Submission (Sendout)** or **Interview** on a Myticas company emails Accounting (`accounting@myticas.com`) and CCs the Sales Rep, attaching the Ottawa new-client checklist. Status must be Qualified / Proposal / Negotiation / Active Account; blank Type is OK; Vendor / MSP / Former Client skipped. Once per company (no nag loop, no historical backfill). **Test mode** until `CLIENT_OB_NOTIFY_LIVE=true` — mail goes only to `kroots@myticas.com` with intended To/CC in the body. No Bullhorn writes.
 
 - **Nice-to-have vs must-have (Aug 18)**: Recruiter-edited Configure Screening lines marked “nice to have” / “preferred” are **not** treated as disqualifiers (they used to be wrapped as “evaluate against ALL”). Having the preferred skill is a small bonus; missing it is not the decisive gap. Clear-reject notes list adjacent skills (≤8 words) instead of `N/A`; a literal **0%** is reserved for no overlapping domain (adjacent-but-wrong-function stays a clear reject, typically 5–25). Same scoring call — no extra API cost.
 
@@ -620,5 +632,5 @@ Access health endpoints for status checks:
 
 ---
 
-**Last Updated**: August 10, 2026
+**Last Updated**: August 19, 2026
 **Version**: 2.9 (Main-branch Railway deploy; Render log monitoring removed)
