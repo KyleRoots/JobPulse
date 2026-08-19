@@ -52,18 +52,38 @@ def _load_checklist() -> Optional[Dict[str, Any]]:
     }
 
 
+def _blank(value: Any, fallback: str = "Not listed") -> str:
+    text = str(value or "").strip()
+    return html.escape(text) if text else fallback
+
+
+def _sales_rep_line(name: Any, email: Any) -> str:
+    name_s = str(name or "").strip()
+    email_s = str(email or "").strip()
+    if name_s and email_s:
+        return f"{html.escape(name_s)} ({html.escape(email_s)})"
+    if email_s:
+        return html.escape(email_s)
+    if name_s:
+        return html.escape(name_s)
+    return "Not listed"
+
+
 def render_email_html(context: Dict[str, Any]) -> str:
-    company = html.escape(context.get("company_name") or "(unknown company)")
+    company = _blank(context.get("company_name"), "Unknown company")
     company_id = html.escape(str(context.get("company_id") or ""))
-    status = html.escape(context.get("company_status") or "—")
-    ctype = html.escape(context.get("company_type") or "(blank)")
-    trigger = html.escape(context.get("trigger_label") or context.get("trigger_type") or "")
-    job_title = html.escape(context.get("job_title") or "—")
-    candidate = html.escape(context.get("candidate_name") or "—")
-    sales_name = html.escape(context.get("sales_rep_name") or "—")
-    sales_email = html.escape(context.get("sales_rep_email") or "not found")
+    status = _blank(context.get("company_status"))
+    ctype = _blank(context.get("company_type"), "Blank")
+    trigger = _blank(
+        context.get("trigger_label") or context.get("trigger_type")
+    )
+    job_title = _blank(context.get("job_title"))
+    candidate = _blank(context.get("candidate_name"))
+    sales_line = _sales_rep_line(
+        context.get("sales_rep_name"), context.get("sales_rep_email")
+    )
     intended_to = html.escape(context.get("intended_to") or "")
-    intended_cc = html.escape(context.get("intended_cc") or "(none)")
+    intended_cc = html.escape(context.get("intended_cc") or "none")
     note = html.escape(context.get("sales_rep_note") or "")
     bh_url = html.escape(context.get("company_url") or "")
     live = bool(context.get("live"))
@@ -72,44 +92,46 @@ def render_email_html(context: Dict[str, Any]) -> str:
     if not live:
         test_banner = (
             "<p style='background:#fff3cd;padding:12px;border:1px solid #ffc107'>"
-            "<strong>TEST MODE</strong> — this message was redirected to Kyle. "
-            f"Intended To: {intended_to}. Intended CC: {intended_cc}."
+            "<strong>TEST MODE.</strong> This copy was sent only to Kyle. "
+            f"When live, it will go to {intended_to}"
+            f"{f' and copy {intended_cc}' if intended_cc and intended_cc != 'none' else ''}."
             "</p>"
         )
 
-    sales_note_html = f"<p><em>{note}</em></p>" if note else ""
-    link_html = (
-        f"<p>Company in Bullhorn: <a href=\"{bh_url}\">{company} #{company_id}</a></p>"
-        if bh_url
-        else f"<p>Company: {company} #{company_id}</p>"
-    )
+    sales_note_html = f"<p>{note}</p>" if note else ""
+    if bh_url:
+        link_html = (
+            f"<p>Open the company in Bullhorn: "
+            f"<a href=\"{bh_url}\">{company} (#{company_id})</a></p>"
+        )
+    else:
+        link_html = f"<p>Company: {company} (#{company_id})</p>"
 
     return f"""
-<html><body style="font-family:Calibri,Arial,sans-serif;font-size:14px;color:#222">
+<html><body style="font-family:Calibri,Arial,sans-serif;font-size:14px;line-height:1.45;color:#222">
 {test_banner}
 <p>Hello Accounting,</p>
 <p>
-A Myticas client has a first <strong>Client Submission</strong> and/or
-<strong>Interview</strong> — please create <strong>Location</strong>,
+Recruiting has started with this Myticas client (a Client Submission or an
+Interview). Please create the <strong>Location</strong>,
 <strong>Billing Profiles</strong>, and <strong>Invoice Terms</strong> in
-Bullhorn <em>before</em> a Placement is opened and before hours are entered.
+Bullhorn before a Placement is opened and before any hours are entered.
 </p>
 <p>
-Sales: please complete the attached <strong>Myticas New Client Onboarding
-Checklist</strong> (Ottawa) if it is not already done.
+Sales, please complete the attached <strong>Myticas New Client Onboarding
+Checklist</strong> (Ottawa) if you have not already.
 </p>
 {link_html}
 <ul>
   <li>Status: {status}</li>
   <li>Type: {ctype}</li>
-  <li>Trigger: {trigger}</li>
+  <li>What triggered this email: {trigger}</li>
   <li>Job: {job_title}</li>
   <li>Candidate: {candidate}</li>
-  <li>Sales Rep: {sales_name} &lt;{sales_email}&gt;</li>
+  <li>Sales representative: {sales_line}</li>
 </ul>
 {sales_note_html}
-<p>Scout Genius does not write to Bullhorn for this reminder — setup is still
-a Finance/Sales action.</p>
+<p>This is a reminder only. Scout does not change anything in Bullhorn.</p>
 <p>Thanks,<br>Scout Genius</p>
 </body></html>
 """.strip()
@@ -122,7 +144,7 @@ def send_notify_email(context: Dict[str, Any]) -> bool:
     context = {**context, **recipients}
     html_body = render_email_html(context)
     company = context.get("company_name") or f"Company #{context.get('company_id')}"
-    subject = f"New client onboarding — {company}"
+    subject = f"New client onboarding: {company}"
     if not recipients["live"]:
         subject = f"[TEST] {subject}"
 

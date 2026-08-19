@@ -163,6 +163,10 @@ def test_html_mentions_billing_setup_and_checklist():
     assert "Invoice Terms" in html_body
     assert "Onboarding" in html_body
     assert "TEST MODE" in html_body
+    assert "Recruiting has started" in html_body
+    assert "This is a reminder only" in html_body
+    assert "\u2014" not in html_body
+    assert "Leslie Kennedy (jbocek@stsigroup.com)" in html_body
 
 
 def test_already_notified_short_circuits():
