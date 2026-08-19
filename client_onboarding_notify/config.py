@@ -31,6 +31,12 @@ def test_email() -> str:
     return (os.environ.get("CLIENT_OB_NOTIFY_TEST_EMAIL") or TEST_EMAIL_DEFAULT).strip()
 
 
+def bcc_email() -> str:
+    return (
+        os.environ.get("CLIENT_OB_NOTIFY_BCC_EMAIL") or TEST_EMAIL_DEFAULT
+    ).strip()
+
+
 def accounting_email() -> str:
     return (
         os.environ.get("CLIENT_OB_NOTIFY_ACCOUNTING_EMAIL") or ACCOUNTING_EMAIL_DEFAULT

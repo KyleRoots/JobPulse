@@ -242,6 +242,7 @@ INDEED_TEARSHEET_PUBLISH_NOTIFY_EMAIL=kroots@myticas.com
 # CLIENT_OB_NOTIFY_ENABLED=true
 # CLIENT_OB_NOTIFY_LIVE=false
 # CLIENT_OB_NOTIFY_TEST_EMAIL=kroots@myticas.com
+# CLIENT_OB_NOTIFY_BCC_EMAIL=kroots@myticas.com
 # CLIENT_OB_NOTIFY_ACCOUNTING_EMAIL=accounting@myticas.com
 ```
 
@@ -424,7 +425,7 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
-- **Myticas client onboarding notify (Aug 19)**: Observe-only. First **Client Submission (Sendout)** or **Interview** on a Myticas company emails Accounting (`accounting@myticas.com`) and CCs the Sales Rep, attaching the Ottawa new-client checklist. Status must be Qualified / Proposal / Negotiation / Active Account; blank Type is OK; Vendor / MSP / Former Client skipped. Once per company (no nag loop, no historical backfill). **Test mode** until `CLIENT_OB_NOTIFY_LIVE=true` — mail goes only to `kroots@myticas.com` with intended To/CC in the body. No Bullhorn writes.
+- **Myticas client onboarding notify (Aug 19)**: Observe-only. First **Client Submission (Sendout)** or **Interview** on a Myticas company emails Accounting (`accounting@myticas.com`), CCs the Sales Rep, and BCCs `kroots@myticas.com`, attaching the Ottawa new-client checklist. Status must be Qualified / Proposal / Negotiation / Active Account; blank Type is OK; Vendor / MSP / Former Client skipped. Once per company (no nag loop, no historical backfill). Toggle with `CLIENT_OB_NOTIFY_LIVE`. No Bullhorn writes.
 
 - **Nice-to-have vs must-have (Aug 18)**: Recruiter-edited Configure Screening lines marked “nice to have” / “preferred” are **not** treated as disqualifiers (they used to be wrapped as “evaluate against ALL”). Having the preferred skill is a small bonus; missing it is not the decisive gap. Clear-reject notes list adjacent skills (≤8 words) instead of `N/A`; a literal **0%** is reserved for no overlapping domain (adjacent-but-wrong-function stays a clear reject, typically 5–25). Same scoring call — no extra API cost.
 

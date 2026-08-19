@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional
 
 from client_onboarding_notify.config import (
     accounting_email,
+    bcc_email,
     checklist_path,
     is_live,
     test_email,
@@ -22,21 +23,32 @@ CHECKLIST_MIME = (
 def build_recipients(sales_rep_email: Optional[str]) -> Dict[str, Any]:
     intended_to = accounting_email()
     intended_cc = (sales_rep_email or "").strip().lower() or None
+    intended_bcc = (bcc_email() or "").strip().lower() or None
     live = is_live()
     if live:
+        cc = []
+        if intended_cc and intended_cc != intended_to:
+            cc.append(intended_cc)
+        bcc = []
+        if intended_bcc and intended_bcc not in {intended_to, intended_cc}:
+            bcc.append(intended_bcc)
         return {
             "live": True,
             "to": intended_to,
-            "cc": [intended_cc] if intended_cc else [],
+            "cc": cc,
+            "bcc": bcc,
             "intended_to": intended_to,
             "intended_cc": intended_cc,
+            "intended_bcc": intended_bcc,
         }
     return {
         "live": False,
         "to": test_email(),
         "cc": [],
+        "bcc": [],
         "intended_to": intended_to,
         "intended_cc": intended_cc,
+        "intended_bcc": intended_bcc,
     }
 
 
@@ -84,6 +96,7 @@ def render_email_html(context: Dict[str, Any]) -> str:
     )
     intended_to = html.escape(context.get("intended_to") or "")
     intended_cc = html.escape(context.get("intended_cc") or "none")
+    intended_bcc = html.escape(context.get("intended_bcc") or "none")
     note = html.escape(context.get("sales_rep_note") or "")
     bh_url = html.escape(context.get("company_url") or "")
     live = bool(context.get("live"))
@@ -94,7 +107,8 @@ def render_email_html(context: Dict[str, Any]) -> str:
             "<p style='background:#fff3cd;padding:12px;border:1px solid #ffc107'>"
             "<strong>TEST MODE.</strong> This copy was sent only to Kyle. "
             f"When live, it will go to {intended_to}"
-            f"{f' and copy {intended_cc}' if intended_cc and intended_cc != 'none' else ''}."
+            f"{f', copy {intended_cc}' if intended_cc and intended_cc != 'none' else ''}"
+            f"{f', and BCC {intended_bcc}' if intended_bcc and intended_bcc != 'none' else ''}."
             "</p>"
         )
 
@@ -131,8 +145,6 @@ Checklist</strong> (Ottawa) if you have not already.
   <li>Sales representative: {sales_line}</li>
 </ul>
 {sales_note_html}
-<p>This is a reminder only. Scout does not change anything in Bullhorn.</p>
-<p>Thanks,<br>Scout Genius</p>
 </body></html>
 """.strip()
 
@@ -160,6 +172,7 @@ def send_notify_email(context: Dict[str, Any]) -> bool:
         html_content=html_body,
         notification_type="client_onboarding_notify",
         cc_emails=recipients["cc"] or None,
+        bcc_emails=recipients.get("bcc") or None,
         attachments=attachments or None,
     )
     ok = bool(result and result.get("success"))

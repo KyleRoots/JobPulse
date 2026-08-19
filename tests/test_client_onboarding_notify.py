@@ -132,6 +132,7 @@ def test_test_mode_routes_only_to_kyle(monkeypatch):
     assert rec["live"] is False
     assert rec["to"] == "kroots@myticas.com"
     assert rec["cc"] == []
+    assert rec["bcc"] == []
     assert rec["intended_to"] == "accounting@myticas.com"
     assert rec["intended_cc"] == "jharvey@myticas.com"
 
@@ -141,6 +142,7 @@ def test_live_mode_to_accounting_cc_sales(monkeypatch):
     rec = build_recipients("jharvey@myticas.com")
     assert rec["to"] == "accounting@myticas.com"
     assert rec["cc"] == ["jharvey@myticas.com"]
+    assert rec["bcc"] == ["kroots@myticas.com"]
 
 
 def test_html_mentions_billing_setup_and_checklist():
@@ -164,7 +166,8 @@ def test_html_mentions_billing_setup_and_checklist():
     assert "Onboarding" in html_body
     assert "TEST MODE" in html_body
     assert "Recruiting has started" in html_body
-    assert "This is a reminder only" in html_body
+    assert "This is a reminder only" not in html_body
+    assert "Scout Genius" not in html_body
     assert "\u2014" not in html_body
     assert "Leslie Kennedy (jbocek@stsigroup.com)" in html_body
 
