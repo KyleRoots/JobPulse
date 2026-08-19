@@ -16,7 +16,9 @@ from client_onboarding_notify.eligibility import (
     company_type,
     is_company_eligible,
     is_interview_appointment,
+    is_new_company_record,
     nested_entity_id,
+    parse_bh_datetime,
     resolve_sales_rep,
 )
 from client_onboarding_notify.email import build_recipients, send_notify_email
@@ -29,9 +31,46 @@ from client_onboarding_notify.subscription import (
 from extensions import db
 from models.client_onboarding_notify import ClientOnboardingNotifyLog
 
+GO_LIVE_SETTING_KEY = "client_ob_notify_go_live_at"
+
+
+def resolve_go_live_at():
+    """Companies with Bullhorn dateAdded before this instant are out of scope."""
+    from datetime import datetime
+
+    from client_onboarding_notify.config import go_live_at_from_env
+    env_ts = go_live_at_from_env()
+    if env_ts:
+        return env_ts
+
+    from models.scheduling import GlobalSettings
+
+    stored = GlobalSettings.get_value(GO_LIVE_SETTING_KEY)
+    if stored:
+        parsed = parse_bh_datetime(stored)
+        if parsed is None:
+            try:
+                parsed = datetime.fromisoformat(str(stored).replace("Z", "+00:00")).replace(
+                    tzinfo=None
+                )
+            except ValueError:
+                parsed = None
+        if parsed:
+            return parsed
+
+    now = datetime.utcnow()
+    GlobalSettings.set_value(
+        GO_LIVE_SETTING_KEY,
+        now.isoformat(),
+        description="Client OB notify: skip companies created before this time",
+        category="client_ob",
+    )
+    return now
+
+
 logger = logging.getLogger(__name__)
 
-COMPANY_FIELDS = "id,name,status,customText1,customText3,customText6"
+COMPANY_FIELDS = "id,name,status,customText1,customText3,customText6,dateAdded"
 SENDOUT_FIELDS = (
     "id,clientCorporation,jobOrder(id,title,clientCorporation),user,"
     "candidate(id,firstName,lastName)"
@@ -209,6 +248,11 @@ def process_company(
     if not company:
         logger.warning(f"client_ob company {company_id} not fetched; will retry next event")
         return "company_fetch_failed"
+
+    is_new, age_reason = is_new_company_record(company, resolve_go_live_at())
+    if not is_new:
+        logger.info(f"client_ob skip company={company_id} reason={age_reason}")
+        return f"skipped:{age_reason}"
 
     eligible, reason = is_company_eligible(company)
     if not eligible:

@@ -62,7 +62,7 @@ A comprehensive Flask-based web application that automates XML job feed processi
 - **Rules changelog**: `config/SCREENING_RULES_CHANGELOG.md`
 
 ### 1c. Myticas client onboarding notify
-Observe-only email when a Myticas company first gets a **Client Submission (Sendout)** or **Interview**. Accounting is reminded to create Location / Billing Profiles / Invoice Terms before Placement/hours; Sales is reminded to complete the Ottawa checklist (attached). Once per company; no Bullhorn writes. Test mode (`CLIENT_OB_NOTIFY_LIVE=false`) sends only to Kyle.
+Observe-only email when a **new** Myticas company (Bullhorn `dateAdded` after go-live) first gets a **Client Submission (Sendout)** or **Interview**. Existing company records are skipped even if they later get a submission. Accounting is reminded to create Location / Billing Profiles / Invoice Terms before Placement/hours; Sales is reminded to complete the Ottawa checklist (attached). Once per company; no Bullhorn writes. Live: To Accounting, CC Sales Rep, BCC Kyle.
 
 ### 2. Database-Backed Reference Number System ✨ NEW
 **Problem Solved (October 2025)**: Live XML URL returns 403 Forbidden, causing reference numbers to revert to old values.
@@ -244,6 +244,7 @@ INDEED_TEARSHEET_PUBLISH_NOTIFY_EMAIL=kroots@myticas.com
 # CLIENT_OB_NOTIFY_TEST_EMAIL=kroots@myticas.com
 # CLIENT_OB_NOTIFY_BCC_EMAIL=kroots@myticas.com
 # CLIENT_OB_NOTIFY_ACCOUNTING_EMAIL=accounting@myticas.com
+# CLIENT_OB_NOTIFY_GO_LIVE_AT=2026-08-19T17:50:00Z
 ```
 
 Optional overrides: `ENVIRONMENT_HEALTH_URL` / `SCOUTGENIUS_PUBLIC_URL` for env-monitor probe URL.
@@ -425,7 +426,7 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
-- **Myticas client onboarding notify (Aug 19)**: Observe-only. First **Client Submission (Sendout)** or **Interview** on a Myticas company emails Accounting (`accounting@myticas.com`), CCs the Sales Rep, and BCCs `kroots@myticas.com`, attaching the Ottawa new-client checklist. Status must be Qualified / Proposal / Negotiation / Active Account; blank Type is OK; Vendor / MSP / Former Client skipped. Once per company (no nag loop, no historical backfill). Toggle with `CLIENT_OB_NOTIFY_LIVE`. No Bullhorn writes.
+- **Myticas client onboarding notify (Aug 19)**: Observe-only. First **Client Submission (Sendout)** or **Interview** on a **new** Myticas company (created in Bullhorn at or after go-live) emails Accounting (`accounting@myticas.com`), CCs the Sales Rep, and BCCs `kroots@myticas.com`, attaching the Ottawa new-client checklist. Existing companies are not notified. Status must be Qualified / Proposal / Negotiation / Active Account; blank Type is OK; Vendor / MSP / Former Client skipped. Once per company. Toggle with `CLIENT_OB_NOTIFY_LIVE`. No Bullhorn writes.
 
 - **Nice-to-have vs must-have (Aug 18)**: Recruiter-edited Configure Screening lines marked “nice to have” / “preferred” are **not** treated as disqualifiers (they used to be wrapped as “evaluate against ALL”). Having the preferred skill is a small bonus; missing it is not the decisive gap. Clear-reject notes list adjacent skills (≤8 words) instead of `N/A`; a literal **0%** is reserved for no overlapping domain (adjacent-but-wrong-function stays a clear reject, typically 5–25). Same scoring call — no extra API cost.
 

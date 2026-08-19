@@ -8,9 +8,13 @@ from unittest.mock import MagicMock
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 os.environ.setdefault("SESSION_SECRET", "test-secret")
 
+from datetime import datetime
+
 from client_onboarding_notify.eligibility import (  # noqa: E402
     is_company_eligible,
     is_interview_appointment,
+    is_new_company_record,
+    parse_bh_datetime,
     resolve_sales_rep,
     sales_rep_picker_user_id,
 )
@@ -47,6 +51,38 @@ def test_vendor_type_skipped_even_if_qualified():
 def test_msp_and_former_client_skipped():
     assert is_company_eligible({"status": "Proposal", "customText1": "MSP"})[0] is False
     assert is_company_eligible({"status": "Negotiation", "customText1": "Former Client"})[0] is False
+
+
+def test_existing_company_skipped_by_date_added():
+    go_live = datetime(2026, 8, 19, 17, 50, 0)
+    # Kent Worldwide-style: created years earlier (epoch ms).
+    old_ms = int(datetime(2024, 1, 15).timestamp() * 1000)
+    ok, reason = is_new_company_record({"dateAdded": old_ms}, go_live)
+    assert ok is False
+    assert reason == "existing_company"
+
+
+def test_new_company_allowed_by_date_added():
+    go_live = datetime(2026, 8, 19, 17, 50, 0)
+    new_ms = int(datetime(2026, 8, 20, 12, 0, 0).timestamp() * 1000)
+    ok, reason = is_new_company_record({"dateAdded": new_ms}, go_live)
+    assert ok is True
+    assert reason == ""
+
+
+def test_missing_date_added_treated_as_existing():
+    go_live = datetime(2026, 8, 19, 17, 50, 0)
+    ok, reason = is_new_company_record({}, go_live)
+    assert ok is False
+    assert reason == "existing_or_unknown_date_added"
+
+
+def test_parse_bh_datetime_millis_and_iso():
+    from datetime import timezone
+    ms = int(datetime(2026, 8, 19, 17, 50, 0, tzinfo=timezone.utc).timestamp() * 1000)
+    dt = parse_bh_datetime(ms)
+    assert dt == datetime(2026, 8, 19, 17, 50, 0)
+    assert parse_bh_datetime("2026-08-19T17:50:00Z").hour == 17
 
 
 def test_picker_id_from_custom_text3():

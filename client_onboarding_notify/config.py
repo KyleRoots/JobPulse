@@ -43,6 +43,18 @@ def accounting_email() -> str:
     ).strip()
 
 
+def go_live_at_from_env():
+    """Optional ISO timestamp. Companies with dateAdded before this are skipped."""
+    raw = (os.environ.get("CLIENT_OB_NOTIFY_GO_LIVE_AT") or "").strip()
+    if not raw:
+        return None
+    from datetime import datetime
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00")).replace(tzinfo=None)
+    except ValueError:
+        return None
+
+
 def checklist_path() -> Path:
     override = (os.environ.get("CLIENT_OB_NOTIFY_CHECKLIST_PATH") or "").strip()
     if override:

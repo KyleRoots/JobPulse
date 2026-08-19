@@ -5,6 +5,7 @@ No Flask / Bullhorn I/O here — unit-tested in isolation.
 from __future__ import annotations
 
 import re
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 # Company Status (Bullhorn field `status`). Positive pipeline only.
@@ -68,6 +69,45 @@ def is_company_eligible(company: Dict[str, Any]) -> Tuple[bool, str]:
     if ctype and ctype.casefold() in {t.casefold() for t in EXCLUDED_TYPES}:
         return False, f"type_excluded:{ctype}"
 
+    return True, ""
+
+
+def parse_bh_datetime(value: Any) -> Optional[datetime]:
+    """Bullhorn dateAdded is usually epoch milliseconds; ISO strings also appear."""
+    if value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        return value.replace(tzinfo=None)
+    if isinstance(value, (int, float)):
+        ts = float(value)
+        if ts > 1e12:
+            ts /= 1000.0
+        elif ts > 1e10:
+            ts /= 1000.0
+        try:
+            return datetime.utcfromtimestamp(ts)
+        except (OSError, OverflowError, ValueError):
+            return None
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.isdigit():
+        return parse_bh_datetime(int(text))
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00")).replace(tzinfo=None)
+    except ValueError:
+        return None
+
+
+def is_new_company_record(
+    company: Dict[str, Any], go_live_at: datetime
+) -> Tuple[bool, str]:
+    """Only companies created in Bullhorn at or after go-live are in scope."""
+    added = parse_bh_datetime(company.get("dateAdded"))
+    if added is None:
+        return False, "existing_or_unknown_date_added"
+    if added < go_live_at:
+        return False, "existing_company"
     return True, ""
 
 
