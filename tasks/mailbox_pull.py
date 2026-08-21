@@ -141,11 +141,21 @@ def run_mailbox_pull_cycle(app):
                         f"📥 Mailbox-pull: error processing message "
                         f"{msg.get('id', '')[:40]}: {e}"
                     )
+                    try:
+                        db.session.rollback()
+                    except Exception:  # noqa: BLE001
+                        pass
 
                 if not ok:
                     contiguous_ok = False
                 elif contiguous_ok and received and received > (high_water_advance or ''):
                     high_water_advance = received
+
+            # Clear any leftover poisoned transaction before config writes.
+            try:
+                db.session.rollback()
+            except Exception:  # noqa: BLE001
+                pass
 
             if high_water_advance and high_water_advance != high_water:
                 VettingConfig.set_value('mailbox_pull_high_water', high_water_advance)
@@ -153,7 +163,21 @@ def run_mailbox_pull_cycle(app):
 
             VettingConfig.set_value('mailbox_pull_last_run', _utcnow_iso())
             VettingConfig.set_value('mailbox_pull_last_count', str(processed))
-            VettingConfig.set_value('mailbox_pull_last_error', '')
+            # Persist failure pressure so ops early-warning can page Kyle even
+            # when no ParsedEmail rows were created (pre-insert crashes).
+            if failures and not processed:
+                VettingConfig.set_value(
+                    'mailbox_pull_last_error',
+                    f'{failures}/{len(messages)} messages failed this cycle '
+                    f'(none processed)'
+                )
+            elif failures:
+                VettingConfig.set_value(
+                    'mailbox_pull_last_error',
+                    f'{failures}/{len(messages)} messages failed this cycle'
+                )
+            else:
+                VettingConfig.set_value('mailbox_pull_last_error', '')
 
             app.logger.info(
                 f"📥 Mailbox-pull cycle: {processed} processed "
@@ -162,6 +186,10 @@ def run_mailbox_pull_cycle(app):
             )
         except Exception as e:  # noqa: BLE001
             app.logger.error(f"📥 Mailbox-pull cycle error: {e}", exc_info=True)
+            try:
+                db.session.rollback()
+            except Exception:  # noqa: BLE001
+                pass
             try:
                 VettingConfig.set_value('mailbox_pull_last_error', str(e)[:480])
                 VettingConfig.set_value('mailbox_pull_last_run', _utcnow_iso())

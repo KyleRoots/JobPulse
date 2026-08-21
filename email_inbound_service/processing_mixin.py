@@ -187,14 +187,29 @@ class ProcessingMixin:
             # Attribute this inbound application to its owning environment by
             # the recipient (To) address. Single-tenant inbound resolves to the
             # default (Myticas) environment, so behavior is unchanged.
+            # Resolve Brand from the FULL recipient string first — mass-blast
+            # To: lines still contain apply@ somewhere in the list.
             from models import Brand
+            from email_inbound_service.field_limits import sanitize_parsed_email_fields
             environment_id = Brand.resolve_environment_id_for_recipient(recipient)
 
-            parsed_email = ParsedEmail(
+            safe = sanitize_parsed_email_fields(
                 message_id=message_id,
                 sender_email=sender,
                 recipient_email=recipient,
                 subject=subject,
+            )
+            if (recipient or '') != safe['recipient_email']:
+                self.logger.warning(
+                    "Inbound recipient_email truncated/normalized "
+                    f"({len(recipient or '')} chars → {safe['recipient_email']!r})"
+                )
+
+            parsed_email = ParsedEmail(
+                message_id=safe['message_id'],
+                sender_email=safe['sender_email'],
+                recipient_email=safe['recipient_email'],
+                subject=safe['subject'],
                 status='processing',
                 received_at=datetime.utcnow(),
                 environment_id=environment_id
@@ -745,17 +760,27 @@ class ProcessingMixin:
         except Exception as e:
             self.logger.error(f"Error processing inbound email: {e}", exc_info=True)
             result['message'] = str(e)
+            # Always clear a poisoned session. A varchar overflow (or any flush
+            # failure) otherwise blocks every later applicant in the same
+            # mailbox-pull / worker cycle via PendingRollbackError.
+            try:
+                db.session.rollback()
+            except Exception:  # noqa: BLE001
+                pass
 
             if result.get('parsed_email_id'):
                 try:
                     parsed_email = ParsedEmail.query.get(result['parsed_email_id'])
                     if parsed_email:
                         parsed_email.status = 'failed'
-                        parsed_email.processing_notes = str(e)
+                        parsed_email.processing_notes = str(e)[:2000]
                         db.session.commit()
                         self._notify_admin_parse_failure(parsed_email, str(e))
                 except Exception:
-                    pass
+                    try:
+                        db.session.rollback()
+                    except Exception:  # noqa: BLE001
+                        pass
 
         return result
 

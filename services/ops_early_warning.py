@@ -61,6 +61,12 @@ DEFAULT_MISS_BOOT_GRACE_MIN = 10.0
 # automated_upload runs every 30m; warn at 90m ≈ 3 missed cycles (60m was noisy).
 DEFAULT_SFTP_WARN_MIN = 90.0
 DEFAULT_SFTP_CRITICAL_MIN = 360.0
+# Mailbox-pull last_error sticky: page when the poller itself is broken.
+DEFAULT_MAILBOX_ERR_WARN_MIN = 10.0
+DEFAULT_MAILBOX_ERR_CRIT_MIN = 30.0
+# Intake stall: no successful Bullhorn writes while applicants should be flowing.
+DEFAULT_INTAKE_STALL_WARN_MIN = 45.0
+DEFAULT_INTAKE_STALL_CRIT_MIN = 90.0
 
 CONFIG_ENABLED = 'ops_early_warning_enabled'
 CONFIG_COOLDOWN = 'ops_early_warning_cooldown_hours'
@@ -81,6 +87,10 @@ CONFIG_MISS_ABSURD_MAX = 'ops_early_warning_miss_stamp_absurd_max_min'
 CONFIG_MISS_BOOT_GRACE = 'ops_early_warning_miss_boot_grace_min'
 CONFIG_SFTP_WARN = 'ops_early_warning_sftp_warn_min'
 CONFIG_SFTP_CRIT = 'ops_early_warning_sftp_critical_min'
+CONFIG_MAILBOX_ERR_WARN_MIN = 'ops_early_warning_mailbox_err_warn_min'
+CONFIG_MAILBOX_ERR_CRIT_MIN = 'ops_early_warning_mailbox_err_crit_min'
+CONFIG_INTAKE_STALL_WARN_MIN = 'ops_early_warning_intake_stall_warn_min'
+CONFIG_INTAKE_STALL_CRIT_MIN = 'ops_early_warning_intake_stall_crit_min'
 
 STATE_LAST_SENT_AT = 'ops_early_warning_last_sent_at'
 STATE_LAST_SEVERITY = 'ops_early_warning_last_severity'
@@ -657,11 +667,170 @@ def _collect_sftp_freshness(now: datetime) -> HealthSignal:
     )
 
 
+def _parse_iso_dt(raw: Optional[str]) -> Optional[datetime]:
+    if not raw:
+        return None
+    text = str(raw).strip()
+    if not text:
+        return None
+    try:
+        return datetime.fromisoformat(text.replace('Z', '+00:00')).replace(tzinfo=None)
+    except ValueError:
+        return None
+
+
+def _collect_mailbox_pull_errors(now: datetime) -> HealthSignal:
+    """Page when mailbox-pull records a sticky last_error (session poison, Graph, etc.)."""
+    from models import VettingConfig
+
+    enabled_raw = (VettingConfig.get_value('mailbox_pull_enabled', 'true') or 'true').strip().lower()
+    enabled = enabled_raw in {'1', 'true', 'yes', 'on'}
+    if not enabled:
+        return HealthSignal(
+            key='mailbox_pull_errors',
+            severity=SEVERITY_NONE,
+            title='Mailbox-pull intake',
+            detail='mailbox_pull_enabled is off.',
+            metrics={'enabled': False},
+        )
+
+    err = (VettingConfig.get_value('mailbox_pull_last_error', '') or '').strip()
+    last_run_raw = VettingConfig.get_value('mailbox_pull_last_run', '')
+    last_run = _parse_iso_dt(last_run_raw)
+    age_min = ((now - last_run).total_seconds() / 60.0) if last_run else None
+    warn_min = _config_float(CONFIG_MAILBOX_ERR_WARN_MIN, DEFAULT_MAILBOX_ERR_WARN_MIN)
+    crit_min = _config_float(CONFIG_MAILBOX_ERR_CRIT_MIN, DEFAULT_MAILBOX_ERR_CRIT_MIN)
+    if crit_min < warn_min:
+        warn_min, crit_min = crit_min, warn_min
+
+    if not err:
+        return HealthSignal(
+            key='mailbox_pull_errors',
+            severity=SEVERITY_NONE,
+            title='Mailbox-pull intake',
+            detail='No mailbox_pull_last_error.',
+            metrics={'enabled': True, 'has_error': False, 'last_run': last_run_raw, 'age_min': age_min},
+        )
+
+    # Sticky error: warn immediately, escalate when it persists or is catastrophic.
+    severity = SEVERITY_WARNING
+    if (
+        age_min is None
+        or age_min >= crit_min
+        or 'none processed' in err.lower()
+        or 'stringdatarighttruncation' in err.lower()
+        or 'pendingrollback' in err.lower()
+    ):
+        severity = SEVERITY_CRITICAL
+
+    return HealthSignal(
+        key='mailbox_pull_errors',
+        severity=severity,
+        title='Mailbox-pull intake broken',
+        detail=(
+            f'mailbox_pull_last_error is set'
+            + (f' (last_run {age_min:.0f}m ago)' if age_min is not None else '')
+            + f': {err[:300]}'
+        ),
+        metrics={
+            'enabled': True,
+            'has_error': True,
+            'last_run': last_run_raw,
+            'age_min': round(age_min, 1) if age_min is not None else None,
+            'error': err[:300],
+            'warn_min': warn_min,
+            'crit_min': crit_min,
+        },
+    )
+
+
+def _collect_inbound_intake_stall(now: datetime) -> HealthSignal:
+    """Catch outages that never create completed ParsedEmail rows (pre-insert crash).
+
+    If mailbox-pull is on and we have zero successful Bullhorn writes for too
+    long during weekday business hours UTC evening / NA daytime, warn. Uses
+    completed+non-null BH as the success metric (same as write-rate signal).
+    """
+    from models import ParsedEmail, VettingConfig
+    from sqlalchemy import and_
+
+    enabled_raw = (VettingConfig.get_value('mailbox_pull_enabled', 'true') or 'true').strip().lower()
+    enabled = enabled_raw in {'1', 'true', 'yes', 'on'}
+    if not enabled:
+        return HealthSignal(
+            key='inbound_intake_stall',
+            severity=SEVERITY_NONE,
+            title='Inbound intake activity',
+            detail='mailbox_pull_enabled is off; stall check skipped.',
+            metrics={'enabled': False},
+        )
+
+    warn_min = _config_float(CONFIG_INTAKE_STALL_WARN_MIN, DEFAULT_INTAKE_STALL_WARN_MIN)
+    crit_min = _config_float(CONFIG_INTAKE_STALL_CRIT_MIN, DEFAULT_INTAKE_STALL_CRIT_MIN)
+    if crit_min < warn_min:
+        warn_min, crit_min = crit_min, warn_min
+
+    since_warn = now - timedelta(minutes=warn_min)
+    since_crit = now - timedelta(minutes=crit_min)
+
+    def _success_count(since: datetime) -> int:
+        return ParsedEmail.query.filter(
+            and_(
+                ParsedEmail.status == 'completed',
+                ParsedEmail.received_at >= since,
+                ParsedEmail.bullhorn_candidate_id.isnot(None),
+            )
+        ).count()
+
+    ok_warn = _success_count(since_warn)
+    ok_crit = _success_count(since_crit)
+    failed_warn = ParsedEmail.query.filter(
+        and_(
+            ParsedEmail.status == 'failed',
+            ParsedEmail.received_at >= since_warn,
+        )
+    ).count()
+
+    err = (VettingConfig.get_value('mailbox_pull_last_error', '') or '').strip()
+    severity = SEVERITY_NONE
+    if ok_crit == 0 and (failed_warn > 0 or err):
+        severity = SEVERITY_CRITICAL
+    elif ok_warn == 0 and (failed_warn > 0 or err):
+        severity = SEVERITY_WARNING
+    elif ok_warn == 0 and failed_warn == 0 and not err:
+        # Quiet window with no failures — could be off-hours; do not page.
+        severity = SEVERITY_NONE
+
+    detail = (
+        f'Successful BH writes: {ok_warn} in last {warn_min:g}m, '
+        f'{ok_crit} in last {crit_min:g}m; failed rows last {warn_min:g}m={failed_warn}.'
+    )
+    if err:
+        detail += f' mailbox_pull_last_error={err[:160]}'
+
+    return HealthSignal(
+        key='inbound_intake_stall',
+        severity=severity,
+        title='Inbound apply → Bullhorn stall',
+        detail=detail,
+        metrics={
+            'ok_warn_window': ok_warn,
+            'ok_crit_window': ok_crit,
+            'failed_warn_window': failed_warn,
+            'has_mailbox_error': bool(err),
+            'warn_min': warn_min,
+            'crit_min': crit_min,
+        },
+    )
+
+
 def collect_signals(now: Optional[datetime] = None) -> List[HealthSignal]:
     """Run all Phase 1 collectors. Each collector is fail-soft."""
     now = now or datetime.utcnow()
     collectors = (
         _collect_inbound_null_bh,
+        _collect_inbound_intake_stall,
+        _collect_mailbox_pull_errors,
         _collect_screening_stall,
         _collect_scheduler_misses,
         _collect_sftp_freshness,

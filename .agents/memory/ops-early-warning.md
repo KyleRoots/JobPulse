@@ -28,9 +28,11 @@ Phase 1 **reuses** SendGrid + `health_alert_email` fallback, VettingConfig state
 ## Phase 1 signals (highest ROI)
 
 1. **Inbound NULL Bullhorn ID rate** — Among recent `ParsedEmail` with `status='completed'`, elevated share with `bullhorn_candidate_id IS NULL` vs healthy baseline (~6–12% null / ~88–94% write). Outage cliff ≈ ~0% writes while completed volume stays normal. See inbound-bullhorn-outage-signal.md.
-2. **Screening stall** — High inflight age, elevated 24h failed rate, or zero completed progress while `vetting_enabled` and scheduler claim healthy (extends `/admin/health` inflight/failed tiles into email). **Zombie guard:** when `completed_last_Nm > 0` and every inflight row is older than `ops_early_warning_stall_zombie_age_min` (default 24h), age/zero-progress do not CRITICAL.
-3. **Protected scheduler misses** — `process_bullhorn_monitors`, `candidate_vetting_cycle`, `vetting_health_check`: last-run age exceeds expected interval × N. **Absurd-stamp guard:** ages ≥ `ops_early_warning_miss_stamp_absurd_max_min` (default 24h) are treated as frozen metadata, not live misses. Boot grace for missing stamps.
-4. **Optional / included if cheap:** SFTP freshness when automated uploads are enabled (`last_sftp_upload_time` stale) — warn default **90m** (30m upload cadence; 60m was noisy), critical 360m.
+2. **Inbound intake stall** — Zero successful BH writes for 45m/90m **and** evidence of trouble (`mailbox_pull_last_error` or failed ParsedEmail rows). Catches pre-insert crashes that never create `completed` rows (the Aug 20 2026 varchar-255 session-poison case).
+3. **Mailbox-pull sticky error** — `mailbox_pull_last_error` set → WARNING immediately; CRITICAL if it persists ≥30m or the error text shows truncation / PendingRollback / "none processed".
+4. **Screening stall** — High inflight age, elevated 24h failed rate, or zero completed progress while `vetting_enabled` and scheduler claim healthy (extends `/admin/health` inflight/failed tiles into email). **Zombie guard:** when `completed_last_Nm > 0` and every inflight row is older than `ops_early_warning_stall_zombie_age_min` (default 24h), age/zero-progress do not CRITICAL.
+5. **Protected scheduler misses** — `process_bullhorn_monitors`, `candidate_vetting_cycle`, `vetting_health_check`: last-run age exceeds expected interval × N. **Absurd-stamp guard:** ages ≥ `ops_early_warning_miss_stamp_absurd_max_min` (default 24h) are treated as frozen metadata, not live misses. Boot grace for missing stamps.
+6. **Optional / included if cheap:** SFTP freshness when automated uploads are enabled (`last_sftp_upload_time` stale) — warn default **90m** (30m upload cadence; 60m was noisy), critical 360m.
 
 Implementation: `services/ops_early_warning.py`, job id `ops_early_warning` (every 15 min), tile `ops_early_warning` on `/admin/health`.
 
