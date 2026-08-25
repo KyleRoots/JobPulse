@@ -709,14 +709,6 @@ def enforce_employment_continuity_gap(result, job_id):
     except (ValueError, TypeError):
         return
 
-    raw_penalty = gap_analysis.get('penalty_applied', None)
-    if raw_penalty is None or raw_penalty == '':
-        return
-    try:
-        ai_penalty = abs(int(raw_penalty))
-    except (ValueError, TypeError):
-        return
-
     if gap_months >= 36:
         target_penalty = 15
     elif gap_months >= 24:
@@ -724,6 +716,20 @@ def enforce_employment_continuity_gap(result, job_id):
     elif gap_months >= 12:
         target_penalty = 8
     else:
+        return
+
+    last_end = gap_analysis.get('last_role_end_date', 'unknown')
+    # Always stamp recruiter-facing gap text, even when the numeric penalty
+    # was already correct. Qualified Bullhorn notes hide the Gaps block, so
+    # this sentence is how recruiters see 12+ months without recent work.
+    _ensure_employment_gap_gaps_text(result, last_end, gap_months)
+
+    raw_penalty = gap_analysis.get('penalty_applied', None)
+    if raw_penalty is None or raw_penalty == '':
+        return
+    try:
+        ai_penalty = abs(int(raw_penalty))
+    except (ValueError, TypeError):
         return
 
     if ai_penalty >= target_penalty:
@@ -735,7 +741,6 @@ def enforce_employment_continuity_gap(result, job_id):
     match_before = result['match_score']
     result['match_score'] = max(0, match_before - delta)
 
-    last_end = gap_analysis.get('last_role_end_date', 'unknown')
     logger.info(
         f"📉 Continuity gap enforcer: AI applied {ai_penalty}pts but target is "
         f"{target_penalty}pts for {gap_months}-month gap (last role ended {last_end}). "
@@ -747,17 +752,23 @@ def enforce_employment_continuity_gap(result, job_id):
 
     _CONTINUITY_GAP_ENFORCER_COUNTER += 1
 
+
+def _ensure_employment_gap_gaps_text(result, last_end, gap_months):
+    """Idempotently add the employment-gap clause to gaps_identified."""
+    existing_gaps = result.get('gaps_identified', '') or ''
+    lower = existing_gaps.lower()
+    if 'candidate last employed' in lower:
+        return
+    if 'employment gap:' in lower and 'mid-career' not in lower:
+        return
     continuity_note = (
         f"Employment gap: candidate last employed {last_end} "
-        f"({gap_months} months ago) — penalty -{target_penalty}pts."
+        f"({gap_months} months ago)."
     )
-    existing_gaps = result.get('gaps_identified', '') or ''
-    continuity_signature = 'candidate last employed'
-    if continuity_signature not in existing_gaps.lower():
-        if existing_gaps:
-            result['gaps_identified'] = f"{existing_gaps} | {continuity_note}"
-        else:
-            result['gaps_identified'] = continuity_note
+    if existing_gaps:
+        result['gaps_identified'] = f"{existing_gaps} | {continuity_note}"
+    else:
+        result['gaps_identified'] = continuity_note
 
 
 def enforce_midcareer_gap(result, job_id):

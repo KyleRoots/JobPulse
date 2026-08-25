@@ -11,11 +11,98 @@ Contains:
 import logging
 logger = logging.getLogger(__name__)
 import json
+import re
 from datetime import datetime, timedelta
 from typing import Iterable, List, Optional, Sequence
 from app import db
 from models import CandidateJobMatch, CandidateVettingLog, JobVettingRequirements
 from screening.location_review import is_location_review_match, resolve_match_threshold
+
+_MONTH_ABBREV = (
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+)
+
+_EMPLOYMENT_GAP_RE = re.compile(
+    r'Employment gap:\s*candidate last employed\s+(.+?)\s+\((\d+)\s+months ago\)',
+    re.IGNORECASE,
+)
+_EMPLOYMENT_GAP_CLAUSE_HINTS = (
+    'candidate last employed',
+    'employment continuity unknown',
+)
+
+
+def _format_last_employed(raw: str) -> str:
+    """Turn 2022-12 / 2022-12-31 into 'Dec 2022'; leave prose dates as-is."""
+    text = (raw or '').strip().rstrip('.,;')
+    if not text or text.lower() in {'unknown', 'n/a', 'none'}:
+        return ''
+    iso = re.match(r'^(\d{4})-(\d{2})(?:-\d{2})?$', text)
+    if iso:
+        month_idx = int(iso.group(2))
+        if 1 <= month_idx <= 12:
+            return f"{_MONTH_ABBREV[month_idx - 1]} {iso.group(1)}"
+    return text
+
+
+def _humanize_gap_months(months: int) -> str:
+    years, rem = divmod(int(months), 12)
+    if years <= 0:
+        return f"{months} months"
+    year_bit = '1 year' if years == 1 else f'{years} years'
+    if rem == 0:
+        return f"{months} months ({year_bit})"
+    month_bit = '1 month' if rem == 1 else f'{rem} months'
+    return f"{months} months ({year_bit} {month_bit})"
+
+
+def _is_employment_gap_clause(text: str) -> bool:
+    lower = (text or '').lower()
+    if 'mid-career' in lower:
+        return False
+    if any(hint in lower for hint in _EMPLOYMENT_GAP_CLAUSE_HINTS):
+        return True
+    # Prompt/enforcer phrasing for the CURRENT unemployment gap, not mid-career.
+    return 'employment gap:' in lower
+
+
+def split_employment_gap_clauses(gaps_text: str) -> tuple[str, str]:
+    """Split gaps_identified into (employment-gap clauses, everything else)."""
+    raw = (gaps_text or '').strip()
+    if not raw:
+        return '', ''
+    parts = [p.strip() for p in raw.replace(' | ', '|').split('|') if p.strip()]
+    gap_parts = [p for p in parts if _is_employment_gap_clause(p)]
+    other_parts = [p for p in parts if not _is_employment_gap_clause(p)]
+    return ' | '.join(gap_parts), ' | '.join(other_parts)
+
+
+def format_recent_experience_line(gaps_text: str) -> str:
+    """Recruiter-facing one-liner when the candidate has 12+ months without work.
+
+    Qualified notes historically hid the Gaps block, so this line is always
+    rendered (qualified and not recommended) when we can detect the gap.
+    """
+    gap_blob, _ = split_employment_gap_clauses(gaps_text)
+    if not gap_blob:
+        return ''
+    parsed = _EMPLOYMENT_GAP_RE.search(gap_blob)
+    if parsed:
+        last_employed = _format_last_employed(parsed.group(1))
+        months = int(parsed.group(2))
+        duration = _humanize_gap_months(months)
+        if last_employed:
+            return (
+                f"Recent experience: last employed {last_employed}, "
+                f"{duration} with no recent work."
+            )
+        return f"Recent experience: {duration} with no recent work."
+    # Unknown-dates / nonstandard phrasing: still surface a short line.
+    cleaned = re.sub(r'\s*—\s*penalty\s+-\d+pts\.?', '', gap_blob, flags=re.I).strip()
+    if cleaned:
+        return f"Recent experience: {cleaned}"
+    return ''
 
 # Outcome buckets used by the 6h Bullhorn note duplicate safeguard.
 # Same-outcome duplicates stay blocked; outcome flips must supersede so
@@ -388,16 +475,23 @@ class NoteBuilderMixin:
         if is_applied:
             lines.append(f"  ⭐ APPLIED TO THIS POSITION")
 
+        normalized_gaps = self._normalize_gaps_text(
+            match.gaps_identified, candidate_id
+        ) if match.gaps_identified else ''
+        recent_line = format_recent_experience_line(normalized_gaps)
+        _, other_gaps = split_employment_gap_clauses(normalized_gaps)
+
         # Compact related matches: score + one complete gap clause
         # (no full Summary/Skills dossier, never mid-sentence ellipsis).
         if brief:
+            if recent_line:
+                lines.append(f"  {recent_line}")
             one_liner = ''
-            if show_gaps and match.gaps_identified:
-                gaps_text = self._normalize_gaps_text(match.gaps_identified, candidate_id)
-                one_liner = self._complete_brief_clause(gaps_text, max_len=140)
+            if show_gaps and other_gaps:
+                one_liner = self._complete_brief_clause(other_gaps, max_len=140)
                 if one_liner:
                     lines.append(f"  Gaps: {one_liner}")
-            if not one_liner and match.match_summary:
+            if not recent_line and not one_liner and match.match_summary:
                 summary = self._complete_brief_clause(
                     (match.match_summary or '').strip(), max_len=120
                 )
@@ -407,10 +501,11 @@ class NoteBuilderMixin:
 
         lines.append(f"  Summary: {match.match_summary}")
         lines.append(f"  Skills: {match.skills_match}")
+        if recent_line:
+            lines.append(f"  {recent_line}")
 
-        if show_gaps and match.gaps_identified:
-            gaps_text = self._normalize_gaps_text(match.gaps_identified, candidate_id)
-            lines.append(f"  Gaps: {gaps_text}")
+        if show_gaps and other_gaps:
+            lines.append(f"  Gaps: {other_gaps}")
 
         return lines
 
@@ -707,13 +802,18 @@ class NoteBuilderMixin:
                 if match_custom:
                     score_line += f"  |  Threshold: {match_custom:.0f}% (custom)"
                 gaps_full = m.gaps_identified or ''
+                recent_line = format_recent_experience_line(gaps_full)
                 loc_gap_parts = [
                     part.strip() for part in gaps_full.replace(' | ', '|').split('|')
                     if 'location' in part.lower()
                 ]
                 non_loc_parts = [
                     part.strip() for part in gaps_full.replace(' | ', '|').split('|')
-                    if 'location' not in part.lower() and part.strip()
+                    if (
+                        'location' not in part.lower()
+                        and part.strip()
+                        and not _is_employment_gap_clause(part)
+                    )
                 ]
                 loc_gap_text = ' | '.join(loc_gap_parts) if loc_gap_parts else ''
                 note_lines += [
@@ -724,6 +824,8 @@ class NoteBuilderMixin:
                     f"  Summary: {m.match_summary}",
                     f"  Skills: {m.skills_match}",
                 ]
+                if recent_line:
+                    note_lines.append(f"  {recent_line}")
                 if non_loc_parts:
                     note_lines.append(f"  Other Gaps: {' | '.join(non_loc_parts)}")
                 if loc_gap_text:
