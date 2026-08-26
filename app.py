@@ -379,72 +379,86 @@ with app.app_context():
     db.create_all()
     logger.info("Boot: db.create_all finished")
 
-    # Run any necessary schema migrations for existing tables
-    # SQLAlchemy's create_all() only creates new tables, it doesn't add columns to existing ones
-    try:
-        from sqlalchemy import inspect, text
-        inspector = inspect(db.engine)
 
-        # Migration: Add vetting_threshold column to job_vetting_requirements if missing
-        if 'job_vetting_requirements' in inspector.get_table_names():
-            columns = [col['name'] for col in inspector.get_columns('job_vetting_requirements')]
-            if 'vetting_threshold' not in columns:
-                db.session.execute(text('ALTER TABLE job_vetting_requirements ADD COLUMN vetting_threshold INTEGER'))
-                db.session.commit()
-                app.logger.info('🔧 Migration: Added vetting_threshold column to job_vetting_requirements')
+def _boot_schema_and_seed():
+    """Run inspect/seed off the gunicorn import path so --preload can bind /health.
 
-        # Migration: Add retry_blocked columns to candidate_vetting_log if missing
-        if 'candidate_vetting_log' in inspector.get_table_names():
-            columns = [col['name'] for col in inspector.get_columns('candidate_vetting_log')]
-            if 'retry_blocked' not in columns:
-                db.session.execute(text('ALTER TABLE candidate_vetting_log ADD COLUMN retry_blocked BOOLEAN DEFAULT FALSE'))
-                db.session.commit()
-                app.logger.info('🔧 Migration: Added retry_blocked column to candidate_vetting_log')
-            if 'retry_block_reason' not in columns:
-                db.session.execute(text('ALTER TABLE candidate_vetting_log ADD COLUMN retry_block_reason VARCHAR(500)'))
-                db.session.commit()
-                app.logger.info('🔧 Migration: Added retry_block_reason column to candidate_vetting_log')
+    Failed Aug 26 deploys hung after create_all (likely ALTER/inspect waiting on
+    job_vetting_requirements) and never answered Railway's healthcheck.
+    """
+    with app.app_context():
+        logger.info("Boot: schema inspect/seed starting")
+        try:
+            from sqlalchemy import inspect, text
+            inspector = inspect(db.engine)
+            logger.info("Boot: inspector ready")
 
-        # Migration: Add login abuse-control columns to user table if missing
-        if 'user' in inspector.get_table_names():
-            user_cols = [col['name'] for col in inspector.get_columns('user')]
-            if 'failed_login_attempts' not in user_cols:
-                db.session.execute(text('ALTER TABLE "user" ADD COLUMN failed_login_attempts INTEGER NOT NULL DEFAULT 0'))
-                db.session.commit()
-                app.logger.info('🔧 Migration: Added failed_login_attempts column to user')
-            if 'locked_until' not in user_cols:
-                db.session.execute(text('ALTER TABLE "user" ADD COLUMN locked_until TIMESTAMP WITHOUT TIME ZONE'))
-                db.session.commit()
-                app.logger.info('🔧 Migration: Added locked_until column to user')
-    except Exception as migrate_err:
-        app.logger.warning(f'Migration check failed (may be first run): {migrate_err}')
+            if 'job_vetting_requirements' in inspector.get_table_names():
+                columns = [col['name'] for col in inspector.get_columns('job_vetting_requirements')]
+                if 'vetting_threshold' not in columns:
+                    db.session.execute(text("SET LOCAL lock_timeout = '5s'"))
+                    db.session.execute(text('ALTER TABLE job_vetting_requirements ADD COLUMN vetting_threshold INTEGER'))
+                    db.session.commit()
+                    app.logger.info('🔧 Migration: Added vetting_threshold column to job_vetting_requirements')
 
-    # Seed database with initial data (production-safe, idempotent)
-    try:
-        from seed_database import seed_database, FreshProductionDatabaseError
-        from models import User
+            if 'candidate_vetting_log' in inspector.get_table_names():
+                columns = [col['name'] for col in inspector.get_columns('candidate_vetting_log')]
+                if 'retry_blocked' not in columns:
+                    db.session.execute(text("SET LOCAL lock_timeout = '5s'"))
+                    db.session.execute(text('ALTER TABLE candidate_vetting_log ADD COLUMN retry_blocked BOOLEAN DEFAULT FALSE'))
+                    db.session.commit()
+                    app.logger.info('🔧 Migration: Added retry_blocked column to candidate_vetting_log')
+                if 'retry_block_reason' not in columns:
+                    db.session.execute(text("SET LOCAL lock_timeout = '5s'"))
+                    db.session.execute(text('ALTER TABLE candidate_vetting_log ADD COLUMN retry_block_reason VARCHAR(500)'))
+                    db.session.commit()
+                    app.logger.info('🔧 Migration: Added retry_block_reason column to candidate_vetting_log')
 
-        seeding_results = seed_database(db, User)
+            if 'user' in inspector.get_table_names():
+                user_cols = [col['name'] for col in inspector.get_columns('user')]
+                if 'failed_login_attempts' not in user_cols:
+                    db.session.execute(text("SET LOCAL lock_timeout = '5s'"))
+                    db.session.execute(text('ALTER TABLE "user" ADD COLUMN failed_login_attempts INTEGER NOT NULL DEFAULT 0'))
+                    db.session.commit()
+                    app.logger.info('🔧 Migration: Added failed_login_attempts column to user')
+                if 'locked_until' not in user_cols:
+                    db.session.execute(text("SET LOCAL lock_timeout = '5s'"))
+                    db.session.execute(text('ALTER TABLE "user" ADD COLUMN locked_until TIMESTAMP WITHOUT TIME ZONE'))
+                    db.session.commit()
+                    app.logger.info('🔧 Migration: Added locked_until column to user')
+        except Exception as migrate_err:
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+            app.logger.warning(f'Migration check failed (may be first run): {migrate_err}')
 
-        if seeding_results.get('admin_created'):
-            app.logger.info(f"🌱 Database seeding: Created admin user {seeding_results.get('admin_username')}")
-        else:
-            app.logger.info(f"🌱 Database seeding: Admin user already exists ({seeding_results.get('admin_username')})")
+        try:
+            from seed_database import seed_database, FreshProductionDatabaseError
+            from models import User
+            logger.info("Boot: seed_database starting")
+            seeding_results = seed_database(db, User)
+            if seeding_results.get('admin_created'):
+                app.logger.info(f"🌱 Database seeding: Created admin user {seeding_results.get('admin_username')}")
+            else:
+                app.logger.info(f"🌱 Database seeding: Admin user already exists ({seeding_results.get('admin_username')})")
+            if seeding_results.get('errors'):
+                for error in seeding_results['errors']:
+                    app.logger.error(f"🌱 Seeding error: {error}")
+        except FreshProductionDatabaseError:
+            app.logger.error("Fresh production DB guard tripped during background seed")
+        except Exception as e:
+            app.logger.error(f"❌ Database seeding failed: {str(e)}")
+            app.logger.debug(f"Seeding error details: {traceback.format_exc()}")
+        logger.info("Boot: schema inspect/seed finished")
 
-        if seeding_results.get('errors'):
-            for error in seeding_results['errors']:
-                app.logger.error(f"🌱 Seeding error: {error}")
 
-    except FreshProductionDatabaseError:
-        # HARD HALT: the fresh-prod-DB guard tripped. Do NOT let this be
-        # swallowed by the generic Exception handler below — propagate the
-        # error so gunicorn fails to import the worker and the deployment
-        # is blocked. The operator must investigate and explicitly opt in
-        # via ALLOW_FRESH_PROD_SEED=true before this can proceed.
-        raise
-    except Exception as e:
-        app.logger.error(f"❌ Database seeding failed: {str(e)}")
-        app.logger.debug(f"Seeding error details: {traceback.format_exc()}")
+threading.Thread(
+    target=_boot_schema_and_seed,
+    name="boot-schema-seed",
+    daemon=True,
+).start()
+logger.info("Boot: schema inspect/seed started in background so gunicorn can bind")
 
 # Initialize scheduler with optimized settings and delayed start
 scheduler = BackgroundScheduler(
