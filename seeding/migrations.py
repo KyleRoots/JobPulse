@@ -10,6 +10,7 @@ These run inside seed_database() at boot time:
 
 import os
 import re
+import time
 import logging
 from datetime import datetime
 
@@ -112,10 +113,39 @@ def run_schema_migrations(db):
             """)
             result = db.session.execute(check_sql, {'table': table, 'column': column})
             if result.fetchone() is None:
-                alter_sql = text('ALTER TABLE ' + table + ' ADD COLUMN ' + column + ' ' + col_type)
-                db.session.execute(alter_sql)
-                db.session.commit()
-                logger.info(f"✅ Added column {column} to {table}")
+                # AccessExclusiveLock. A bare ALTER waits forever behind
+                # idle-in-transaction sessions; gunicorn --preload never binds
+                # (Aug 26 2026 Railway /health: employer_telecom_boost).
+                alter_sql = text(
+                    'ALTER TABLE ' + table + ' ADD COLUMN IF NOT EXISTS '
+                    + column + ' ' + col_type
+                )
+                added = False
+                for attempt in range(1, 13):
+                    try:
+                        logger.info(
+                            f"Adding column {column} to {table} "
+                            f"(lock_timeout=5s, attempt {attempt}/12)"
+                        )
+                        db.session.execute(text("SET LOCAL lock_timeout = '5s'"))
+                        db.session.execute(alter_sql)
+                        db.session.commit()
+                        logger.info(f"✅ Added column {column} to {table}")
+                        added = True
+                        break
+                    except Exception as alter_err:
+                        db.session.rollback()
+                        err = str(alter_err).lower()
+                        if 'lock' not in err or attempt == 12:
+                            raise
+                        logger.warning(
+                            f"⚠️ Lock timeout adding {table}.{column}; retrying"
+                        )
+                        time.sleep(1)
+                if not added:
+                    raise RuntimeError(
+                        f"Could not add {table}.{column} after 12 lock attempts"
+                    )
         except Exception as e:
             db.session.rollback()
             logger.warning(f"⚠️ Migration skipped for {table}.{column}: {str(e)}")

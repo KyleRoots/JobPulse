@@ -51,3 +51,13 @@ def test_unique_swap_skips_drop_when_already_migrated(app):
 
     ddl = [sql for sql, _ in executed if 'DROP CONSTRAINT' in sql.upper()]
     assert ddl == [], f'expected no DROP CONSTRAINT when swap complete, got: {ddl}'
+
+
+def test_add_column_boot_uses_lock_timeout():
+    import inspect
+    from seeding.migrations import run_schema_migrations
+
+    src = inspect.getsource(run_schema_migrations)
+    assert "SET LOCAL lock_timeout" in src
+    assert "ADD COLUMN IF NOT EXISTS" in src
+    assert "employer_telecom_boost" in src

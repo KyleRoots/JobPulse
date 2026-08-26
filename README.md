@@ -426,7 +426,7 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
-- **Telecom/satellite employer boost (Aug 26)**: Scout job config now has a second +5 checkbox beside consulting prestige, for major telecom and satellite employers. Independent toggles, same location gate, no stacking. Recognition is a fixed list (not an AI guess), including Canadian names such as Telesat, Bell, Rogers, TELUS, Shaw, Videotron, and MDA Space.
+- **Telecom/satellite employer boost (Aug 26)**: Scout job config now has a second +5 checkbox beside consulting prestige, for major telecom and satellite employers. Independent toggles, same location gate, no stacking. Recognition is a fixed list (not an AI guess), including Canadian names such as Telesat, Bell, Rogers, TELUS, Shaw, Videotron, and MDA Space. Boot `ADD COLUMN` now uses a 5s lock timeout plus retries so a table lock cannot hang gunicorn `--preload` past Railway's `/health` window.
 
 - **Scout notes show employment gaps (Aug 24)**: Qualified and not-recommended Scout notes now include a one-line **Recent experience** sentence when the candidate has 12+ months without work (for example "last employed Dec 2022, 44 months with no recent work"). Scoring is unchanged; this is so recruiters still see the gap when the candidate otherwise qualifies.
 

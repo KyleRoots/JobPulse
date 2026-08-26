@@ -98,6 +98,7 @@ def with_timeout(seconds=110):
 from extensions import db, login_manager, csrf, PRODUCTION_DOMAINS, scheduler_started, scheduler_lock, create_app
 
 app = create_app()
+logger.info("create_app() complete, continuing boot")
 
 def is_production_request():
     """Detect if current request is from production domain with hardened detection"""
@@ -374,7 +375,9 @@ register_filters(app)
 
 # Initialize database tables
 with app.app_context():
+    logger.info("Boot: db.create_all starting")
     db.create_all()
+    logger.info("Boot: db.create_all finished")
 
     # Run any necessary schema migrations for existing tables
     # SQLAlchemy's create_all() only creates new tables, it doesn't add columns to existing ones
