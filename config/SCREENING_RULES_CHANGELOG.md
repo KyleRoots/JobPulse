@@ -3,6 +3,14 @@
 Each production screening result stores `screening_rules_version` so audits can
 identify which rule set produced a score.
 
+## 2026-08-26 — Telecom/satellite employer boost (no rules-version bump)
+
+- Second per-job checkbox, independent of consulting prestige.
+- Same +5 points, location-compatible only, points do not stack.
+- Fixed employer list (no AI guessing). Canada includes Telesat, Bell, Rogers,
+  TELUS, Shaw, Videotron, Freedom Mobile, SaskTel, Cogeco, Eastlink, Xplore,
+  MDA Space, Kepler Communications.
+
 ## 2026.08.06b — Clear years shortfall blocks qualify
 
 - **Product bar (Kyle):** Clear dated-tenure gaps must not present as Qualified

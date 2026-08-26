@@ -1,6 +1,9 @@
 import re
 import logging
-from screening.prestige import detect_prestige_employer
+from screening.prestige import (
+    detect_prestige_employer,
+    detect_telecom_satellite_employer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -956,10 +959,21 @@ def enforce_experience_floor(result, job_id, custom_requirements, job_descriptio
 
 
 def apply_prestige_detection(result, job_id, resume_text):
-    _prestige_firm = detect_prestige_employer(resume_text)
-    if _prestige_firm:
-        result['_prestige_employer'] = _prestige_firm
-        logger.info(f"🏢 Prestige employer detected for job {job_id}: {_prestige_firm}")
+    consulting_firm = detect_prestige_employer(resume_text)
+    telecom_firm = detect_telecom_satellite_employer(resume_text)
+    if consulting_firm:
+        result['_prestige_consulting_employer'] = consulting_firm
+        logger.info(
+            f"🏢 Consulting prestige employer detected for job {job_id}: {consulting_firm}"
+        )
+    if telecom_firm:
+        result['_prestige_telecom_employer'] = telecom_firm
+        logger.info(
+            f"📡 Telecom/satellite employer detected for job {job_id}: {telecom_firm}"
+        )
+    display_firm = consulting_firm or telecom_firm
+    if display_firm:
+        result['_prestige_employer'] = display_firm
 
 
 def apply_location_barrier(result, job_id, work_type):

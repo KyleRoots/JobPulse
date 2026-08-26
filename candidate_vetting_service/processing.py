@@ -571,6 +571,7 @@ class CandidateProcessingMixin:
 
             job_threshold_cache = {}
             job_prestige_boost_cache = {}
+            job_telecom_boost_cache = {}
             try:
                 batch_threshold_reqs = JobVettingRequirements.query.filter(
                     JobVettingRequirements.bullhorn_job_id.in_(batch_job_ids)
@@ -580,6 +581,8 @@ class CandidateProcessingMixin:
                         job_threshold_cache[req.bullhorn_job_id] = float(req.vetting_threshold)
                     if req.employer_prestige_boost:
                         job_prestige_boost_cache[req.bullhorn_job_id] = True
+                    if getattr(req, 'employer_telecom_boost', False):
+                        job_telecom_boost_cache[req.bullhorn_job_id] = True
             except Exception as e:
                 logger.error(f"Error pre-fetching job thresholds: {str(e)}")
 
@@ -618,9 +621,13 @@ class CandidateProcessingMixin:
                     # cheap-rejected if they could possibly qualify — even via a
                     # low job threshold or a prestige boost.
                     route_job_threshold = job_threshold_cache.get(job_id, global_threshold)
+                    boost_eligible = bool(
+                        job_prestige_boost_cache.get(job_id)
+                        or job_telecom_boost_cache.get(job_id)
+                    )
                     qualify_floor = self._cheap_first_qualify_floor(
                         route_job_threshold,
-                        bool(job_prestige_boost_cache.get(job_id)),
+                        boost_eligible,
                         prestige_boost_points,
                     )
                     do_escalate, cheap_gate = self._cheap_first_route(
@@ -801,11 +808,17 @@ class CandidateProcessingMixin:
 
                 job_threshold = job_threshold_cache.get(job_id, global_threshold)
 
-                _prestige_employer = analysis.get('_prestige_employer')
+                from screening.prestige import resolve_employer_boost
+                _boost_name = resolve_employer_boost(
+                    analysis.get('_prestige_consulting_employer'),
+                    analysis.get('_prestige_telecom_employer'),
+                    bool(job_prestige_boost_cache.get(job_id)),
+                    bool(job_telecom_boost_cache.get(job_id)),
+                )
+                _prestige_employer = _boost_name or analysis.get('_prestige_employer')
                 _prestige_boost_applied = False
                 _final_score = analysis.get('match_score', 0)
-                if (_prestige_employer
-                    and job_prestige_boost_cache.get(job_id)
+                if (_boost_name
                     and not analysis.get('is_location_barrier', False)
                     and 'location mismatch' not in (analysis.get('gaps_identified', '') or '').lower()):
                     from screening.prompt_builder import PRESTIGE_BOOST_POINTS

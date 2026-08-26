@@ -31,6 +31,8 @@ def run_schema_migrations(db):
         ("candidate_job_match", "years_analysis_json", "TEXT"),
         # Add employer prestige boost toggle (added Apr 2026)
         ("job_vetting_requirements", "employer_prestige_boost", "BOOLEAN DEFAULT FALSE"),
+        # Telecom/satellite employer boost (added Aug 2026, Adam / Telesat request)
+        ("job_vetting_requirements", "employer_telecom_boost", "BOOLEAN DEFAULT FALSE"),
         # Add employer prestige tracking to candidate_job_match (added Apr 2026)
         ("candidate_job_match", "prestige_employer", "VARCHAR(255)"),
         ("candidate_job_match", "prestige_boost_applied", "BOOLEAN DEFAULT FALSE"),

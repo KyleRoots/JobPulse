@@ -162,7 +162,8 @@ class JobVettingRequirements(db.Model):
     requirements_edited_by = db.Column(db.String(255), nullable=True)  # Email of the user who last edited
     vetting_threshold = db.Column(db.Integer, nullable=True)  # Custom threshold for this job (null = use global default)
     scout_vetting_enabled = db.Column(db.Boolean, nullable=True)  # null = follow global, True/False = per-job override
-    employer_prestige_boost = db.Column(db.Boolean, default=False)  # Per-job toggle for prestige employer scoring boost
+    employer_prestige_boost = db.Column(db.Boolean, default=False)  # Per-job toggle for consulting prestige boost
+    employer_telecom_boost = db.Column(db.Boolean, default=False)  # Per-job toggle for telecom/satellite employer boost
     last_ai_interpretation = db.Column(db.DateTime, nullable=True)
     # SHA-256 of the Bullhorn job description that produced ai_interpreted_requirements.
     # Used by check_and_refresh_changed_jobs so Bullhorn dateLastModified bumps that do

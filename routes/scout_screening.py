@@ -402,9 +402,14 @@ def save_job_settings(job_id):
 
         if is_ajax_threshold_save:
             employer_prestige_boost = job_req.employer_prestige_boost if job_req else False
+            employer_telecom_boost = (
+                getattr(job_req, 'employer_telecom_boost', False) if job_req else False
+            )
         else:
             prestige_boost_values = request.form.getlist('employer_prestige_boost')
             employer_prestige_boost = '1' in prestige_boost_values
+            telecom_boost_values = request.form.getlist('employer_telecom_boost')
+            employer_telecom_boost = '1' in telecom_boost_values
 
         # Edited requirements: only processed on full modal save (not AJAX threshold-only saves).
         # Empty submission OR matches the AI-original exactly → clear the edit (revert to AI).
@@ -430,6 +435,7 @@ def save_job_settings(job_id):
         if job_req:
             job_req.vetting_threshold = vetting_threshold
             job_req.employer_prestige_boost = employer_prestige_boost
+            job_req.employer_telecom_boost = employer_telecom_boost
             if not is_ajax_threshold_save:
                 if new_edited is None:
                     job_req.edited_requirements = None
@@ -445,6 +451,7 @@ def save_job_settings(job_id):
                 bullhorn_job_id=job_id,
                 vetting_threshold=vetting_threshold,
                 employer_prestige_boost=employer_prestige_boost,
+                employer_telecom_boost=employer_telecom_boost,
             )
             if not is_ajax_threshold_save and new_edited:
                 job_req.edited_requirements = new_edited
@@ -460,6 +467,7 @@ def save_job_settings(job_id):
                 'job_title': job_req.job_title or f'Job #{job_id}',
                 'threshold': vetting_threshold,
                 'employer_prestige_boost': employer_prestige_boost,
+                'employer_telecom_boost': employer_telecom_boost,
                 'page': 'scout_screening',
             }
             if edit_action is not None:
