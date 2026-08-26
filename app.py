@@ -378,6 +378,42 @@ with app.app_context():
     logger.info("Boot: db.create_all starting")
     db.create_all()
     logger.info("Boot: db.create_all finished")
+    # New mapped columns must exist before post_fork starts scheduler queries.
+    try:
+        from sqlalchemy import text as _boot_text
+        _col = db.session.execute(_boot_text(
+            "SELECT 1 FROM information_schema.columns "
+            "WHERE table_name = 'job_vetting_requirements' "
+            "AND column_name = 'employer_telecom_boost'"
+        )).fetchone()
+        if _col is None:
+            for _attempt in range(1, 7):
+                try:
+                    logger.info(
+                        f"Boot: adding employer_telecom_boost (lock_timeout=5s, "
+                        f"attempt {_attempt}/6)"
+                    )
+                    db.session.execute(_boot_text("SET LOCAL lock_timeout = '5s'"))
+                    db.session.execute(_boot_text(
+                        "ALTER TABLE job_vetting_requirements "
+                        "ADD COLUMN IF NOT EXISTS employer_telecom_boost "
+                        "BOOLEAN DEFAULT FALSE"
+                    ))
+                    db.session.commit()
+                    logger.info("Boot: employer_telecom_boost column ready")
+                    break
+                except Exception as _alter_err:
+                    db.session.rollback()
+                    logger.warning(
+                        f"Boot: employer_telecom_boost add skipped: {_alter_err}"
+                    )
+                    time.sleep(1)
+    except Exception as _col_err:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        logger.warning(f"Boot: employer_telecom_boost ensure failed: {_col_err}")
 
 
 def _boot_schema_and_seed():
