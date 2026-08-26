@@ -490,23 +490,33 @@ def allowed_resume_file(filename):
 
 
 # ── Scheduler Lock + Job Registration ─────────────────────────────────────────
+# Do not acquire the lock or register jobs at import time. gunicorn --preload
+# cannot bind until this module finishes importing (Railway healthcheck).
 
 from scheduler_setup import acquire_scheduler_lock, configure_scheduler_jobs
 
-is_primary_worker = acquire_scheduler_lock()
-print(f"🔒 SCHEDULER INIT: is_primary_worker = {is_primary_worker}", flush=True)
+is_primary_worker = False
+_scheduler_jobs_configured = False
 
-configure_scheduler_jobs(app, scheduler, is_primary_worker)
-if not is_primary_worker:
-    print(
-        f"⚠️ SCHEDULER INIT: Process {os.getpid()} skipping scheduler setup"
-        " - another worker handles scheduling",
-        flush=True,
-    )
-    app.logger.info(
-        f"⚠️ Process {os.getpid()} skipping scheduler setup"
-        " - another worker handles scheduling"
-    )
+
+def _configure_scheduler_jobs_once():
+    global is_primary_worker, _scheduler_jobs_configured
+    if _scheduler_jobs_configured:
+        return
+    is_primary_worker = acquire_scheduler_lock()
+    print(f"🔒 SCHEDULER INIT: is_primary_worker = {is_primary_worker}", flush=True)
+    configure_scheduler_jobs(app, scheduler, is_primary_worker)
+    _scheduler_jobs_configured = True
+    if not is_primary_worker:
+        print(
+            f"⚠️ SCHEDULER INIT: Process {os.getpid()} skipping scheduler setup"
+            " - another worker handles scheduling",
+            flush=True,
+        )
+        app.logger.info(
+            f"⚠️ Process {os.getpid()} skipping scheduler setup"
+            " - another worker handles scheduling"
+        )
 
 # Note: login and logout routes moved to routes/auth.py blueprint
 
@@ -656,6 +666,7 @@ def _restore_paused_jobs():
 def ensure_background_services():
     """Ensure background services are started when first needed"""
     global _background_services_started
+    _configure_scheduler_jobs_once()
     if not scheduler.running:
         try:
             scheduler.start()
@@ -736,3 +747,4 @@ def process_bullhorn_monitors():
 
 # Scheduler and background services will be started lazily when first needed
 # This significantly reduces application startup time for deployment health checks
+logger.info("app.py import complete")

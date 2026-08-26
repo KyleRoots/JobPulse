@@ -1,6 +1,6 @@
 [deploy]
-startCommand = "gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 300 --preload main:app"
-healthcheckPath = "/health"
+startCommand = "gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 300 --preload --config gunicorn.conf.py main:app"
+healthcheckPath = "/ping"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 5

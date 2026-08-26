@@ -52,29 +52,13 @@ def initialize_app():
         # Check environment
         check_environment()
         
-        # Import app after environment setup
+        # Import app after environment setup. Do not hit /health or start
+        # Bullhorn/scheduler here: gunicorn --preload cannot bind until this
+        # returns (Railway healthcheck failures Aug 26 2026). Scheduler
+        # starts in gunicorn.conf.py post_fork.
         from app import app
-        
+
         logger.info("Flask application imported successfully")
-        
-        # Test basic app functionality
-        with app.test_client() as client:
-            response = client.get('/health')
-            if response.status_code == 200:
-                logger.info("Health check passed during startup")
-            else:
-                logger.warning(f"Health check returned status {response.status_code}")
-        
-        # Always ensure monitoring is started on application boot
-        try:
-            from app import ensure_background_services
-            if ensure_background_services():
-                logger.info("Monitoring system auto-started successfully on boot")
-            else:
-                logger.warning("Could not auto-start monitoring system")
-        except Exception as e:
-            logger.warning(f"Could not auto-start monitoring: {e}")
-        
         return app
         
     except Exception as e:
