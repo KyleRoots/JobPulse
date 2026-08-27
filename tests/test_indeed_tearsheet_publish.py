@@ -519,3 +519,44 @@ class TestUIClientLoginRetry:
              patch('indeed_publish.ui_client.time.sleep'), \
              pytest.raises(BullhornUIClientError, match='401'):
             client.login_with_retry(max_attempts=2, backoff_seconds=0)
+
+
+class TestNotifyCooldown:
+    def test_skips_repeat_subject_within_window(self):
+        from indeed_publish.sync import _notify_failure
+
+        sent = {'n': 0}
+
+        class FakeEmail:
+            def send_notification_email(self, **_k):
+                sent['n'] += 1
+
+        with patch('indeed_publish.sync._notify_on_cooldown', return_value=True), \
+             patch('utils.bullhorn_helpers.get_email_service', return_value=FakeEmail()):
+            _notify_failure(
+                'Indeed tearsheet publish: Bullhorn UI login failed',
+                'UI login rejected (401)',
+                'kroots@myticas.com',
+            )
+        assert sent['n'] == 0
+
+    def test_sends_when_not_on_cooldown(self):
+        from indeed_publish.sync import _notify_failure
+
+        sent = {'n': 0}
+        stamped = {'n': 0}
+
+        class FakeEmail:
+            def send_notification_email(self, **_k):
+                sent['n'] += 1
+
+        with patch('indeed_publish.sync._notify_on_cooldown', return_value=False), \
+             patch('indeed_publish.sync._stamp_notify', lambda *_: stamped.__setitem__('n', 1)), \
+             patch('utils.bullhorn_helpers.get_email_service', return_value=FakeEmail()):
+            _notify_failure(
+                'Indeed tearsheet publish: Bullhorn UI login failed',
+                'UI login rejected (401)',
+                'kroots@myticas.com',
+            )
+        assert sent['n'] == 1
+        assert stamped['n'] == 1

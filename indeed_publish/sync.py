@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 from feeds.feed_config import TEARSHEET_STSI_INDEED
 from .category_mapper import map_published_category
-from .config import LAST_RESULT_KEY, STATE_KEY, config_from_env
+from .config import LAST_RESULT_KEY, NOTIFY_STAMP_KEY, STATE_KEY, config_from_env
 from .ui_client import BullhornUIClient, BullhornUIClientError
 
 logger = logging.getLogger(__name__)
@@ -127,8 +127,50 @@ def _save_last_result(result: Dict[str, Any]) -> None:
     )
 
 
+NOTIFY_COOLDOWN_SECONDS = 30 * 60
+
+
+def _notify_on_cooldown(subject: str) -> bool:
+    """True when the same subject was emailed within the last 30 minutes."""
+    try:
+        from models import GlobalSettings
+        raw = GlobalSettings.get_value(NOTIFY_STAMP_KEY)
+        if not raw:
+            return False
+        data = json.loads(raw) if isinstance(raw, str) else raw
+        if not isinstance(data, dict):
+            return False
+        if (data.get('subject') or '') != subject:
+            return False
+        at = str(data.get('at') or '').strip()
+        if not at:
+            return False
+        then = datetime.fromisoformat(at.replace('Z', '+00:00'))
+        if then.tzinfo is None:
+            then = then.replace(tzinfo=timezone.utc)
+        return (datetime.now(timezone.utc) - then).total_seconds() < NOTIFY_COOLDOWN_SECONDS
+    except Exception:
+        return False
+
+
+def _stamp_notify(subject: str) -> None:
+    try:
+        from models import GlobalSettings
+        GlobalSettings.set_value(
+            NOTIFY_STAMP_KEY,
+            json.dumps({'subject': subject, 'at': _utc_now()}),
+            description='Last Indeed tearsheet publish failure email (cooldown)',
+            category='indeed_publish',
+        )
+    except Exception as exc:
+        logger.warning('Indeed publish notify stamp failed: %s', exc)
+
+
 def _notify_failure(subject: str, message: str, notify_email: str) -> None:
     if not notify_email:
+        return
+    if _notify_on_cooldown(subject):
+        logger.info('Indeed publish notify skipped (30m cooldown): %s', subject)
         return
     try:
         from utils.bullhorn_helpers import get_email_service
@@ -142,6 +184,7 @@ def _notify_failure(subject: str, message: str, notify_email: str) -> None:
             message=message,
             notification_type='indeed_tearsheet_publish',
         )
+        _stamp_notify(subject)
     except Exception as exc:
         logger.error('Indeed publish failure notify failed: %s', exc)
 

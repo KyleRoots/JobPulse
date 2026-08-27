@@ -10,6 +10,7 @@ TEARSHEET_ID = TEARSHEET_STSI_INDEED  # 1640
 
 STATE_KEY = 'indeed_tearsheet_publish_state_1640'
 LAST_RESULT_KEY = 'indeed_tearsheet_publish_last_result'
+NOTIFY_STAMP_KEY = 'indeed_tearsheet_publish_last_notify'
 
 DEFAULT_BASE_URL = 'https://cls45.bullhornstaffing.com'
 DEFAULT_PRIVATE_LABEL_ID = '52989'

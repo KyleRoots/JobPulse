@@ -174,10 +174,10 @@ class BullhornUIClient:
     def login_with_retry(
         self,
         *,
-        max_attempts: int = 2,
-        backoff_seconds: float = 3.0,
+        max_attempts: int = 3,
+        backoff_seconds: float = 5.0,
     ) -> None:
-        """Login once; on transient 401/5xx, fresh session + backoff then retry."""
+        """Login; on transient 401/5xx, fresh session + backoff, up to 3 tries."""
         last_exc: Optional[BullhornUIClientError] = None
         for attempt in range(1, max_attempts + 1):
             try:
