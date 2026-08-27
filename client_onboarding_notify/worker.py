@@ -17,6 +17,7 @@ from client_onboarding_notify.eligibility import (
     is_company_eligible,
     is_interview_appointment,
     is_new_company_record,
+    is_stsi_sales_rep,
     nested_entity_id,
     parse_bh_datetime,
     resolve_sales_rep,
@@ -80,7 +81,7 @@ APPOINTMENT_FIELDS = (
     "clientContactReference(id,clientCorporation),"
     "candidateReference(id,firstName,lastName)"
 )
-USER_FIELDS = "id,firstName,lastName,email,enabled"
+USER_FIELDS = "id,firstName,lastName,email,enabled,primaryDepartment"
 BH_COMPANY_URL = (
     "https://cls45.bullhornstaffing.com/BullhornStaffing/"
     "OpenWindow.cfm?Entity=ClientCorporation&id={id}"
@@ -266,6 +267,13 @@ def process_company(
         fetch_user_by_id=lambda uid: fetch_user_by_id(bh, uid),
         search_users_by_name=lambda first, last: search_users_by_name(bh, first, last),
     )
+    if is_stsi_sales_rep(sales):
+        # Do not ledger — if Sales Rep is later reassigned to Myticas, notify then.
+        logger.info(
+            f"client_ob skip company={company_id} reason=stsi_sales_rep "
+            f"email={sales.get('email') or ''}"
+        )
+        return "skipped:stsi_sales_rep"
     context = {
         "company_id": company_id,
         "company_name": (company.get("name") or "").strip(),

@@ -14,6 +14,7 @@ from client_onboarding_notify.eligibility import (  # noqa: E402
     is_company_eligible,
     is_interview_appointment,
     is_new_company_record,
+    is_stsi_sales_rep,
     parse_bh_datetime,
     resolve_sales_rep,
     sales_rep_picker_user_id,
@@ -110,6 +111,7 @@ def test_sales_rep_prefers_picker_email_over_display_name():
     )
     assert sales["email"] == "jbocek@stsigroup.com"
     assert sales["source"] == "customText3"
+    assert is_stsi_sales_rep(sales) is True
 
 
 def test_sales_rep_falls_back_to_display_name_match():
@@ -129,6 +131,26 @@ def test_sales_rep_falls_back_to_display_name_match():
     )
     assert sales["email"] == "jharvey@myticas.com"
     assert sales["source"] == "customText6"
+
+
+def test_stsi_sales_rep_email_skipped():
+    assert is_stsi_sales_rep({"email": "jjohnson@stsigroup.com"}) is True
+    assert is_stsi_sales_rep({"email": "jbocek@stsigroup.com"}) is True
+    assert is_stsi_sales_rep({"email": "JJohnson@STSIGroup.com"}) is True
+
+
+def test_myticas_sales_rep_not_skipped():
+    assert is_stsi_sales_rep({"email": "jharvey@myticas.com"}) is False
+    assert is_stsi_sales_rep({"email": "kroots@myticas.com"}) is False
+    assert is_stsi_sales_rep({"email": None}) is False
+    assert is_stsi_sales_rep({}) is False
+    assert is_stsi_sales_rep(None) is False
+
+
+def test_stsi_department_skipped_without_email():
+    assert is_stsi_sales_rep({"email": None, "department": "STS-STSI"}) is True
+    assert is_stsi_sales_rep({"email": "", "department": "STSI Sales"}) is True
+    assert is_stsi_sales_rep({"email": None, "department": "Myticas Ottawa"}) is False
 
 
 def test_sales_rep_missing_still_allows_accounting():

@@ -426,13 +426,15 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
+- **Client OB notify skips STSI (Aug 27)**: New-client Accounting email is Myticas-only. If the company Sales Rep email is `@stsigroup.com` (or their Bullhorn department contains STSI), the notify is skipped. Shared Bullhorn still holds both brands; this was the gap that emailed Accounting for The Quaker Corporation.
+
 - **Telecom/satellite employer boost (Aug 26)**: Scout job config now has a second +5 checkbox beside consulting prestige, for major telecom and satellite employers. Independent toggles, same location gate, no stacking. Recognition is a fixed list (not an AI guess), including Canadian names such as Telesat, Bell, Rogers, TELUS, Shaw, Videotron, and MDA Space. Railway healthcheck uses `/ping`; gunicorn binds before scheduler/Bullhorn work so deploys are not blocked by boot locks.
 
 - **Scout notes show employment gaps (Aug 24)**: Qualified and not-recommended Scout notes now include a one-line **Recent experience** sentence when the candidate has 12+ months without work (for example "last employed Dec 2022, 44 months with no recent work"). Scoring is unchanged; this is so recruiters still see the gap when the candidate otherwise qualifies.
 
 - **Inbound intake harden (Aug 20)**: Mass-blast emails with a huge To: line overflowed `parsed_email.recipient_email` (varchar 255), poisoned the SQLAlchemy session, and blocked later LinkedIn/Zip applies in the same mailbox-pull cycle. Fix: normalize/clip recipient to the owned `apply@` address, always `rollback()` on process errors, and persist mailbox-pull failure pressure. Ops early-warning now pages on sticky `mailbox_pull_last_error` and on apply→Bullhorn intake stalls (pre-insert crashes that never create completed rows).
 
-- **Myticas client onboarding notify (Aug 19)**: Observe-only. First **Client Submission (Sendout)** or **Interview** on a **new** Myticas company (created in Bullhorn at or after go-live) emails Accounting (`accounting@myticas.com`), CCs the Sales Rep, and BCCs `kroots@myticas.com`, attaching the Ottawa new-client checklist. Existing companies are not notified. Status must be Qualified / Proposal / Negotiation / Active Account; blank Type is OK; Vendor / MSP / Former Client skipped. Once per company. Toggle with `CLIENT_OB_NOTIFY_LIVE`. No Bullhorn writes.
+- **Myticas client onboarding notify (Aug 19)**: Observe-only. First **Client Submission (Sendout)** or **Interview** on a **new** Myticas company (created in Bullhorn at or after go-live) emails Accounting (`accounting@myticas.com`), CCs the Sales Rep, and BCCs `kroots@myticas.com`, attaching the Ottawa new-client checklist. Existing companies are not notified. Status must be Qualified / Proposal / Negotiation / Active Account; blank Type is OK; Vendor / MSP / Former Client skipped. **STSI Sales Reps** (`@stsigroup.com`, or department containing STSI) are skipped so Myticas Accounting is not notified for STSI customers. Once per company. Toggle with `CLIENT_OB_NOTIFY_LIVE`. No Bullhorn writes.
 
 - **Nice-to-have vs must-have (Aug 18)**: Recruiter-edited Configure Screening lines marked “nice to have” / “preferred” are **not** treated as disqualifiers (they used to be wrapped as “evaluate against ALL”). Having the preferred skill is a small bonus; missing it is not the decisive gap. Clear-reject notes list adjacent skills (≤8 words) instead of `N/A`; a literal **0%** is reserved for no overlapping domain (adjacent-but-wrong-function stays a clear reject, typically 5–25). Same scoring call — no extra API cost.
 
@@ -640,5 +642,5 @@ Access health endpoints for status checks:
 
 ---
 
-**Last Updated**: August 26, 2026
+**Last Updated**: August 27, 2026
 **Version**: 2.9 (Main-branch Railway deploy; Render log monitoring removed)

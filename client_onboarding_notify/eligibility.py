@@ -23,6 +23,9 @@ EXCLUDED_TYPES = frozenset({
     "Former Client",
 })
 
+# Shared Bullhorn: STSI Sales Reps must not trigger Myticas Accounting mail.
+STSI_SALES_EMAIL_DOMAIN = "stsigroup.com"
+
 
 def _norm(value: Any) -> str:
     if value is None:
@@ -70,6 +73,36 @@ def is_company_eligible(company: Dict[str, Any]) -> Tuple[bool, str]:
         return False, f"type_excluded:{ctype}"
 
     return True, ""
+
+
+def _email_domain(email: str) -> str:
+    raw = (email or "").strip().lower()
+    if "@" not in raw:
+        return ""
+    return raw.rsplit("@", 1)[-1]
+
+
+def user_department(user: Optional[Dict[str, Any]]) -> str:
+    if not isinstance(user, dict):
+        return ""
+    raw = user.get("primaryDepartment") or user.get("department")
+    if isinstance(raw, dict):
+        return _norm(raw.get("name") or raw.get("label"))
+    return _norm(raw)
+
+
+def is_stsi_sales_rep(sales: Optional[Dict[str, Any]]) -> bool:
+    """True when the company Sales Rep belongs to STSI, not Myticas.
+
+    Shared Bullhorn holds both brands. Email domain is the reliable signal;
+    department (e.g. STS-STSI) is a backup when email is missing.
+    """
+    if not isinstance(sales, dict):
+        return False
+    if _email_domain(str(sales.get("email") or "")) == STSI_SALES_EMAIL_DOMAIN:
+        return True
+    dept = _norm(sales.get("department")).upper()
+    return "STSI" in dept if dept else False
 
 
 def parse_bh_datetime(value: Any) -> Optional[datetime]:
@@ -163,6 +196,7 @@ def resolve_sales_rep(
         "display_name": display,
         "user_id": picker_id,
         "email": None,
+        "department": None,
         "source": None,
         "note": None,
     }
@@ -170,6 +204,7 @@ def resolve_sales_rep(
     if picker_id:
         user = fetch_user_by_id(picker_id) or {}
         email = _norm(user.get("email")).lower()
+        result["department"] = user_department(user) or None
         if email:
             result["email"] = email
             result["source"] = "customText3"
@@ -190,6 +225,7 @@ def resolve_sales_rep(
             user = with_email[0]
             result["email"] = _norm(user.get("email")).lower()
             result["user_id"] = nested_entity_id(user) or result["user_id"]
+            result["department"] = user_department(user) or result.get("department")
             result["source"] = "customText6"
             return result
         if not with_email:
