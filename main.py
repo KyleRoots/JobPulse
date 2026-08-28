@@ -28,20 +28,20 @@ logger = logging.getLogger(__name__)
 
 def check_environment():
     """Check required environment variables and dependencies"""
-    required_env_vars = ['SESSION_SECRET']
-    missing_vars = []
-    
-    for var in required_env_vars:
-        if not os.environ.get(var):
-            missing_vars.append(var)
-    
-    if missing_vars:
-        logger.warning(f"Missing environment variables: {missing_vars}")
-        # Set fallback for SESSION_SECRET if missing
-        if 'SESSION_SECRET' in missing_vars:
-            os.environ['SESSION_SECRET'] = os.urandom(24).hex()
-            logger.info("Generated fallback SESSION_SECRET for deployment")
-    
+    from seed_database import is_production_environment
+
+    if is_production_environment() and not os.environ.get('SESSION_SECRET'):
+        logger.error('SESSION_SECRET is required in production')
+        raise RuntimeError(
+            'SESSION_SECRET environment variable is required in production. '
+            'Set it in Railway (or your host) before deploying.'
+        )
+
+    if not os.environ.get('SESSION_SECRET'):
+        logger.warning('SESSION_SECRET not set — generating ephemeral secret for this process')
+        os.environ['SESSION_SECRET'] = os.urandom(32).hex()
+        logger.info('Generated fallback SESSION_SECRET (development only)')
+
     return True
 
 def initialize_app():

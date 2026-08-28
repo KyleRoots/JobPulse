@@ -13,6 +13,8 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import timedelta
 
+from auth_policy import REMEMBER_ME_DAYS, SESSION_LIFETIME_HOURS
+
 
 class Base(DeclarativeBase):
     pass
@@ -26,10 +28,33 @@ login_manager.login_message = 'Please log in to access the Job Feed Portal.'
 
 csrf = CSRFProtect()
 
+def _limiter_storage_uri() -> str:
+    """Prefer Redis in production so rate limits apply across Gunicorn workers."""
+    explicit = (os.environ.get('RATE_LIMIT_STORAGE_URI') or '').strip()
+    if explicit:
+        return explicit
+    redis_url = (os.environ.get('REDIS_URL') or os.environ.get('REDIS_PRIVATE_URL') or '').strip()
+    if redis_url:
+        if redis_url.startswith('redis://') or redis_url.startswith('rediss://'):
+            return redis_url
+        return f'redis://{redis_url}'
+    return 'memory://'
+
+
+def _warn_if_memory_limiter(env: str, storage_uri: str) -> None:
+    if storage_uri != 'memory://':
+        return
+    if env == 'production' or (os.environ.get('APP_ENV') or '').lower() == 'production':
+        logging.getLogger(__name__).warning(
+            'Rate limiter using in-memory storage (per worker). '
+            'Set REDIS_URL for shared login lockout across Gunicorn workers.'
+        )
+
+
 limiter = Limiter(
     key_func=get_remote_address,
     default_limits=[],
-    storage_uri="memory://",
+    storage_uri=_limiter_storage_uri(),
 )
 
 PRODUCTION_DOMAINS = {'app.scoutgenius.ai', 'www.app.scoutgenius.ai', 'jobpulse.lyntrix.ai', 'www.jobpulse.lyntrix.ai'}
@@ -45,14 +70,23 @@ def create_app():
     app.config['ENVIRONMENT'] = env
     logging.getLogger(__name__).info(f"App environment set to: {env}")
 
+    testing_mode = (
+        os.environ.get('TESTING', '').lower() in ('1', 'true', 'yes', 'on')
+        or os.environ.get('FLASK_ENV', '').lower() == 'testing'
+    )
+
     app.secret_key = os.environ.get("SESSION_SECRET")
+    if not app.secret_key and env == 'production' and not testing_mode:
+        raise RuntimeError(
+            'SESSION_SECRET is required in production. Set it in Railway variables.'
+        )
     app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
     app.config['SESSION_COOKIE_SECURE'] = True
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
-    app.config['REMEMBER_COOKIE_DURATION'] = timedelta(days=30)
+    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=SESSION_LIFETIME_HOURS)
+    app.config['REMEMBER_COOKIE_DURATION'] = timedelta(days=REMEMBER_ME_DAYS)
     app.config['REMEMBER_COOKIE_SECURE'] = True
     app.config['REMEMBER_COOKIE_HTTPONLY'] = True
 
@@ -95,6 +129,7 @@ def create_app():
     app.login_manager = login_manager
 
     limiter.init_app(app)
+    _warn_if_memory_limiter(env, _limiter_storage_uri())
 
     @login_manager.unauthorized_handler
     def handle_unauthorized():

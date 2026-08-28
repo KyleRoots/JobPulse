@@ -10,6 +10,7 @@ from datetime import datetime
 from flask import Blueprint, render_template, redirect, url_for, request, flash, jsonify, current_app, session
 from flask_login import login_required, login_user, current_user
 from routes import register_admin_guard
+from auth_policy import validate_password_strength
 
 
 settings_bp = Blueprint('settings', __name__)
@@ -61,6 +62,7 @@ def settings():
 
 
 @settings_bp.route('/settings', methods=['POST'])
+@login_required
 def update_settings():
     """Update global settings"""
     from app import db, scheduler, automated_upload
@@ -289,6 +291,7 @@ def update_inbound_config():
 
 
 @settings_bp.route('/test-sftp-connection', methods=['POST'])
+@login_required
 def test_sftp_connection():
     """Test SFTP connection with form data"""
     from app import db
@@ -423,6 +426,10 @@ def create_user():
             bullhorn_user_id=int(bullhorn_user_id) if bullhorn_user_id else None,
         )
         if password:
+            ok, msg = validate_password_strength(password)
+            if not ok:
+                flash(msg, 'error')
+                return redirect(url_for('settings.settings') + '#user-management')
             user.set_password(password)
         else:
             import secrets as _secrets
@@ -472,6 +479,10 @@ def update_user(user_id):
         user.set_modules(selected_modules)
         
         if new_password:
+            ok, msg = validate_password_strength(new_password)
+            if not ok:
+                flash(msg, 'error')
+                return redirect(url_for('settings.settings') + '#user-management')
             user.set_password(new_password)
         
         db.session.commit()

@@ -206,7 +206,11 @@ Manages scheduled upload configurations
 
 ```bash
 DATABASE_URL=postgresql://user:pass@host:port/dbname
-SESSION_SECRET=your-secret-key
+SESSION_SECRET=your-secret-key  # required in production (APP_ENV=production)
+
+# Optional: shared rate limits across Gunicorn workers (recommended in production)
+# REDIS_URL=redis://...
+# RATE_LIMIT_STORAGE_URI=redis://...  # overrides REDIS_URL when set
 BULLHORN_PASSWORD=your-bullhorn-password
 SENDGRID_API_KEY=your-sendgrid-key
 
@@ -426,6 +430,8 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
+- **Dashboard auth hardening Phase 1 (Aug 28)**: Scout login stays username/password (SSO deferred). Production now requires `SESSION_SECRET`. Sessions last 12 hours (remember-me 7 days). New passwords must be 12+ characters. Admin settings POST routes require login. Optional `REDIS_URL` shares login rate limits across workers.
+
 - **Client OB notify skips STSI (Aug 27)**: New-client Accounting email is Myticas-only. If the company Sales Rep email is `@stsigroup.com` (or their Bullhorn department contains STSI), the notify is skipped. Shared Bullhorn still holds both brands; this was the gap that emailed Accounting for The Quaker Corporation.
 - **Indeed UI login alerts (Aug 27)**: Native Indeed publish UI login now retries 3 times on a 401, and failure emails are limited to once per 30 minutes for the same error so a one-cycle Bullhorn blip does not page every 5 minutes. Credentials currently succeed; REST OAuth is separate from `BH_UI_*`.
 
@@ -643,5 +649,5 @@ Access health endpoints for status checks:
 
 ---
 
-**Last Updated**: August 27, 2026
+**Last Updated**: August 28, 2026
 **Version**: 2.9 (Main-branch Railway deploy; Render log monitoring removed)

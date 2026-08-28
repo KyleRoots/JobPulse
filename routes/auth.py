@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 from flask import Blueprint, render_template, redirect, url_for, request, flash, session
 from flask_login import login_user, logout_user, current_user, login_required
 from extensions import limiter
+from auth_policy import validate_password_strength
 from routes import _get_user_landing
 
 logger = logging.getLogger(__name__)
@@ -228,8 +229,9 @@ def reset_password(token):
         password = request.form.get('password', '').strip()
         confirm = request.form.get('confirm_password', '').strip()
 
-        if not password or len(password) < 8:
-            flash('Password must be at least 8 characters.', 'error')
+        ok, msg = validate_password_strength(password)
+        if not ok:
+            flash(msg, 'error')
             return render_template('reset_password.html', token=token)
 
         if password != confirm:
