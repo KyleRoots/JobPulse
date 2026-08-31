@@ -211,6 +211,10 @@ SESSION_SECRET=your-secret-key  # required in production (APP_ENV=production)
 # Optional: shared rate limits across Gunicorn workers (recommended in production)
 # REDIS_URL=redis://...
 # RATE_LIMIT_STORAGE_URI=redis://...  # overrides REDIS_URL when set
+
+# Email note dedup (Outlook/Bullhorn twin Email notes). Default ON; runs every 6h.
+# EMAIL_NOTE_DEDUP_ENABLED=true
+# EMAIL_NOTE_DEDUP_DRY_RUN=false  # set true to count only, no soft-deletes
 BULLHORN_PASSWORD=your-bullhorn-password
 SENDGRID_API_KEY=your-sendgrid-key
 
@@ -429,6 +433,8 @@ Check dashboard for automation status:
 ---
 
 ## 📈 Recent Major Updates
+
+- **Email note dedup (Aug 31)**: Scheduled every 6 hours. Soft-deletes duplicate Bullhorn **Email** notes (same author + identical body within 60 minutes), which is the Outlook sync twin pattern. Scout notes are never touched. Toggle with `EMAIL_NOTE_DEDUP_ENABLED` / `EMAIL_NOTE_DEDUP_DRY_RUN`.
 
 - **Dashboard auth hardening Phase 1 (Aug 28)**: Scout login stays username/password (SSO deferred). Production now requires `SESSION_SECRET`. Sessions last 12 hours (remember-me 7 days). New passwords must be 12+ characters. Admin settings POST routes require login. Optional `REDIS_URL` shares login rate limits across workers.
 
@@ -649,5 +655,5 @@ Access health endpoints for status checks:
 
 ---
 
-**Last Updated**: August 28, 2026
+**Last Updated**: August 31, 2026
 **Version**: 2.9 (Main-branch Railway deploy; Render log monitoring removed)

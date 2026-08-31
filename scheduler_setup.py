@@ -1201,6 +1201,44 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
         )
         app.logger.info("📊 Monthly performance report jobs scheduled (1st @ 9 AM preview + hourly 48h auto-send sweep)")
 
+    # ── Email note dedup (Outlook sync twins) ─────────────────────────────────
+    if is_primary_worker:
+        def run_email_note_dedup_job():
+            with app.app_context():
+                try:
+                    from services.email_note_dedup import run_email_note_dedup
+                    stats = run_email_note_dedup()
+                    app.logger.info(
+                        "🧹 Email note dedup: checked=%s with_dups=%s found=%s "
+                        "deleted=%s failed=%s dry_run=%s",
+                        stats.get("candidates_checked"),
+                        stats.get("candidates_with_duplicates"),
+                        stats.get("duplicates_found"),
+                        stats.get("deleted"),
+                        stats.get("failed"),
+                        stats.get("dry_run"),
+                    )
+                except Exception as e:
+                    app.logger.error(f"email_note_dedup error: {e}", exc_info=True)
+                finally:
+                    db.session.remove()
+
+        try:
+            scheduler.add_job(
+                func=run_email_note_dedup_job,
+                trigger=IntervalTrigger(hours=6),
+                id='email_note_dedup',
+                name='Email Note Dedup (Outlook twins, every 6 hours)',
+                replace_existing=True,
+                misfire_grace_time=3600,
+                coalesce=True,
+            )
+            print("✅ SCHEDULER INIT: Email note dedup registered (every 6 hours)", flush=True)
+            app.logger.info("🧹 Scheduled Email note dedup every 6 hours")
+        except Exception as e:
+            print(f"❌ SCHEDULER INIT: Failed to register email note dedup: {e}", flush=True)
+            app.logger.error(f"Failed to register email note dedup: {e}")
+
     # ── XML Change Monitor ────────────────────────────────────────────────────
     if is_primary_worker:
         app.logger.info("📧 XML Change Monitor: Auto-notifications DISABLED - notifications now sent only during manual downloads")
