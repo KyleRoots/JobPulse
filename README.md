@@ -434,6 +434,8 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
+- **Near Miss / Validate notify (Aug 31)**: Scores within **5 points under** the effective match threshold (per-job when set, else global) get a distinct Bullhorn note action `Scout Screen - Near Miss` and a recruiter email. They stay **not** Qualified. Location Review still wins when that signal applies; weaker scores stay Not Recommended / Not Qualified. Example: threshold 80 → validate band 75–79; threshold 75 → 70–74.
+
 - **Email note dedup (Aug 31)**: Scheduled every 6 hours. Soft-deletes duplicate Bullhorn **Email** notes (same author + identical body within 60 minutes), which is the Outlook sync twin pattern. Scout notes are never touched. Toggle with `EMAIL_NOTE_DEDUP_ENABLED` / `EMAIL_NOTE_DEDUP_DRY_RUN`.
 
 - **Dashboard auth hardening Phase 1 (Aug 28)**: Scout login stays username/password (SSO deferred). Production now requires `SESSION_SECRET`. Sessions last 12 hours (remember-me 7 days). New passwords must be 12+ characters. Admin settings POST routes require login. Optional `REDIS_URL` shares login rate limits across workers.

@@ -18,6 +18,7 @@ from app import db
 from models import CandidateJobMatch, CandidateVettingLog, VettingConfig
 from vetting.name_utils import parse_names, parse_emails
 from screening.location_review import is_location_review_match, resolve_match_threshold
+from screening.near_miss import NEAR_MISS_BAND_POINTS, is_near_miss_match
 
 # Window for "this recruiter already got an email for this (candidate, job)
 # pair" dedupe. Set wide enough to absorb the auditor's same-day re-vet flow
@@ -292,6 +293,10 @@ class NotificationMixin:
             location_sent = self._send_location_review_notification(vetting_log)
             if location_sent:
                 return location_sent
+            # Near miss / validate — score within a few points of the effective threshold
+            near_miss_sent = self._send_near_miss_notification(vetting_log)
+            if near_miss_sent:
+                return near_miss_sent
             # Fall back to prestige review (Tier-1 firm employer, below threshold)
             prestige_sent = self._send_prestige_review_notification(vetting_log)
             if not prestige_sent:
@@ -1688,5 +1693,286 @@ class NotificationMixin:
             return 0
         except Exception as e:
             logger.error(f"Location review notification send error: {str(e)}")
+            return 0
+
+    def _send_near_miss_notification(self, vetting_log: CandidateVettingLog) -> int:
+        """
+        Send a recruiter notification for the NEAR MISS / VALIDATE tier.
+
+        Fires when the candidate is not qualified but at least one match score
+        sits within NEAR_MISS_BAND_POINTS below the effective threshold
+        (per-job or global). Distinct from Location Review (tech-fit + location
+        penalty) and Prestige Review (Tier-1 employer signal).
+        """
+        threshold = self.get_threshold()
+
+        candidate_matches = CandidateJobMatch.query.filter_by(
+            vetting_log_id=vetting_log.id,
+            notification_sent=False,
+            is_qualified=False,
+        ).all()
+
+        job_threshold_map = {}
+        job_ids = [m.bullhorn_job_id for m in candidate_matches if m.bullhorn_job_id]
+        if job_ids:
+            try:
+                from models import JobVettingRequirements
+                custom_reqs = JobVettingRequirements.query.filter(
+                    JobVettingRequirements.bullhorn_job_id.in_(job_ids),
+                    JobVettingRequirements.vetting_threshold.isnot(None),
+                ).all()
+                for req in custom_reqs:
+                    job_threshold_map[req.bullhorn_job_id] = float(req.vetting_threshold)
+            except Exception as e:
+                logger.warning(f"Could not fetch per-job thresholds for near-miss: {str(e)}")
+
+        near_miss_matches = [
+            m for m in candidate_matches
+            if is_near_miss_match(
+                m, resolve_match_threshold(m, job_threshold_map, threshold)
+            )
+        ]
+
+        if not near_miss_matches:
+            return 0
+
+        logger.info(
+            f"  🔍 Found {len(near_miss_matches)} near-miss match(es) for "
+            f"not-qualified candidate {vetting_log.candidate_name}"
+        )
+
+        near_miss_matches, suppressed = _filter_matches_by_ledger(
+            near_miss_matches, vetting_log.bullhorn_candidate_id, 'near_miss',
+        )
+        if suppressed:
+            now = datetime.utcnow()
+            for m in suppressed:
+                m.notification_sent = True
+                m.notification_sent_at = now
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+        if not near_miss_matches:
+            logger.info(
+                f"  ⏭️ Skipping near-miss notification for "
+                f"{vetting_log.candidate_name} — already emailed within "
+                f"the last {_RECRUITER_NOTIFICATION_DEDUPE_WINDOW_HOURS}h "
+                f"(suppressed={len(suppressed)})"
+            )
+            return 0
+
+        primary_recruiter_email = None
+        primary_recruiter_name = None
+        cc_recruiter_emails = []
+
+        for match in near_miss_matches:
+            if match.is_applied_job and match.recruiter_email:
+                emails = parse_emails(match.recruiter_email)
+                names = parse_names(match.recruiter_name)
+                if emails:
+                    primary_recruiter_email = emails[0]
+                    primary_recruiter_name = names[0] if names else ''
+                break
+
+        seen_emails = set()
+        for match in near_miss_matches:
+            emails = parse_emails(match.recruiter_email)
+            names = parse_names(match.recruiter_name)
+            for i, email in enumerate(emails):
+                if email and email not in seen_emails:
+                    seen_emails.add(email)
+                    name = names[i] if i < len(names) else ''
+                    if not primary_recruiter_email:
+                        primary_recruiter_email = email
+                        primary_recruiter_name = name
+                    elif email != primary_recruiter_email:
+                        cc_recruiter_emails.append(email)
+
+        send_setting = VettingConfig.query.filter_by(setting_key='send_recruiter_emails').first()
+        send_to_recruiters = bool(send_setting) and send_setting.setting_value.lower() == 'true'
+
+        admin_setting = VettingConfig.query.filter_by(setting_key='admin_notification_email').first()
+        admin_email = admin_setting.setting_value if admin_setting and admin_setting.setting_value else ''
+
+        if not send_to_recruiters:
+            if not admin_email:
+                logger.warning(
+                    f"❌ Near-miss notification blocked — recruiter emails disabled "
+                    f"and no admin email for {vetting_log.candidate_name}"
+                )
+                return 0
+            primary_recruiter_email = admin_email
+            primary_recruiter_name = 'Admin'
+            cc_recruiter_emails = []
+        elif not primary_recruiter_email:
+            if admin_email:
+                primary_recruiter_email = admin_email
+                primary_recruiter_name = 'Admin'
+                cc_recruiter_emails = []
+            else:
+                return 0
+
+        candidate_name = vetting_log.candidate_name
+        candidate_id = vetting_log.bullhorn_candidate_id
+        candidate_url = (
+            f"https://cls45.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm"
+            f"?Entity=Candidate&id={candidate_id}"
+        )
+
+        top_match = max(near_miss_matches, key=lambda m: (m.match_score or 0))
+        top_score = top_match.match_score or 0
+        top_threshold = resolve_match_threshold(top_match, job_threshold_map, threshold)
+        top_job_title = (getattr(top_match, 'job_title', None) or 'Position').strip() or 'Position'
+        top_job_id = getattr(top_match, 'bullhorn_job_id', None)
+        band_floor = top_threshold - NEAR_MISS_BAND_POINTS
+
+        if top_job_id:
+            subject_head = (
+                f"🔍 Near Miss — Validate: {candidate_name} — {top_job_title} "
+                f"(Job #{top_job_id}) — {top_score:.0f}% (threshold {top_threshold:.0f}%)"
+            )
+        else:
+            subject_head = (
+                f"🔍 Near Miss — Validate: {candidate_name} — {top_job_title} — "
+                f"{top_score:.0f}% (threshold {top_threshold:.0f}%)"
+            )
+        extra_matches = len(near_miss_matches) - 1
+        subject = (
+            f"{subject_head} +{extra_matches} more" if extra_matches > 0 else subject_head
+        )
+
+        transparency_note = ""
+        if cc_recruiter_emails:
+            transparency_note = f"""
+                <div style="background: #e3f2fd; border: 1px solid #90caf9; border-radius: 6px; padding: 12px; margin-bottom: 15px;">
+                    <p style="margin: 0; color: #1565c0; font-size: 13px;">
+                        <strong>📢 Team Thread:</strong> CC'd on this email:
+                        <em>{', '.join(cc_recruiter_emails)}</em>
+                    </p>
+                </div>
+            """
+
+        html_content = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+                <h1 style="margin: 0; font-size: 22px;">🔍 Near Miss — Validate Fit</h1>
+            </div>
+
+            <div style="background: #fff8e1; padding: 15px 20px; border-left: 4px solid #ed8936; border-right: 1px solid #e9ecef;">
+                <p style="margin: 0; color: #5d4037; font-size: 14px;">
+                    <strong>⚠️ Close to Threshold — Not Auto-Qualified</strong><br>
+                    Highest near-miss score <strong>{top_score:.0f}%</strong> is within
+                    {NEAR_MISS_BAND_POINTS:g} points of the <strong>{top_threshold:.0f}%</strong>
+                    qualifying bar (validate band {band_floor:.0f}%–under {top_threshold:.0f}%).
+                    Please review the profile and decide; Scout did <strong>not</strong> mark
+                    this candidate Qualified.
+                </p>
+            </div>
+
+            <div style="background: #f8f9fa; padding: 20px; border: 1px solid #e9ecef; border-top: none;">
+                <p style="margin: 0 0 15px 0;">Hi {primary_recruiter_name or 'there'},</p>
+
+                {transparency_note}
+
+                <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6; margin: 15px 0;">
+                    <h2 style="margin: 0 0 10px 0; color: #495057; font-size: 18px;">
+                        👤 {candidate_name}
+                    </h2>
+                    <a href="{candidate_url}"
+                       style="display: inline-block; background: #4a5568; color: white;
+                              padding: 10px 20px; border-radius: 5px; text-decoration: none;">
+                        View Candidate Profile →
+                    </a>
+                </div>
+
+                {self._build_fraud_banner_html(candidate_id)}
+
+                <h3 style="color: #495057; margin: 20px 0 10px 0;">Position(s) to Validate:</h3>
+        """
+
+        for match in sorted(near_miss_matches, key=lambda m: (m.match_score or 0), reverse=True):
+            job_url = (
+                f"https://cls45.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm"
+                f"?Entity=JobOrder&id={match.bullhorn_job_id}"
+            )
+            applied_badge = (
+                '<span style="background: #ffc107; color: #000; padding: 2px 8px; '
+                'border-radius: 3px; font-size: 11px; margin-left: 8px;">APPLIED</span>'
+                if match.is_applied_job else ''
+            )
+            m_threshold = resolve_match_threshold(match, job_threshold_map, threshold)
+            html_content += f"""
+                <div style="background: white; padding: 15px; border-radius: 8px;
+                            border-left: 4px solid #ed8936; margin: 10px 0;">
+                    <h4 style="margin: 0 0 8px 0; color: #5d4037;">
+                        <a href="{job_url}" style="color: #5d4037; text-decoration: none;">
+                            {match.job_title} (Job ID: {match.bullhorn_job_id})
+                        </a>{applied_badge}
+                    </h4>
+                    <div style="color: #6c757d; margin-bottom: 8px;">
+                        <strong>Match Score:</strong> {(match.match_score or 0):.0f}%
+                        &nbsp;|&nbsp; <strong>Threshold:</strong> {m_threshold:.0f}%
+                    </div>
+                    <p style="margin: 0; color: #495057;">{match.match_summary or ''}</p>
+                    {f'<p style="margin: 10px 0 0 0; color: #495057;"><strong>Key Skills:</strong> {match.skills_match}</p>' if match.skills_match else ''}
+                    {f'<p style="margin: 8px 0 0 0; color: #718096; font-size: 13px;"><strong>Gaps:</strong> {match.gaps_identified}</p>' if match.gaps_identified else ''}
+                </div>
+            """
+
+        html_content += f"""
+                <div style="margin-top: 25px; padding-top: 15px; border-top: 1px solid #dee2e6;">
+                    <p style="color: #6c757d; font-size: 14px; margin: 0;">
+                        <strong>Why this alert?</strong> Keeping the qualify bar selective while
+                        still flagging close calls for human review. If the role is short-staffed,
+                        you can also lower the per-job threshold on Scout Screening.
+                    </p>
+                </div>
+            </div>
+
+            <div style="background: #343a40; color: #adb5bd; padding: 15px;
+                        border-radius: 0 0 8px 8px; font-size: 12px; text-align: center;">
+                Powered by Scout Screening™ • Myticas Consulting
+            </div>
+        </div>
+        """
+
+        try:
+            admin_bcc_email = 'kroots@myticas.com'
+            job_titles = ', '.join(set(m.job_title for m in near_miss_matches if m.job_title)) or 'unknown'
+            changes_summary = (
+                f"Near-miss validate alert — {candidate_name}: "
+                f"{top_score:.0f}% on {job_titles} "
+                f"(threshold {top_threshold:.0f}%)"
+            )
+            result = self.email_service.send_html_email(
+                to_email=primary_recruiter_email,
+                subject=subject,
+                html_content=html_content,
+                notification_type='vetting_near_miss_notification',
+                cc_emails=cc_recruiter_emails,
+                bcc_emails=[admin_bcc_email],
+                changes_summary=changes_summary,
+            )
+            if result is True or (isinstance(result, dict) and result.get('success', False)):
+                for match in near_miss_matches:
+                    match.notification_sent = True
+                    match.notification_sent_at = datetime.utcnow()
+                vetting_log.notifications_sent = True
+                vetting_log.notification_count = (vetting_log.notification_count or 0) + 1
+                db.session.commit()
+                _record_ledger_sent(
+                    vetting_log.bullhorn_candidate_id,
+                    [m.bullhorn_job_id for m in near_miss_matches],
+                    'near_miss',
+                )
+                logger.info(
+                    f"  🔍 Near-miss notification sent to {primary_recruiter_email} "
+                    f"for {candidate_name} ({len(near_miss_matches)} match(es))"
+                )
+                return 1
+            return 0
+        except Exception as e:
+            logger.error(f"Near-miss notification send error: {str(e)}")
             return 0
 

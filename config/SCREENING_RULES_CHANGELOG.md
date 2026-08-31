@@ -3,6 +3,14 @@
 Each production screening result stores `screening_rules_version` so audits can
 identify which rule set produced a score.
 
+## 2026-08-31 — Near Miss / Validate notify (no rules-version bump)
+
+- New recruiter-facing tier for scores within 5 points below the effective
+  threshold (per-job override or global). Does **not** set `is_qualified`.
+- Bullhorn note action: `Scout Screen - Near Miss` (header NEAR MISS — VALIDATE).
+- Email after Location Review, before Prestige Review.
+- Scoring / qualify bar unchanged (still selective at threshold).
+
 ## 2026-08-26 — Telecom/satellite employer boost (no rules-version bump)
 
 - Second per-job checkbox, independent of consulting prestige.

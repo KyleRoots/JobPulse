@@ -17,6 +17,7 @@ from typing import Iterable, List, Optional, Sequence
 from app import db
 from models import CandidateJobMatch, CandidateVettingLog, JobVettingRequirements
 from screening.location_review import is_location_review_match, resolve_match_threshold
+from screening.near_miss import NEAR_MISS_BAND_POINTS, is_near_miss_match
 
 _MONTH_ABBREV = (
     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -111,6 +112,7 @@ def format_recent_experience_line(gaps_text: str) -> str:
 _NOTE_OUTCOME_QUALIFIED = 'qualified'
 _NOTE_OUTCOME_NOT_QUALIFIED = 'not_qualified'
 _NOTE_OUTCOME_LOCATION_REVIEW = 'location_review'
+_NOTE_OUTCOME_NEAR_MISS = 'near_miss'
 _NOTE_OUTCOME_INCOMPLETE = 'incomplete'
 
 _INCOMPLETE_NOTE_ACTIONS = frozenset({
@@ -123,6 +125,7 @@ _OUTCOME_LABELS = {
     _NOTE_OUTCOME_QUALIFIED: 'Qualified',
     _NOTE_OUTCOME_NOT_QUALIFIED: 'Not Qualified',
     _NOTE_OUTCOME_LOCATION_REVIEW: 'Location Review',
+    _NOTE_OUTCOME_NEAR_MISS: 'Near Miss',
     _NOTE_OUTCOME_INCOMPLETE: 'Incomplete',
 }
 
@@ -136,6 +139,8 @@ def classify_scout_note_action(action: Optional[str]) -> Optional[str]:
         return _NOTE_OUTCOME_INCOMPLETE
     if 'location review' in a or 'loc barrier' in a or 'location barrier' in a:
         return _NOTE_OUTCOME_LOCATION_REVIEW
+    if 'near miss' in a or 'validate' in a:
+        return _NOTE_OUTCOME_NEAR_MISS
     # Check negative forms before bare "qualified"
     if 'not qualified' in a or 'not recommended' in a:
         return _NOTE_OUTCOME_NOT_QUALIFIED
@@ -171,6 +176,15 @@ def intended_scout_note_outcome(
     ]
     if location_review:
         return _NOTE_OUTCOME_LOCATION_REVIEW
+
+    near_miss = [
+        m for m in matches
+        if is_near_miss_match(
+            m, resolve_match_threshold(m, thresholds, global_threshold)
+        )
+    ]
+    if near_miss:
+        return _NOTE_OUTCOME_NEAR_MISS
     return _NOTE_OUTCOME_NOT_QUALIFIED
 
 
@@ -596,6 +610,7 @@ class NoteBuilderMixin:
                     "Scout Screen - Loc Barrier",
                     "Scout Screen - Location Barrier",
                     "Scout Screen - Location Review",
+                    "Scout Screen - Near Miss",
                     "Scout Screening - Qualified",
                     "Scout Screening - Not Recommended",
                     "Scout Screening - Incomplete",
@@ -849,6 +864,109 @@ class NoteBuilderMixin:
                 return True
             else:
                 logger.error(f"Failed to create location review note for candidate {vetting_log.bullhorn_candidate_id}")
+                return False
+
+        # ── NEAR MISS / VALIDATE DETECTION ──
+        # Final score sits just under the effective threshold (per-job or
+        # global). Not auto-Qualified — recruiter should validate. Location
+        # Review takes priority when that more-specific signal applies.
+        near_miss_matches = [
+            m for m in matches
+            if is_near_miss_match(
+                m, resolve_match_threshold(m, job_threshold_map, threshold)
+            )
+        ]
+        is_near_miss_candidate = (
+            len(qualified_matches) == 0 and len(near_miss_matches) > 0
+        )
+
+        if is_near_miss_candidate:
+            top_nm = sorted(
+                near_miss_matches,
+                key=lambda m: (m.match_score or 0),
+                reverse=True,
+            )
+            top_score = top_nm[0].match_score if top_nm else 0
+            top_match_threshold = (
+                resolve_match_threshold(top_nm[0], job_threshold_map, threshold)
+                if top_nm else threshold
+            )
+            band_floor = top_match_threshold - NEAR_MISS_BAND_POINTS
+            _nm_applied = next(
+                (m for m in near_miss_matches if getattr(m, 'is_applied_job', False)),
+                None,
+            )
+            _nm_job_id = (
+                getattr(vetting_log, 'applied_job_id', None)
+                or (_nm_applied.bullhorn_job_id if _nm_applied else None)
+                or (top_nm[0].bullhorn_job_id if top_nm else None)
+            )
+            _new_best_id, _new_best_title = self._top_match_job(matches)
+            _revet_banner_lines = self._build_revet_banner(
+                vetting_log.bullhorn_candidate_id,
+                _nm_job_id,
+                new_score=getattr(vetting_log, 'highest_match_score', None),
+                new_best_job_id=_new_best_id,
+                new_best_job_title=_new_best_title,
+            )
+            note_lines = list(_revet_banner_lines) + [
+                f"🔍 SCOUT SCREENING - NEAR MISS — VALIDATE",
+                f"",
+                f"Analysis Date: {vetting_log.analyzed_at.strftime('%Y-%m-%d %H:%M UTC') if vetting_log.analyzed_at else 'N/A'}",
+                f"Match Threshold: {top_match_threshold:.0f}% (see per-position thresholds below)",
+                f"Highest Near-Miss Score: {top_score:.0f}%",
+                f"Validate Band: {band_floor:.0f}% up to (but not including) {top_match_threshold:.0f}% "
+                f"(within {NEAR_MISS_BAND_POINTS:g} pts of threshold)",
+                f"",
+                f"This candidate did not auto-qualify, but scored close enough to the",
+                f"configured threshold that a recruiter should validate fit before",
+                f"closing the loop. They are NOT marked Qualified.",
+                f"",
+                f"POSITION(S) TO VALIDATE:",
+            ]
+            for m in top_nm:
+                match_custom = job_threshold_map.get(m.bullhorn_job_id)
+                m_threshold = resolve_match_threshold(m, job_threshold_map, threshold)
+                score_line = f"  Score: {(m.match_score or 0):.0f}%  |  Threshold: {m_threshold:.0f}%"
+                if match_custom:
+                    score_line += " (custom)"
+                note_lines += [
+                    f"",
+                    f"• Job ID: {m.bullhorn_job_id} - {m.job_title}",
+                    score_line,
+                    f"  ⚠️  NEAR MISS — VALIDATE",
+                    f"  Summary: {m.match_summary}",
+                    f"  Skills: {m.skills_match}",
+                ]
+                recent_line = format_recent_experience_line(m.gaps_identified or '')
+                if recent_line:
+                    note_lines.append(f"  {recent_line}")
+                gaps_clean = (m.gaps_identified or '').strip()
+                if gaps_clean:
+                    note_lines.append(f"  Gaps: {gaps_clean}")
+            note_text = _compose_note_text(note_lines)
+            action = "Scout Screen - Near Miss"
+
+            note_id = bullhorn.create_candidate_note(
+                vetting_log.bullhorn_candidate_id,
+                note_text,
+                action=action
+            )
+            if note_id:
+                vetting_log.note_created = True
+                vetting_log.bullhorn_note_id = note_id
+                db.session.commit()
+                logger.info(
+                    f"🔍 Created near-miss validate note for candidate "
+                    f"{vetting_log.bullhorn_candidate_id} "
+                    f"(score: {top_score:.0f}%, threshold: {top_match_threshold:.0f}%)"
+                )
+                return True
+            else:
+                logger.error(
+                    f"Failed to create near-miss note for candidate "
+                    f"{vetting_log.bullhorn_candidate_id}"
+                )
                 return False
 
         elif vetting_log.is_qualified:

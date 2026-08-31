@@ -14,6 +14,7 @@ from screening.note_builder import (
     _NOTE_OUTCOME_QUALIFIED,
     _NOTE_OUTCOME_NOT_QUALIFIED,
     _NOTE_OUTCOME_LOCATION_REVIEW,
+    _NOTE_OUTCOME_NEAR_MISS,
     _NOTE_OUTCOME_INCOMPLETE,
 )
 
@@ -31,6 +32,9 @@ class TestClassifyScoutNoteAction:
     def test_location_and_incomplete(self):
         assert classify_scout_note_action('Scout Screen - Location Review') == _NOTE_OUTCOME_LOCATION_REVIEW
         assert classify_scout_note_action('Scout Screen - Incomplete') == _NOTE_OUTCOME_INCOMPLETE
+
+    def test_near_miss(self):
+        assert classify_scout_note_action('Scout Screen - Near Miss') == _NOTE_OUTCOME_NEAR_MISS
 
 
 class TestIntendedScoutNoteOutcome:
