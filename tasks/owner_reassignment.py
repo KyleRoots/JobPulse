@@ -797,16 +797,49 @@ def _parse_api_user_ids(raw: str) -> List[int]:
     return ids
 
 
+def _record_note_lookup_failure(
+    failure_counts: Optional[dict],
+    *,
+    candidate_id: int,
+    status: Optional[int] = None,
+    exc: Optional[BaseException] = None,
+) -> None:
+    """Accumulate per-cycle note-lookup failures, or log once if no counter."""
+    if failure_counts is not None:
+        if status == 401:
+            failure_counts['401'] = failure_counts.get('401', 0) + 1
+        elif status is not None:
+            failure_counts['other_http'] = failure_counts.get('other_http', 0) + 1
+        else:
+            failure_counts['exception'] = failure_counts.get('exception', 0) + 1
+        return
+    if status is not None:
+        logger.warning(
+            f"Note lookup for candidate {candidate_id}: HTTP {status}"
+        )
+    else:
+        logger.warning(
+            f"Note lookup exception for candidate {candidate_id}: {exc}"
+        )
+
+
 def _find_first_human_interactor(
     base_url: str,
     headers: dict,
     candidate_id: int,
     api_user_ids: List[int],
-) -> Tuple[Optional[int], Optional[str], Optional[str]]:
+    *,
+    bh=None,
+    failure_counts: Optional[dict] = None,
+) -> Tuple[Optional[int], Optional[str], Optional[str], bool]:
     """
-    Return ``(corporateUser_id, firstName, lastName)`` of the EARLIEST
-    human (non-API) author who left a Note on this candidate, or
-    ``(None, None, None)`` if no human activity is found.
+    Return ``(corporateUser_id, firstName, lastName, lookup_ok)`` for the
+    EARLIEST human (non-API) author who left a Note on this candidate.
+
+    ``lookup_ok`` is True when the notes association was read successfully
+    (even if no human author exists). False means HTTP / parse / transport
+    failure — callers must NOT treat that as genuine "no activity" and must
+    NOT write a no_activity cooldown row.
 
     Bug #5 (May 2026): switched from ``search/Note?query=personReference.id:X``
     to the canonical ``entity/Candidate/{id}?fields=notes(...)``
@@ -819,8 +852,10 @@ def _find_first_human_interactor(
     robust to whichever linkage (UI vs API) the note creator populated,
     so manually-added recruiter notes are no longer invisible.
 
-    Returns ``(None, None, None)`` on any HTTP / parse error so the
-    caller does NOT reassign ownership to a phantom recruiter.
+    Concurrent Bullhorn REST logins from other scheduler jobs can invalidate
+    a just-issued BhRestToken mid-cycle. On HTTP 401, when ``bh`` is provided,
+    clear the token, re-authenticate once, refresh ``headers['BhRestToken']``,
+    and retry (same pattern as the candidate-search path).
     """
     entity_url = f"{base_url}entity/Candidate/{candidate_id}"
     params = {
@@ -839,41 +874,49 @@ def _find_first_human_interactor(
             )
             if resp.status_code == 200:
                 break
+            # Token stomped by a concurrent login — re-auth and retry once.
+            if resp.status_code == 401 and attempt == 0 and bh is not None:
+                bh.rest_token = None
+                if bh.authenticate():
+                    headers['BhRestToken'] = bh.rest_token
+                    continue
             if 500 <= resp.status_code < 600 and attempt == 0:
                 time.sleep(1)
                 continue
-            logger.warning(
-                f"Note lookup for candidate {candidate_id}: "
-                f"HTTP {resp.status_code}"
+            _record_note_lookup_failure(
+                failure_counts, candidate_id=candidate_id, status=resp.status_code
             )
-            return (None, None, None)
+            return (None, None, None, False)
         except Exception as exc:
             if attempt == 0:
                 time.sleep(1)
                 continue
-            logger.warning(
-                f"Note lookup exception for candidate {candidate_id}: {exc}"
+            _record_note_lookup_failure(
+                failure_counts, candidate_id=candidate_id, exc=exc
             )
-            return (None, None, None)
+            return (None, None, None, False)
 
     if resp is None or resp.status_code != 200:
-        return (None, None, None)
+        status = getattr(resp, 'status_code', None) if resp is not None else None
+        _record_note_lookup_failure(
+            failure_counts, candidate_id=candidate_id, status=status or 0
+        )
+        return (None, None, None, False)
 
     try:
         body = resp.json() or {}
     except (ValueError, TypeError) as exc:
-        logger.warning(
-            f"Note lookup unparseable JSON for candidate {candidate_id}: "
-            f"{exc}"
+        _record_note_lookup_failure(
+            failure_counts, candidate_id=candidate_id, exc=exc
         )
-        return (None, None, None)
+        return (None, None, None, False)
 
     candidate_data = body.get('data')
     if not isinstance(candidate_data, dict):
         # Defensive: malformed responses (e.g. legacy search-shape
         # ``{'data': [...]}`` or unexpected upstream errors) must not
         # crash the cycle. Treat as "no notes found" → caller skips
-        # reassignment for this candidate.
+        # reassignment for this candidate (lookup succeeded).
         candidate_data = {}
     notes_assoc = candidate_data.get('notes')
     # Bullhorn returns to-many associations as either a wrapped object
@@ -915,9 +958,10 @@ def _find_first_human_interactor(
             pid_int,
             person.get('firstName', ''),
             person.get('lastName', ''),
+            True,
         )
 
-    return (None, None, None)
+    return (None, None, None, True)
 
 
 def _build_note_text(
@@ -1104,11 +1148,13 @@ def preview_reassign_candidates(limit: int = 5) -> dict:
                     results.append(entry)
                     continue
 
-                recruiter_id, rec_first, rec_last = _find_first_human_interactor(
-                    base_url, headers, candidate_id, api_user_ids
+                recruiter_id, rec_first, rec_last, lookup_ok = _find_first_human_interactor(
+                    base_url, headers, candidate_id, api_user_ids, bh=bh
                 )
 
-                if recruiter_id is None:
+                if not lookup_ok:
+                    entry['skip_reason'] = 'Note lookup failed (transient/auth)'
+                elif recruiter_id is None:
                     entry['skip_reason'] = 'No human activity found'
                 elif old_owner_id and int(old_owner_id) == int(recruiter_id):
                     entry['skip_reason'] = 'Already assigned to correct user'
@@ -1523,6 +1569,8 @@ def _reassign_api_user_candidates_locked(
             # flushed in a single bulk-upsert after the loop completes.
             cooldown_outcomes: List[Tuple[int, str]] = []
             successful_reassign_ids: List[int] = []
+            note_lookup_failures: dict = {'401': 0, 'other_http': 0, 'exception': 0}
+            skipped_lookup_error = 0
 
             for candidate in candidates:
                 candidate_id = candidate.get('id')
@@ -1535,9 +1583,20 @@ def _reassign_api_user_candidates_locked(
                 old_owner_first = old_owner.get('firstName', '')
                 old_owner_last = old_owner.get('lastName', '')
 
-                recruiter_id, rec_first, rec_last = _find_first_human_interactor(
-                    base_url, headers, candidate_id, api_user_ids
+                recruiter_id, rec_first, rec_last, lookup_ok = _find_first_human_interactor(
+                    base_url, headers, candidate_id, api_user_ids,
+                    bh=bh, failure_counts=note_lookup_failures,
                 )
+
+                if not lookup_ok:
+                    # Auth/transport failure — do NOT cooldown as no_activity.
+                    skipped_lookup_error += 1
+                    logger.info(
+                        f"owner_reassignment: skipping candidate {candidate_id} "
+                        f"({c_first} {c_last}) — note lookup failed "
+                        f"(will retry next cycle, no cooldown)"
+                    )
+                    continue
 
                 if recruiter_id is None:
                     logger.info(
@@ -1658,11 +1717,21 @@ def _reassign_api_user_candidates_locked(
 
                 time.sleep(0.1)
 
-            skipped_total = skipped_no_activity + skipped_already_correct
+            skipped_total = skipped_no_activity + skipped_already_correct + skipped_lookup_error
+            fail_401 = note_lookup_failures.get('401', 0)
+            fail_other = note_lookup_failures.get('other_http', 0)
+            fail_exc = note_lookup_failures.get('exception', 0)
+            if fail_401 or fail_other or fail_exc:
+                logger.warning(
+                    f"owner_reassignment: note lookup failures this cycle — "
+                    f"401={fail_401} other_http={fail_other} exception={fail_exc} "
+                    f"(re-auth retry applied; no cooldown written for these)"
+                )
             logger.info(
                 f"owner_reassignment: complete — {reassigned} reassigned, "
                 f"{skipped_no_activity} skipped (no human activity), "
                 f"{skipped_already_correct} skipped (already correct), "
+                f"{skipped_lookup_error} skipped (note lookup failed), "
                 f"{cooldown_skipped_count} cooldown-skipped, "
                 f"{failed} failed"
             )
@@ -1704,6 +1773,8 @@ def _reassign_api_user_candidates_locked(
             result = {
                 'reassigned': reassigned,
                 'skipped': skipped_total,
+                'skipped_lookup_error': skipped_lookup_error,
+                'note_lookup_failures': dict(note_lookup_failures),
                 'cooldown_skipped': cooldown_skipped_count,
                 'failed': failed,
                 'errors': errors,

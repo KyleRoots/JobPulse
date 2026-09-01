@@ -434,6 +434,8 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
+- **Owner reassignment note-lookup 401 fix (Aug 31)**: Concurrent Bullhorn logins were invalidating the REST token mid-cycle. Candidate search already re-authed on 401; note lookups (`entity/Candidate/{id}` notes) now do the same. Failed lookups no longer write a false `no_activity` cooldown, and WARNING noise is one line per cycle instead of per candidate.
+
 - **Near Miss / Validate notify (Aug 31)**: Scores within **5 points under** the effective match threshold (per-job when set, else global) get a distinct Bullhorn note action `Scout Screen - Near Miss` and a recruiter email. They stay **not** Qualified. Location Review still wins when that signal applies; weaker scores stay Not Recommended / Not Qualified. Example: threshold 80 → validate band 75–79; threshold 75 → 70–74.
 
 - **Email note dedup (Aug 31)**: Scheduled every 6 hours. Soft-deletes duplicate Bullhorn **Email** notes (same author + identical body within 60 minutes), which is the Outlook sync twin pattern. Scout notes are never touched. Toggle with `EMAIL_NOTE_DEDUP_ENABLED` / `EMAIL_NOTE_DEDUP_DRY_RUN`.

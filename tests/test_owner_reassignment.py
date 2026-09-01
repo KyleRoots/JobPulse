@@ -1937,10 +1937,13 @@ class TestCooldownInvalidationByDateLastModified:
         from app import db
         from models import OwnerReassignmentCooldown
         from datetime import datetime, timedelta
+        from tasks.owner_reassignment import _EPOCH
+
         evaluated_at = datetime.utcnow() - timedelta(minutes=5)
-        # Candidate last modified 30 min ago — BEFORE the cooldown fired.
-        modified_at = datetime.utcnow() - timedelta(minutes=30)
-        modified_ms = int(modified_at.timestamp() * 1000)
+        # Candidate last modified BEFORE the cooldown fired. Use _EPOCH math
+        # (not naive .timestamp()) so local TZ cannot falsely bust cooldown.
+        modified_dt = evaluated_at - timedelta(minutes=25)
+        modified_ms = int((modified_dt - _EPOCH).total_seconds() * 1000)
 
         with app.app_context():
             db.session.add(OwnerReassignmentCooldown(
@@ -2263,7 +2266,7 @@ class TestFindFirstHumanInteractorQuerySyntax:
                     api_user_ids=[1147490, 4582015],
                 )
 
-        assert result == (None, None, None)
+        assert result == (None, None, None, True)
         assert captured['url'] == (
             'https://rest.bullhorn.com/entity/Candidate/4656965'
         ), (
@@ -2322,7 +2325,7 @@ class TestFindFirstHumanInteractorQuerySyntax:
                     api_user_ids=[1147490, 4582015, 4582033, 4591841, 4593767],
                 )
 
-        assert result == (99999, 'Dan', 'Sifer'), (
+        assert result == (99999, 'Dan', 'Sifer', True), (
             f"Expected to find Dan Sifer as first human interactor; got {result}"
         )
 
@@ -2363,7 +2366,7 @@ class TestFindFirstHumanInteractorQuerySyntax:
                     api_user_ids=[1147490],
                 )
 
-        assert result == (88888, 'Kyle', 'Roots')
+        assert result == (88888, 'Kyle', 'Roots', True)
 
     def test_returns_none_when_only_api_authored_notes(self, app):
         from tasks.owner_reassignment import _find_first_human_interactor
@@ -2394,7 +2397,7 @@ class TestFindFirstHumanInteractorQuerySyntax:
                     api_user_ids=[1147490, 4582015],
                 )
 
-        assert result == (None, None, None)
+        assert result == (None, None, None, True)
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -2407,7 +2410,7 @@ class TestBug5DefensiveGuards:
     candidate as 'no human activity' and skips reassignment."""
 
     def test_first_human_interactor_handles_non_dict_data(self, app):
-        """`body['data']` is a list (legacy search-shape) → return (None, None, None)."""
+        """`body['data']` is a list (legacy search-shape) → lookup_ok True, no human."""
         from tasks.owner_reassignment import _find_first_human_interactor
 
         bad_resp = MagicMock()
@@ -2423,8 +2426,8 @@ class TestBug5DefensiveGuards:
                     candidate_id=4656965,
                     api_user_ids=[1147490],
                 )
-        assert result == (None, None, None), (
-            "Non-dict `data` must fail-safe to (None, None, None) — never crash"
+        assert result == (None, None, None, True), (
+            "Non-dict `data` must fail-safe to (None, None, None, True) — never crash"
         )
 
     def test_cooldown_buster_handles_non_list_data(self, app):
@@ -2454,6 +2457,190 @@ class TestBug5DefensiveGuards:
         assert busters == set(), (
             "Non-list `data` must fail-open to empty buster set — never crash"
         )
+
+
+# ════════════════════════════════════════════════════════════════════════
+# Note-lookup 401 re-auth (concurrent token stomping)
+# ════════════════════════════════════════════════════════════════════════
+class TestNoteLookup401Reauth:
+    """Concurrent Bullhorn logins invalidate BhRestToken mid-cycle. Candidate
+    search already re-auths on 401; note lookup must do the same so we do not
+    flood WARNING logs or cooldown false 'no activity' rows."""
+
+    def test_401_then_200_after_reauth_returns_human(self, app):
+        from tasks.owner_reassignment import _find_first_human_interactor
+
+        unauthorized = MagicMock()
+        unauthorized.status_code = 401
+
+        ok = MagicMock()
+        ok.status_code = 200
+        ok.json.return_value = {
+            'data': {
+                'id': 1001,
+                'notes': {
+                    'data': [
+                        {
+                            'id': 1,
+                            'commentingPerson': {
+                                'id': 55, 'firstName': 'Ada', 'lastName': 'Recruiter',
+                            },
+                            'dateAdded': 1700000060000,
+                            'action': 'Call',
+                        },
+                    ],
+                    'total': 1,
+                },
+            },
+        }
+
+        mock_bh = MagicMock()
+        mock_bh.rest_token = 'stale'
+        mock_bh.authenticate.return_value = True
+        # After authenticate(), code reads bh.rest_token for the header refresh.
+        def _auth_side_effect():
+            mock_bh.rest_token = 'fresh'
+            return True
+        mock_bh.authenticate.side_effect = _auth_side_effect
+
+        headers = {'BhRestToken': 'stale'}
+        failure_counts = {'401': 0, 'other_http': 0, 'exception': 0}
+
+        with patch('tasks.owner_reassignment._requests') as mock_req:
+            mock_req.get.side_effect = [unauthorized, ok]
+            with app.app_context():
+                result = _find_first_human_interactor(
+                    base_url='https://rest.bullhorn.com/',
+                    headers=headers,
+                    candidate_id=1001,
+                    api_user_ids=[1147490],
+                    bh=mock_bh,
+                    failure_counts=failure_counts,
+                )
+
+        assert result == (55, 'Ada', 'Recruiter', True)
+        assert mock_bh.authenticate.call_count == 1
+        assert headers['BhRestToken'] == 'fresh'
+        assert mock_req.get.call_count == 2
+        assert failure_counts == {'401': 0, 'other_http': 0, 'exception': 0}
+
+    def test_persistent_401_sets_lookup_ok_false_and_counts(self, app):
+        from tasks.owner_reassignment import _find_first_human_interactor
+
+        unauthorized = MagicMock()
+        unauthorized.status_code = 401
+
+        mock_bh = MagicMock()
+        mock_bh.rest_token = 'stale'
+        mock_bh.authenticate.side_effect = lambda: (
+            setattr(mock_bh, 'rest_token', 'fresh') or True
+        )
+
+        failure_counts = {'401': 0, 'other_http': 0, 'exception': 0}
+        headers = {'BhRestToken': 'stale'}
+
+        with patch('tasks.owner_reassignment._requests') as mock_req:
+            mock_req.get.return_value = unauthorized
+            with app.app_context():
+                result = _find_first_human_interactor(
+                    base_url='https://rest.bullhorn.com/',
+                    headers=headers,
+                    candidate_id=1001,
+                    api_user_ids=[1147490],
+                    bh=mock_bh,
+                    failure_counts=failure_counts,
+                )
+
+        assert result == (None, None, None, False)
+        assert failure_counts['401'] == 1
+        # Two attempts: first 401 triggers re-auth+retry; second 401 records failure.
+        assert mock_req.get.call_count == 2
+
+    def test_401_without_bh_does_not_retry_and_lookup_ok_false(self, app):
+        from tasks.owner_reassignment import _find_first_human_interactor
+
+        unauthorized = MagicMock()
+        unauthorized.status_code = 401
+        failure_counts = {'401': 0, 'other_http': 0, 'exception': 0}
+
+        with patch('tasks.owner_reassignment._requests') as mock_req:
+            mock_req.get.return_value = unauthorized
+            with app.app_context():
+                result = _find_first_human_interactor(
+                    base_url='https://rest.bullhorn.com/',
+                    headers={'BhRestToken': 'tok'},
+                    candidate_id=1001,
+                    api_user_ids=[1147490],
+                    failure_counts=failure_counts,
+                )
+
+        assert result == (None, None, None, False)
+        assert mock_req.get.call_count == 1
+        assert failure_counts['401'] == 1
+
+    def test_cycle_skips_cooldown_when_note_lookup_fails(self, app):
+        """Integration: 401 after re-auth must skip without no_activity cooldown."""
+        from datetime import datetime
+
+        _ensure_config(app, 'auto_reassign_owner_enabled', 'true')
+        _ensure_config(app, 'api_user_ids', '1147490')
+        _ensure_config(app, 'owner_reassignment_cooldown_enabled', 'true')
+        _ensure_config(app, 'reassign_owner_note_enabled', 'false')
+
+        with app.app_context():
+            from tasks.owner_reassignment import reassign_api_user_candidates
+
+            search_resp = MagicMock()
+            search_resp.status_code = 200
+            search_resp.json.return_value = {
+                'data': [{
+                    'id': 90001,
+                    'firstName': 'Test',
+                    'lastName': 'Cand',
+                    'owner': {'id': 1147490, 'firstName': 'API', 'lastName': 'User'},
+                    'dateLastModified': int(datetime.utcnow().timestamp() * 1000),
+                }],
+                'total': 1,
+            }
+
+            unauthorized = MagicMock()
+            unauthorized.status_code = 401
+
+            def fake_get(url, headers=None, params=None, timeout=None):
+                if 'search/Candidate' in url:
+                    return search_resp
+                return unauthorized
+
+            with patch('tasks.owner_reassignment.BullhornService') as mock_bh_cls:
+                mock_bh = MagicMock()
+                mock_bh.authenticate.return_value = True
+                mock_bh.rest_token = 'tok'
+                mock_bh.base_url = 'https://rest.bullhorn.com/'
+                mock_bh_cls.return_value = mock_bh
+
+                with patch('tasks.owner_reassignment._requests') as mock_req:
+                    mock_req.get.side_effect = fake_get
+                    with patch(
+                        'tasks.owner_reassignment._fetch_cooldown_state',
+                        return_value={},
+                    ), patch(
+                        'tasks.owner_reassignment._find_cooldown_busters_via_notes',
+                        return_value=set(),
+                    ), patch(
+                        'tasks.owner_reassignment._write_run_history',
+                    ), patch(
+                        'tasks.owner_reassignment._flush_cooldown_outcomes',
+                    ) as mock_flush:
+                        result = reassign_api_user_candidates(since_minutes=30)
+
+            assert result.get('skipped_lookup_error') == 1
+            assert result.get('reassigned') == 0
+            assert result.get('note_lookup_failures', {}).get('401', 0) >= 1
+            # No cooldown flush of no_activity for this candidate
+            flushed = []
+            if mock_flush.called:
+                flushed = mock_flush.call_args[0][0] if mock_flush.call_args[0] else []
+            assert all(cid != 90001 for cid, _outcome in flushed)
 
 
 # ════════════════════════════════════════════════════════════════════════
