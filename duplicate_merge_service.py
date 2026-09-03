@@ -15,6 +15,19 @@ RECENT_WINDOW_HOURS = 2
 # Long-tail candidates ride to the next cycle.
 FUZZY_MAX_CANDIDATES_PER_CYCLE = 100
 
+# Placeholder / junk values recruiters type into mandatory Email fields when the
+# real address is unknown. Matching on these caused false auto-merges (e.g.
+# Cristopher Williams 4676912 absorbing every other `email:unknown` record).
+# Compared against the full string AND the local-part (before @).
+_PLACEHOLDER_EMAIL_TOKENS = frozenset({
+    'unknown', 'unkown',  # common misspelling
+    'none', 'null', 'n/a', 'na', 'n.a.', 'n.a',
+    'noemail', 'no-email', 'no_email', 'notavailable', 'not-available',
+    'email', 'emailaddress', 'email@email.com', 'test', 'testing',
+    'asdf', 'xxx', 'xxxx', 'placeholder', 'tbd', 'temp', 'temporary',
+    'anonymous', 'donotuse', 'do-not-use', 'fake', 'noreply',
+})
+
 
 class DuplicateMergeService:
     def __init__(self):
@@ -579,6 +592,44 @@ class DuplicateMergeService:
         import re
         return re.sub(r'[^a-z]', '', name_str.strip().lower())
 
+    @staticmethod
+    def _is_usable_merge_email(email) -> bool:
+        """True only for emails safe to use as an auto-merge identity key.
+
+        Rejects empty values, strings without a real ``local@domain.tld`` shape,
+        and known placeholder tokens recruiters type into mandatory Email fields
+        (``unknown``, ``n/a``, ``none``, …). Phone+name matching is unaffected.
+        """
+        if not email or not isinstance(email, str):
+            return False
+        value = email.strip().lower()
+        if not value:
+            return False
+        if value in _PLACEHOLDER_EMAIL_TOKENS:
+            return False
+        if value.count('@') != 1:
+            return False
+        local, domain = value.split('@', 1)
+        if not local or not domain:
+            return False
+        if local in _PLACEHOLDER_EMAIL_TOKENS:
+            return False
+        # Require a dotted domain (rejects "unknown@local", "a@b").
+        if '.' not in domain or domain.startswith('.') or domain.endswith('.'):
+            return False
+        if domain in _PLACEHOLDER_EMAIL_TOKENS:
+            return False
+        return True
+
+    def _usable_emails(self, candidate) -> set:
+        """Normalized usable emails from email / email2 / email3 on a candidate."""
+        raw = [
+            (candidate.get('email') or '').strip().lower(),
+            (candidate.get('email2') or '').strip().lower(),
+            (candidate.get('email3') or '').strip().lower(),
+        ]
+        return {e for e in raw if self._is_usable_merge_email(e)}
+
     def _names_match(self, candidate_a, candidate_b):
         first_a = self._normalize_name(candidate_a.get('firstName'))
         last_a = self._normalize_name(candidate_a.get('lastName'))
@@ -600,19 +651,16 @@ class DuplicateMergeService:
         return False
 
     def _compute_match_confidence(self, candidate_a, candidate_b):
-        email_a = (candidate_a.get('email') or '').strip().lower()
-        email2_a = (candidate_a.get('email2') or '').strip().lower()
-        email3_a = (candidate_a.get('email3') or '').strip().lower()
-        emails_a = {e for e in [email_a, email2_a, email3_a] if e}
+        emails_a = self._usable_emails(candidate_a)
+        emails_b = self._usable_emails(candidate_b)
 
-        email_b = (candidate_b.get('email') or '').strip().lower()
-        email2_b = (candidate_b.get('email2') or '').strip().lower()
-        email3_b = (candidate_b.get('email3') or '').strip().lower()
-        emails_b = {e for e in [email_b, email2_b, email3_b] if e}
+        primary_a = (candidate_a.get('email') or '').strip().lower()
+        if primary_a and not self._is_usable_merge_email(primary_a):
+            primary_a = ''
 
         shared_emails = emails_a & emails_b
         if shared_emails:
-            if email_a and email_a in emails_b:
+            if primary_a and primary_a in emails_b:
                 return 1.0, 'email'
             return 0.95, 'email_secondary'
 
@@ -706,6 +754,12 @@ class DuplicateMergeService:
 
     def _find_matches_for_candidate(self, candidate):
         email = (candidate.get('email') or '').strip().lower()
+        if email and not self._is_usable_merge_email(email):
+            logger.info(
+                f"  Skipping email-search for candidate {candidate.get('id')}: "
+                f"unusable/placeholder email {email!r}"
+            )
+            email = ''
         phone_digits = ''.join(filter(str.isdigit, candidate.get('phone') or ''))
         mobile_digits = ''.join(filter(str.isdigit, candidate.get('mobile') or ''))
 

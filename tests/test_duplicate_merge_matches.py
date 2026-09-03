@@ -162,6 +162,101 @@ def test_no_search_runs_when_no_email_and_no_valid_phone():
 
 
 # ---------------------------------------------------------------------------
+# Placeholder / junk email guard (Williams / email:unknown incident Sep 2026)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize('junk', [
+    'unknown',
+    'Unknown',
+    'n/a',
+    'none',
+    'test',
+    'noemail',
+    'asdf',
+    'not-an-email',
+    'a@b',
+    'unknown@local',
+    'unknown@example.com',
+])
+def test_is_usable_merge_email_rejects_placeholders(junk):
+    assert DuplicateMergeService._is_usable_merge_email(junk) is False
+
+
+@pytest.mark.parametrize('good', [
+    'jane@example.com',
+    'jane.doe@myticas.com',
+    'cwilliams+li@gmail.com',
+])
+def test_is_usable_merge_email_accepts_real_addresses(good):
+    assert DuplicateMergeService._is_usable_merge_email(good) is True
+
+
+def test_compute_match_confidence_ignores_shared_placeholder_email():
+    """Two different people both with email 'unknown' must NOT score as email match.
+    Phone-only path still requires a name match (these names differ → 0.0).
+    """
+    service = DuplicateMergeService()
+    williams = {
+        'id': 4676912,
+        'firstName': 'Cristopher A.',
+        'lastName': 'Williams',
+        'email': 'unknown',
+        'phone': '(614) 466-3555',
+        'mobile': '',
+    }
+    kasich = {
+        'id': 4214361,
+        'firstName': 'Governor',
+        'lastName': 'Kasich',
+        'email': 'unknown',
+        'phone': '(614) 466-3555',
+        'mobile': '',
+    }
+    confidence, field = service._compute_match_confidence(williams, kasich)
+    assert confidence == 0.0
+    assert field == 'phone_name_mismatch'
+
+
+def test_compute_match_confidence_still_matches_real_shared_email():
+    service = DuplicateMergeService()
+    a = {'id': 1, 'email': 'same@example.com', 'firstName': 'A', 'lastName': 'One'}
+    b = {'id': 2, 'email': 'same@example.com', 'firstName': 'B', 'lastName': 'Two'}
+    confidence, field = service._compute_match_confidence(a, b)
+    assert confidence == 1.0
+    assert field == 'email'
+
+
+def test_find_matches_skips_email_search_for_placeholder():
+    """Placeholder primary email must not trigger a Bullhorn email Lucene search.
+    Phone search still runs when digits are present.
+    """
+    candidate = {
+        'id': 4676912,
+        'email': 'unknown',
+        'phone': '6144663555',
+        'mobile': '',
+    }
+    phone_hit = {
+        'id': 999,
+        'email': 'other@example.com',
+        'phone': '6144663555',
+        'firstName': 'Other',
+        'lastName': 'Person',
+        'status': 'Active',
+    }
+    service = _make_service(
+        email_results=[{'id': 888, 'email': 'unknown', 'status': 'Active'}],
+        phone_results=[phone_hit],
+    )
+    matches = service._find_matches_for_candidate(candidate)
+
+    assert len(service._call_log) == 1, \
+        f"Only phone-search should fire, got queries: {service._call_log}"
+    assert 'email' not in service._call_log[0]
+    assert [m.get('id') for m in matches] == [999]
+
+
+# ---------------------------------------------------------------------------
 # Ownership-preserving auto-merge (determine_primary + note authorship).
 # In a no-app-context test run VettingConfig lookups fail-soft, so the API
 # user set collapses to the built-in {1147490}.
