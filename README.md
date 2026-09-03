@@ -434,7 +434,7 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
-- **Auto-merge ignores placeholder emails (Sep 3)**: Exact email matches no longer treat junk / mandatory-field fillers (`unknown`, `n/a`, `none`, strings without a real `local@domain.tld`) as identity. Stops false merges like Cristopher Williams absorbing every other `email:unknown` record. Phone+name matching is unchanged.
+- **Auto-merge ignores placeholder emails (Sep 3)**: Exact email matches no longer treat junk / mandatory-field fillers (`unknown`, `n/a`, `none`, strings without a real `local@domain.tld`) as identity. Stops false merges like Cristopher Williams absorbing every other `email:unknown` record. Phone+name matching is unchanged. Incident repair: `scripts/repair_williams_unknown_email_merge.py` cleaned Williams 4676912 and restored the 10 wrongly archived people (Kasich left Archive).
 
 - **Owner reassignment note-lookup 401 fix (Aug 31)**: Concurrent Bullhorn logins were invalidating the REST token mid-cycle. Candidate search already re-authed on 401; note lookups (`entity/Candidate/{id}` notes) now do the same. Failed lookups no longer write a false `no_activity` cooldown, and WARNING noise is one line per cycle instead of per candidate.
 
