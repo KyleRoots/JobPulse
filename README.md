@@ -36,11 +36,14 @@ A comprehensive Flask-based web application that automates XML job feed processi
 - **Session Management**: Flask sessions with secure keys
 - **Proxy Support**: ProxyFix middleware for HTTPS
 - **File Handling**: Secure temporary storage with auto-cleanup
-- **Production Hosting**: Railway (`scout-genius` project, JobPulse service) — deploys from `main`
+- **Production Hosting**: Railway (`scout-genius` project) — deploys from `main`
+  - `JobPulse` + `Postgres` — Myticas / STSI (shared Bullhorn corp)
+  - `JobPulse-Qualified` + `Postgres-Qualified` — Qualified Staffing (separate Bullhorn corp; light industrial). See `docs/qualified-staffing-deploy.md`
 - **Dual-Domain Setup**:
-  - `app.scoutgenius.ai` — main Scout Genius app
+  - `app.scoutgenius.ai` — main Scout Genius app (Myticas / STSI)
   - `apply.myticas.com` — Myticas job applications
   - `apply.stsigroup.com` — STSI job applications (web form; privacy contact mailto is `stsioffice@stsigroup.com` — `apply@stsigroup.com` is not provisioned)
+  - Qualified apply mailbox target: `apply@q-staffing.com` (provisioning in progress; do not share Myticas inbox)
 
 ---
 
@@ -434,6 +437,8 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
+- **Qualified Staffing Railway scaffold (Sep 17)**: Second Scout deploy path for the Qualified Staffing Bullhorn corp (`JobPulse-Qualified` + `Postgres-Qualified` in `scout-genius`). Isolated DB/mailbox/API user from Myticas/STSI. Tearsheet/Indeed/XML mapping waits on Qualified IDs; mailbox target `apply@q-staffing.com`. Ops checklist: `docs/qualified-staffing-deploy.md`.
+
 - **Auto-merge ignores placeholder emails (Sep 3)**: Exact email matches no longer treat junk / mandatory-field fillers (`unknown`, `n/a`, `none`, strings without a real `local@domain.tld`) as identity. Stops false merges like Cristopher Williams absorbing every other `email:unknown` record. Phone+name matching is unchanged. Incident repair: `scripts/repair_williams_unknown_email_merge.py` cleaned Williams 4676912 and restored the 10 wrongly archived people (Kasich left Archive).
 
 - **Owner reassignment note-lookup 401 fix (Aug 31)**: Concurrent Bullhorn logins were invalidating the REST token mid-cycle. Candidate search already re-authed on 401; note lookups (`entity/Candidate/{id}` notes) now do the same. Failed lookups no longer write a false `no_activity` cooldown, and WARNING noise is one line per cycle instead of per candidate.
@@ -661,5 +666,5 @@ Access health endpoints for status checks:
 
 ---
 
-**Last Updated**: August 31, 2026
+**Last Updated**: September 17, 2026
 **Version**: 2.9 (Main-branch Railway deploy; Render log monitoring removed)
