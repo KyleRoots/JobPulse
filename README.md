@@ -437,7 +437,7 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
-- **Qualified Staffing Railway scaffold (Sep 17)**: Second Scout deploy path for the Qualified Staffing Bullhorn corp (`JobPulse-Qualified` + `Postgres-Qualified` in `scout-genius`). Isolated DB/mailbox/API user from Myticas/STSI. Tearsheet/Indeed/XML mapping waits on Qualified IDs; mailbox target `apply@q-staffing.com`. Ops checklist: `docs/qualified-staffing-deploy.md`.
+- **Qualified Staffing Railway scaffold (Sep 17)**: Second Scout deploy path for the Qualified Staffing Bullhorn corp (`JobPulse-Qualified` + `Postgres-Qualified` in `scout-genius`). Isolated DB/mailbox/API user from Myticas/STSI. Tearsheet/Indeed/XML mapping waits on Qualified IDs; mailbox target `apply@q-staffing.com`. Apply landing branding (`apply_qualified.html`, logo, no AI screening notice until screening is on). Ops checklist: `docs/qualified-staffing-deploy.md`.
 
 - **Auto-merge ignores placeholder emails (Sep 3)**: Exact email matches no longer treat junk / mandatory-field fillers (`unknown`, `n/a`, `none`, strings without a real `local@domain.tld`) as identity. Stops false merges like Cristopher Williams absorbing every other `email:unknown` record. Phone+name matching is unchanged. Incident repair: `scripts/repair_williams_unknown_email_merge.py` cleaned Williams 4676912 and restored the 10 wrongly archived people (Kasich left Archive).
 

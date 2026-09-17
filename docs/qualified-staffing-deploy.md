@@ -58,7 +58,39 @@ After first successful seed, live Bullhorn auth is stored in **this service’s*
 
 ## Screening
 
-Use the **`light_industrial`** screening profile on the Qualified `BullhornEnvironment` (Admin onboarding or environment settings). Do not leave it on the Myticas `standard` profile.
+Qualified is **not** using Scout Screening yet. The apply template
+(`apply_qualified.html`) intentionally **omits** the “we use AI / Scout
+Screening” candidate notice. Use the **`light_industrial`** screening profile
+on the Qualified `BullhornEnvironment` only when screening is turned on later
+(Admin onboarding or environment settings). Do not leave it on the Myticas
+`standard` profile if you enable screening.
+
+## Apply landing page branding
+
+- Template: `templates/apply_qualified.html` (red/black Qualified brand, logo
+  plate, tagline “We go to work for you.”).
+- Logo assets: `static/images/qualified_staffing_logo.png` and
+  `static/qualified-staffing-logo.png`.
+- Host routing: `*q-staffing.com*` and `qualified.scoutgenius*` → Qualified
+  template (Brand seed when `SCOUT_TENANT=qualified_staffing`, plus hardcoded
+  fallback).
+- Privacy mailto: `apply@q-staffing.com`.
+
+## SFTP / FPT (XML hosting)
+
+WP Engine / host “FPT” credentials are the SFTP (or FTP) account Scout uses to
+upload LinkedIn/Indeed XML. On `JobPulse-Qualified` only:
+
+1. Prefer **Admin → Global Settings** keys: `sftp_enabled`, `sftp_hostname`,
+   `sftp_username`, `sftp_password`, `sftp_directory`, `sftp_port` (often `2222`
+   for WP Engine SFTP).
+2. Or Railway env on the Qualified service: `SFTP_HOSTNAME` / `SFTP_HOST`,
+   `SFTP_USERNAME`, `SFTP_PASSWORD`, `SFTP_PORT` (never commit these; do not
+   paste into chat).
+
+Do **not** copy Myticas SFTP settings onto Qualified (wrong site / wrong feed
+paths). Keep XML uploads **OFF** until the `SCOUT_TENANT` feed selector and
+Qualified tearsheet IDs are live.
 
 ## Feeds / Indeed / tearsheets
 

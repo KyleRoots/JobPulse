@@ -1,4 +1,5 @@
 import logging
+import os
 import traceback
 import uuid
 from flask import Blueprint, render_template, request, jsonify, abort, make_response
@@ -13,6 +14,15 @@ ALLOWED_RESUME_EXTENSIONS = {'pdf', 'doc', 'docx', 'txt', 'rtf'}
 def allowed_resume_file(filename):
     """Check if file has an allowed resume extension (pdf, doc, docx, txt, rtf)"""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_RESUME_EXTENSIONS
+
+
+def _is_qualified_staffing_tenant() -> bool:
+    return (os.environ.get('SCOUT_TENANT') or '').strip().lower() == 'qualified_staffing'
+
+
+def _is_qualified_apply_host(host: str) -> bool:
+    h = (host or '').lower()
+    return 'q-staffing.com' in h or 'qualified.scoutgenius' in h
 
 
 @job_application_bp.route('/<job_id>/<job_title>/')
@@ -36,22 +46,30 @@ def job_application_form(job_id, job_title):
         # Resolve the apply-form brand by host (Myticas / STSI / future tenant).
         # Falls back to the historical hardcoded mapping if brands are unseeded
         # so the served template is byte-for-byte unchanged.
+        #
+        # JobPulse-Qualified is a dedicated service: SCOUT_TENANT (or Qualified
+        # apply hosts) must win over a leftover Myticas default Brand row from
+        # first boot, or candidates still see apply.html.
         template = None
-        try:
-            from models import Brand
-            brand = Brand.resolve_for_host(host)
-            if brand is not None:
-                template = brand.apply_template
-                logger.info(f"Serving brand '{brand.key}' template for domain: {host}")
-        except Exception as e:
-            logger.warning(f"Brand resolution failed for {host}, using fallback: {e}")
-        if not template:
-            if 'stsigroup.com' in host:
-                template = 'apply_stsi.html'
-                logger.info(f"Serving STSI template for domain: {host}")
-            else:
-                template = 'apply.html'
-                logger.info(f"Serving Myticas template for domain: {host}")
+        if _is_qualified_staffing_tenant() or _is_qualified_apply_host(host):
+            template = 'apply_qualified.html'
+            logger.info(f"Serving Qualified Staffing template for domain: {host}")
+        else:
+            try:
+                from models import Brand
+                brand = Brand.resolve_for_host(host)
+                if brand is not None:
+                    template = brand.apply_template
+                    logger.info(f"Serving brand '{brand.key}' template for domain: {host}")
+            except Exception as e:
+                logger.warning(f"Brand resolution failed for {host}, using fallback: {e}")
+            if not template:
+                if 'stsigroup.com' in host:
+                    template = 'apply_stsi.html'
+                    logger.info(f"Serving STSI template for domain: {host}")
+                else:
+                    template = 'apply.html'
+                    logger.info(f"Serving Myticas template for domain: {host}")
 
         # --- Dynamic source attribution: first-touch capture ---------------
         # The browser referrer (where the candidate clicked Apply) is the only

@@ -305,9 +305,41 @@ _DEFAULT_BRANDS = (
     },
 )
 
+# Qualified Staffing runs as its own Railway service / DB. Seed only this brand
+# when SCOUT_TENANT=qualified_staffing so apply hosts resolve correctly without
+# Myticas/STSI brand rows on that instance.
+_QUALIFIED_BRANDS = (
+    {
+        'key': 'qualified',
+        'display_name': 'Qualified Staffing',
+        'domains': ['q-staffing', 'qualified.scoutgenius'],
+        'apply_template': 'apply_qualified.html',
+        'logo_path': 'static/qualified-staffing-logo.png',
+        'logo_filename': 'qualified-staffing-logo.png',
+        'logo_cid': 'qualified_logo',
+        'company_name': 'Qualified Staffing',
+        'logo_alt_text': 'Qualified Staffing',
+        'from_email': 'apply@q-staffing.com',
+        'to_email': 'apply@q-staffing.com',
+        'is_default': True,
+    },
+)
+
+
+def _brands_for_tenant():
+    """Return brand seed specs for this process (Myticas/STSI vs Qualified)."""
+    import os
+    tenant = (os.environ.get('SCOUT_TENANT') or '').strip().lower()
+    if tenant == 'qualified_staffing':
+        return _QUALIFIED_BRANDS
+    return _DEFAULT_BRANDS
+
 
 def seed_brands(db, environment):
-    """Seed the default environment's apply-form brands (Myticas + STSI).
+    """Seed apply-form brands for this service's tenant.
+
+    Myticas service: Myticas + STSI. Qualified service (``SCOUT_TENANT=
+    qualified_staffing``): Qualified Staffing only.
 
     Idempotent upsert keyed on Brand.key. Only fills in fields that are unset
     so a brand a super-admin later edits in the UI is not stomped on reboot;
@@ -317,7 +349,26 @@ def seed_brands(db, environment):
     from models import Brand
 
     try:
-        for spec in _DEFAULT_BRANDS:
+        specs = list(_brands_for_tenant())
+        allowed_keys = {spec['key'] for spec in specs}
+
+        # On the Qualified service, demote any leftover Myticas/STSI brand rows
+        # from the shared seed path so resolve_for_host cannot return Myticas.
+        import os
+        if (os.environ.get('SCOUT_TENANT') or '').strip().lower() == 'qualified_staffing':
+            for foreign in Brand.query.filter(~Brand.key.in_(allowed_keys)).all():
+                changed_foreign = False
+                if foreign.is_default:
+                    foreign.is_default = False
+                    changed_foreign = True
+                if foreign.is_active:
+                    foreign.is_active = False
+                    changed_foreign = True
+                if changed_foreign:
+                    db.session.commit()
+                    logger.info(f"✅ Demoted foreign brand '{foreign.key}' on Qualified tenant")
+
+        for spec in specs:
             brand = Brand.query.filter_by(key=spec['key']).first()
             if brand is None:
                 brand = Brand(
@@ -340,15 +391,27 @@ def seed_brands(db, environment):
                 db.session.commit()
                 logger.info(f"✅ Seeded brand '{spec['key']}'")
             else:
-                # Self-heal: ensure the brand stays attached to the default env
-                # and keeps its canonical default flag. Other fields are left as
-                # they are so UI edits survive reboots.
+                # Self-heal: keep tenant brands attached, defaulted, and on the
+                # canonical template/logo so Qualified cannot stick on apply.html.
                 changed = False
                 if brand.environment_id != environment.id:
                     brand.environment_id = environment.id
                     changed = True
                 if brand.is_default != spec['is_default']:
                     brand.is_default = spec['is_default']
+                    changed = True
+                if not brand.is_active:
+                    brand.is_active = True
+                    changed = True
+                for field in (
+                    'display_name', 'apply_template', 'logo_path', 'logo_filename',
+                    'logo_cid', 'company_name', 'logo_alt_text', 'from_email', 'to_email',
+                ):
+                    if getattr(brand, field) != spec[field]:
+                        setattr(brand, field, spec[field])
+                        changed = True
+                if brand.get_domains() != list(spec['domains']):
+                    brand.set_domains(spec['domains'])
                     changed = True
                 if changed:
                     db.session.commit()
