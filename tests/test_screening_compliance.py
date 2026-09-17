@@ -3,6 +3,7 @@
 from screening.compliance import (
     PRIVACY_CONTACT_DISPLAY_LABEL,
     PRIVACY_CONTACT_MYTICAS,
+    PRIVACY_CONTACT_QUALIFIED,
     PRIVACY_CONTACT_STSI,
     SCREENING_RULES_VERSION,
     get_privacy_contact_display_label,
@@ -23,6 +24,9 @@ class TestScreeningCompliance:
         assert get_privacy_contact_for_host('apply.stsigroup.com') == PRIVACY_CONTACT_STSI
         assert get_privacy_contact_for_host('www.apply.stsigroup.com') == PRIVACY_CONTACT_STSI
         assert get_privacy_contact_for_host('APPLY.STSIGROUP.COM') == PRIVACY_CONTACT_STSI
+        # Qualified hosts → apply@q-staffing.com
+        assert get_privacy_contact_for_host('apply.q-staffing.com') == PRIVACY_CONTACT_QUALIFIED
+        assert get_privacy_contact_for_host('qualified.scoutgenius.ai') == PRIVACY_CONTACT_QUALIFIED
         # Unknown / empty defaults to Myticas intake
         assert get_privacy_contact_for_host('') == PRIVACY_CONTACT_MYTICAS
         assert get_privacy_contact_for_host(None) == PRIVACY_CONTACT_MYTICAS
@@ -35,6 +39,7 @@ class TestScreeningCompliance:
         assert PRIVACY_CONTACT_MYTICAS == 'apply@myticas.com'
         assert PRIVACY_CONTACT_STSI == 'stsioffice@stsigroup.com'
         assert PRIVACY_CONTACT_STSI != 'apply@stsigroup.com'
+        assert PRIVACY_CONTACT_QUALIFIED == 'apply@q-staffing.com'
 
     def test_rules_metadata_includes_version(self):
         meta = get_screening_rules_metadata(service=None)

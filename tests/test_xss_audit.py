@@ -58,6 +58,7 @@ TEMPLATES_DIR = REPO_ROOT / "templates"
 HARDENED_TEMPLATES: tuple[str, ...] = (
     "apply.html",
     "apply_stsi.html",
+    "apply_qualified.html",
     "support_request.html",
     "support_request_stsi.html",
     "vetting_sandbox.html",

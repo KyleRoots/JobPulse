@@ -332,7 +332,28 @@ class JobApplicationService:
         matching Brand row (host -> brand, default-brand fallback). When brands
         are not seeded (or resolution fails), falls back to the historical
         hardcoded Myticas/STSI mapping so output is byte-for-byte unchanged.
+
+        On ``SCOUT_TENANT=qualified_staffing`` (or Qualified apply hosts), always
+        return Qualified branding so a leftover Myticas default Brand cannot win.
         """
+        import os
+        host_l = (request_host or '').lower()
+        is_qualified_tenant = (
+            (os.environ.get('SCOUT_TENANT') or '').strip().lower() == 'qualified_staffing'
+        )
+        is_qualified_host = 'q-staffing' in host_l or 'qualified.scoutgenius' in host_l
+        if is_qualified_tenant or is_qualified_host:
+            return {
+                'template': 'apply_qualified.html',
+                'logo_path': 'static/qualified-staffing-logo.png',
+                'logo_filename': 'qualified-staffing-logo.png',
+                'logo_cid': 'qualified_logo',
+                'company_name': 'Qualified Staffing',
+                'logo_alt_text': 'Qualified Staffing',
+                'from_email': self.from_email,
+                'to_email': self.to_email,
+            }
+
         try:
             from models import Brand
             brand = Brand.resolve_for_host(request_host or '')
@@ -353,7 +374,7 @@ class JobApplicationService:
             }
 
         # Hardcoded historical fallback (exact parity if brands unseeded).
-        is_stsi = bool(request_host and 'stsigroup' in request_host.lower())
+        is_stsi = 'stsigroup' in host_l
         return {
             'template': 'apply_stsi.html' if is_stsi else 'apply.html',
             'logo_path': 'static/stsi-logo.png' if is_stsi else 'static/myticas-logo.png',

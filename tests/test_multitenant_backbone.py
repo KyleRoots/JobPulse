@@ -174,6 +174,24 @@ class TestResolveBranding:
         assert stsi['company_name'] == _STSI['company_name']
         assert stsi['logo_alt_text'] == _STSI['logo_alt_text']
 
+        qualified = svc._resolve_branding('apply.q-staffing.com')
+        assert qualified['template'] == 'apply_qualified.html'
+        assert qualified['logo_path'] == 'static/qualified-staffing-logo.png'
+        assert qualified['logo_cid'] == 'qualified_logo'
+        assert qualified['company_name'] == 'Qualified Staffing'
+        scout = svc._resolve_branding('qualified.scoutgenius.ai')
+        assert scout['template'] == 'apply_qualified.html'
+
+    def test_qualified_tenant_overrides_myticas_default_brand(self, seeded_brands, monkeypatch):
+        """SCOUT_TENANT=qualified_staffing must not serve Myticas apply.html."""
+        monkeypatch.setenv('SCOUT_TENANT', 'qualified_staffing')
+        b = self._svc()._resolve_branding('qualified.scoutgenius.ai')
+        assert b['template'] == 'apply_qualified.html'
+        assert b['company_name'] == 'Qualified Staffing'
+        # Even a generic host on the Qualified service stays Qualified-branded.
+        b2 = self._svc()._resolve_branding('localhost')
+        assert b2['template'] == 'apply_qualified.html'
+
     def test_email_html_uses_branding(self, seeded_brands):
         svc = self._svc()
         stsi_brand = svc._resolve_branding('apply.stsigroup.com')

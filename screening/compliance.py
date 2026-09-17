@@ -27,6 +27,7 @@ PRIVACY_CONTACT_DISPLAY_LABEL = 'Contact Us Here'
 
 PRIVACY_CONTACT_MYTICAS = 'apply@myticas.com'
 PRIVACY_CONTACT_STSI = 'stsioffice@stsigroup.com'
+PRIVACY_CONTACT_QUALIFIED = 'apply@q-staffing.com'
 
 
 def get_privacy_contact_for_host(host: str) -> str:
@@ -34,13 +35,23 @@ def get_privacy_contact_for_host(host: str) -> str:
 
     - Myticas hosts (``apply.myticas.com``, default) → ``apply@myticas.com``
     - STSI hosts (``*stsigroup.com*``) → ``stsioffice@stsigroup.com``
+    - Qualified hosts / ``SCOUT_TENANT=qualified_staffing`` → ``apply@q-staffing.com``
 
     ``apply@stsigroup.com`` is not provisioned and must not be shown.
     UI copy uses :data:`PRIVACY_CONTACT_DISPLAY_LABEL`; this returns the
     address for the ``mailto:`` href only.
     """
-    if host and 'stsigroup.com' in str(host).lower():
+    import os
+    host_l = str(host or '').lower()
+    if 'stsigroup.com' in host_l:
         return PRIVACY_CONTACT_STSI
+    tenant = (os.environ.get('SCOUT_TENANT') or '').strip().lower()
+    if (
+        tenant == 'qualified_staffing'
+        or 'q-staffing.com' in host_l
+        or 'qualified.scoutgenius' in host_l
+    ):
+        return PRIVACY_CONTACT_QUALIFIED
     return PRIVACY_CONTACT_MYTICAS
 
 
