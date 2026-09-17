@@ -46,7 +46,13 @@ Myticas and STSI are Brands on one Bullhorn instance. Qualified Staffing is a di
 | `ADMIN_PASSWORD` | Initial admin login (12+ chars) |
 | `OPENAI_API_KEY` | Can reuse org key or a dedicated key |
 | `SENDGRID_API_KEY` | Notifications |
-| Graph / Entra vars | Same pattern as Myticas, scoped to the Qualified mailbox tenant |
+| `MICROSOFT_CLIENT_ID` | Entra **mail** app for Qualified Graph pull (not Support Portal SSO) |
+| `MICROSOFT_CLIENT_SECRET` | Secret for that mail app |
+| `MICROSOFT_TENANT_ID` | Qualified Microsoft 365 / Entra tenant ID |
+| `GRAPH_MAILBOX_UPN` | Must be `apply@q-staffing.com` (already scaffolded; confirm after mailbox exists) |
+| `GRAPH_AUTH_MODE` | Set to `entra` on this service |
+
+Do **not** use `SUPPORT_MICROSOFT_*` for mailbox pull. Those are Support Portal SSO only. Pointing Graph at the wrong app yields `403` and stops applicant intake.
 
 After first successful seed, live Bullhorn auth is stored in **this service’s** `global_settings` DB (not Railway env alone). Update via ATS Integration Settings → Save if rotating.
 
@@ -56,11 +62,17 @@ Use the **`light_industrial`** screening profile on the Qualified `BullhornEnvir
 
 ## Feeds / Indeed / tearsheets
 
-Hold until Qualified provides tearsheet IDs and names. Then map:
+**Keep XML automated uploads and Indeed native publish OFF on `JobPulse-Qualified` until a per-service feed selector exists.**
 
-- LinkedIn / Indeed / Zip XML tearsheet IDs in feed config (Qualified-only service copy or env-gated config)
-- Indeed native publish tearsheet + `BH_UI_*` for **this** corp only
-- SFTP host/path if Qualified uses a different WP Engine (or other) destination
+Today `feeds/feed_config.py` is shared on `main`. `APP_ENV` only picks prod vs `-dev` filenames. It does **not** select Myticas vs Qualified. Adding Qualified tearsheet IDs to that shared config would also change Myticas/STSI feeds on `JobPulse`.
+
+Before mapping Qualified IDs:
+
+1. Ship an explicit service selector (for example `SCOUT_TENANT=qualified_staffing` gated in feed/Indeed code paths) so Qualified IDs, filenames, and publisher metadata apply only on `JobPulse-Qualified`.
+2. Document the exact variable and default (`qualified_staffing` vs Myticas default).
+3. Then map LinkedIn / Indeed / Zip tearsheet IDs, Indeed `BH_UI_*` for this corp only, and any Qualified SFTP destination.
+
+Until that selector ships: inbound + screening + dedupe/cleanup only; no Qualified XML/Indeed publish go-live.
 
 ## Go-live order
 
