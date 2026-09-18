@@ -19,8 +19,8 @@ from bullhorn_service import BullhornService
 from xml_integration_service import XMLIntegrationService
 from xml_processor import XMLProcessor
 from feeds.feed_config import (
-    V2_TEARSHEET_IDS,
-    TEARSHEET_MONITOR_MAPPING,
+    get_v2_tearsheet_ids,
+    get_tearsheet_monitor_mapping,
     SOURCE_LINKEDIN,
 )
 
@@ -37,8 +37,8 @@ class SimplifiedXMLGenerator:
         self.xml_integration = XMLIntegrationService()
         self.xml_processor = XMLProcessor()
         
-        self.tearsheet_ids = list(V2_TEARSHEET_IDS)
-        self.tearsheet_monitor_mapping = dict(TEARSHEET_MONITOR_MAPPING)
+        self.tearsheet_ids = list(get_v2_tearsheet_ids())
+        self.tearsheet_monitor_mapping = dict(get_tearsheet_monitor_mapping())
         
         # File to persist reference number mappings
         self.snapshot_file = 'xml_snapshot.json'
@@ -302,28 +302,36 @@ class SimplifiedXMLGenerator:
             raise Exception("lxml not available, cannot generate XML")
 
         from feeds.feed_config import (
-            V2_PUBLISHER_TITLE,
-            V2_PUBLISHER_LINK,
-            STSI_PUBLISHER_TITLE,
-            STSI_PUBLISHER_LINK,
+            get_v2_publisher,
+            is_qualified_tenant,
             SOURCE_INDEED,
             SOURCE_ZIPRECRUITER,
+            STSI_PUBLISHER_TITLE,
+            STSI_PUBLISHER_LINK,
         )
 
-        # Channel feeds default to STSI branding even if callers omit overrides.
-        # LinkedIn/v2 stays Myticas unless explicitly overridden.
+        v2_title, v2_link = get_v2_publisher()
+
+        # Channel feeds: STSI branding on Myticas tenant; Qualified publisher on
+        # the Qualified tenant when callers omit overrides.
         if publisher_title is None and source_channel in (SOURCE_INDEED, SOURCE_ZIPRECRUITER):
-            publisher_title = STSI_PUBLISHER_TITLE
+            if is_qualified_tenant():
+                publisher_title = v2_title
+            else:
+                publisher_title = STSI_PUBLISHER_TITLE
         if publisher_link is None and source_channel in (SOURCE_INDEED, SOURCE_ZIPRECRUITER):
-            publisher_link = STSI_PUBLISHER_LINK
+            if is_qualified_tenant():
+                publisher_link = v2_link
+            else:
+                publisher_link = STSI_PUBLISHER_LINK
 
         root = etree.Element("source")
 
         title_elem = etree.SubElement(root, "title")
-        title_elem.text = (publisher_title or V2_PUBLISHER_TITLE).strip() or V2_PUBLISHER_TITLE
+        title_elem.text = (publisher_title or v2_title).strip() or v2_title
 
         link_elem = etree.SubElement(root, "link")
-        link_elem.text = (publisher_link or V2_PUBLISHER_LINK).strip() or V2_PUBLISHER_LINK
+        link_elem.text = (publisher_link or v2_link).strip() or v2_link
         
         updated_references = existing_references.copy()
         
