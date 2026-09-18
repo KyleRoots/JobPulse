@@ -422,64 +422,102 @@ def seed_brands(db, environment):
 
 def seed_bullhorn_monitors(db, BullhornMonitor):
     """
-    Seed BullhornMonitor tearsheet configurations (upsert behavior)
+    Seed BullhornMonitor tearsheet configurations (upsert behavior).
 
-    Args:
-        db: SQLAlchemy database instance
-        BullhornMonitor: BullhornMonitor model class
+    Myticas/STSI service: historical sponsored tearsheet set.
+    Qualified service (``SCOUT_TENANT=qualified_staffing``): only IDs from
+    ``get_tearsheet_monitor_mapping()`` (empty until corp IDs are mapped), and
+    deactivate any leftover Myticas/STSI monitor rows.
     """
     try:
-        # Define tearsheet configurations (Bullhorn One IDs - January 2026 migration)
-        tearsheet_configs = [
-            {
-                'name': 'Sponsored - OTT',
-                'tearsheet_id': 1231,
-                'tearsheet_name': 'Sponsored - OTT',
-                'notification_email': 'apply@myticas.com'
-            },
-            {
-                'name': 'Sponsored - CHI',
-                'tearsheet_id': 1232,
-                'tearsheet_name': 'Sponsored - CHI',
-                'notification_email': 'apply@myticas.com'
-            },
-            {
-                'name': 'Sponsored - CLE',
-                'tearsheet_id': 1233,
-                'tearsheet_name': 'Sponsored - CLE',
-                'notification_email': 'apply@myticas.com'
-            },
-            {
-                'name': 'Sponsored - VMS',
-                'tearsheet_id': 1239,
-                'tearsheet_name': 'Sponsored - VMS',
-                'notification_email': 'apply@myticas.com'
-            },
-            {
-                'name': 'Sponsored - GR',
-                'tearsheet_id': 1474,
-                'tearsheet_name': 'Sponsored - GR',
-                'notification_email': 'apply@myticas.com'
-            },
-            {
-                'name': 'Sponsored - STSI - LinkedIn',
-                'tearsheet_id': 1531,
-                'tearsheet_name': 'Sponsored - STSI - LinkedIn',
-                'notification_email': ''
-            },
-            {
-                'name': 'Sponsored - STSI - Indeed',
-                'tearsheet_id': 1640,
-                'tearsheet_name': 'Sponsored - STSI - Indeed',
-                'notification_email': ''
-            },
-            {
-                'name': 'Sponsored - STSI - Zip Recruiter',
-                'tearsheet_id': 1641,
-                'tearsheet_name': 'Sponsored - STSI - Zip Recruiter',
-                'notification_email': ''
-            },
-        ]
+        from feeds.feed_config import (
+            get_default_apply_email,
+            get_tearsheet_monitor_mapping,
+            is_qualified_tenant,
+        )
+
+        if is_qualified_tenant():
+            mapping = get_tearsheet_monitor_mapping()
+            allowed_ids = set(mapping.keys())
+            deactivated = []
+            for mon in BullhornMonitor.query.all():
+                if mon.tearsheet_id not in allowed_ids and mon.is_active:
+                    mon.is_active = False
+                    deactivated.append(f"{mon.name}:{mon.tearsheet_id}")
+            if deactivated:
+                db.session.commit()
+                logger.info(
+                    "✅ Deactivated %s non-Qualified Bullhorn monitors on Qualified tenant: %s",
+                    len(deactivated),
+                    ', '.join(deactivated),
+                )
+            tearsheet_configs = [
+                {
+                    'name': name,
+                    'tearsheet_id': tid,
+                    'tearsheet_name': name,
+                    'notification_email': get_default_apply_email(),
+                }
+                for tid, name in sorted(mapping.items())
+            ]
+            if not tearsheet_configs:
+                logger.info(
+                    "✅ Qualified tenant: no tearsheet IDs mapped yet — monitors not seeded "
+                    "(add QUALIFIED_* IDs in feeds/feed_config.py when ready)"
+                )
+                return
+        else:
+            # Define tearsheet configurations (Bullhorn One IDs - January 2026 migration)
+            tearsheet_configs = [
+                {
+                    'name': 'Sponsored - OTT',
+                    'tearsheet_id': 1231,
+                    'tearsheet_name': 'Sponsored - OTT',
+                    'notification_email': 'apply@myticas.com'
+                },
+                {
+                    'name': 'Sponsored - CHI',
+                    'tearsheet_id': 1232,
+                    'tearsheet_name': 'Sponsored - CHI',
+                    'notification_email': 'apply@myticas.com'
+                },
+                {
+                    'name': 'Sponsored - CLE',
+                    'tearsheet_id': 1233,
+                    'tearsheet_name': 'Sponsored - CLE',
+                    'notification_email': 'apply@myticas.com'
+                },
+                {
+                    'name': 'Sponsored - VMS',
+                    'tearsheet_id': 1239,
+                    'tearsheet_name': 'Sponsored - VMS',
+                    'notification_email': 'apply@myticas.com'
+                },
+                {
+                    'name': 'Sponsored - GR',
+                    'tearsheet_id': 1474,
+                    'tearsheet_name': 'Sponsored - GR',
+                    'notification_email': 'apply@myticas.com'
+                },
+                {
+                    'name': 'Sponsored - STSI - LinkedIn',
+                    'tearsheet_id': 1531,
+                    'tearsheet_name': 'Sponsored - STSI - LinkedIn',
+                    'notification_email': ''
+                },
+                {
+                    'name': 'Sponsored - STSI - Indeed',
+                    'tearsheet_id': 1640,
+                    'tearsheet_name': 'Sponsored - STSI - Indeed',
+                    'notification_email': ''
+                },
+                {
+                    'name': 'Sponsored - STSI - Zip Recruiter',
+                    'tearsheet_id': 1641,
+                    'tearsheet_name': 'Sponsored - STSI - Zip Recruiter',
+                    'notification_email': ''
+                },
+            ]
 
         monitors_created = []
         monitors_updated = []
@@ -547,7 +585,7 @@ def seed_bullhorn_monitors(db, BullhornMonitor):
             if monitors_updated:
                 logger.info(f"🔄 Updated {len(monitors_updated)} Bullhorn monitors to production defaults")
         else:
-            logger.info(f"✅ All 5 Bullhorn monitors already configured correctly")
+            logger.info(f"✅ Bullhorn monitors already configured correctly ({len(tearsheet_configs)} expected)")
 
     except Exception as e:
         db.session.rollback()

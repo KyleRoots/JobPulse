@@ -67,14 +67,29 @@ on the Qualified `BullhornEnvironment` only when screening is turned on later
 
 ## Apply landing page branding
 
-- Template: `templates/apply_qualified.html` (red/black Qualified brand, logo
-  plate, tagline “We go to work for you.”).
+- Template: `templates/apply_qualified.html` (light frame, Qualified logo, no AI screening notice).
 - Logo assets: `static/images/qualified_staffing_logo.png` and
   `static/qualified-staffing-logo.png`.
 - Host routing: `*q-staffing.com*` and `qualified.scoutgenius*` → Qualified
   template (Brand seed when `SCOUT_TENANT=qualified_staffing`, plus hardcoded
   fallback).
 - Privacy mailto: `apply@q-staffing.com`.
+
+## Super-admin access (how to tell tenants apart)
+
+Qualified is a **separate Railway service and database**, not a brand switch inside the Myticas Scout UI.
+
+| | Myticas / STSI | Qualified Staffing |
+|---|---|---|
+| App URL | `https://app.scoutgenius.ai` (or `jobpulse.lyntrix.ai`) | `https://qualified.scoutgenius.ai` |
+| Railway service | `JobPulse` | `JobPulse-Qualified` |
+| Postgres | Myticas `Postgres` | `Postgres-Qualified` (or linked DB) |
+| `SCOUT_TENANT` | unset / not `qualified_staffing` | `qualified_staffing` |
+| Admin login | Myticas admin user / password | Qualified `ADMIN_PASSWORD` (separate user table) |
+| Bullhorn | Myticas corp | Qualified corp (when OAuth works) |
+| Apply pages | `apply.myticas.com` / `apply.stsigroup.com` | `qualified.scoutgenius.ai/...` |
+
+STSI is a **Brand** on the Myticas service (same login, different apply host). Qualified is its own Scout instance: open the Qualified URL and sign in there.
 
 ## SFTP / FPT (XML hosting)
 
@@ -94,17 +109,25 @@ Qualified tearsheet IDs are live.
 
 ## Feeds / Indeed / tearsheets
 
-**Keep XML automated uploads and Indeed native publish OFF on `JobPulse-Qualified` until a per-service feed selector exists.**
+**Keep XML automated uploads and Indeed native publish OFF on `JobPulse-Qualified` until Qualified tearsheet IDs are mapped.**
 
-Today `feeds/feed_config.py` is shared on `main`. `APP_ENV` only picks prod vs `-dev` filenames. It does **not** select Myticas vs Qualified. Adding Qualified tearsheet IDs to that shared config would also change Myticas/STSI feeds on `JobPulse`.
+`feeds/feed_config.py` is tenant-aware via `SCOUT_TENANT`:
 
-Before mapping Qualified IDs:
+| `SCOUT_TENANT` | Feed pack |
+|---|---|
+| unset / other | Myticas + STSI (historical default on `JobPulse`) |
+| `qualified_staffing` | Qualified filenames/publisher/apply host; **empty** tearsheet IDs until mapped |
 
-1. Ship an explicit service selector (for example `SCOUT_TENANT=qualified_staffing` gated in feed/Indeed code paths) so Qualified IDs, filenames, and publisher metadata apply only on `JobPulse-Qualified`.
-2. Document the exact variable and default (`qualified_staffing` vs Myticas default).
-3. Then map LinkedIn / Indeed / Zip tearsheet IDs, Indeed `BH_UI_*` for this corp only, and any Qualified SFTP destination.
+On Qualified, automated upload **skips** until at least one Qualified tearsheet ID is set in `QUALIFIED_V2_TEARSHEET_IDS` / channel lists. Indeed native Plan B is forced off on that tenant.
 
-Until that selector ships: inbound + screening + dedupe/cleanup only; no Qualified XML/Indeed publish go-live.
+When IDs exist:
+
+1. Add them to `QUALIFIED_V2_TEARSHEET_IDS`, `QUALIFIED_TEARSHEET_MONITOR_MAPPING`, and the `qualified_*` channel `tearsheet_ids` in `feeds/feed_config.py`.
+2. Redeploy `JobPulse-Qualified`.
+3. Enable SFTP / automated uploads on that service only.
+4. Optional later: Indeed native with Qualified `BH_UI_*` (do not reuse STSI 1640).
+
+Until IDs are mapped: inbound prep + apply branding only; no Qualified XML/Indeed publish go-live.
 
 ## Go-live order
 

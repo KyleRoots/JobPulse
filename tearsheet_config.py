@@ -62,7 +62,17 @@ class TearsheetConfig:
             'primary_color': '#1a1a1a',
             'secondary_color': '#f8f9fa',
             'brand_name': 'Myticas'
-        }
+        },
+
+        # Qualified Staffing default (JobPulse-Qualified / SCOUT_TENANT)
+        'qualified_fallback': {
+            'company_name': 'Qualified Staffing',
+            'domain': 'qualified.scoutgenius.ai',
+            'logo': '/static/images/qualified_staffing_logo.png',
+            'primary_color': '#E82020',
+            'secondary_color': '#f8f9fa',
+            'brand_name': 'Qualified Staffing'
+        },
     }
     
     @classmethod
@@ -83,6 +93,13 @@ class TearsheetConfig:
         # Check if tearsheet name contains "STSI" (case-insensitive)
         if tearsheet_name and 'stsi' in tearsheet_name.lower():
             return cls.TEARSHEET_MAPPINGS['Sponsored - STSI']
+
+        try:
+            from feeds.feed_config import is_qualified_tenant
+            if is_qualified_tenant():
+                return cls.TEARSHEET_MAPPINGS['qualified_fallback']
+        except Exception:
+            pass
         
         # Return default Myticas configuration
         return cls.TEARSHEET_MAPPINGS['fallback']

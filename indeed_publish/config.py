@@ -26,8 +26,15 @@ def env_flag(name: str, default: bool = False) -> bool:
 
 
 def config_from_env() -> dict:
+    from feeds.feed_config import is_qualified_tenant
+
+    # Never run STSI/Myticas Indeed native publish on the Qualified service.
+    enabled = env_flag('INDEED_TEARSHEET_PUBLISH_ENABLED', False)
+    if is_qualified_tenant():
+        enabled = False
+
     return {
-        'enabled': env_flag('INDEED_TEARSHEET_PUBLISH_ENABLED', False),
+        'enabled': enabled,
         'username': (os.environ.get('BH_UI_USERNAME') or '').strip(),
         'password': os.environ.get('BH_UI_PASSWORD') or '',
         'base_url': (os.environ.get('BH_UI_BASE_URL') or DEFAULT_BASE_URL).rstrip('/'),

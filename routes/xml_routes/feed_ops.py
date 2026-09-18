@@ -23,8 +23,7 @@ def refresh_reference_numbers():
         from models import GlobalSettings, RefreshLog
         from feeds.feed_config import (
             channel_feeds_for_upload,
-            V2_FILENAME,
-            V2_FILENAME_DEV,
+            get_v2_filenames,
             SOURCE_LINKEDIN,
         )
         from tasks.xml_feeds import _upload_single_file
@@ -99,7 +98,8 @@ def refresh_reference_numbers():
                 # Regenerate each feed separately so apply URLs / publisher
                 # headers stay correct — combined refresh XML must not be uploaded as v2.
                 v2_xml, v2_stats = generator.generate_fresh_xml(source_channel=SOURCE_LINKEDIN)
-                v2_filename = V2_FILENAME if current_env == 'production' else V2_FILENAME_DEV
+                v2_prod, v2_dev = get_v2_filenames()
+                v2_filename = v2_prod if current_env == 'production' else v2_dev
 
                 v2_ok = False
                 channel_ok = False

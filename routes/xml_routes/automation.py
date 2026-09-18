@@ -19,9 +19,11 @@ def _manual_upload_all_feeds():
     from tasks.xml_feeds import _upload_single_file
     from feeds.feed_config import (
         channel_feeds_for_upload,
+        feeds_configured_for_tenant,
+        get_v2_filenames,
+        get_v2_publisher,
+        is_qualified_tenant,
         SOURCE_LINKEDIN,
-        V2_FILENAME,
-        V2_FILENAME_DEV,
     )
 
     def _setting(key):
@@ -58,8 +60,23 @@ def _manual_upload_all_feeds():
             'error': 'SFTP credentials not configured. Please fill in hostname, username, and password.'
         }
 
+    if is_qualified_tenant() and not feeds_configured_for_tenant():
+        return {
+            'success': False,
+            'error': (
+                'Qualified tenant has no tearsheet IDs mapped yet. '
+                'Add QUALIFIED_* IDs in feeds/feed_config.py before uploading.'
+            ),
+        }
+
     generator = SimplifiedXMLGenerator(db=db)
-    v2_xml, v2_stats = generator.generate_fresh_xml(source_channel=SOURCE_LINKEDIN)
+    v2_pub_title, v2_pub_link = get_v2_publisher()
+    v2_xml, v2_stats = generator.generate_fresh_xml(
+        source_channel=SOURCE_LINKEDIN,
+        allow_empty=is_qualified_tenant(),
+        publisher_title=v2_pub_title,
+        publisher_link=v2_pub_link,
+    )
 
     channel_results = {}
     for feed_cfg in channel_feeds_for_upload():
@@ -105,7 +122,8 @@ def _manual_upload_all_feeds():
         logger.error("Invalid environment '%s' - defaulting to development for safety", current_env)
         current_env = 'development'
 
-    v2_filename = V2_FILENAME if current_env == 'production' else V2_FILENAME_DEV
+    v2_prod, v2_dev = get_v2_filenames()
+    v2_filename = v2_prod if current_env == 'production' else v2_dev
     upload_errors = []
     uploaded_files = []
 

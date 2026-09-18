@@ -22,6 +22,21 @@ from utils.field_mappers import map_employment_type, map_remote_type
 logger = logging.getLogger(__name__)
 
 
+def _default_apply_email() -> str:
+    from feeds.feed_config import get_default_apply_email
+    return get_default_apply_email()
+
+
+def _apply_base_url(company_name: str = None) -> str:
+    """Choose apply host: STSI company name, else tenant default."""
+    from feeds.feed_config import get_default_apply_host, is_qualified_tenant
+    if is_qualified_tenant():
+        return f"https://{get_default_apply_host()}"
+    if company_name and 'stsi' in company_name.lower():
+        return 'https://apply.stsigroup.com'
+    return f"https://{get_default_apply_host()}"
+
+
 class MappingMixin:
     """Mixin providing mapping-related XMLIntegrationService methods."""
 
@@ -262,7 +277,7 @@ class MappingMixin:
                 'state': clean_field_value(state),
                 'country': clean_field_value(country),
                 'category': '',  # Empty as per template
-                'apply_email': clean_field_value('apply@myticas.com'),
+                'apply_email': clean_field_value(_default_apply_email()),
                 'remotetype': clean_field_value(remote_type),
                 'assignedrecruiter': clean_field_value(assigned_recruiter),
                 'jobfunction': clean_field_value(job_function),
@@ -307,11 +322,8 @@ class MappingMixin:
             safe_title = str(clean_title).strip().replace('/', '-')
             encoded_title = urllib.parse.quote(safe_title, safe='')
             
-            # Determine base URL based on company (environment-independent, case-insensitive)
-            if company_name and 'stsi' in company_name.lower():
-                base_url = 'https://apply.stsigroup.com'
-            else:
-                base_url = 'https://apply.myticas.com'
+            # Determine base URL based on tenant / company
+            base_url = _apply_base_url(company_name)
             
             source_param = (source_channel or 'LinkedIn').strip() or 'LinkedIn'
             job_url = f"{base_url}/{str(bhatsid).strip()}/{encoded_title}/?source={urllib.parse.quote(source_param, safe='')}"
@@ -333,11 +345,7 @@ class MappingMixin:
             try:
                 if bhatsid and str(bhatsid).strip():
                     import os
-                    # Determine fallback base URL
-                    if company_name and 'stsi' in company_name.lower():
-                        base_url = 'https://apply.stsigroup.com'
-                    else:
-                        base_url = 'https://apply.myticas.com'
+                    base_url = _apply_base_url(company_name)
                     source_param = (source_channel or 'LinkedIn').strip() or 'LinkedIn'
                     fallback_url = f"{base_url}/{str(bhatsid).strip()}/position/?source={urllib.parse.quote(source_param, safe='')}"
                     if feed_name == 'pando':
