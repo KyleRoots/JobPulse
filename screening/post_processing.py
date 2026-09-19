@@ -1374,6 +1374,21 @@ def _job_is_industrial_domain(job_title: str, job_description: str) -> bool:
     return bool(_INDUSTRIAL_DOMAIN_RE.search(text))
 
 
+def screening_profile_for_job(profile, job_title='', job_description=''):
+    """Use the lighter industrial rules when the job is commercial or industrial.
+
+    Brand-level light_industrial is unchanged. A standard (Myticas) screen of an
+    IT job stays standard. A manufacturing, warehouse, or trades job on that
+    same brand gets the light_industrial prompt and the 70 entry cap.
+    """
+    chosen = (profile or 'standard').strip() or 'standard'
+    if chosen == 'light_industrial':
+        return chosen
+    if _job_is_industrial_domain(job_title, job_description):
+        return 'light_industrial'
+    return chosen
+
+
 def _is_schedule_silence_gap(segment: str) -> bool:
     if _SCHEDULE_CONFLICT_RE.search(segment):
         return False
