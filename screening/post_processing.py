@@ -1334,3 +1334,109 @@ def enforce_work_authorization_documentation(result, job_id, custom_requirements
             f"Work-authorization documentation enforcer skipped (non-fatal) for "
             f"job {job_id}: {_wa_doc_err}"
         )
+
+
+# Light-industrial and manufacturing resumes rarely list a shift. Silence is
+# something to confirm, not a scored miss. IT jobs are left alone.
+_INDUSTRIAL_DOMAIN_RE = re.compile(
+    r"manufactur|industrial|warehouse|forklift|assembl|production operator|"
+    r"skilled trades|hvac|facilities|field service|light industrial|"
+    r"machine operator|\bcnc\b|welder|general labor|material handler",
+    re.I,
+)
+_IT_DOMAIN_RE = re.compile(
+    r"\b(software|developer|devops|cybersecurity|data engineer|full[- ]stack|"
+    r"cloud engineer|saas)\b",
+    re.I,
+)
+_SCHEDULE_TOPIC_RE = re.compile(
+    r"\b(shifts?|schedule|overtime|weekends?|nights?)\b",
+    re.I,
+)
+_SCHEDULE_SILENCE_RE = re.compile(
+    r"no evidence|not mentioned|not stated|not found|not listed|no indication|"
+    r"does not (mention|state|show)|did not (mention|state|show)|no mention",
+    re.I,
+)
+_SCHEDULE_CONFLICT_RE = re.compile(
+    r"first shift only|days only|day shift only|cannot work|can't work|"
+    r"unable to work|will not work|no nights|no weekends",
+    re.I,
+)
+_SCHEDULE_SILENCE_RESTORE = 8
+_SCHEDULE_SILENCE_KEEP_UNDER = 79
+
+
+def _job_is_industrial_domain(job_title: str, job_description: str) -> bool:
+    text = f"{job_title or ''}\n{job_description or ''}"
+    if _IT_DOMAIN_RE.search(text) and not _INDUSTRIAL_DOMAIN_RE.search(job_title or ''):
+        return False
+    return bool(_INDUSTRIAL_DOMAIN_RE.search(text))
+
+
+def _is_schedule_silence_gap(segment: str) -> bool:
+    if _SCHEDULE_CONFLICT_RE.search(segment):
+        return False
+    return bool(
+        _SCHEDULE_TOPIC_RE.search(segment) and _SCHEDULE_SILENCE_RE.search(segment)
+    )
+
+
+def relax_industrial_schedule_silence(result, job_id, job_title='', job_description=''):
+    """Drop an unstated-shift penalty on industrial jobs and give a small score back.
+
+    An explicit conflict ("first shift only") is left in place. If another real
+    gap remains, the restored score cannot cross the qualify line by itself.
+    """
+    try:
+        if not isinstance(result, dict):
+            return
+        if not _job_is_industrial_domain(job_title, job_description):
+            return
+
+        gaps = result.get('gaps_identified') or ''
+        if not isinstance(gaps, str) or not gaps.strip():
+            return
+
+        parts = [part.strip() for part in gaps.split('|')]
+        kept = []
+        removed = 0
+        for part in parts:
+            if part and _is_schedule_silence_gap(part):
+                removed += 1
+            elif part:
+                kept.append(part)
+        if removed == 0:
+            return
+
+        result['gaps_identified'] = ' | '.join(kept)
+
+        try:
+            score = int(float(result.get('match_score') or 0))
+        except (TypeError, ValueError):
+            score = 0
+        if score >= 80:
+            new_score = score
+        elif kept:
+            new_score = min(score + _SCHEDULE_SILENCE_RESTORE, _SCHEDULE_SILENCE_KEEP_UNDER)
+        else:
+            new_score = min(100, score + _SCHEDULE_SILENCE_RESTORE)
+        delta = new_score - score
+        result['match_score'] = new_score
+        if delta and result.get('technical_score') not in (None, ''):
+            try:
+                technical = int(float(result.get('technical_score') or 0))
+                result['technical_score'] = min(100, technical + delta)
+            except (TypeError, ValueError):
+                pass
+
+        logger.info(
+            "Industrial schedule silence relaxed for job %s: removed %s gap(s), "
+            "score %s→%s",
+            job_id, removed, score, new_score,
+        )
+    except Exception as exc:
+        logger.debug(
+            "Industrial schedule silence relax skipped (non-fatal) for job %s: %s",
+            job_id, exc,
+        )

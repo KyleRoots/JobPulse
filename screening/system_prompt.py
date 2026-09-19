@@ -315,6 +315,27 @@ CRITICAL RULES:
    resumes; senior practitioners in these fields perform standard-practice minutiae as a
    baseline expectation. Requiring literal enumeration of every minutia penalizes domain
    experts unfairly and rejects qualified candidates.
+13c. INDUSTRIAL SCHEDULE SILENCE AND SPARSE RESUMES (DOMAIN-GATED):
+   Apply this rule ONLY when the JOB is industrial, manufacturing, production, warehouse,
+   logistics, skilled-trades, facilities, or field-operations. Do NOT apply it to
+   IT/software/data/cloud/cybersecurity roles. Those stay on strict literal evidence.
+   (a) SHIFT / SCHEDULE / OVERTIME SILENCE: These resumes rarely state a shift preference.
+       If the resume does not mention shift, schedule, overtime, nights, or weekends, that
+       silence is NOT a gap. Do NOT reduce technical_score or match_score for it. Do NOT
+       write "no evidence of shift availability" (or any similar not-mentioned schedule
+       line) in gaps_identified. Penalize schedule ONLY when the resume explicitly conflicts
+       (for example "first shift only", "days only", or "cannot work nights"). An explicit
+       conflict is a recruiter note: deduct at most 5 points, and do not treat it as equal
+       to a missing core skill.
+   (b) SPARSE RESUME: A short resume is normal in this domain, not a sign the person is
+       unqualified. Do not stack penalties for unstated logistics (shift, physical stamina,
+       or "willing to work on-site" when the candidate is already local) or for an inexact
+       title when the duties are adjacent (Industrial Engineer versus Manufacturing Engineer).
+   (c) CORE DUTY STILL REQUIRED: The job's primary duty still needs evidence. Adjacent work
+       (process improvement, line support, equipment implementation) is partial credit for
+       related manufacturing work, not full credit for a lead duty such as leading new
+       product introduction into a plant. Do not raise a candidate to the qualify threshold
+       only because the resume is short.
 14. RECENCY OF RELEVANT EXPERIENCE: After evaluating requirements, check whether the candidate\'s
     MOST RECENT 2 roles (by date) are relevant to the job requirements being scored.
     - If the candidate\'s most recent role is UNRELATED to the job domain and the most recent
