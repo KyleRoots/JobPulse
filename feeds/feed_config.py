@@ -108,10 +108,22 @@ CHANNEL_FEEDS = (
 # ---------------------------------------------------------------------------
 # Qualified Staffing — IDs filled when corp tearsheets exist
 # ---------------------------------------------------------------------------
-# Leave empty until Qualified LinkedIn / Indeed / Zip tearsheet IDs are known.
-QUALIFIED_V2_TEARSHEET_IDS: List[int] = []
+# Novo UI find-results path: /tearsheet/{id}?name=...
+# Confirmed 19 Sep 2026 from Qualified corp (clp2rd) network payloads.
+# Jobs were still 0; do not enable SFTP upload until Bullhorn login works.
+QUALIFIED_TEARSHEET_INDEED = 2
+QUALIFIED_TEARSHEET_ZIPRECRUITER = 3
+QUALIFIED_TEARSHEET_LINKEDIN = 4
 
-QUALIFIED_TEARSHEET_MONITOR_MAPPING: Dict[int, str] = {}
+QUALIFIED_V2_TEARSHEET_IDS: List[int] = [
+    QUALIFIED_TEARSHEET_LINKEDIN,
+]
+
+QUALIFIED_TEARSHEET_MONITOR_MAPPING: Dict[int, str] = {
+    QUALIFIED_TEARSHEET_INDEED: 'Sponsored - Indeed',
+    QUALIFIED_TEARSHEET_ZIPRECRUITER: 'Sponsored - ZipRecruiter',
+    QUALIFIED_TEARSHEET_LINKEDIN: 'Sponsored - LinkedIn',
+}
 
 QUALIFIED_V2_FILENAME = 'qualified-job-feed-v2.xml'
 QUALIFIED_V2_FILENAME_DEV = 'qualified-job-feed-v2-dev.xml'
@@ -125,12 +137,11 @@ QUALIFIED_PUBLISHER_LINK = 'https://www.q-staffing.com'
 QUALIFIED_APPLY_HOST = 'qualified.scoutgenius.ai'
 QUALIFIED_APPLY_EMAIL = 'apply@q-staffing.com'
 
-# Channel shells (empty tearsheet_ids) so upload/ref-refresh code paths stay
-# uniform once IDs are appended to these lists.
+# Channel feeds. IDs are the Qualified Novo tearsheets above.
 QUALIFIED_CHANNEL_FEEDS = (
     {
         'key': 'qualified_indeed',
-        'tearsheet_ids': [],  # set when Indeed tearsheet ID exists
+        'tearsheet_ids': [QUALIFIED_TEARSHEET_INDEED],
         'source_channel': SOURCE_INDEED,
         'filename': QUALIFIED_INDEED_FILENAME,
         'filename_dev': QUALIFIED_INDEED_FILENAME_DEV,
@@ -140,7 +151,7 @@ QUALIFIED_CHANNEL_FEEDS = (
     },
     {
         'key': 'qualified_ziprecruiter',
-        'tearsheet_ids': [],  # set when Zip tearsheet ID exists
+        'tearsheet_ids': [QUALIFIED_TEARSHEET_ZIPRECRUITER],
         'source_channel': SOURCE_ZIPRECRUITER,
         'filename': QUALIFIED_ZIP_FILENAME,
         'filename_dev': QUALIFIED_ZIP_FILENAME_DEV,

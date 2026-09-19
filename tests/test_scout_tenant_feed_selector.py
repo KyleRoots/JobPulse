@@ -35,9 +35,9 @@ class TestScoutTenantFeedSelector:
     def test_qualified_tenant_isolates_feeds(self, monkeypatch):
         monkeypatch.setenv('SCOUT_TENANT', 'qualified_staffing')
         assert is_qualified_tenant() is True
-        assert get_v2_tearsheet_ids() == []
-        assert all_xml_feed_tearsheet_ids() == []
-        assert feeds_configured_for_tenant() is False
+        assert get_v2_tearsheet_ids() == [4]
+        assert all_xml_feed_tearsheet_ids() == [4, 2, 3]
+        assert feeds_configured_for_tenant() is True
         assert get_v2_filenames()[0] == QUALIFIED_V2_FILENAME
         assert get_v2_publisher() == ('Qualified Staffing', 'https://www.q-staffing.com')
         assert get_default_apply_host() == 'qualified.scoutgenius.ai'
@@ -46,8 +46,11 @@ class TestScoutTenantFeedSelector:
         assert keys == {'qualified_indeed', 'qualified_ziprecruiter'}
         # Must not leak Myticas/STSI channel keys or IDs
         assert 'stsi_indeed' not in keys
-        for cfg in get_channel_feeds():
-            assert cfg['tearsheet_ids'] == []
+        by_key = {cfg['key']: cfg['tearsheet_ids'] for cfg in get_channel_feeds()}
+        assert by_key['qualified_indeed'] == [2]
+        assert by_key['qualified_ziprecruiter'] == [3]
+        assert 1531 not in all_xml_feed_tearsheet_ids()
+        assert 1640 not in all_xml_feed_tearsheet_ids()
 
     def test_qualified_forces_indeed_native_off(self, monkeypatch):
         monkeypatch.setenv('SCOUT_TENANT', 'qualified_staffing')
