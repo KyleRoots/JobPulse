@@ -554,6 +554,7 @@ from screening.post_processing import (
     enforce_work_authorization_documentation,
     apply_prestige_detection,
     apply_location_barrier,
+    relax_industrial_schedule_silence,
 )
 
 logger = logging.getLogger(__name__)
@@ -1091,6 +1092,9 @@ GLOBAL SCREENING INSTRUCTIONS (apply to all jobs):
             enforce_work_authorization_documentation(result, job_id, custom_requirements, job_description)
             apply_prestige_detection(result, job_id, resume_text)
             apply_location_barrier(result, job_id, work_type)
+            relax_industrial_schedule_silence(
+                result, job_id, job_title, job_description,
+            )
 
             key_requirements = result.get('key_requirements', '')
             years_analysis = result.get('years_analysis', {})
