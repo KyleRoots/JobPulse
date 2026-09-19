@@ -78,3 +78,53 @@ def test_it_job_is_unchanged():
     )
     assert result['match_score'] == 58
     assert "no evidence" in result['gaps_identified']
+
+
+def test_manufacturing_job_on_standard_brand_uses_light_rules():
+    from screening.post_processing import (
+        enforce_experience_floor,
+        screening_profile_for_job,
+    )
+    from screening.system_prompt import (
+        _LIGHT_INDUSTRIAL_RULE_13B,
+        build_system_message,
+    )
+
+    profile = screening_profile_for_job(
+        'standard',
+        'Manufacturing Engineer - 2nd Shift',
+        'Lead new products into the Grand Rapids plant.',
+    )
+    assert profile == 'light_industrial'
+    msg = build_system_message('Must have valid work authorization.', profile=profile)
+    assert _LIGHT_INDUSTRIAL_RULE_13B in msg
+    assert 'MUST NOT exceed 70' in msg
+
+    result = {
+        'match_score': 90,
+        'experience_level_classification': {
+            'classification': 'ENTRY',
+            'highest_role_type': 'PROFESSIONAL',
+            'total_professional_years': 1.5,
+        },
+        'key_requirements': 'Minimum 5 years of experience required',
+        'gaps_identified': '',
+        'years_analysis': {},
+    }
+    enforce_experience_floor(
+        result, 1, 'Minimum 5 years of experience', '', profile=profile,
+    )
+    assert result['match_score'] == 70
+
+
+def test_software_job_on_standard_brand_stays_strict():
+    from screening.post_processing import screening_profile_for_job
+    from screening.system_prompt import _STANDARD_RULE_13B, build_system_message
+
+    profile = screening_profile_for_job(
+        'standard', 'Software Developer', 'Build the SaaS API.',
+    )
+    assert profile == 'standard'
+    msg = build_system_message('Must have valid work authorization.', profile=profile)
+    assert _STANDARD_RULE_13B in msg
+    assert '10+ years' in msg
