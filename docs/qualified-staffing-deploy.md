@@ -109,25 +109,24 @@ Qualified tearsheet IDs are live.
 
 ## Feeds / Indeed / tearsheets
 
-**Keep XML automated uploads and Indeed native publish OFF on `JobPulse-Qualified` until Qualified tearsheet IDs are mapped.**
+**Keep XML automated uploads and Indeed native publish OFF on `JobPulse-Qualified` until the Bullhorn redirect whitelist works and jobs are on these tearsheets.**
 
 `feeds/feed_config.py` is tenant-aware via `SCOUT_TENANT`:
 
 | `SCOUT_TENANT` | Feed pack |
 |---|---|
 | unset / other | Myticas + STSI (historical default on `JobPulse`) |
-| `qualified_staffing` | Qualified filenames/publisher/apply host; **empty** tearsheet IDs until mapped |
+| `qualified_staffing` | Qualified filenames/publisher/apply host and the tearsheets below |
 
-On Qualified, automated upload **skips** until at least one Qualified tearsheet ID is set in `QUALIFIED_V2_TEARSHEET_IDS` / channel lists. Indeed native Plan B is forced off on that tenant.
+Qualified tearsheets (Novo IDs, confirmed 19 Sep 2026, job counts were 0):
 
-When IDs exist:
+| Name | ID | Feed |
+|---|---|---|
+| Sponsored - LinkedIn | 4 | `qualified-job-feed-v2.xml` |
+| Sponsored - Indeed | 2 | `qualified-job-feed-indeed.xml` |
+| Sponsored - ZipRecruiter | 3 | `qualified-job-feed-ziprecruiter.xml` |
 
-1. Add them to `QUALIFIED_V2_TEARSHEET_IDS`, `QUALIFIED_TEARSHEET_MONITOR_MAPPING`, and the `qualified_*` channel `tearsheet_ids` in `feeds/feed_config.py`.
-2. Redeploy `JobPulse-Qualified`.
-3. Enable SFTP / automated uploads on that service only.
-4. Optional later: Indeed native with Qualified `BH_UI_*` (do not reuse STSI 1640).
-
-Until IDs are mapped: inbound prep + apply branding only; no Qualified XML/Indeed publish go-live.
+Indeed native Plan B stays forced off on this tenant. Do not enable SFTP or automated uploads until the redirect URI whitelist succeeds and these tearsheets actually contain jobs. An upload before that would have nothing to publish.
 
 ## Go-live order
 
