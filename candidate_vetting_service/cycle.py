@@ -106,6 +106,24 @@ class VettingCycleMixin:
                 else:
                     summary['detection_method'] = f"{summary['detection_method']}+matador"
 
+            # STSI career portal: New Lead + human owner + source prefix
+            # "STSI Staffing Technical Services (...)". Matador / Online
+            # Applicant detectors miss these. Going-forward watermark only.
+            stsi_portal_candidates = self.detect_stsi_portal_candidates(since_minutes=10)
+            if stsi_portal_candidates:
+                logger.info(
+                    f"🟠 Adding {len(stsi_portal_candidates)} STSI portal "
+                    f"candidates to vetting queue"
+                )
+
+                existing_ids = {c.get('id') for c in candidates}
+                for stsi_candidate in stsi_portal_candidates:
+                    if stsi_candidate.get('id') not in existing_ids:
+                        candidates.append(stsi_candidate)
+                        existing_ids.add(stsi_candidate.get('id'))
+
+                summary['detection_method'] = f"{summary['detection_method']}+stsi_portal"
+
             # Native Indeed Apply (Plan B / Indeed Apply) lands as New Lead +
             # source Indeed outside ParsedEmail and Online Applicant detectors.
             indeed_candidates = self.detect_indeed_applicants(since_minutes=120)
