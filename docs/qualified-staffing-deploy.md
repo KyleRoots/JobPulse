@@ -128,6 +128,23 @@ Qualified tearsheets (Novo IDs, confirmed 19 Sep 2026, job counts were 0):
 
 Indeed native Plan B stays forced off on this tenant. Do not enable SFTP or automated uploads until the redirect URI whitelist succeeds and these tearsheets actually contain jobs. An upload before that would have nothing to publish.
 
+## Confirmed picklists (19 Sep 2026)
+
+Pulled from the live Qualified corp. Stored value and label are the same string. Scout already sends these exact values, so no rename is required before login:
+
+| Scout writes | Qualified dropdown | Result |
+|---|---|---|
+| `LinkedIn Job Board` | Candidate source | Present. Do not use the shorter `LinkedIn` option. |
+| `Indeed Job Board` | Candidate source | Present |
+| `ZipRecruiter Job Board` | Candidate source | Present |
+| `Corporate Website` | Candidate source | Present. The career portal (`jobs.q-staffing.com`) also uses this when source is blank, and does not overwrite a source already set. |
+| `Online Applicant` | Candidate status | Present. This is what new email/apply candidates are set to. |
+| `New Lead` | Candidate status | Present |
+
+Job statuses that take a job off the feed already match: Qualifying, Hold - Covered, Hold - Client Hold, Offer Out, Filled, Lost - Competition, Lost - Filled Internally, Canceled, Archive. `Accepting Candidates` and `Accepting Candidates - Interviewing` stay on the feed. The public flag is separate from status. The portal only publishes jobs that are open, not deleted, and marked public.
+
+`Dice` is not a Qualified source. An unmatched source falls back to `Other`, which is on the list.
+
 ## Go-live order
 
 1. Qualified creates `apply@q-staffing.com` and Graph access.
