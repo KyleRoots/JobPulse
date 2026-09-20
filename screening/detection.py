@@ -8,6 +8,7 @@ Contains:
   - detect_pandologic_candidates: Finds Pandologic API candidates (owner-based)
   - detect_pandologic_note_candidates: Finds re-applicants via Pandologic API notes
   - detect_matador_candidates: Finds Matador API candidates (corporate website submissions)
+  - detect_stsi_portal_candidates: Finds STSI career-portal applies (source prefix, often human-owned)
   - detect_indeed_applicants: Finds native Indeed Apply candidates (source-based New Lead)
   - detect_unvetted_applications: Primary detection via ParsedEmail records
   - _resolve_pandologic_user_id: Resolves and caches Pandologic CorporateUser ID
@@ -96,6 +97,18 @@ def _is_human_owned(candidate: Dict, api_user_ids: List[int]) -> bool:
         return int(owner_id) not in api_user_ids
     except (TypeError, ValueError):
         return False
+
+
+# STSI Bullhorn Career Portal stamps Candidate.source with this brand name,
+# then appends UTM-style channel detail in parentheses. Match on the prefix
+# so Google/Organic, ChatGPT, Direct, etc. all count as portal applies.
+STSI_PORTAL_SOURCE_PREFIX = 'STSI Staffing Technical Services'
+
+
+def _is_stsi_portal_source(source: Optional[str]) -> bool:
+    if not source or not isinstance(source, str):
+        return False
+    return source.strip().startswith(STSI_PORTAL_SOURCE_PREFIX)
 
 
 class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMixin):
@@ -401,6 +414,128 @@ class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMi
             
         except Exception as e:
             logger.error(f"Error detecting Matador candidates: {str(e)}")
+            return []
+
+    def detect_stsi_portal_candidates(self, since_minutes: int = 10) -> List[Dict]:
+        """
+        Find STSI career-portal applicants that Matador / Online Applicant miss.
+
+        The STSI Bullhorn Career Portal creates Candidate + JobSubmission with
+        source like ``STSI Staffing Technical Services (Google/Organic/)`` and
+        status ``New Lead``. Owner is usually the job response user (a human
+        recruiter), so owner-based Matador detection and status-based Online
+        Applicant detection both miss these. Source-prefix detection is the
+        reliable path.
+
+        Going-forward only: uses the same last-run watermark as Matador (short
+        ``since_minutes`` fallback). Does not backfill older portal applies.
+        Does NOT apply the human-owner skip — human ownership is expected.
+
+        JobSubmission gate + job-aware dedup match Matador / Indeed.
+        """
+        bullhorn = self._get_bullhorn_service()
+        if not bullhorn:
+            return []
+
+        if not bullhorn.authenticate():
+            logger.error("Failed to authenticate with Bullhorn for STSI portal detection")
+            return []
+
+        try:
+            last_run = self._get_last_run_timestamp()
+            if last_run:
+                since_time = last_run
+            else:
+                since_time = datetime.utcnow() - timedelta(minutes=since_minutes)
+
+            since_timestamp = int(since_time.timestamp() * 1000)
+
+            # Lucene: token STSI plus quoted prefix wildcard. Client-side
+            # startswith is the hard gate if Lucene over-matches.
+            url = f"{bullhorn.base_url}search/Candidate"
+            params = {
+                'query': (
+                    f'(source:STSI OR source:"STSI Staffing Technical Services*") '
+                    f'AND dateLastModified:[{since_timestamp} TO *]'
+                ),
+                'fields': (
+                    'id,firstName,lastName,email,phone,status,dateAdded,'
+                    'dateLastModified,source,occupation,description,'
+                    'address(address1,city,state,countryName),owner(id,name)'
+                ),
+                'count': 50,
+                'sort': '-dateLastModified',
+                'BhRestToken': bullhorn.rest_token,
+            }
+
+            response = bullhorn.session.get(url, params=params, timeout=30)
+            if response.status_code != 200:
+                logger.error(
+                    f"Failed to search for STSI portal candidates: {response.status_code}"
+                )
+                return []
+
+            data = response.json()
+            candidates = data.get('data', [])
+            logger.info(
+                f"🟠 STSI portal: Found {len(candidates)} Lucene hits since {since_time}"
+            )
+
+            new_candidates = []
+            for candidate in candidates:
+                candidate_id = candidate.get('id')
+                if not candidate_id:
+                    continue
+
+                source = candidate.get('source') or ''
+                if not _is_stsi_portal_source(source):
+                    logger.debug(
+                        f"STSI portal candidate {candidate_id} skipped — "
+                        f"source {source!r} is not the career-portal prefix"
+                    )
+                    continue
+
+                applied_job_id, applied_job_title, _lookup_ok = (
+                    self._fetch_latest_job_submission(bullhorn, candidate_id)
+                )
+
+                if _lookup_ok and applied_job_id is None:
+                    logger.debug(
+                        f"STSI portal candidate {candidate_id} skipped — "
+                        f"no JobSubmission found (sourced, not applied)"
+                    )
+                    continue
+
+                if applied_job_id is not None:
+                    candidate['_applied_job_id'] = applied_job_id
+                    candidate['_applied_job_title'] = applied_job_title or ''
+
+                if self._should_skip_candidate(
+                    candidate_id, applied_job_id, bullhorn=bullhorn
+                ):
+                    logger.debug(
+                        f"STSI portal candidate {candidate_id} skipped by "
+                        f"job-aware dedup (applied_job={applied_job_id})"
+                    )
+                    continue
+
+                new_candidates.append(candidate)
+                job_info = f" for job {applied_job_id}" if applied_job_id else ""
+                logger.info(
+                    f"🟠 STSI portal candidate detected: "
+                    f"{candidate.get('firstName')} {candidate.get('lastName')} "
+                    f"(ID: {candidate_id}{job_info}, owner="
+                    f"{(candidate.get('owner') or {}).get('name', '?')})"
+                )
+
+            logger.info(
+                f"🟠 STSI portal: {len(new_candidates)} candidates to vet "
+                f"out of {len(candidates)} Lucene hits"
+            )
+            return new_candidates
+
+        except Exception as e:
+            logger.error(f"Error detecting STSI portal candidates: {str(e)}")
             return []
 
     def detect_indeed_applicants(self, since_minutes: int = 120) -> List[Dict]:

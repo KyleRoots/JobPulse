@@ -437,6 +437,8 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
+- **STSI career-portal screening (Sep 20)**: Scout now picks up STSI Bullhorn Career Portal applies (`source` starting with `STSI Staffing Technical Services`, usually `New Lead` under a human owner). Same JobSubmission gate and job-aware dedup as Matador. Going-forward only (short last-run window). Does not backfill older portal records.
+
 - **Industrial jobs use the lighter rules (Sep 19)**: A manufacturing, warehouse, or trades job uses the light-industrial scoring rules even on the Myticas brand. Ordinary duties can be credited from hands-on work at any level, and an entry-level person is capped at 70% instead of 55% when the job asks for 3+ years. IT jobs stay on the stricter rules. A missing core duty still counts.
 
 - **Industrial schedule silence (Sep 19)**: On manufacturing and other industrial jobs, a resume that never mentions shift is no longer scored as a miss. An explicit conflict (for example "first shift only") still counts. IT screening is unchanged. A real core-duty gap, such as no plant new-product introduction, still keeps the candidate under the qualify line.

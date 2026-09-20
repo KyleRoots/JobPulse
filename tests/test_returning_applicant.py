@@ -704,7 +704,7 @@ class TestPreNoteDuplicateSafeguard:
 class TestSubmissionGate:
     """
     Unit tests for the job-submission gate added to detect_pandologic_candidates,
-    detect_matador_candidates, and detect_indeed_applicants.
+    detect_matador_candidates, detect_stsi_portal_candidates, and detect_indeed_applicants.
 
     Gate rules:
       - lookup OK  + no submission  → candidate skipped (sourced, not applied)
@@ -863,6 +863,79 @@ class TestSubmissionGate:
 
         assert len(result) == 1
         assert result[0]['_applied_job_id'] == 43719
+
+    def _make_stsi_bullhorn(self, candidate_id=8201, source='STSI Staffing Technical Services (Google/Organic/)'):
+        """Bullhorn mock returning one STSI career-portal New Lead (human owner)."""
+        bh = MagicMock()
+        bh.authenticate.return_value = True
+        bh.base_url = 'https://rest.bullhorn.test/'
+        bh.rest_token = 'token123'
+        bh.user_id = 1147490
+
+        candidate_payload = {
+            'id': candidate_id,
+            'firstName': 'Joshua',
+            'lastName': 'Portal',
+            'email': 'stsi@example.com',
+            'status': 'New Lead',
+            'dateAdded': 1700000000000,
+            'dateLastModified': 1700000000000,
+            'source': source,
+            'occupation': 'Engineer',
+            'description': '',
+            'address': {},
+            'owner': {'id': 25, 'name': 'Kyle Roots'},
+        }
+        search_response = MagicMock()
+        search_response.status_code = 200
+        search_response.json.return_value = {'data': [candidate_payload]}
+        bh.session.get.return_value = search_response
+        return bh
+
+    def test_stsi_portal_no_submission_skipped(self, app):
+        svc = self._make_service()
+        bh = self._make_stsi_bullhorn()
+
+        with patch.object(svc, '_get_bullhorn_service', return_value=bh), \
+             patch.object(svc, '_get_last_run_timestamp', return_value=None), \
+             patch.object(svc, '_fetch_latest_job_submission',
+                          return_value=(None, None, True)), \
+             patch.object(svc, '_should_skip_candidate', return_value=False):
+            with app.app_context():
+                result = svc.detect_stsi_portal_candidates()
+
+        assert result == []
+
+    def test_stsi_portal_with_submission_includes_human_owner(self, app):
+        """Human-owned STSI portal applies must be screened (not skipped)."""
+        svc = self._make_service()
+        bh = self._make_stsi_bullhorn()
+
+        with patch.object(svc, '_get_bullhorn_service', return_value=bh), \
+             patch.object(svc, '_get_last_run_timestamp', return_value=None), \
+             patch.object(svc, '_fetch_latest_job_submission',
+                          return_value=(35750, 'Engineering Project Manager', True)), \
+             patch.object(svc, '_should_skip_candidate', return_value=False):
+            with app.app_context():
+                result = svc.detect_stsi_portal_candidates()
+
+        assert len(result) == 1
+        assert result[0]['_applied_job_id'] == 35750
+        assert result[0]['owner']['id'] == 25
+
+    def test_stsi_portal_rejects_non_portal_source(self, app):
+        svc = self._make_service()
+        bh = self._make_stsi_bullhorn(source='Indeed Resume Search')
+
+        with patch.object(svc, '_get_bullhorn_service', return_value=bh), \
+             patch.object(svc, '_get_last_run_timestamp', return_value=None), \
+             patch.object(svc, '_fetch_latest_job_submission',
+                          return_value=(35750, 'Job', True)), \
+             patch.object(svc, '_should_skip_candidate', return_value=False):
+            with app.app_context():
+                result = svc.detect_stsi_portal_candidates()
+
+        assert result == []
 
     def _make_indeed_bullhorn(self, candidate_id=8101, owner_id=1, owner_name='Unassigned User'):
         """Bullhorn mock returning one Indeed New Lead candidate."""

@@ -414,6 +414,62 @@ class TestMatadorQuery:
 
 
 # ===========================================================================
+# 5d. STSI career-portal detection
+# ===========================================================================
+class TestStsiPortalDetection:
+
+    def test_stsi_portal_merged_into_cycle(self, app):
+        _set_vetting_enabled(app, True)
+        cvs = _make_cvs()
+
+        with app.app_context():
+            _release_lock(app)
+            stsi_candidates = [
+                {'id': 910, 'firstName': 'STSI', 'lastName': 'Portal'},
+            ]
+
+            with patch.object(cvs, 'detect_unvetted_applications', return_value=[]):
+                with patch.object(cvs, 'detect_pandologic_candidates', return_value=[]):
+                    with patch.object(cvs, 'detect_matador_candidates', return_value=[]):
+                        with patch.object(
+                            cvs, 'detect_stsi_portal_candidates',
+                            return_value=stsi_candidates,
+                        ):
+                            with patch.object(cvs, 'detect_indeed_applicants', return_value=[]):
+                                with patch.object(cvs, 'process_candidate', return_value=None):
+                                    result = cvs.run_vetting_cycle()
+
+            assert result['candidates_detected'] == 1
+            assert 'stsi_portal' in result['detection_method']
+            _release_lock(app)
+
+    def test_stsi_portal_query_uses_source_filter(self, app):
+        from unittest.mock import MagicMock
+        cvs = _make_cvs()
+
+        mock_bh = MagicMock()
+        mock_bh.authenticate.return_value = True
+        mock_bh.base_url = 'https://example.test/'
+        mock_bh.rest_token = 'TEST_TOKEN'
+
+        candidate_response = MagicMock()
+        candidate_response.status_code = 200
+        candidate_response.json.return_value = {'data': []}
+        mock_bh.session.get.return_value = candidate_response
+
+        with patch.object(cvs, '_get_bullhorn_service', return_value=mock_bh):
+            with patch.object(cvs, '_get_last_run_timestamp', return_value=None):
+                cvs.detect_stsi_portal_candidates(since_minutes=10)
+
+        first_call_args, first_call_kwargs = mock_bh.session.get.call_args_list[0]
+        assert 'search/Candidate' in first_call_args[0]
+        params = first_call_kwargs.get('params', {})
+        query = params.get('query', '')
+        assert 'source:STSI' in query or 'STSI Staffing Technical Services' in query
+        assert 'dateLastModified' in query
+
+
+# ===========================================================================
 # 6. JobSubmission lookup retry helper (Task B)
 # ===========================================================================
 class TestJobSubmissionLookupRetry:
