@@ -437,7 +437,7 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
-- **Qualified Indeed campaign tags (Sep 21)**: On `SCOUT_TENANT=qualified_staffing`, native Indeed publish maps Bullhorn `correlatedCustomText1` (department) to ATSA tags (e.g. Appleton → `#IND-WH`, Internal → `#INDWin`, Southfield → `#INDLiv`), strips leftover `#INDShow` / unhashed legacy markers, and appends `   {tag}` (three spaces). Unmapped or blank department skips publish with a clear reason. Myticas/STSI still use `#INDShow` on tearsheet 1640.
+- **Qualified Indeed campaign tags (Sep 21)**: On `SCOUT_TENANT=qualified_staffing`, native Indeed publish maps Bullhorn `correlatedCustomText1` (department) to ATSA tags (e.g. Appleton → `#IND-WH`, Internal → `#INDWin`, Southfield → `#INDLiv`, Columbus-KIT/Key → `#INDCon`, Port Huron → `#INDMary`), strips leftover `#INDShow` / unhashed legacy markers, and appends `   {tag}` (three spaces). Unmapped or blank department skips publish with a clear reason. Myticas/STSI still use `#INDShow` on tearsheet 1640.
 
 - **Qualified Indeed native publish (Sep 21)**: On `SCOUT_TENANT=qualified_staffing`, Indeed Plan B targets tearsheet **2** (private label `51284`, `ADDCHANGE` for new membership / `REPUBLISH` for updates). Enable with `INDEED_TEARSHEET_PUBLISH_ENABLED` + Qualified `BH_UI_*`. When on, the Indeed XML channel uploads empty to avoid dual syndication; LinkedIn and Zip XML stay. Myticas/STSI tearsheet 1640 path unchanged.
 
