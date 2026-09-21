@@ -9,6 +9,11 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
 
+from .campaign_tags import (
+    MYTICAS_CAMPAIGN_TAG,
+    apply_campaign_tag,
+    campaign_tag_for_job,
+)
 from .category_mapper import map_published_category
 from .config import (
     LAST_RESULT_KEY,
@@ -18,13 +23,18 @@ from .config import (
     config_from_env,
 )
 from .ui_client import BullhornUIClient, BullhornUIClientError
+from feeds.feed_config import is_qualified_tenant
 
 logger = logging.getLogger(__name__)
 
-# Appended to Indeed-published descriptions via native tearsheet sync (Plan B).
-# Do not strip on unpublish / tearsheet remove — once added it stays in Bullhorn.
-INDSHOW_TAG = '#INDShow'
-INDSHOW_SUFFIX = f'   {INDSHOW_TAG}'  # three ASCII spaces before the tag
+# Back-compat for tests / older imports
+INDSHOW_TAG = MYTICAS_CAMPAIGN_TAG
+INDSHOW_SUFFIX = f'   {MYTICAS_CAMPAIGN_TAG}'
+
+
+def ensure_indshow_tag(html: str) -> str:
+    """Myticas/STSI helper: append ``   #INDShow`` when missing."""
+    return apply_campaign_tag(html, MYTICAS_CAMPAIGN_TAG)
 
 
 def _cfg_state_key(cfg: Optional[dict] = None) -> str:
@@ -55,16 +65,6 @@ def _description_source_field(job: Dict[str, Any]) -> str:
     return 'description'
 
 
-def ensure_indshow_tag(html: str) -> str:
-    """Append `   #INDShow` when missing (case-sensitive). Empty input unchanged."""
-    text = html or ''
-    if not text.strip():
-        return text
-    if INDSHOW_TAG in text:
-        return text
-    return f'{text}{INDSHOW_SUFFIX}'
-
-
 def _first_assigned_recruiter(job: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     users = job.get('assignedUsers') or {}
     data = users.get('data') if isinstance(users, dict) else users
@@ -83,17 +83,18 @@ def _first_assigned_recruiter(job: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     return None
 
 
-def _fingerprint(job: Dict[str, Any], category_id: int, response_user_id: int) -> str:
+def _fingerprint(job: Dict[str, Any], category_id: int, response_user_id: int, campaign_tag: str) -> str:
     # Do NOT include dateLastModified — Publish itself bumps that field and
     # would cause every member to REPUBLISH on every sync cycle.
-    # Fingerprint the final (tagged) description so first publish with #INDShow
-    # does not thrash on every subsequent sync.
+    # Fingerprint the final (tagged) description so first publish with a
+    # campaign tag does not thrash on every subsequent sync.
     payload = '|'.join([
         str(job.get('id') or ''),
         str(job.get('title') or ''),
-        ensure_indshow_tag(_job_description_html(job)),
+        apply_campaign_tag(_job_description_html(job), campaign_tag),
         str(category_id),
         str(response_user_id),
+        str(campaign_tag or ''),
     ])
     return hashlib.sha256(payload.encode('utf-8', errors='ignore')).hexdigest()
 
@@ -261,7 +262,8 @@ class IndeedTearsheetPublishService:
             'id,title,description,publicDescription,dateLastModified,status,isOpen,'
             'isJobcastPublished,categories(id,name),'
             'assignedUsers(id,firstName,lastName,email),'
-            'publishedCategory(id,name),responseUser(id,firstName,lastName,email)'
+            'publishedCategory(id,name),responseUser(id,firstName,lastName,email),'
+            'correlatedCustomText1'
         )
         try:
             import requests as _requests
@@ -440,12 +442,18 @@ class IndeedTearsheetPublishService:
         for jid in sorted(to_check):
             job = jobs_by_id[jid]
             try:
+                tag, tag_reason = campaign_tag_for_job(
+                    job, qualified=is_qualified_tenant()
+                )
+                if not tag:
+                    result['skipped'].append({'job_id': jid, 'reason': tag_reason})
+                    continue
                 cat_id, _, _ = map_published_category(job)
                 uid, _, err = self._resolve_response_user(bh, job)
                 if err or not uid:
                     result['skipped'].append({'job_id': jid, 'reason': err or 'no recruiter'})
                     continue
-                fp = _fingerprint(job, cat_id, uid)
+                fp = _fingerprint(job, cat_id, uid, tag)
                 if fingerprints.get(str(jid)) == fp:
                     continue
                 new_fp = self._publish_one(ui, bh, job, result, operation=republish_op)
@@ -513,12 +521,25 @@ class IndeedTearsheetPublishService:
             logger.warning('Could not resolve BH_UI current user id: %s', exc)
         return None
 
-    def _persist_indshow_description(self, bh, job: Dict[str, Any], tagged_desc: str) -> None:
+    def _persist_campaign_description(
+        self, bh, job: Dict[str, Any], tagged_desc: str, campaign_tag: str
+    ) -> None:
         """Write tagged description back to the Bullhorn field we published from."""
         jid = int(job['id'])
         field = _description_source_field(job)
         current = (job.get(field) or '')
-        if INDSHOW_TAG in current:
+        # Skip when already correctly tagged. Force rewrite if a department
+        # tag is required but a leftover Myticas #INDShow is still present.
+        stale_myticas = (
+            bool(campaign_tag)
+            and campaign_tag != INDSHOW_TAG
+            and INDSHOW_TAG in current
+        )
+        if (
+            campaign_tag
+            and current.rstrip().endswith(campaign_tag)
+            and not stale_myticas
+        ):
             return
         if not hasattr(bh, 'update_job_order'):
             logger.warning(
@@ -531,7 +552,12 @@ class IndeedTearsheetPublishService:
             ok = bh.update_job_order(jid, {field: tagged_desc})
             if ok:
                 job[field] = tagged_desc
-                logger.info('Indeed publish: persisted %s with #INDShow on job %s', field, jid)
+                logger.info(
+                    'Indeed publish: persisted %s with %s on job %s',
+                    field,
+                    campaign_tag,
+                    jid,
+                )
             else:
                 logger.warning(
                     'Indeed publish: Bullhorn REST update of %s failed for job %s',
@@ -540,7 +566,8 @@ class IndeedTearsheetPublishService:
                 )
         except Exception as exc:
             logger.warning(
-                'Indeed publish: could not persist #INDShow on job %s %s: %s',
+                'Indeed publish: could not persist %s on job %s %s: %s',
+                campaign_tag,
                 jid,
                 field,
                 exc,
@@ -556,6 +583,12 @@ class IndeedTearsheetPublishService:
         operation: str,
     ) -> Optional[str]:
         jid = int(job['id'])
+        campaign_tag, tag_reason = campaign_tag_for_job(
+            job, qualified=is_qualified_tenant()
+        )
+        if not campaign_tag:
+            raise BullhornUIClientError(tag_reason)
+
         cat_id, cat_name, reason = map_published_category(job)
         uid, email, err = self._resolve_response_user(bh, job)
         if err or not uid:
@@ -564,10 +597,10 @@ class IndeedTearsheetPublishService:
         raw_desc = _job_description_html(job)
         if not raw_desc:
             raise BullhornUIClientError('job has empty description/publicDescription')
-        desc = ensure_indshow_tag(raw_desc)
+        desc = apply_campaign_tag(raw_desc, campaign_tag)
 
         logger.info(
-            'Indeed %s job %s category=%s (%s) contact=%s <%s> via %s',
+            'Indeed %s job %s category=%s (%s) contact=%s <%s> via %s tag=%s (%s)',
             operation,
             jid,
             cat_name,
@@ -575,6 +608,8 @@ class IndeedTearsheetPublishService:
             uid,
             email,
             reason,
+            campaign_tag,
+            tag_reason,
         )
         ui.publish_boards(
             job_id=jid,
@@ -584,10 +619,10 @@ class IndeedTearsheetPublishService:
             job_url=self._job_url(jid),
             operation=operation,
         )
-        if desc != raw_desc:
-            self._persist_indshow_description(bh, job, desc)
+        if desc != raw_desc or INDSHOW_TAG in raw_desc:
+            self._persist_campaign_description(bh, job, desc, campaign_tag)
         time.sleep(0.2)
-        return _fingerprint(job, cat_id, uid)
+        return _fingerprint(job, cat_id, uid, campaign_tag)
 
     def _unpublish_one(
         self,
