@@ -437,13 +437,15 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
+- **Qualified Bullhorn login without redirect whitelist (Sep 21)**: On `SCOUT_TENANT=qualified_staffing`, Scout authorizes the same way as the career portal (no `redirect_uri`), so REST login works before Bullhorn finishes whitelisting `https://qualified.scoutgenius.ai/bullhorn/oauth/callback`. Myticas/STSI unchanged. Override with `BULLHORN_OMIT_REDIRECT_URI`. Details: `docs/qualified-staffing-deploy.md`.
+
 - **STSI career-portal screening (Sep 20)**: Scout now picks up STSI Bullhorn Career Portal applies (`source` starting with `STSI Staffing Technical Services`, usually `New Lead` under a human owner). Same JobSubmission gate and job-aware dedup as Matador. Going-forward only (short last-run window). Does not backfill older portal records.
 
 - **Industrial jobs use the lighter rules (Sep 19)**: A manufacturing, warehouse, or trades job uses the light-industrial scoring rules even on the Myticas brand. Ordinary duties can be credited from hands-on work at any level, and an entry-level person is capped at 70% instead of 55% when the job asks for 3+ years. IT jobs stay on the stricter rules. A missing core duty still counts.
 
 - **Industrial schedule silence (Sep 19)**: On manufacturing and other industrial jobs, a resume that never mentions shift is no longer scored as a miss. An explicit conflict (for example "first shift only") still counts. IT screening is unchanged. A real core-duty gap, such as no plant new-product introduction, still keeps the candidate under the qualify line.
 
-- **Qualified Staffing Railway scaffold (Sep 17)**: Second Scout deploy path for the Qualified Staffing Bullhorn corp (`JobPulse-Qualified` + `Postgres-Qualified` in `scout-genius`). Isolated DB/mailbox/API user from Myticas/STSI. `SCOUT_TENANT=qualified_staffing` selects Qualified feed filenames and tearsheets (LinkedIn 4, Indeed 2, ZipRecruiter 3). Uploads stay off until the Bullhorn redirect whitelist works and those tearsheets have jobs. Apply branding on `qualified.scoutgenius.ai`. Ops checklist: `docs/qualified-staffing-deploy.md`.
+- **Qualified Staffing Railway scaffold (Sep 17)**: Second Scout deploy path for the Qualified Staffing Bullhorn corp (`JobPulse-Qualified` + `Postgres-Qualified` in `scout-genius`). Isolated DB/mailbox/API user from Myticas/STSI. `SCOUT_TENANT=qualified_staffing` selects Qualified feed filenames and tearsheets (LinkedIn 4, Indeed 2, ZipRecruiter 3). Apply branding on `qualified.scoutgenius.ai`. Ops checklist: `docs/qualified-staffing-deploy.md`.
 
 - **Auto-merge ignores placeholder emails (Sep 3)**: Exact email matches no longer treat junk / mandatory-field fillers (`unknown`, `n/a`, `none`, strings without a real `local@domain.tld`) as identity. Stops false merges like Cristopher Williams absorbing every other `email:unknown` record. Phone+name matching is unchanged. Incident repair: `scripts/repair_williams_unknown_email_merge.py` cleaned Williams 4676912 and restored the 10 wrongly archived people (Kasich left Archive).
 
