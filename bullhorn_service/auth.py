@@ -11,6 +11,28 @@ import requests  # noqa: F401  (used by methods via self.session)
 logger = logging.getLogger(__name__)
 
 
+def _omit_oauth_redirect_uri() -> bool:
+    """
+    Whether to authorize without redirect_uri (career-portal style).
+
+    The Qualified staffing portal logs into the same OAuth client without a
+    redirect URI, so Bullhorn never checks the Scout callback whitelist.
+    Myticas/STSI keep the whitelisted redirect_uri path.
+
+    Override with BULLHORN_OMIT_REDIRECT_URI=true|false when needed.
+    """
+    flag = (os.environ.get('BULLHORN_OMIT_REDIRECT_URI') or '').strip().lower()
+    if flag in ('1', 'true', 'yes', 'on'):
+        return True
+    if flag in ('0', 'false', 'no', 'off'):
+        return False
+    try:
+        from feeds.feed_config import is_qualified_tenant
+        return is_qualified_tenant()
+    except Exception:
+        return False
+
+
 class AuthMixin:
     """Mixin providing auth-related Bullhorn API methods."""
 
@@ -151,32 +173,33 @@ class AuthMixin:
                 rest_login_url = f"{rest_url}/login"
             
             # Step 2: Get authorization code
-            
-            # Get the current domain for redirect URI - this must match what's whitelisted with Bullhorn
-            # Note: Bullhorn Support must whitelist the exact redirect URI for your domain
-            from urllib.parse import urljoin
-            import os
-            
-            # Use environment variable or auto-detect current domain
-            base_url = os.environ.get('OAUTH_REDIRECT_BASE_URL')
-            if not base_url:
-                # Auto-detect from current environment (fallback to production URL)
-                base_url = "https://jobpulse.lyntrix.ai"  # Production deployment URL
-            else:
-                base_url = base_url.strip()  # Remove any whitespace from env var
-            
-            redirect_uri = f"{base_url}/bullhorn/oauth/callback"
-            
+            #
+            # Default (Myticas/STSI): send redirect_uri; Bullhorn must whitelist it.
+            # Qualified (and BULLHORN_OMIT_REDIRECT_URI): omit it, matching the
+            # staffing-portal authorize flow so login works before whitelist.
+            omit_redirect = _omit_oauth_redirect_uri()
+            redirect_uri = ""
             auth_params = {
                 'client_id': self.client_id,
                 'response_type': 'code',
-                'redirect_uri': redirect_uri,
                 'username': self.username,
                 'password': self.password,
-                'action': 'Login'
+                'action': 'Login',
             }
-            
-            logger.info(f"Using redirect URI: {redirect_uri}")
+            if omit_redirect:
+                logger.info(
+                    "Omitting OAuth redirect_uri (Qualified portal-style auth)"
+                )
+            else:
+                base_url = os.environ.get('OAUTH_REDIRECT_BASE_URL')
+                if not base_url:
+                    base_url = "https://jobpulse.lyntrix.ai"
+                else:
+                    base_url = base_url.strip()
+                redirect_uri = f"{base_url}/bullhorn/oauth/callback"
+                auth_params['redirect_uri'] = redirect_uri
+                logger.info(f"Using redirect URI: {redirect_uri}")
+
             logger.info(f"Auth endpoint: {auth_endpoint}")
             
             auth_response = self.session.get(auth_endpoint, params=auth_params, allow_redirects=False, timeout=30)
@@ -222,16 +245,16 @@ class AuthMixin:
                 logger.error("Failed to obtain authorization code")
                 return False
             
-            # Step 3: Exchange authorization code for access token
-            # Include redirect_uri to match authorization request (required for this setup)
-            # token_endpoint was set above based on Bullhorn One vs Legacy mode
+            # Step 3: Exchange authorization code for access token.
+            # redirect_uri must match the authorize step when it was sent.
             token_data = {
                 'grant_type': 'authorization_code',
                 'code': auth_code,
                 'client_id': self.client_id,
                 'client_secret': self.client_secret,
-                'redirect_uri': redirect_uri  # Must match the authorization request
             }
+            if redirect_uri:
+                token_data['redirect_uri'] = redirect_uri
             
             # Set explicit headers for token exchange
             headers = {

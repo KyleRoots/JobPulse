@@ -145,14 +145,32 @@ Job statuses that take a job off the feed already match: Qualifying, Hold - Cove
 
 `Dice` is not a Qualified source. An unmatched source falls back to `Other`, which is on the list.
 
+## Bullhorn auth (portal-style redirect omit)
+
+Qualified Scout uses the same OAuth client / API user as the career portal
+(`qualifiedstaffing2.api`). On `SCOUT_TENANT=qualified_staffing`, authorize and
+token exchange **omit** `redirect_uri` (same pattern as
+`q-staffing-portal` / `jobs.q-staffing.com`). That lets REST login work before
+Bullhorn Support finishes whitelisting
+`https://qualified.scoutgenius.ai/bullhorn/oauth/callback`.
+
+- Override: `BULLHORN_OMIT_REDIRECT_URI=true|false` on Railway.
+- Myticas / STSI are unchanged (still send the whitelisted callback).
+- Sharing one API user with the career portal can cause occasional session
+  401s; both sides re-auth. Prefer a dedicated Scout API user later if noise
+  rises.
+- Keep Sharon’s whitelist case moving; once confirmed, either path works.
+
 ## Go-live order
 
 1. Qualified creates `apply@q-staffing.com` and Graph access.
 2. Add Bullhorn + `SESSION_SECRET` (+ other secrets) on `JobPulse-Qualified` in Railway.
 3. Confirm Postgres-Qualified is healthy; redeploy app.
-4. Headless Bullhorn connection test; set `light_industrial` profile.
-5. Map tearsheet IDs; enable mailbox pull; enable Indeed/XML only after IDs exist.
-6. Optional later: public domain (`qualified.scoutgenius.ai` / `apply.q-staffing.com`) and OAuth redirect whitelist.
+4. Headless Bullhorn connection test (portal-style auth); confirm `restUrl` ends in `/clp2rd/`.
+5. Tearsheet IDs are staged (LinkedIn 4, Indeed 2, ZipRecruiter 3). Enable SFTP + automated XML uploads after a successful login.
+6. Enable mailbox pull when inbound applies should write to this corp.
+7. Indeed checkbox automation: set Qualified `BH_UI_*` (not Myticas), point at tearsheet 2, then enable. Still forced off until that wiring ships.
+8. Optional: Bullhorn Support redirect whitelist (still useful; no longer a hard blocker for REST).
 
 ## Isolation rules
 
