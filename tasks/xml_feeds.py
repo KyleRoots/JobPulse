@@ -430,13 +430,29 @@ def automated_upload():
                                 )
                                 db.session.add(next_upload_setting)
 
+                            def _channel_stats(suffix: str):
+                                for key, result in channel_results.items():
+                                    if key.endswith(suffix):
+                                        return key, result['stats']
+                                return None, {'job_count': 0, 'xml_size_bytes': 0}
+
+                            indeed_key, indeed_stats = _channel_stats('_indeed')
+                            zip_key, zip_stats = _channel_stats('_ziprecruiter')
+
                             feed_result = json.dumps({
                                 'v2_jobs': v2_stats['job_count'],
                                 'v2_size': v2_stats['xml_size_bytes'],
-                                'stsi_indeed_jobs': channel_results['stsi_indeed']['stats']['job_count'],
-                                'stsi_indeed_size': channel_results['stsi_indeed']['stats']['xml_size_bytes'],
-                                'stsi_ziprecruiter_jobs': channel_results['stsi_ziprecruiter']['stats']['job_count'],
-                                'stsi_ziprecruiter_size': channel_results['stsi_ziprecruiter']['stats']['xml_size_bytes'],
+                                'indeed_key': indeed_key,
+                                'indeed_jobs': indeed_stats['job_count'],
+                                'indeed_size': indeed_stats['xml_size_bytes'],
+                                'zip_key': zip_key,
+                                'zip_jobs': zip_stats['job_count'],
+                                'zip_size': zip_stats['xml_size_bytes'],
+                                # Legacy keys kept for existing email/admin readers
+                                'stsi_indeed_jobs': indeed_stats['job_count'],
+                                'stsi_indeed_size': indeed_stats['xml_size_bytes'],
+                                'stsi_ziprecruiter_jobs': zip_stats['job_count'],
+                                'stsi_ziprecruiter_size': zip_stats['xml_size_bytes'],
                                 'timestamp': upload_timestamp
                             })
                             feed_setting = GlobalSettings.query.filter_by(setting_key='dual_feed_last_result').first()
@@ -455,8 +471,8 @@ def automated_upload():
                             app.logger.info(f"Updated next upload timestamp: {next_upload_timestamp}")
                             app.logger.info(
                                 f"Feed stats saved: v2={v2_stats['job_count']}, "
-                                f"indeed={channel_results['stsi_indeed']['stats']['job_count']}, "
-                                f"zip={channel_results['stsi_ziprecruiter']['stats']['job_count']} jobs"
+                                f"indeed={indeed_stats['job_count']}, "
+                                f"zip={zip_stats['job_count']} jobs"
                             )
                         except Exception as ts_error:
                             app.logger.error(f"Failed to track upload timestamp: {str(ts_error)}")
@@ -482,10 +498,32 @@ def automated_upload():
                             'execution_time': format_eastern_time(current_time),
                             'jobs_count': v2_stats['job_count'],
                             'xml_size': f"{v2_stats['xml_size_bytes']:,} bytes",
-                            'stsi_indeed_jobs_count': channel_results['stsi_indeed']['stats']['job_count'],
-                            'stsi_indeed_xml_size': f"{channel_results['stsi_indeed']['stats']['xml_size_bytes']:,} bytes",
-                            'stsi_ziprecruiter_jobs_count': channel_results['stsi_ziprecruiter']['stats']['job_count'],
-                            'stsi_ziprecruiter_xml_size': f"{channel_results['stsi_ziprecruiter']['stats']['xml_size_bytes']:,} bytes",
+                            'stsi_indeed_jobs_count': (
+                                next(
+                                    (
+                                        r['stats']['job_count']
+                                        for k, r in channel_results.items()
+                                        if k.endswith('_indeed')
+                                    ),
+                                    0,
+                                )
+                            ),
+                            'stsi_indeed_xml_size': (
+                                f"{next((r['stats']['xml_size_bytes'] for k, r in channel_results.items() if k.endswith('_indeed')), 0):,} bytes"
+                            ),
+                            'stsi_ziprecruiter_jobs_count': (
+                                next(
+                                    (
+                                        r['stats']['job_count']
+                                        for k, r in channel_results.items()
+                                        if k.endswith('_ziprecruiter')
+                                    ),
+                                    0,
+                                )
+                            ),
+                            'stsi_ziprecruiter_xml_size': (
+                                f"{next((r['stats']['xml_size_bytes'] for k, r in channel_results.items() if k.endswith('_ziprecruiter')), 0):,} bytes"
+                            ),
                             'upload_attempted': True,
                             'upload_success': upload_success,
                             'upload_error': upload_error_message,
