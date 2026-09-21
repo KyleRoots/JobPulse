@@ -113,9 +113,25 @@ class TestRecruiterAndFingerprint:
 class TestConfig:
     def test_disabled_by_default(self, monkeypatch):
         monkeypatch.delenv('INDEED_TEARSHEET_PUBLISH_ENABLED', raising=False)
+        monkeypatch.delenv('SCOUT_TENANT', raising=False)
         cfg = config_from_env()
         assert cfg['enabled'] is False
         assert cfg['tearsheet_id'] == 1640
+        assert cfg['membership_publish_operation'] == 'REPUBLISH'
+
+    def test_qualified_tearsheet_and_addchange(self, monkeypatch):
+        monkeypatch.setenv('SCOUT_TENANT', 'qualified_staffing')
+        monkeypatch.setenv('INDEED_TEARSHEET_PUBLISH_ENABLED', 'true')
+        monkeypatch.delenv('BH_CAREER_PORTAL_JOB_URL_TEMPLATE', raising=False)
+        monkeypatch.delenv('BH_UI_PRIVATE_LABEL_ID', raising=False)
+        cfg = config_from_env()
+        assert cfg['enabled'] is True
+        assert cfg['tearsheet_id'] == 2
+        assert cfg['state_key'] == 'indeed_tearsheet_publish_state_2'
+        assert cfg['private_label_id'] == '51284'
+        assert cfg['job_url_template'] == ''
+        assert cfg['membership_publish_operation'] == 'ADDCHANGE'
+        assert cfg['republish_operation'] == 'REPUBLISH'
 
 
 class TestSyncService:
@@ -412,7 +428,7 @@ class TestSyncService:
 
 
 class TestAutoRemoveHook:
-    def test_skips_non_1640(self):
+    def test_skips_non_indeed_tearsheet(self):
         assert unpublish_job_after_tearsheet_remove(1, 1531) is False
 
     def test_skips_when_disabled(self, monkeypatch):

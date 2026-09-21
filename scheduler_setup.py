@@ -505,14 +505,14 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
             func=sync_indeed_tearsheet_publish,
             trigger=IntervalTrigger(minutes=5),
             id='indeed_tearsheet_publish',
-            name='Indeed Tearsheet Native Publish (1640)',
+            name='Indeed Tearsheet Native Publish',
             replace_existing=True,
             misfire_grace_time=300,
             coalesce=True,
         )
         app.logger.info(
             "📣 Indeed tearsheet publish sync registered — runs every 5 minutes "
-            "(gated by INDEED_TEARSHEET_PUBLISH_ENABLED)"
+            "(gated by INDEED_TEARSHEET_PUBLISH_ENABLED; tearsheet 1640 or 2 by tenant)"
         )
 
     # ── Indeed Inbound Field Remap (every 5 minutes, feature-flagged) ────────

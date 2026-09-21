@@ -214,12 +214,9 @@ def get_default_apply_email() -> str:
 def indeed_native_publish_enabled() -> bool:
     """True when Indeed tearsheet Plan B (native CFC Publish) is live.
 
-    Always False on the Qualified tenant until that corp has its own BH_UI_*
-    and tearsheet wiring. When enabled on Myticas/STSI, the Indeed XML channel
-    feed must not also syndicate the same tearsheet jobs.
+    When enabled, the Indeed XML channel feed is uploaded empty so XML and
+    CFC Publish do not dual-syndicate the same jobs (Myticas/STSI and Qualified).
     """
-    if is_qualified_tenant():
-        return False
     return os.environ.get('INDEED_TEARSHEET_PUBLISH_ENABLED', 'false').lower() in (
         '1', 'true', 'yes', 'on',
     )

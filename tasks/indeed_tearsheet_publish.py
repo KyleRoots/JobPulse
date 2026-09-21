@@ -1,4 +1,4 @@
-"""Scheduled sync: Sponsored - STSI - Indeed (1640) ↔ native Indeed publish."""
+"""Scheduled sync: tenant Indeed tearsheet ↔ native Indeed publish."""
 
 from __future__ import annotations
 
@@ -9,8 +9,9 @@ logger = logging.getLogger(__name__)
 
 def sync_indeed_tearsheet_publish():
     """
-    Diff tearsheet 1640 membership and Publish/Republish/Unpublish via Bullhorn
-    JobBoard CFC (Corporate + Indeed). Gated by INDEED_TEARSHEET_PUBLISH_ENABLED.
+    Diff Indeed tearsheet membership (1640 Myticas/STSI, 2 Qualified) and
+    Publish/Republish/Unpublish via Bullhorn JobBoard CFC (Corporate + Indeed).
+    Gated by INDEED_TEARSHEET_PUBLISH_ENABLED.
     """
     from app import app
 
@@ -23,6 +24,7 @@ def sync_indeed_tearsheet_publish():
                 'sync_indeed_tearsheet_publish: %s',
                 {
                     'enabled': result.get('enabled'),
+                    'tearsheet_id': result.get('tearsheet_id'),
                     'published': result.get('published'),
                     'republished': result.get('republished'),
                     'unpublished': result.get('unpublished'),
