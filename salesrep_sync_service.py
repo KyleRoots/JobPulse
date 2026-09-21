@@ -126,12 +126,13 @@ def run_salesrep_sync(bullhorn_service, source_field=None, display_field=None):
         while True:
             # ClientCorporation customText is Lucene-indexed; /query/ BQL rejects
             # ``<> ''`` (and often IS NOT NULL) on customText fields → HTTP 400.
-            # Search with field:* returns non-empty values; empty/non-numeric IDs
-            # are skipped client-side below.
+            # Prefer a range query: some Bullhorn One corps reject ``field:*``
+            # (Qualified clp2rd) while ``field:[* TO *]`` returns non-empty values.
+            # Empty/non-numeric IDs are skipped client-side below.
             url = f"{rest_url}search/ClientCorporation"
             params = _auth_params(
                 bullhorn_service,
-                query=f"{source_field}:*",
+                query=f"{source_field}:[* TO *]",
                 fields=fields,
                 count=batch_size,
                 start=start_idx,
