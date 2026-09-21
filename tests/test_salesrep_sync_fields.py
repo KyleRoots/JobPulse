@@ -141,7 +141,7 @@ class TestSalesRepFieldParameterization:
         assert result["success"] is True
         assert result["updated"] == 1
         assert captured["query_params"]["BhRestToken"] == "tok"
-        assert captured["query_params"]["query"] == "customText10:*"
+        assert captured["query_params"]["query"] == "customText10:[* TO *]"
         assert "where" not in captured["query_params"]
         assert "customText10" in captured["query_params"]["fields"]
         assert "customText11" in captured["query_params"]["fields"]
@@ -159,7 +159,7 @@ class TestSalesRepFieldParameterization:
         result = svc.run_salesrep_sync(_FakeBullhorn())
 
         assert result["updated"] == 1
-        assert captured["query_params"]["query"] == "customText3:*"
+        assert captured["query_params"]["query"] == "customText3:[* TO *]"
         assert "customText3" in captured["query_params"]["fields"]
         assert captured["post_json"] == {"customText6": "Jane Doe"}
 
