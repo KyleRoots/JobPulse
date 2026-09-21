@@ -126,7 +126,11 @@ Qualified tearsheets (Novo IDs, confirmed 19 Sep 2026, job counts were 0):
 | Sponsored - Indeed | 2 | `qualified-job-feed-indeed.xml` |
 | Sponsored - ZipRecruiter | 3 | `qualified-job-feed-ziprecruiter.xml` |
 
-Indeed native Plan B stays forced off on this tenant. Do not enable SFTP or automated uploads until the redirect URI whitelist succeeds and these tearsheets actually contain jobs. An upload before that would have nothing to publish.
+Indeed native Plan B is enabled with `INDEED_TEARSHEET_PUBLISH_ENABLED=true` and
+Qualified `BH_UI_*` (tearsheet **2**, private label `51284`). When on, the Indeed
+XML upload is empty so CFC and XML do not dual-list. Campaign tags map from
+`correlatedCustomText1` (see go-live step 7). Myticas `#INDShow` / tearsheet 1640
+are unchanged.
 
 ## Confirmed picklists (19 Sep 2026)
 
@@ -141,7 +145,12 @@ Pulled from the live Qualified corp. Stored value and label are the same string.
 | `Online Applicant` | Candidate status | Present. This is what new email/apply candidates are set to. |
 | `New Lead` | Candidate status | Present |
 
-Job statuses that take a job off the feed already match: Qualifying, Hold - Covered, Hold - Client Hold, Offer Out, Filled, Lost - Competition, Lost - Filled Internally, Canceled, Archive. `Accepting Candidates` and `Accepting Candidates - Interviewing` stay on the feed. The public flag is separate from status. The portal only publishes jobs that are open, not deleted, and marked public.
+Job statuses that take a job off the feed already match Scout’s shared
+`INELIGIBLE_STATUSES` (including Closed, Filled, Lost variants, Hold, Qualifying,
+Archive, etc.). `Accepting Candidates` and `Accepting Candidates - Interviewing`
+stay on the feed. Auto-remove from tearsheet **2** then triggers Indeed CFC
+unpublish so checkmarks clear. The public flag is separate from status. The
+portal only publishes jobs that are open, not deleted, and marked public.
 
 `Dice` is not a Qualified source. An unmatched source falls back to `Other`, which is on the list.
 
@@ -173,7 +182,13 @@ Bullhorn Support finishes whitelisting
    `ADDCHANGE`/`REPUBLISH`. Enable with `INDEED_TEARSHEET_PUBLISH_ENABLED=true`
    after `BH_UI_*` are set. When enabled, the Indeed XML file is uploaded empty
    so CFC Publish and XML do not dual-list the same jobs (LinkedIn/Zip XML stay).
-8. Optional: Bullhorn Support redirect whitelist (still useful; no longer a hard blocker for REST).
+   Campaign groups come from `correlatedCustomText1` (department → `#INDMary`,
+   `#IND-WH` for Appleton, `#INDWin` for Internal, `#INDLiv` for Southfield, etc.).
+   `#INDShow` is stripped on republish. Blank/unmapped department skips that job.
+8. Unpublish UAT: remove from tearsheet **2**, or set status to Closed / any
+   `INELIGIBLE_STATUSES` value (auto-remove then CFC unpublish). Confirm Indeed
+   checkmarks clear. Accepting-candidates statuses stay published.
+9. Optional: Bullhorn Support redirect whitelist (still useful; no longer a hard blocker for REST).
 
 ## Isolation rules
 

@@ -69,8 +69,8 @@ class TestIndShowTag:
         assert ensure_indshow_tag('   ') == '   '
 
     def test_case_sensitive_presence(self):
-        # lowercase is not treated as already tagged
-        assert ensure_indshow_tag('x #indshow') == f'x #indshow   {INDSHOW_TAG}'
+        # Legacy lowercase markers are stripped, then the canonical tag is applied
+        assert ensure_indshow_tag('x #indshow') == f'x   {INDSHOW_TAG}'
 
 
 class TestRecruiterAndFingerprint:
@@ -90,12 +90,12 @@ class TestRecruiterAndFingerprint:
     def test_fingerprint_stable_without_date(self):
         job_a = {'id': 1, 'title': 'T', 'description': 'A', 'publicDescription': '', 'dateLastModified': 1}
         job_b = {'id': 1, 'title': 'T', 'description': 'A', 'publicDescription': '', 'dateLastModified': 999}
-        assert _fingerprint(job_a, 1, 2) == _fingerprint(job_b, 1, 2)
+        assert _fingerprint(job_a, 1, 2, INDSHOW_TAG) == _fingerprint(job_b, 1, 2, INDSHOW_TAG)
 
     def test_fingerprint_changes_with_description(self):
         job_a = {'id': 1, 'title': 'T', 'description': 'A', 'publicDescription': '', 'dateLastModified': 1}
         job_b = {'id': 1, 'title': 'T', 'description': 'B', 'publicDescription': '', 'dateLastModified': 1}
-        assert _fingerprint(job_a, 1, 2) != _fingerprint(job_b, 1, 2)
+        assert _fingerprint(job_a, 1, 2, INDSHOW_TAG) != _fingerprint(job_b, 1, 2, INDSHOW_TAG)
 
     def test_fingerprint_stable_with_or_without_indshow(self):
         """Tagged and untagged sources hash the same (final desc includes tag)."""
@@ -107,7 +107,7 @@ class TestRecruiterAndFingerprint:
             'publicDescription': '',
             'dateLastModified': 1,
         }
-        assert _fingerprint(job_a, 1, 2) == _fingerprint(job_b, 1, 2)
+        assert _fingerprint(job_a, 1, 2, INDSHOW_TAG) == _fingerprint(job_b, 1, 2, INDSHOW_TAG)
 
 
 class TestConfig:
@@ -254,7 +254,7 @@ class TestSyncService:
             35233, {'publicDescription': tagged}
         )
         assert job['publicDescription'] == tagged
-        assert fp == _fingerprint(job, 2000021, 65)
+        assert fp == _fingerprint(job, 2000021, 65, INDSHOW_TAG)
 
     def test_publish_one_skips_persist_when_tag_present(self):
         ui = MagicMock()
