@@ -30,6 +30,7 @@ _QUALIFIED_DEPARTMENT_TAGS = {
     'cartersville': '#INDCar',
     'southfield': '#INDLiv',
     'technical': '#INDQT',
+    'qpt': '#INDQT',
     'wake forest': '#INDWak',
     'richmond': '#INDRic',
     'conyers': '#INDCon',
