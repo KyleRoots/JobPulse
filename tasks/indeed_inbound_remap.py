@@ -6,7 +6,8 @@ Native Indeed Apply (Bullhorn JobBoard CFC / Plan B) creates candidates as:
 
 Email inbound (LinkedIn / Indeed emails / apply forms) instead creates:
   status=Online Applicant, source=Indeed Job Board (or LinkedIn Job Board),
-  owner=Myticas API User (CorporateUser 1147490)
+  owner=tenant API user (Myticas CorporateUser 1147490; Qualified uses
+  INDEED_INBOUND_REMAP_API_USER_ID / BULLHORN_API_USER_ID)
 
 This task remaps the native Indeed shape to match email inbound so Scout
 detectors and Owner Reassignment see a consistent inbound profile.
@@ -26,13 +27,13 @@ etc.). It then reassigns ownership to the first human recruiter who left a
 note/activity.
 
 This remapper therefore:
-  - Sets Unassigned → Myticas API User so the candidate enters the same pool
+  - Sets Unassigned → the tenant API user so the candidate enters the same pool
     as LinkedIn Online Applicants.
   - Never overwrites a human/internal owner (activity may already have fired,
     or a recruiter may have claimed the record).
-  - After Myticas API User is set, owner_reassignment continues to run on its
+  - After the API user is set, owner_reassignment continues to run on its
     own 5-minute schedule and can take over exactly as it does for other
-    Online Applicant / Myticas API User inbound.
+    Online Applicant / API-user inbound.
 
 THREAD-SAFETY: Uses standalone requests.get/post — never bh.session.* —
 because this runs in a background APScheduler thread.
@@ -57,6 +58,31 @@ UNASSIGNED_OWNER_ID = 1
 TARGET_STATUS = 'Online Applicant'
 TARGET_SOURCE = 'Indeed Job Board'
 SOURCE_EXACT = 'Indeed'  # native Apply only — not Resume Search / Job Board
+
+
+def resolve_inbound_api_user_id() -> int:
+    """CorporateUser id used as the temporary API owner after Indeed remap.
+
+    Myticas/STSI default remains 1147490. Qualified (and any other tenant) must
+    set ``INDEED_INBOUND_REMAP_API_USER_ID`` (or ``BULLHORN_API_USER_ID``) to
+    their Scout/API CorporateUser — never fall back to the Myticas id.
+    """
+    for key in ('INDEED_INBOUND_REMAP_API_USER_ID', 'BULLHORN_API_USER_ID'):
+        raw = (os.environ.get(key) or '').strip()
+        if raw.isdigit():
+            return int(raw)
+    try:
+        from feeds.feed_config import is_qualified_tenant
+        if is_qualified_tenant():
+            raise RuntimeError(
+                'Qualified Indeed remap requires INDEED_INBOUND_REMAP_API_USER_ID '
+                '(Qualified Staffing API CorporateUser id)'
+            )
+    except RuntimeError:
+        raise
+    except Exception:
+        pass
+    return MYTICAS_API_USER_ID
 
 # 0 = no date floor: Lucene source:Indeed (still needing remap) covers full
 # backlog. Remapped records leave the query (source becomes Indeed Job Board),
@@ -121,16 +147,28 @@ def is_native_indeed_source(source: Any) -> bool:
 def build_indeed_inbound_remap_payload(
     candidate: Dict[str, Any],
     *,
-    myticas_api_user_id: int = MYTICAS_API_USER_ID,
+    myticas_api_user_id: Optional[int] = None,
+    api_user_id: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
     Build a partial Candidate update for fields that still need remapping.
 
     Returns {} when the candidate is already fully remapped or ineligible
     (wrong source, human owner with nothing else to fix, etc.).
+
+    ``api_user_id`` is preferred; ``myticas_api_user_id`` remains as a
+    backward-compatible alias for older callers/tests.
     """
     if not is_native_indeed_source(candidate.get('source')):
         return {}
+
+    owner_id = (
+        int(api_user_id)
+        if api_user_id is not None
+        else int(myticas_api_user_id)
+        if myticas_api_user_id is not None
+        else resolve_inbound_api_user_id()
+    )
 
     updates: Dict[str, Any] = {
         # Exact native source "Indeed" → canonical inbound value.
@@ -144,7 +182,7 @@ def build_indeed_inbound_remap_payload(
 
     owner = candidate.get('owner')
     if is_unassigned_owner(owner):
-        updates['owner'] = {'id': int(myticas_api_user_id)}
+        updates['owner'] = {'id': owner_id}
 
     return updates
 
@@ -212,6 +250,15 @@ def remap_indeed_inbound_fields(
         summary['message'] = 'disabled (INDEED_INBOUND_REMAP_ENABLED=false)'
         logger.info('indeed_inbound_remap: %s', summary['message'])
         return summary
+
+    try:
+        api_user_id = resolve_inbound_api_user_id()
+    except Exception as exc:
+        summary['enabled'] = False
+        summary['message'] = str(exc)
+        logger.warning('indeed_inbound_remap: %s — skipping run', summary['message'])
+        return summary
+    summary['api_user_id'] = api_user_id
 
     from bullhorn_service import BullhornService
 
@@ -312,7 +359,9 @@ def remap_indeed_inbound_fields(
             summary['skipped_wrong_source'] += 1
             continue
 
-        payload = build_indeed_inbound_remap_payload(candidate)
+        payload = build_indeed_inbound_remap_payload(
+            candidate, api_user_id=api_user_id
+        )
         if not payload:
             summary['skipped_already_ok'] += 1
             continue

@@ -20,6 +20,7 @@ from tasks.indeed_inbound_remap import (
     is_native_indeed_source,
     is_unassigned_owner,
     remap_indeed_inbound_fields,
+    resolve_inbound_api_user_id,
 )
 
 
@@ -99,6 +100,33 @@ class TestBuildPayload:
         assert payload['status'] == 'Online Applicant'
         assert payload['source'] == 'Indeed Job Board'
         assert payload['owner']['id'] == 1147490
+
+    def test_qualified_api_user_override(self):
+        payload = build_indeed_inbound_remap_payload(
+            _cand(), api_user_id=2204241
+        )
+        assert payload['owner']['id'] == 2204241
+
+    def test_resolve_api_user_myticas_default(self, monkeypatch):
+        monkeypatch.delenv('INDEED_INBOUND_REMAP_API_USER_ID', raising=False)
+        monkeypatch.delenv('BULLHORN_API_USER_ID', raising=False)
+        monkeypatch.delenv('SCOUT_TENANT', raising=False)
+        assert resolve_inbound_api_user_id() == MYTICAS_API_USER_ID
+
+    def test_resolve_api_user_qualified_requires_env(self, monkeypatch):
+        monkeypatch.setenv('SCOUT_TENANT', 'qualified_staffing')
+        monkeypatch.delenv('INDEED_INBOUND_REMAP_API_USER_ID', raising=False)
+        monkeypatch.delenv('BULLHORN_API_USER_ID', raising=False)
+        try:
+            resolve_inbound_api_user_id()
+            assert False, 'expected RuntimeError'
+        except RuntimeError as exc:
+            assert 'INDEED_INBOUND_REMAP_API_USER_ID' in str(exc)
+
+    def test_resolve_api_user_qualified_from_env(self, monkeypatch):
+        monkeypatch.setenv('SCOUT_TENANT', 'qualified_staffing')
+        monkeypatch.setenv('INDEED_INBOUND_REMAP_API_USER_ID', '2204241')
+        assert resolve_inbound_api_user_id() == 2204241
 
     def test_skips_human_owner(self):
         payload = build_indeed_inbound_remap_payload(

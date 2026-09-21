@@ -16,6 +16,10 @@ def test_resolve_core_departments():
     assert resolve_qualified_campaign_tag('Internal Reqs') == '#INDWin'
     assert resolve_qualified_campaign_tag('Southfield') == '#INDLiv'
     assert resolve_qualified_campaign_tag('Flint (Brighton)') == '#INDFli'
+    assert resolve_qualified_campaign_tag('Columbus') == '#INDCol'
+    assert resolve_qualified_campaign_tag('Columbus-KIT') == '#INDCon'
+    assert resolve_qualified_campaign_tag('Columbus-Key') == '#INDCon'
+    assert resolve_qualified_campaign_tag('Port Huron') == '#INDMary'
     assert resolve_qualified_campaign_tag('Unknown Town') is None
     assert resolve_qualified_campaign_tag('') is None
 

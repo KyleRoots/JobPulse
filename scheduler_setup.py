@@ -603,6 +603,29 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
                                         if env is not None else None)
                         display_field = (env.get_salesrep_display_field()
                                          if env is not None else None)
+                        # Qualified ClientCorporation.customText6 is Workers Comp
+                        # Code, not a Sales Rep display name. Never fall back to
+                        # Myticas defaults on this tenant.
+                        try:
+                            from feeds.feed_config import is_qualified_tenant
+                            if is_qualified_tenant():
+                                disp = (display_field or '').strip()
+                                if not disp or disp == 'customText6':
+                                    app.logger.warning(
+                                        "🏢 Sales Rep Sync skipped on Qualified — "
+                                        "set bullhorn_environment.salesrep_display_field "
+                                        "to a dedicated display-name field (customText6 "
+                                        "is Workers Comp Code here)."
+                                    )
+                                    return {
+                                        'skipped': True,
+                                        'reason': 'qualified_needs_display_field',
+                                        'scanned': 0,
+                                        'updated': 0,
+                                        'errors': 0,
+                                    }
+                        except Exception:
+                            pass
                         bullhorn = get_bullhorn_service(env)
                         result = run_salesrep_sync(
                             bullhorn,
