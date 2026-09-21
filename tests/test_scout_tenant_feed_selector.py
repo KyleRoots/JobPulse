@@ -52,12 +52,13 @@ class TestScoutTenantFeedSelector:
         assert 1531 not in all_xml_feed_tearsheet_ids()
         assert 1640 not in all_xml_feed_tearsheet_ids()
 
-    def test_qualified_forces_indeed_native_off(self, monkeypatch):
+    def test_qualified_enables_indeed_native_and_parks_xml(self, monkeypatch):
         monkeypatch.setenv('SCOUT_TENANT', 'qualified_staffing')
         monkeypatch.setenv('INDEED_TEARSHEET_PUBLISH_ENABLED', 'true')
-        assert indeed_native_publish_enabled() is False
-        for cfg in channel_feeds_for_upload():
-            assert not cfg.get('force_empty')
+        assert indeed_native_publish_enabled() is True
+        by_key = {c['key']: c for c in channel_feeds_for_upload()}
+        assert by_key['qualified_indeed'].get('force_empty') is True
+        assert not by_key['qualified_ziprecruiter'].get('force_empty')
 
     def test_myticas_constants_unchanged_for_legacy_imports(self):
         # Module-level constants remain the Myticas/STSI set for existing tests.

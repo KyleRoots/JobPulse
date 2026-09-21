@@ -437,6 +437,8 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
+- **Qualified Indeed native publish (Sep 21)**: On `SCOUT_TENANT=qualified_staffing`, Indeed Plan B targets tearsheet **2** (private label `51284`, `ADDCHANGE` for new membership / `REPUBLISH` for updates). Enable with `INDEED_TEARSHEET_PUBLISH_ENABLED` + Qualified `BH_UI_*`. When on, the Indeed XML channel uploads empty to avoid dual syndication; LinkedIn and Zip XML stay. Myticas/STSI tearsheet 1640 path unchanged.
+
 - **Qualified Bullhorn login without redirect whitelist (Sep 21)**: On `SCOUT_TENANT=qualified_staffing`, Scout authorizes the same way as the career portal (no `redirect_uri`), so REST login works before Bullhorn finishes whitelisting `https://qualified.scoutgenius.ai/bullhorn/oauth/callback`. Myticas/STSI unchanged. Override with `BULLHORN_OMIT_REDIRECT_URI`. Details: `docs/qualified-staffing-deploy.md`.
 
 - **STSI career-portal screening (Sep 20)**: Scout now picks up STSI Bullhorn Career Portal applies (`source` starting with `STSI Staffing Technical Services`, usually `New Lead` under a human owner). Same JobSubmission gate and job-aware dedup as Matador. Going-forward only (short last-run window). Does not backfill older portal records.
