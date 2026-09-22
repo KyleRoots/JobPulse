@@ -557,6 +557,7 @@ from screening.post_processing import (
     relax_industrial_schedule_silence,
     screening_profile_for_job,
 )
+from screening.country_experience import enforce_country_experience_gate
 
 logger = logging.getLogger(__name__)
 
@@ -1086,6 +1087,13 @@ GLOBAL SCREENING INSTRUCTIONS (apply to all jobs):
             coerce_scores(result, job_id)
             enforce_remote_location(result, job_id, work_type)
             enforce_years_hard_gate(result, job_id, job_title, resume_text, self._recheck_years_calculation)
+            enforce_country_experience_gate(
+                result,
+                job_id,
+                custom_requirements,
+                job_description,
+                candidate_country=candidate_country,
+            )
             enforce_recency_hard_gate(result, job_id)
             enforce_employment_continuity_gap(result, job_id)
             enforce_midcareer_gap(result, job_id)

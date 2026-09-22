@@ -273,6 +273,40 @@ def seed_myticas_users(db, User):
         logger.warning(f"⚠️ Failed to seed Myticas users: {str(e)}")
 
 
+# Recruiters who opt out of Location Review emails by default (everyone else ON).
+LOCATION_REVIEW_EMAILS_DEFAULT_OFF = (
+    'agebara@myticas.com',  # Adam Gebara — senior recruiter ask Sep 2026
+)
+
+
+def seed_location_review_email_defaults(db, User):
+    """Idempotently set per-user Location Review email defaults.
+
+    Everyone else stays ON (column default). Listed emails are forced OFF
+    so Adam does not get close-location notifications without toggling
+    every job.
+    """
+    try:
+        updated = 0
+        for email in LOCATION_REVIEW_EMAILS_DEFAULT_OFF:
+            user = User.query.filter(User.email.ilike(email)).first()
+            if user is None:
+                continue
+            if getattr(user, 'location_review_emails_enabled', True) is not False:
+                user.location_review_emails_enabled = False
+                updated += 1
+        if updated:
+            db.session.commit()
+            logger.info(
+                f"✅ Location Review email defaults: set OFF for {updated} user(s)"
+            )
+        else:
+            logger.info("✅ Location Review email defaults already applied")
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ Failed to seed Location Review email defaults: {str(e)}")
+
+
 def seed_stsi_users(db, User):
     """
     Create locked login accounts for all STSI support contacts.

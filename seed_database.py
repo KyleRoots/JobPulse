@@ -308,6 +308,7 @@ from seeding.users import (  # noqa: E402
     seed_myticas_users,
     seed_stsi_users,
     ensure_module_subscriptions,
+    seed_location_review_email_defaults,
 )
 from seeding.settings import (  # noqa: E402
     seed_global_settings,
@@ -482,6 +483,7 @@ def seed_database(db, User):
 
         seed_stsi_users(db, User)
         seed_myticas_users(db, User)
+        seed_location_review_email_defaults(db, User)
 
         ensure_module_subscriptions(db, User)
 

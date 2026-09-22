@@ -97,6 +97,9 @@ def run_schema_migrations(db):
         # Scout Screening snapshot list; backfill existing rows so we do not
         # re-email historical specs (Aug 2026).
         ("job_vetting_requirements", "spec_create_notified_at", "TIMESTAMP"),
+        # Per-user Location Review email kill-switch (Sep 2026). Default ON;
+        # seed sets Adam Gebara (agebara@myticas.com) to OFF.
+        ("user", "location_review_emails_enabled", "BOOLEAN DEFAULT TRUE"),
     ]
 
     _SAFE_IDENTIFIER = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
