@@ -437,6 +437,9 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
+- **Qualified job→candidate Internal Department (Sep 22)**: On `SCOUT_TENANT=qualified_staffing`, LinkedIn/Zip/apply-form intake via `apply@q-staffing.com` copies the job’s Internal Department (`JobOrder.correlatedCustomText1`, e.g. Dalton on 71006) onto the candidate (`Candidate.customText3`). New and returning applicants. Myticas/STSI unchanged.
+- **Qualified apply submit + mailbox path (Sep 22)**: JobPulse-Qualified SendGrid key + apply envelope to `apply@q-staffing.com`; apply form file-input UX fix so Submit is not silently blocked.
+
 - **Location Review opt-out + country YOE hard gate (Sep 22)**: Per-user kill-switch for Location Review emails (`User.location_review_emails_enabled`, default ON). Adam Gebara (`agebara@myticas.com`) is seeded OFF. Scout Screening shows an account-wide On/Off control. Country-scoped years requirements (e.g. "5+ years experience in Canada") now hard-block qualify and cap the score when tenure is clearly short or missing — US-only candidates no longer slip through on Canadian tenure bars.
 
 - **Qualified portal branding cleanup (Sep 21)**: Scheduler, Inbound Config, Automation Hub, Email Parsing tip, admin sidebar company, and upload-notification copy are tenant-aware. On `SCOUT_TENANT=qualified_staffing` they show Qualified Staffing / `qualified-job-feed-*.xml` / Indeed tearsheet **2** / Sales Rep `customText7` instead of leftover Myticas/STSI labels. Myticas/STSI UI unchanged.

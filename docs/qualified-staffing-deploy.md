@@ -178,6 +178,9 @@ Bullhorn Support finishes whitelisting
 4. Headless Bullhorn connection test (portal-style auth); confirm `restUrl` ends in `/clp2rd/`.
 5. Tearsheet IDs are staged (LinkedIn 4, Indeed 2, ZipRecruiter 3). Enable SFTP + automated XML uploads after a successful login.
 6. Enable mailbox pull when inbound applies should write to this corp.
+   LinkedIn / Zip / apply-form intake mirrors the job’s Internal Department
+   (`correlatedCustomText1`) onto the candidate (`customText3`) for new and
+   returning applicants.
 7. Indeed checkbox automation: tearsheet **2**, private label `51284`,
    `ADDCHANGE`/`REPUBLISH`. Enable with `INDEED_TEARSHEET_PUBLISH_ENABLED=true`
    after `BH_UI_*` are set. When enabled, the Indeed XML file is uploaded empty

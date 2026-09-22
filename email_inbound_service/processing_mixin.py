@@ -561,12 +561,41 @@ class ProcessingMixin:
                 feed=feed
             )
 
+            # Qualified: mirror Job Internal Department → Candidate.
+            # JobOrder.correlatedCustomText1 and Candidate.customText3 share the
+            # UI label "Internal Department" (e.g. Dalton on job 71006).
+            job_department = None
+            try:
+                from utils.job_internal_department import (
+                    apply_job_internal_department_to_candidate_payload,
+                    fetch_job_internal_department,
+                    should_mirror_job_internal_department,
+                )
+                if should_mirror_job_internal_department() and job_id:
+                    job_department = fetch_job_internal_department(bullhorn, job_id)
+                    if apply_job_internal_department_to_candidate_payload(
+                        bullhorn_data, job_department
+                    ):
+                        self.logger.info(
+                            "Mirrored job %s Internal Department %r onto candidate "
+                            "customText3",
+                            job_id,
+                            job_department,
+                        )
+            except Exception as dept_err:
+                self.logger.warning(
+                    "Job→candidate Internal Department mirror failed (non-fatal): %s",
+                    dept_err,
+                )
+
             self.logger.info(f"Bullhorn candidate data:")
             self.logger.info(f"  - occupation (title): {bullhorn_data.get('occupation')}")
             self.logger.info(f"  - companyName: {bullhorn_data.get('companyName')}")
             self.logger.info(f"  - skillSet: {bullhorn_data.get('skillSet', '')[:100]}...")
             self.logger.info(f"  - employmentPreference: {bullhorn_data.get('employmentPreference')}")
             self.logger.info(f"  - description (Resume pane) length: {len(bullhorn_data.get('description', ''))} chars")
+            if bullhorn_data.get('customText3'):
+                self.logger.info(f"  - customText3 (Internal Department): {bullhorn_data.get('customText3')}")
 
             if duplicate_id and confidence >= 0.80:
                 existing_candidate = bullhorn.get_candidate(duplicate_id)
@@ -574,6 +603,19 @@ class ProcessingMixin:
                     existing_candidate, bullhorn_data,
                     is_pando=self._is_pando_feed(feed)
                 )
+                # Always refresh Internal Department from the job they just
+                # applied to (even when other fields are already populated).
+                if job_department:
+                    existing_dept = (existing_candidate or {}).get('customText3')
+                    if existing_dept != job_department:
+                        enriched_data = dict(enriched_data or {})
+                        enriched_data['customText3'] = job_department
+                        self.logger.info(
+                            "  Updating Internal Department %r -> %r from job %s",
+                            existing_dept,
+                            job_department,
+                            job_id,
+                        )
                 if enriched_data:
                     candidate_id = bullhorn.update_candidate(duplicate_id, enriched_data)
                     self.logger.info(f"Enriched existing candidate {candidate_id} with {len(enriched_data)} fields: {list(enriched_data.keys())}")
