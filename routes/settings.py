@@ -193,8 +193,10 @@ def inbound_config():
             setting = db.session.query(GlobalSettings).filter_by(setting_key=key).first()
             settings_data[key] = setting.setting_value if setting else ''
 
+        from feeds.feed_config import get_feed_ui_labels
         return render_template('inbound_config.html',
                                settings=settings_data,
+                               feed_labels=get_feed_ui_labels(),
                                active_page='inbound_config')
     except Exception as e:
         current_app.logger.error(f"Error loading inbound config: {str(e)}")

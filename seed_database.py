@@ -207,7 +207,11 @@ BUILTIN_AUTOMATIONS = [
     },
     {
         "name": "Sales Rep Sync",
-        "description": "Manually trigger Sales Rep display name sync. Resolves CorporateUser IDs in customText3 to display names in customText6. Normally runs automatically every 30 minutes.",
+        "description": (
+            "Manually trigger Sales Rep display name sync. Resolves CorporateUser "
+            "IDs in customText3 to display names in customText7 (Qualified) or "
+            "customText6 (Myticas/STSI). Normally runs automatically every 30 minutes."
+        ),
         "automation_type": "one-time",
         "builtin_key": "salesrep_sync",
     },

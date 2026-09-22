@@ -880,6 +880,7 @@ def _handle_scout_support_inbound_bg(app_ref, payload):
 def email_parsing_dashboard():
     """Dashboard for email parsing monitoring"""
     from models import ParsedEmail
+    from feeds.feed_config import get_public_base_url
     
     recent_emails = ParsedEmail.query.order_by(
         ParsedEmail.received_at.desc()
@@ -899,7 +900,13 @@ def email_parsing_dashboard():
         'duplicate_rate': round((duplicate_candidates / completed_emails * 100) if completed_emails > 0 else 0, 1)
     }
     
-    return render_template('email_parsing.html', emails=recent_emails, stats=stats, active_page='email_parsing')
+    return render_template(
+        'email_parsing.html',
+        emails=recent_emails,
+        stats=stats,
+        active_page='email_parsing',
+        inbound_parse_url=f"{get_public_base_url()}/api/email/inbound",
+    )
 
 
 @email_bp.route('/api/email/parsed')

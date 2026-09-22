@@ -221,34 +221,48 @@ def backfill_environment_id(db, environment_id):
 
 
 def seed_bullhorn_environment(db):
-    """Seed the default (Myticas) Bullhorn environment + backfill discriminator.
+    """Seed the default Bullhorn environment + backfill discriminator.
 
-    Models the existing single-tenant Myticas connection as the DEFAULT
-    environment (Task #100). It intentionally carries NO inline credentials —
-    the default environment keeps resolving Bullhorn credentials from
-    GlobalSettings, so nothing about the live connection changes. After ensuring
-    the row exists, backfills environment_id on existing ATS-scoped rows so they
-    resolve to the default tenant. Fully idempotent.
+    Models the existing single-tenant connection as the DEFAULT environment
+    (Task #100). It intentionally carries NO inline credentials — the default
+    environment keeps resolving Bullhorn credentials from GlobalSettings, so
+    nothing about the live connection changes. After ensuring the row exists,
+    backfills environment_id on existing ATS-scoped rows so they resolve to
+    the default tenant. Fully idempotent.
+
+    On ``SCOUT_TENANT=qualified_staffing``, display/company names are
+    Qualified Staffing (the historical ``myticas`` key is left alone if
+    already present so FK backfills stay stable).
     """
     from models import BullhornEnvironment
+    from feeds.feed_config import get_tenant_company_name, is_qualified_tenant
+
+    company = get_tenant_company_name()
+    qualified = is_qualified_tenant()
+    default_key = 'qualified' if qualified else 'myticas'
+    default_display = 'Qualified Staffing' if qualified else 'Myticas'
 
     try:
         env = BullhornEnvironment.query.filter_by(is_default=True).first()
         if env is None:
+            env = BullhornEnvironment.query.filter_by(key=default_key).first()
+        if env is None and qualified:
+            # Prefers key=qualified; fall back to legacy myticas row if this
+            # Qualified DB was seeded before tenant-aware naming.
             env = BullhornEnvironment.query.filter_by(key='myticas').first()
         if env is None:
             env = BullhornEnvironment(
-                key='myticas',
-                display_name='Myticas',
-                company_name='Myticas Consulting',
+                key=default_key,
+                display_name=default_display,
+                company_name=company,
                 is_default=True,
                 is_active=True,
             )
             db.session.add(env)
             db.session.commit()
-            logger.info("✅ Seeded default Bullhorn environment 'myticas'")
+            logger.info(f"✅ Seeded default Bullhorn environment '{default_key}'")
         else:
-            # Idempotent self-heal: ensure the default flags are correct.
+            # Idempotent self-heal: ensure the default flags and tenant labels.
             changed = False
             if not env.is_default:
                 env.is_default = True
@@ -256,8 +270,18 @@ def seed_bullhorn_environment(db):
             if not env.is_active:
                 env.is_active = True
                 changed = True
+            if (env.display_name or '') != default_display:
+                env.display_name = default_display
+                changed = True
+            if (env.company_name or '') != company:
+                env.company_name = company
+                changed = True
             if changed:
                 db.session.commit()
+                logger.info(
+                    f"🔄 Updated default Bullhorn environment labels to "
+                    f"display={default_display!r} company={company!r}"
+                )
     except Exception as e:
         db.session.rollback()
         logger.warning(f"⚠️ Failed to seed default Bullhorn environment: {str(e)}")
@@ -1041,12 +1065,38 @@ def seed_builtin_automations(db):
                     pass
 
         created = 0
+        updated = 0
+        from feeds.feed_config import get_salesrep_ui_fields
+        src_field, disp_field = get_salesrep_ui_fields()
+        salesrep_description = (
+            f"Manually trigger Sales Rep display name sync. Resolves CorporateUser "
+            f"IDs in {src_field} to display names in {disp_field}. "
+            f"Normally runs automatically every 30 minutes."
+        )
         for auto in seed_database.BUILTIN_AUTOMATIONS:
+            description = auto["description"]
+            if auto["builtin_key"] == "salesrep_sync":
+                description = salesrep_description
             if auto["builtin_key"] in existing_keys:
+                # Keep Sales Rep copy aligned with tenant field mapping
+                # (Qualified uses customText7; Myticas keeps customText6).
+                if auto["builtin_key"] == "salesrep_sync":
+                    for task in AutomationTask.query.all():
+                        if not task.config_json:
+                            continue
+                        try:
+                            cfg = json.loads(task.config_json)
+                        except (json.JSONDecodeError, TypeError):
+                            continue
+                        if cfg.get("builtin_key") != "salesrep_sync":
+                            continue
+                        if task.description != description:
+                            task.description = description
+                            updated += 1
                 continue
             task = AutomationTask(
                 name=auto["name"],
-                description=auto["description"],
+                description=description,
                 automation_type=auto["automation_type"],
                 status="draft",
                 config_json=json.dumps({"builtin_key": auto["builtin_key"]}),
@@ -1054,9 +1104,12 @@ def seed_builtin_automations(db):
             db.session.add(task)
             created += 1
 
-        if created > 0:
+        if created > 0 or updated > 0:
             db.session.commit()
-            logger.info(f"✅ Seeded {created} built-in automations")
+            if created:
+                logger.info(f"✅ Seeded {created} built-in automations")
+            if updated:
+                logger.info(f"🔄 Updated {updated} built-in automation description(s)")
         else:
             logger.info(f"✅ All {len(seed_database.BUILTIN_AUTOMATIONS)} built-in automations already exist")
     except ImportError:
