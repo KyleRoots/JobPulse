@@ -110,6 +110,62 @@ class TestRecruiterAndFingerprint:
         assert _fingerprint(job_a, 1, 2, INDSHOW_TAG) == _fingerprint(job_b, 1, 2, INDSHOW_TAG)
 
 
+class TestResponseUserFallback:
+    def _svc(self):
+        return IndeedTearsheetPublishService(config={
+            'enabled': True,
+            'tearsheet_id': 2,
+            'username': 'u',
+            'password': 'p',
+        })
+
+    def test_prefers_assigned_recruiter_over_owner(self):
+        job = {
+            'id': 79302,
+            'assignedUsers': {'data': [{'id': 65, 'email': 'recruiter@example.com'}]},
+            'owner': {'id': 99, 'email': 'owner@example.com', 'firstName': 'Pat', 'lastName': 'Owner'},
+        }
+        uid, email, err = self._svc()._resolve_response_user(MagicMock(), job)
+        assert err is None
+        assert uid == 65
+        assert email == 'recruiter@example.com'
+
+    def test_falls_back_to_job_owner_when_no_recruiter(self):
+        job = {
+            'id': 79302,
+            'assignedUsers': {'data': []},
+            'owner': {'id': 99, 'email': 'owner@example.com', 'firstName': 'Pat', 'lastName': 'Owner'},
+        }
+        uid, email, err = self._svc()._resolve_response_user(MagicMock(), job)
+        assert err is None
+        assert uid == 99
+        assert email == 'owner@example.com'
+
+    def test_skips_unassigned_owner_placeholder(self):
+        job = {
+            'id': 79302,
+            'assignedUsers': {'data': []},
+            'owner': {'id': 1, 'email': 'x@y.com', 'firstName': 'Unassigned', 'lastName': 'User'},
+        }
+        uid, email, err = self._svc()._resolve_response_user(MagicMock(), job)
+        assert uid is None
+        assert email is None
+        assert 'owner' in (err or '').lower() or 'recruiter' in (err or '').lower()
+
+    def test_owner_email_lookup_via_bullhorn(self):
+        job = {
+            'id': 79303,
+            'assignedUsers': {'data': []},
+            'owner': {'id': 42, 'email': '', 'firstName': 'Sam', 'lastName': 'Lead'},
+        }
+        bh = MagicMock()
+        bh.get_user_emails.return_value = {42: {'email': 'sam@q-staffing.com'}}
+        uid, email, err = self._svc()._resolve_response_user(bh, job)
+        assert err is None
+        assert uid == 42
+        assert email == 'sam@q-staffing.com'
+
+
 class TestConfig:
     def test_disabled_by_default(self, monkeypatch):
         monkeypatch.delenv('INDEED_TEARSHEET_PUBLISH_ENABLED', raising=False)

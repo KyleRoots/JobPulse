@@ -437,6 +437,7 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
+- **Indeed publish response-user fallback (Sep 22)**: If a tearsheet job has no assigned recruiter, Indeed native publish uses the job **Owner** (when that user has an email). Skips Unassigned-style owner placeholders. Cuts “no assigned recruiter” publish blocks when Recruiter is blank in Bullhorn.
 - **Qualified job→candidate Internal Department (Sep 22)**: On `SCOUT_TENANT=qualified_staffing`, LinkedIn/Zip/apply-form intake via `apply@q-staffing.com` copies the job’s Internal Department (`JobOrder.correlatedCustomText1`, e.g. Dalton on 71006) onto the candidate (`Candidate.customText3`). New and returning applicants. Myticas/STSI unchanged.
 - **Qualified apply submit + mailbox path (Sep 22)**: JobPulse-Qualified SendGrid key + apply envelope to `apply@q-staffing.com`; apply form file-input UX fix so Submit is not silently blocked.
 

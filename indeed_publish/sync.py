@@ -83,6 +83,24 @@ def _first_assigned_recruiter(job: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     return None
 
 
+def _job_owner_user(job: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Return job Owner when usable as Indeed response-user fallback.
+
+    Skips blank / Unassigned-style placeholders so we do not publish with a
+    dead response contact.
+    """
+    owner = job.get('owner')
+    if not isinstance(owner, dict):
+        return None
+    uid = owner.get('id')
+    if not uid:
+        return None
+    name = f"{owner.get('firstName') or ''} {owner.get('lastName') or ''}".strip().lower()
+    if 'unassigned' in name:
+        return None
+    return owner
+
+
 def _fingerprint(job: Dict[str, Any], category_id: int, response_user_id: int, campaign_tag: str) -> str:
     # Do NOT include dateLastModified — Publish itself bumps that field and
     # would cause every member to REPUBLISH on every sync cycle.
@@ -262,6 +280,7 @@ class IndeedTearsheetPublishService:
             'id,title,description,publicDescription,dateLastModified,status,isOpen,'
             'isJobcastPublished,categories(id,name),'
             'assignedUsers(id,firstName,lastName,email),'
+            'owner(id,firstName,lastName,email),'
             'publishedCategory(id,name),responseUser(id,firstName,lastName,email),'
             'correlatedCustomText1'
         )
@@ -282,31 +301,71 @@ class IndeedTearsheetPublishService:
             logger.warning('Indeed publish: job %s fetch error: %s', job_id, exc)
             return None
 
+    def _resolve_user_email(self, bh, user: Dict[str, Any]) -> str:
+        email = (user.get('email') or '').strip()
+        uid = user.get('id')
+        if email and '@' in email:
+            return email
+        if not uid or not hasattr(bh, 'get_user_emails'):
+            return email
+        try:
+            emails = bh.get_user_emails([int(uid)]) or {}
+            info = emails.get(int(uid)) or emails.get(str(uid))
+            if isinstance(info, dict):
+                return (info.get('email') or '').strip()
+            if isinstance(info, str):
+                return info.strip()
+        except Exception:
+            pass
+        return email
+
     def _resolve_response_user(
         self, bh, job: Dict[str, Any]
     ) -> Tuple[Optional[int], Optional[str], Optional[str]]:
-        """Return (user_id, email, error_reason)."""
-        user = _first_assigned_recruiter(job)
-        if not user:
-            return None, None, 'no assigned recruiter'
+        """Return (user_id, email, error_reason).
 
-        uid = user.get('id')
-        email = (user.get('email') or '').strip()
-        if not email and uid and hasattr(bh, 'get_user_emails'):
+        Prefer the first assigned recruiter. If none, fall back to job Owner so
+        tearsheet jobs can still publish to Indeed when Recruiter is blank
+        (Recruiter is not mandatory in Bullhorn).
+        """
+        candidates: List[Tuple[str, Dict[str, Any]]] = []
+        recruiter = _first_assigned_recruiter(job)
+        if recruiter:
+            candidates.append(('assigned recruiter', recruiter))
+        owner = _job_owner_user(job)
+        if owner:
+            # Avoid listing the same person twice when they are both recruiter and owner.
+            recruiter_id = (recruiter or {}).get('id')
+            if not recruiter_id or int(owner.get('id')) != int(recruiter_id):
+                candidates.append(('job owner', owner))
+
+        if not candidates:
+            return None, None, 'no assigned recruiter or usable job owner'
+
+        last_err = 'no assigned recruiter or usable job owner'
+        for role, user in candidates:
+            uid = user.get('id')
+            if not uid:
+                last_err = f'{role} missing id'
+                continue
             try:
-                emails = bh.get_user_emails([int(uid)]) or {}
-                info = emails.get(int(uid)) or emails.get(str(uid))
-                if isinstance(info, dict):
-                    email = (info.get('email') or '').strip()
-                elif isinstance(info, str):
-                    email = info.strip()
-            except Exception:
-                pass
-        if not uid:
-            return None, None, 'assigned recruiter missing id'
-        if not email or '@' not in email:
-            return None, None, f'assigned recruiter {uid} missing email'
-        return int(uid), email, None
+                uid_int = int(uid)
+            except (TypeError, ValueError):
+                last_err = f'{role} missing id'
+                continue
+            email = self._resolve_user_email(bh, user)
+            if not email or '@' not in email:
+                last_err = f'{role} {uid_int} missing email'
+                continue
+            if role == 'job owner':
+                logger.info(
+                    'Indeed publish: job %s using job owner %s as response user '
+                    '(no assigned recruiter)',
+                    job.get('id'),
+                    uid_int,
+                )
+            return uid_int, email, None
+        return None, None, last_err
 
     def run_sync(self) -> Dict[str, Any]:
         result: Dict[str, Any] = {
