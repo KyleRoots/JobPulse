@@ -645,6 +645,26 @@
 <div id="jobSettingsCollapse" style="display:none;">
 <div class="sc-card">
     <div class="card-body p-0">
+        <div style="padding:0.85rem 1rem; border-bottom:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
+            <div style="font-size:0.8rem; color:rgba(255,255,255,0.55); max-width:34rem;">
+                <strong style="color:rgba(255,255,255,0.75);">Location Review emails (all jobs)</strong>
+                <div style="font-size:0.72rem; margin-top:0.2rem; color:rgba(255,255,255,0.4);">
+                    When off, you will not get emails for strong candidates who only miss on a small location gap. Per-job bells below only apply when this is on.
+                </div>
+            </div>
+            {% set lr_account = location_review_account_enabled if location_review_account_enabled is defined else True %}
+            <form method="POST"
+                  action="{{ url_for('scout_screening.toggle_location_review_account') }}"
+                  style="display:inline; margin:0;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="enabled" value="{{ '0' if lr_account else '1' }}">
+                <button type="submit"
+                        title="{{ 'Location Review emails are ON for you. Click to turn off for all jobs.' if lr_account else 'Location Review emails are OFF for you. Click to turn on.' }}"
+                        style="background:transparent; border:1px solid {{ 'rgba(126,201,142,0.45)' if lr_account else 'rgba(255,255,255,0.18)' }}; border-radius:14px; padding:0.28rem 0.85rem; font-size:0.78rem; font-weight:500; cursor:pointer; color:{{ '#7ec98e' if lr_account else 'rgba(255,255,255,0.42)' }}; white-space:nowrap;">
+                    <i class="fas fa-{{ 'bell' if lr_account else 'bell-slash' }} me-1"></i>{{ 'On for all jobs' if lr_account else 'Off for all jobs' }}
+                </button>
+            </form>
+        </div>
         <div class="table-responsive">
         <table class="table table-dark table-hover sc-table">
             <thead>
@@ -713,7 +733,7 @@
                     </div>
                 </td>
                 <td style="text-align:center;">
-                    {% set loc_enabled = location_review_prefs.get(job_id, True) %}
+                    {% set loc_enabled = location_review_prefs.get(job_id, True) if lr_account else False %}
                     <form method="POST"
                           action="{{ url_for('scout_screening.toggle_notification_pref', job_id=job_id) }}"
                           style="display:inline; margin:0;">
@@ -721,10 +741,11 @@
                         <input type="hidden" name="notification_type" value="location_review">
                         <input type="hidden" name="enabled" value="{{ '0' if loc_enabled else '1' }}">
                         <button type="submit"
-                                title="{{ 'Currently emailing you for location-review matches on this job. Click to disable.' if loc_enabled else 'Currently NOT emailing you for location-review matches on this job. Click to enable.' }}"
-                                style="background:transparent; border:1px solid {{ 'rgba(126,201,142,0.45)' if loc_enabled else 'rgba(255,255,255,0.18)' }}; border-radius:14px; padding:0.18rem 0.7rem; font-size:0.72rem; font-weight:500; cursor:pointer; color:{{ '#7ec98e' if loc_enabled else 'rgba(255,255,255,0.42)' }}; transition:all 0.15s; white-space:nowrap;"
-                                onmouseover="this.style.opacity='0.78'"
-                                onmouseout="this.style.opacity='1'">
+                                {% if not lr_account %}disabled{% endif %}
+                                title="{{ 'Account-wide Location Review emails are off. Turn them on above to use per-job toggles.' if not lr_account else ('Currently emailing you for location-review matches on this job. Click to disable.' if loc_enabled else 'Currently NOT emailing you for location-review matches on this job. Click to enable.') }}"
+                                style="background:transparent; border:1px solid {{ 'rgba(126,201,142,0.45)' if loc_enabled else 'rgba(255,255,255,0.18)' }}; border-radius:14px; padding:0.18rem 0.7rem; font-size:0.72rem; font-weight:500; cursor:{{ 'not-allowed' if not lr_account else 'pointer' }}; color:{{ '#7ec98e' if loc_enabled else 'rgba(255,255,255,0.42)' }}; transition:all 0.15s; white-space:nowrap; opacity:{{ '0.45' if not lr_account else '1' }};"
+                                onmouseover="this.style.opacity='{{ '0.45' if not lr_account else '0.78' }}'"
+                                onmouseout="this.style.opacity='{{ '0.45' if not lr_account else '1' }}'">
                             <i class="fas fa-{{ 'bell' if loc_enabled else 'bell-slash' }} me-1"></i>{{ 'On' if loc_enabled else 'Off' }}
                         </button>
                     </form>

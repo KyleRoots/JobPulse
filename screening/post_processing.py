@@ -439,8 +439,11 @@ def years_tenure_allows_qualify(analysis) -> bool:
     """False when dated tenure clearly fails a years bar (blocks is_qualified)."""
     if not isinstance(analysis, dict):
         return True
-    return not bool(analysis.get('_years_tenure_blocks_qualify'))
-
+    if analysis.get('_years_tenure_blocks_qualify'):
+        return False
+    if analysis.get('_country_experience_blocks_qualify'):
+        return False
+    return True
 
 # Phrases that claim dated proof of years when only a résumé summary may support them.
 _EXPLICITLY_SHOWS_YEARS_RE = re.compile(

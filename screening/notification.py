@@ -1372,17 +1372,30 @@ class NotificationMixin:
             )
             return 0
 
-        # ── Per-recruiter Location-Review opt-out (May 2026) ──
-        # Load explicit OFF prefs for the jobs in this candidate's matches.
-        # Default is ON; only explicit OFF rows live in the table. Fail-open:
-        # any error here drops back to the original "send to everyone" path.
+        # ── Per-recruiter Location-Review opt-out (May 2026 + Sep 2026) ──
+        # Two layers (both must allow send):
+        #   1. User.location_review_emails_enabled — account-wide (default ON;
+        #      Adam seeded OFF). When False, that email is opted out for every job.
+        #   2. RecruiterNotificationPref per (user, job) — explicit OFF rows only.
+        # Fail-open: any error drops back to the original "send to everyone" path.
         disabled_emails_by_job = {}
+        account_disabled_emails = set()
         try:
             from models import RecruiterNotificationPref, User
             from extensions import db as _db
             job_ids_in_matches = list({
                 m.bullhorn_job_id for m in location_matches if m.bullhorn_job_id
             })
+            # Account-wide OFF: any User with location_review_emails_enabled=False
+            account_off_rows = (
+                _db.session.query(User.email)
+                .filter(User.location_review_emails_enabled.is_(False))
+                .all()
+            )
+            for (email,) in account_off_rows:
+                if email:
+                    account_disabled_emails.add(email.strip().lower())
+
             if job_ids_in_matches:
                 pref_rows = (
                     _db.session.query(
@@ -1406,11 +1419,17 @@ class NotificationMixin:
                 f"location_review pref lookup failed (fail-open): {e}"
             )
             disabled_emails_by_job = {}
+            account_disabled_emails = set()
 
         def _is_opted_out(email_str, job_id):
-            if not email_str or not job_id:
+            if not email_str:
                 return False
-            return email_str.strip().lower() in disabled_emails_by_job.get(job_id, set())
+            em = email_str.strip().lower()
+            if em in account_disabled_emails:
+                return True
+            if not job_id:
+                return False
+            return em in disabled_emails_by_job.get(job_id, set())
 
         filtered_out_count = 0
 

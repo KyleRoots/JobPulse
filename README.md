@@ -437,6 +437,8 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
+- **Location Review opt-out + country YOE hard gate (Sep 22)**: Per-user kill-switch for Location Review emails (`User.location_review_emails_enabled`, default ON). Adam Gebara (`agebara@myticas.com`) is seeded OFF. Scout Screening shows an account-wide On/Off control. Country-scoped years requirements (e.g. "5+ years experience in Canada") now hard-block qualify and cap the score when tenure is clearly short or missing — US-only candidates no longer slip through on Canadian tenure bars.
+
 - **Qualified portal branding cleanup (Sep 21)**: Scheduler, Inbound Config, Automation Hub, Email Parsing tip, admin sidebar company, and upload-notification copy are tenant-aware. On `SCOUT_TENANT=qualified_staffing` they show Qualified Staffing / `qualified-job-feed-*.xml` / Indeed tearsheet **2** / Sales Rep `customText7` instead of leftover Myticas/STSI labels. Myticas/STSI UI unchanged.
 
 - **Qualified Indeed campaign tags (Sep 21)**: On `SCOUT_TENANT=qualified_staffing`, native Indeed publish maps Bullhorn `correlatedCustomText1` (department) to ATSA tags (e.g. Appleton → `#IND-WH`, Internal → `#INDWin`, Southfield → `#INDLiv`, Columbus-KIT/Key → `#INDCon`, Port Huron → `#INDMary`), strips leftover `#INDShow` / unhashed legacy markers, and appends `   {tag}` (three spaces). Unmapped or blank department skips publish with a clear reason. Myticas/STSI still use `#INDShow` on tearsheet 1640.
@@ -680,5 +682,5 @@ Access health endpoints for status checks:
 
 ---
 
-**Last Updated**: September 21, 2026
+**Last Updated**: September 22, 2026
 **Version**: 2.9 (Main-branch Railway deploy; Render log monitoring removed)

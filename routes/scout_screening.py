@@ -300,6 +300,10 @@ def dashboard():
         except Exception as e:
             logger.warning(f"Could not load recruiter notification prefs: {e}")
 
+    location_review_account_enabled = bool(
+        getattr(current_user, 'location_review_emails_enabled', True)
+    )
+
     return render_template(
         'scout_screening.html',
         candidate_groups=groups_list,
@@ -308,6 +312,7 @@ def dashboard():
         jobs_map=jobs_map,
         job_requirements=job_requirements,
         location_review_prefs=location_review_prefs,
+        location_review_account_enabled=location_review_account_enabled,
         global_threshold=global_threshold,
         week_ago=week_ago,
         active_page='screening',
@@ -366,6 +371,40 @@ def toggle_notification_pref(job_id):
     except Exception as e:
         db.session.rollback()
         logger.error(f"Failed to toggle notification pref for user={current_user.id} job={job_id}: {e}")
+        flash('Could not save preference. Please try again.', 'danger')
+
+    return redirect(url_for('scout_screening.dashboard') + '#jobSettingsCollapse')
+
+
+@scout_screening_bp.route('/scout-screening/location-review-emails', methods=['POST'])
+@login_required
+def toggle_location_review_account():
+    """Toggle account-wide Location Review recruiter emails for the current user.
+
+    Default is ON for all users. When OFF, the user receives no Location Review
+    emails for any job (per-job toggles are ignored until they turn this back on).
+    """
+    from extensions import db
+
+    enabled = request.form.get('enabled', '1') == '1'
+    try:
+        current_user.location_review_emails_enabled = enabled
+        db.session.commit()
+        logger.info(
+            f"event=location_review_account_pref user={current_user.id} "
+            f"enabled={enabled}"
+        )
+        flash(
+            f"📍 Location Review emails {'enabled' if enabled else 'disabled'} "
+            f"for all your jobs.",
+            'success',
+        )
+    except Exception as e:
+        db.session.rollback()
+        logger.error(
+            f"Failed to toggle location_review account pref for "
+            f"user={current_user.id}: {e}"
+        )
         flash('Could not save preference. Please try again.', 'danger')
 
     return redirect(url_for('scout_screening.dashboard') + '#jobSettingsCollapse')

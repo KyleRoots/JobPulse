@@ -469,6 +469,13 @@ DATED WORK HISTORY IS AUTHORITATIVE (CRITICAL — summary-claim regression):
   dated roles show ~X.Xyr."
 
 1. Identify which skills have year-based requirements (e.g., "3+ years of Python", "5 years Java development").
+   COUNTRY-SCOPED YEARS (MANDATORY when present): If the JD or recruiter requirements require years
+   *in a country* (e.g. "5+ years of experience in Canada", "minimum 5 years Canadian work experience",
+   "must reside in Canada 5+ years", "3+ years US work experience"), you MUST also add a years_analysis
+   entry with skill exactly "Canadian professional experience" or "US professional experience" (as
+   applicable). estimated_years = dated professional roles performed while located in that country only
+   (employer address / role location in that country). Do NOT credit years worked in another country.
+   meets_requirement must follow dated in-country arithmetic only.
 2. For each such skill, scan the resume for ALL roles where the candidate performed work in that skill area.
    DISCIPLINE RECOGNITION — count a role if the candidate DID the work, even if their title differs:
    - "Data Science" experience includes roles titled: Data Scientist, ML Engineer, AI Engineer,

@@ -34,6 +34,12 @@ class User(UserMixin, db.Model):
     last_active_at = db.Column(db.DateTime, nullable=True)
     failed_login_attempts = db.Column(db.Integer, default=0, nullable=False, server_default='0')
     locked_until = db.Column(db.DateTime, nullable=True)
+    # Per-user kill-switch for Location Review recruiter emails (Sep 2026).
+    # Default ON for everyone; Adam Gebara is seeded OFF. Per-job
+    # RecruiterNotificationPref rows still apply when this is True.
+    location_review_emails_enabled = db.Column(
+        db.Boolean, nullable=False, default=True, server_default='true',
+    )
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
