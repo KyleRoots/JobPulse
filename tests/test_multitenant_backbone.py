@@ -179,8 +179,11 @@ class TestResolveBranding:
         assert qualified['logo_path'] == 'static/qualified-staffing-logo.png'
         assert qualified['logo_cid'] == 'qualified_logo'
         assert qualified['company_name'] == 'Qualified Staffing'
+        assert qualified['from_email'] == 'apply@q-staffing.com'
+        assert qualified['to_email'] == 'apply@q-staffing.com'
         scout = svc._resolve_branding('qualified.scoutgenius.ai')
         assert scout['template'] == 'apply_qualified.html'
+        assert scout['to_email'] == 'apply@q-staffing.com'
 
     def test_qualified_tenant_overrides_myticas_default_brand(self, seeded_brands, monkeypatch):
         """SCOUT_TENANT=qualified_staffing must not serve Myticas apply.html."""

@@ -331,9 +331,12 @@
                         <h3><i class="fas fa-file-alt me-2"></i>Resume Upload</h3>
                         <p style="color: #6c757d; margin-bottom: 1rem;">Upload your resume and our system will do its
                             best to parse your information into the fields below.</p>
+                        <!-- File input stays outside the drop zone so hiding the zone
+                             after selection cannot block HTML5 submit (Chrome silent fail).
+                             Required-ness is enforced in JS via selectedFile. -->
+                        <input type="file" id="resumeInput" name="resume" accept=".pdf,.doc,.docx"
+                            style="display: none;">
                         <div class="file-upload-area" id="resumeDropZone">
-                            <input type="file" id="resumeInput" name="resume" accept=".pdf,.doc,.docx"
-                                style="display: none;" required>
                             <i class="fas fa-cloud-upload-alt file-upload-icon"></i>
                             <p class="file-upload-text">Click to upload or drag and drop your resume</p>
                             <p class="file-upload-hint">PDF, DOC, or DOCX (Max 5MB)</p>
@@ -426,8 +429,10 @@
         function handleFileSelect(file) {
             const maxSize = 5 * 1024 * 1024; // 5MB
             const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-
-            if (!allowedTypes.includes(file.type)) {
+            const name = (file.name || '').toLowerCase();
+            const extOk = name.endsWith('.pdf') || name.endsWith('.doc') || name.endsWith('.docx');
+            // Some browsers leave file.type empty for .docx; accept by extension too.
+            if (!(allowedTypes.includes(file.type) || extOk)) {
                 showAlert('Please upload a PDF, DOC, or DOCX file.', 'danger');
                 return;
             }

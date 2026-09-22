@@ -73,9 +73,7 @@ class JobApplicationService:
         try:
             if not self.sg:
                 raise ValueError("Email service not available - no SendGrid API key")
-            
-            self._check_and_clear_suppression(self.to_email)
-            
+
             import urllib.parse
             clean_job_title = urllib.parse.unquote(application_data['jobTitle']).replace('+', ' ')
             raw_source = application_data.get('source', 'Website')
@@ -83,6 +81,12 @@ class JobApplicationService:
             # form. Included in the email body so the inbound parser can route
             # Bullhorn candidate ownership to the Pandologic API user.
             feed = application_data.get('feed', '') or ''
+
+            # Resolve brand first so suppression clearing and the SendGrid
+            # envelope use the tenant mailbox (Qualified → apply@q-staffing.com),
+            # not the Myticas defaults on self.to_email / self.from_email.
+            branding = self._resolve_branding(request_host)
+            self._check_and_clear_suppression(branding['to_email'])
 
             # --- Dynamic source attribution ------------------------------------
             # Resolve the TRUE channel from the browser referrer captured at first
@@ -141,12 +145,6 @@ class JobApplicationService:
             application_data['source'] = source
 
             subject = f"{clean_job_title} ({application_data['jobId']}) - {application_data['firstName']} {application_data['lastName']} has applied on {source}"
-            
-            # Resolve the apply-form brand from the request host (Myticas / STSI
-            # / a future tenant). Drives template, logo, company name and the
-            # email envelope. Falls back to the historical hardcoded mapping if
-            # brands are not seeded, so behavior is byte-for-byte unchanged.
-            branding = self._resolve_branding(request_host)
 
             # Ensure the resolved feed value (including referrer-detected pando)
             # reaches the body builders. Overwrite rather than setdefault: the key
@@ -185,8 +183,8 @@ class JobApplicationService:
             
             # Send email
             logger.info(f"📧 Attempting to send job application email via SendGrid...")
-            logger.info(f"   From: {self.from_email}")
-            logger.info(f"   To: {self.to_email}")
+            logger.info(f"   From: {branding['from_email']}")
+            logger.info(f"   To: {branding['to_email']}")
             logger.info(f"   Subject: {subject}")
             logger.info(f"   SendGrid API key configured: {'yes' if self.sendgrid_api_key else 'no'}")
             
@@ -343,6 +341,20 @@ class JobApplicationService:
         )
         is_qualified_host = 'q-staffing' in host_l or 'qualified.scoutgenius' in host_l
         if is_qualified_tenant or is_qualified_host:
+            from feeds.feed_config import QUALIFIED_APPLY_EMAIL
+            # Prefer seeded Brand envelope when present; never fall back to the
+            # Myticas defaults on self.from_email / self.to_email or Qualified
+            # applies would land in the wrong mailbox.
+            from_email = QUALIFIED_APPLY_EMAIL
+            to_email = QUALIFIED_APPLY_EMAIL
+            try:
+                from models import Brand
+                brand = Brand.resolve_for_host(request_host or 'qualified.scoutgenius.ai')
+                if brand is not None and (brand.key or '').lower() in ('qualified', 'qualified_staffing'):
+                    from_email = brand.from_email or from_email
+                    to_email = brand.to_email or to_email
+            except Exception as brand_err:
+                logger.warning(f"Qualified brand email lookup failed (using defaults): {brand_err}")
             return {
                 'template': 'apply_qualified.html',
                 'logo_path': 'static/qualified-staffing-logo.png',
@@ -350,8 +362,8 @@ class JobApplicationService:
                 'logo_cid': 'qualified_logo',
                 'company_name': 'Qualified Staffing',
                 'logo_alt_text': 'Qualified Staffing',
-                'from_email': self.from_email,
-                'to_email': self.to_email,
+                'from_email': from_email,
+                'to_email': to_email,
             }
 
         try:
