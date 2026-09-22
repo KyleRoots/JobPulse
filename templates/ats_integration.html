@@ -1188,7 +1188,7 @@
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `myticas-job-feed-v2_${new Date().toISOString().slice(0, 19).replace(/[:-]/g, '')}.xml`;
+                a.download = `{{ v2_feed_basename }}_${new Date().toISOString().slice(0, 19).replace(/[:-]/g, '')}.xml`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);

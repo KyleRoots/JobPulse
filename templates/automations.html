@@ -915,7 +915,7 @@
             body = '<div class="mb-3"><label class="form-label">Job IDs (comma-separated)</label><input type="text" class="form-control" id="param-job_ids" placeholder="e.g. 12345, 67890"></div>' +
                    '<p style="font-size:0.78rem;color:rgba(224,220,216,0.45);">Enter Bullhorn Job Order IDs to export qualified candidates for.</p>';
         } else if (currentRunBuiltinKey === 'salesrep_sync') {
-            body = '<p style="font-size:0.85rem;color:rgba(224,220,216,0.6);">This will sync Sales Rep display names from customText3 to customText6. No parameters required.</p>';
+            body = '<p style="font-size:0.85rem;color:rgba(224,220,216,0.6);">This will sync Sales Rep display names from {{ salesrep_source_field }} to {{ salesrep_display_field }}. No parameters required.</p>';
         } else {
             body = '<div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="param-dry_run" checked><label class="form-check-label" for="param-dry_run">Dry Run (preview only, no changes)</label></div>' +
                    '<p style="font-size:0.8rem;color:rgba(224,220,216,0.5);">This tool will use its default parameters. Uncheck dry run to execute for real.</p>';

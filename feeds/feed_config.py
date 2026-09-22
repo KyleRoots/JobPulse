@@ -198,6 +198,84 @@ def get_v2_publisher() -> Tuple[str, str]:
     return V2_PUBLISHER_TITLE, V2_PUBLISHER_LINK
 
 
+def get_tenant_company_name() -> str:
+    """Human company name for sidebar, seeds, and ops labels.
+
+    Honors ``SCOUT_TENANT_DISPLAY_NAME`` when set; otherwise Qualified Staffing
+    vs Myticas Consulting by ``SCOUT_TENANT``.
+    """
+    override = (os.environ.get('SCOUT_TENANT_DISPLAY_NAME') or '').strip()
+    if override:
+        return override
+    if is_qualified_tenant():
+        return QUALIFIED_PUBLISHER_TITLE
+    return V2_PUBLISHER_TITLE
+
+
+def get_public_base_url() -> str:
+    """Canonical HTTPS origin for this service (portal + inbound webhook tips)."""
+    configured = (os.environ.get('OAUTH_REDIRECT_BASE_URL') or '').strip().rstrip('/')
+    if configured:
+        return configured
+    if is_qualified_tenant():
+        return f'https://{QUALIFIED_APPLY_HOST}'
+    return 'https://app.scoutgenius.ai'
+
+
+def get_feed_ui_labels() -> Dict[str, str]:
+    """Short labels for Scheduler / Inbound Config feed-stat cards."""
+    if is_qualified_tenant():
+        return {
+            'v2': 'LinkedIn / v2',
+            'indeed': 'Indeed',
+            'ziprecruiter': 'ZipRecruiter',
+        }
+    return {
+        'v2': 'v2 Feed',
+        'indeed': 'STSI Indeed',
+        'ziprecruiter': 'STSI ZipRecruiter',
+    }
+
+
+def get_feed_ui_entries() -> List[Tuple[str, str, str]]:
+    """Filename + dual_feed_last_result keys for the Scheduler live-XML list.
+
+    Returns ``(filename, jobs_key, size_key)`` using legacy ``stsi_*`` JSON keys
+    so existing GlobalSettings rows keep working on both tenants.
+    """
+    v2_name, _ = get_v2_filenames()
+    channels = get_channel_feeds()
+    indeed = next((c for c in channels if c['key'].endswith('_indeed')), None)
+    zip_cfg = next((c for c in channels if c['key'].endswith('_ziprecruiter')), None)
+    entries: List[Tuple[str, str, str]] = [
+        (v2_name, 'v2_jobs', 'v2_size'),
+    ]
+    if indeed:
+        entries.append((indeed['filename'], 'stsi_indeed_jobs', 'stsi_indeed_size'))
+    if zip_cfg:
+        entries.append(
+            (zip_cfg['filename'], 'stsi_ziprecruiter_jobs', 'stsi_ziprecruiter_size')
+        )
+    return entries
+
+
+def get_salesrep_ui_fields() -> Tuple[str, str]:
+    """(source_field, display_field) shown in Automation Hub Sales Rep copy.
+
+    Qualified stores the display name on Company ``customText7`` (Workers Comp
+    occupies ``customText6``). Myticas/STSI keep the historical mapping.
+    """
+    if is_qualified_tenant():
+        return 'customText3', 'customText7'
+    return 'customText3', 'customText6'
+
+
+def get_indeed_native_tearsheet_id() -> int:
+    if is_qualified_tenant():
+        return QUALIFIED_TEARSHEET_INDEED
+    return TEARSHEET_STSI_INDEED
+
+
 def get_default_apply_host() -> str:
     """Hostname (no scheme) for apply URLs when company is not STSI-mapped."""
     if is_qualified_tenant():

@@ -11,6 +11,12 @@ from feeds.feed_config import (
     get_channel_feeds,
     get_default_apply_email,
     get_default_apply_host,
+    get_feed_ui_entries,
+    get_feed_ui_labels,
+    get_indeed_native_tearsheet_id,
+    get_public_base_url,
+    get_salesrep_ui_fields,
+    get_tenant_company_name,
     get_v2_filenames,
     get_v2_publisher,
     get_v2_tearsheet_ids,
@@ -64,3 +70,27 @@ class TestScoutTenantFeedSelector:
         # Module-level constants remain the Myticas/STSI set for existing tests.
         assert 1531 in V2_TEARSHEET_IDS
         assert CHANNEL_FEEDS[0]['key'] == 'stsi_indeed'
+
+    def test_qualified_ui_branding_helpers(self, monkeypatch):
+        monkeypatch.setenv('SCOUT_TENANT', 'qualified_staffing')
+        monkeypatch.delenv('SCOUT_TENANT_DISPLAY_NAME', raising=False)
+        monkeypatch.delenv('OAUTH_REDIRECT_BASE_URL', raising=False)
+        assert get_tenant_company_name() == 'Qualified Staffing'
+        assert get_public_base_url() == 'https://qualified.scoutgenius.ai'
+        assert get_salesrep_ui_fields() == ('customText3', 'customText7')
+        assert get_indeed_native_tearsheet_id() == 2
+        labels = get_feed_ui_labels()
+        assert labels['indeed'] == 'Indeed'
+        assert 'STSI' not in labels['indeed']
+        filenames = [e[0] for e in get_feed_ui_entries()]
+        assert filenames[0] == QUALIFIED_V2_FILENAME
+        assert all('stsi' not in f and 'myticas' not in f for f in filenames)
+
+    def test_myticas_ui_branding_helpers(self, monkeypatch):
+        monkeypatch.delenv('SCOUT_TENANT', raising=False)
+        monkeypatch.delenv('SCOUT_TENANT_DISPLAY_NAME', raising=False)
+        assert get_tenant_company_name() == 'Myticas Consulting'
+        assert get_salesrep_ui_fields() == ('customText3', 'customText6')
+        assert get_indeed_native_tearsheet_id() == 1640
+        assert get_feed_ui_labels()['indeed'] == 'STSI Indeed'
+        assert get_feed_ui_entries()[0][0] == V2_FILENAME

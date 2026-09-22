@@ -65,12 +65,16 @@ def ats_integration_dashboard():
             )
     except Exception as e:
         current_app.logger.info(f"Bullhorn connection status check failed: {str(e)}")
+
+    from feeds.feed_config import get_v2_filenames
+    v2_feed_basename = get_v2_filenames()[0].rsplit('.', 1)[0]
     
     return render_template('ats_integration.html', 
                          monitors=monitors, 
                          recent_activities=recent_activities,
                          bullhorn_connected=bullhorn_connected,
                          monitor_job_counts=monitor_job_counts,
+                         v2_feed_basename=v2_feed_basename,
                          active_page='ats')
 
 
@@ -83,7 +87,8 @@ def test_ats_integration_page():
                              monitors=[], 
                              recent_activities=[],
                              bullhorn_connected=False,
-                             monitor_job_counts={})
+                             monitor_job_counts={},
+                             v2_feed_basename='job-feed-v2')
     except Exception as e:
         return f"Error rendering template: {str(e)}", 500
 

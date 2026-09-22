@@ -195,3 +195,12 @@ Bullhorn Support finishes whitelisting
 - Never copy Myticas `BULLHORN_*` into Qualified (or vice versa).
 - Never point `JobPulse-Qualified` at the Myticas `Postgres` service.
 - Never share one API username/password across Myticas Scout and Qualified Scout (lockout blast radius).
+
+## Portal branding (tenant-aware UI)
+
+On `SCOUT_TENANT=qualified_staffing`, admin sidebar company, Scheduler / Inbound
+Config feed filenames and labels, Automation Hub Indeed tearsheet id + Sales Rep
+field copy (`customText7`), and the Email Parsing inbound tip URL all resolve from
+tenant helpers (not Myticas/STSI hardcodes). A redeploy runs seed so the admin
+`User.company` and default `BullhornEnvironment` display names self-heal to
+**Qualified Staffing**.

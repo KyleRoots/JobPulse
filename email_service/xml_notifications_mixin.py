@@ -73,14 +73,31 @@ class XMLNotificationsMixin:
             zip_jobs = upload_details.get('stsi_ziprecruiter_jobs_count')
             zip_size = upload_details.get('stsi_ziprecruiter_xml_size')
 
+            try:
+                from feeds.feed_config import get_feed_ui_labels, get_feed_ui_entries
+                labels = get_feed_ui_labels()
+                entries = get_feed_ui_entries()
+                v2_name = entries[0][0] if entries else 'v2 feed'
+                indeed_name = entries[1][0] if len(entries) > 1 else 'Indeed feed'
+                zip_name = entries[2][0] if len(entries) > 2 else 'ZipRecruiter feed'
+                indeed_label = labels['indeed']
+                zip_label = labels['ziprecruiter']
+            except Exception:
+                labels = {'v2': 'v2 Feed', 'indeed': 'STSI Indeed', 'ziprecruiter': 'STSI ZipRecruiter'}
+                v2_name = 'myticas-job-feed-v2.xml'
+                indeed_name = 'stsi-job-feed-indeed.xml'
+                zip_name = 'stsi-job-feed-ziprecruiter.xml'
+                indeed_label = 'STSI Indeed'
+                zip_label = 'STSI ZipRecruiter'
+
             if indeed_jobs is not None:
                 html_content += f"""
-                                <p><strong>Total Jobs (STSI Indeed feed):</strong> {indeed_jobs}</p>
+                                <p><strong>Total Jobs ({indeed_label} feed):</strong> {indeed_jobs}</p>
                                 <p><strong>Indeed File Size:</strong> {indeed_size}</p>
                 """
             if zip_jobs is not None:
                 html_content += f"""
-                                <p><strong>Total Jobs (STSI ZipRecruiter feed):</strong> {zip_jobs}</p>
+                                <p><strong>Total Jobs ({zip_label} feed):</strong> {zip_jobs}</p>
                                 <p><strong>ZipRecruiter File Size:</strong> {zip_size}</p>
                 """
             if pando_jobs is not None:
@@ -105,15 +122,15 @@ class XMLNotificationsMixin:
                                 <h3>✅ Upload Details</h3>
                                 <p>XML job feeds have been automatically uploaded:</p>
                                 <ul>
-                                    <li><strong>myticas-job-feed-v2.xml</strong> — {total_jobs} jobs (Myticas + STSI LinkedIn)</li>
+                                    <li><strong>{v2_name}</strong> — {total_jobs} jobs ({labels.get('v2', 'v2')})</li>
             """
                 if indeed_jobs is not None:
                     html_content += f"""
-                                    <li><strong>stsi-job-feed-indeed.xml</strong> — {indeed_jobs} jobs (STSI Indeed channel)</li>
+                                    <li><strong>{indeed_name}</strong> — {indeed_jobs} jobs ({indeed_label})</li>
                     """
                 if zip_jobs is not None:
                     html_content += f"""
-                                    <li><strong>stsi-job-feed-ziprecruiter.xml</strong> — {zip_jobs} jobs (STSI ZipRecruiter channel)</li>
+                                    <li><strong>{zip_name}</strong> — {zip_jobs} jobs ({zip_label})</li>
                     """
                 html_content += """
                                 </ul>

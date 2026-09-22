@@ -437,6 +437,8 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
+- **Qualified portal branding cleanup (Sep 21)**: Scheduler, Inbound Config, Automation Hub, Email Parsing tip, admin sidebar company, and upload-notification copy are tenant-aware. On `SCOUT_TENANT=qualified_staffing` they show Qualified Staffing / `qualified-job-feed-*.xml` / Indeed tearsheet **2** / Sales Rep `customText7` instead of leftover Myticas/STSI labels. Myticas/STSI UI unchanged.
+
 - **Qualified Indeed campaign tags (Sep 21)**: On `SCOUT_TENANT=qualified_staffing`, native Indeed publish maps Bullhorn `correlatedCustomText1` (department) to ATSA tags (e.g. Appleton → `#IND-WH`, Internal → `#INDWin`, Southfield → `#INDLiv`, Columbus-KIT/Key → `#INDCon`, Port Huron → `#INDMary`), strips leftover `#INDShow` / unhashed legacy markers, and appends `   {tag}` (three spaces). Unmapped or blank department skips publish with a clear reason. Myticas/STSI still use `#INDShow` on tearsheet 1640.
 
 - **Qualified Indeed native publish (Sep 21)**: On `SCOUT_TENANT=qualified_staffing`, Indeed Plan B targets tearsheet **2** (private label `51284`, `ADDCHANGE` for new membership / `REPUBLISH` for updates). Enable with `INDEED_TEARSHEET_PUBLISH_ENABLED` + Qualified `BH_UI_*`. When on, the Indeed XML channel uploads empty to avoid dual syndication; LinkedIn and Zip XML stay. Myticas/STSI tearsheet 1640 path unchanged.
@@ -678,5 +680,5 @@ Access health endpoints for status checks:
 
 ---
 
-**Last Updated**: September 17, 2026
+**Last Updated**: September 21, 2026
 **Version**: 2.9 (Main-branch Railway deploy; Render log monitoring removed)

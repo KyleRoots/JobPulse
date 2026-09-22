@@ -77,6 +77,24 @@ def automations_dashboard():
         api_user_ids = ''
         reassign_owner_note_enabled = True
 
+    from feeds.feed_config import get_salesrep_ui_fields
+    salesrep_source, salesrep_display = get_salesrep_ui_fields()
+    salesrep_tool_blurb = (
+        f"Manually trigger Sales Rep display name sync. Resolves CorporateUser IDs "
+        f"in {salesrep_source} to display names in {salesrep_display}. "
+        f"Normally runs automatically every 30 minutes."
+    )
+    for item in categorized:
+        if item.get('type') != 'task':
+            continue
+        task = item['task']
+        try:
+            bk = json.loads(task.config_json or '{}').get('builtin_key', '')
+        except Exception:
+            bk = ''
+        if bk == 'salesrep_sync':
+            task.description = salesrep_tool_blurb
+
     from flask import make_response
     resp = make_response(render_template('automations.html',
                            active_page='automations',
@@ -84,7 +102,9 @@ def automations_dashboard():
                            categorized=categorized,
                            owner_reassign_enabled=owner_reassign_enabled,
                            api_user_ids=api_user_ids,
-                           reassign_owner_note_enabled=reassign_owner_note_enabled))
+                           reassign_owner_note_enabled=reassign_owner_note_enabled,
+                           salesrep_source_field=salesrep_source,
+                           salesrep_display_field=salesrep_display))
     resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     resp.headers['Pragma'] = 'no-cache'
     resp.headers['Expires'] = '0'
@@ -229,7 +249,7 @@ def builtin_status(task_id):
         })
 
 
-VISIBLE_JOBS = {
+VISIBLE_JOBS_BASE = {
     'process_bullhorn_monitors': 'Tearsheet Monitor',
     'candidate_vetting_cycle': 'AI Candidate Screening',
     'vetting_health_check': 'Vetting Health Check',
@@ -238,13 +258,26 @@ VISIBLE_JOBS = {
     'linkedin_source_cleanup': 'LinkedIn Source Cleanup',
     'reference_number_refresh': 'Reference Number Refresh',
     'enforce_tearsheet_jobs_public': 'Enforce Jobs Public',
-    'indeed_tearsheet_publish': 'Indeed Tearsheet Publish (1640)',
+    'indeed_tearsheet_publish': 'Indeed Tearsheet Publish',
     'indeed_inbound_remap': 'Indeed Inbound Field Remap',
     'requirements_maintenance': 'Requirements Maintenance',
     'duplicate_merge_check': 'Duplicate Candidate Merge',
     'owner_reassignment': 'Owner Reassignment (5 min)',
     'owner_reassignment_daily': 'Owner Reassignment (Daily Sweep)',
 }
+
+
+def _visible_jobs():
+    """Scheduler job labels; Indeed publish includes the tenant tearsheet id."""
+    from feeds.feed_config import get_indeed_native_tearsheet_id
+    jobs = dict(VISIBLE_JOBS_BASE)
+    tid = get_indeed_native_tearsheet_id()
+    jobs['indeed_tearsheet_publish'] = f'Indeed Tearsheet Publish ({tid})'
+    return jobs
+
+
+# Backward-compatible alias for imports/tests that still read VISIBLE_JOBS.
+VISIBLE_JOBS = VISIBLE_JOBS_BASE
 
 PROTECTED_JOBS = {'process_bullhorn_monitors', 'candidate_vetting_cycle', 'vetting_health_check'}
 
@@ -303,7 +336,7 @@ def scheduler_status():
         scheduler = _get_scheduler()
         if scheduler and scheduler.running:
             job_map = {j.id: j for j in scheduler.get_jobs()}
-            for job_id, display_name in VISIBLE_JOBS.items():
+            for job_id, display_name in _visible_jobs().items():
                 job = job_map.get(job_id)
                 next_run = None
                 paused = job_id in paused_ids

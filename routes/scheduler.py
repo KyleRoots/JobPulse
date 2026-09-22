@@ -77,11 +77,8 @@ def scheduler_dashboard():
 
     if dual_feed_data:
         ts_str = dual_feed_data.get('timestamp', '')
-        feed_entries = [
-            ('myticas-job-feed-v2.xml', 'v2_jobs', 'v2_size'),
-            ('stsi-job-feed-indeed.xml', 'stsi_indeed_jobs', 'stsi_indeed_size'),
-            ('stsi-job-feed-ziprecruiter.xml', 'stsi_ziprecruiter_jobs', 'stsi_ziprecruiter_size'),
-        ]
+        from feeds.feed_config import get_feed_ui_entries
+        feed_entries = get_feed_ui_entries()
         for filename, jobs_key, size_key in feed_entries:
             size_bytes = dual_feed_data.get(size_key, 0) or 0
             job_count = dual_feed_data.get(jobs_key, 0)
@@ -96,7 +93,9 @@ def scheduler_dashboard():
                 'job_count': job_count
             })
     else:
-        for filename in ['myticas-job-feed.xml']:
+        from feeds.feed_config import get_v2_filenames
+        v2_filename, _ = get_v2_filenames()
+        for filename in [v2_filename]:
             if os.path.exists(filename):
                 file_stats = os.stat(filename)
 
@@ -121,7 +120,7 @@ def scheduler_dashboard():
                     server_time_str = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
 
                 active_xml_files.append({
-                    'filename': "myticas-job-feed-v2.xml",
+                    'filename': v2_filename,
                     'file_size': file_stats.st_size,
                     'display_size': display_size,
                     'last_modified': last_modified,

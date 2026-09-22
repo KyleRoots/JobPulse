@@ -172,17 +172,17 @@
                             <small class="text-muted d-block mb-1">Feed Stats (Last Upload)</small>
                         </div>
                         <div class="col-6 col-md-3">
-                            <small style="color: #4a9678;">v2 Feed</small><br>
+                            <small style="color: #4a9678;">{{ feed_labels.v2 }}</small><br>
                             <span id="v2-jobs" class="text-white" style="font-size: 0.875rem;">—</span>
                             <small class="text-muted"> jobs</small>
                         </div>
                         <div class="col-6 col-md-3">
-                            <small style="color: #2164f3;">STSI Indeed</small><br>
+                            <small style="color: #2164f3;">{{ feed_labels.indeed }}</small><br>
                             <span id="indeed-jobs" class="text-white" style="font-size: 0.875rem;">—</span>
                             <small class="text-muted"> jobs</small>
                         </div>
                         <div class="col-6 col-md-3">
-                            <small style="color: #e8a838;">STSI ZipRecruiter</small><br>
+                            <small style="color: #e8a838;">{{ feed_labels.ziprecruiter }}</small><br>
                             <span id="ziprecruiter-jobs" class="text-white" style="font-size: 0.875rem;">—</span>
                             <small class="text-muted"> jobs</small>
                         </div>
@@ -343,9 +343,14 @@
                         dualFeedSection.style.display = 'flex';
                         document.getElementById('v2-jobs').textContent = data.dual_feed.v2_jobs ?? '—';
                         document.getElementById('indeed-jobs').textContent =
-                            data.dual_feed.stsi_indeed_jobs ?? data.dual_feed.pando_jobs ?? '—';
+                            data.dual_feed.indeed_jobs
+                            ?? data.dual_feed.stsi_indeed_jobs
+                            ?? data.dual_feed.pando_jobs
+                            ?? '—';
                         document.getElementById('ziprecruiter-jobs').textContent =
-                            data.dual_feed.stsi_ziprecruiter_jobs ?? '—';
+                            data.dual_feed.zip_jobs
+                            ?? data.dual_feed.stsi_ziprecruiter_jobs
+                            ?? '—';
                     }
                 } else {
                     if (statusEl) {

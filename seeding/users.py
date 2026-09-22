@@ -27,8 +27,10 @@ def create_admin_user(db, User):
     # Late import so test patches on `seed_database.get_admin_config` and
     # `seed_database.is_production_environment` are observed at call time.
     import seed_database
+    from feeds.feed_config import get_tenant_company_name
 
     config = seed_database.get_admin_config()
+    company_name = get_tenant_company_name()
 
     # First, try to find existing admin user by is_admin=True (independent of current env values)
     # This ensures we update the same admin even if username/email change
@@ -63,6 +65,12 @@ def create_admin_user(db, User):
             existing_user.email = config['email']
             updates.append(f"email ({old_email} -> {config['email']})")
 
+        # Keep sidebar company aligned with this service's tenant
+        if (existing_user.company or '').strip() != company_name:
+            old_company = existing_user.company
+            existing_user.company = company_name
+            updates.append(f"company ({old_company} -> {company_name})")
+
         # Always update password from current environment (enables rotation)
         # Note: We can't check if password changed (it's hashed), so always update
         existing_user.set_password(config['password'])
@@ -82,7 +90,7 @@ def create_admin_user(db, User):
             username=config['username'],
             email=config['email'],
             is_admin=True,
-            company='Myticas Consulting',
+            company=company_name,
             created_at=datetime.utcnow()
         )
         admin_user.set_password(config['password'])
