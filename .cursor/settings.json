@@ -1,0 +1,13 @@
+{
+  "plugins": {
+    "twilio-developer-kit": {
+      "enabled": true
+    },
+    "coderabbit": {
+      "enabled": true
+    },
+    "github": {
+      "enabled": true
+    }
+  }
+}

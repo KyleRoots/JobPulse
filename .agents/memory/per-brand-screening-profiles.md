@@ -31,3 +31,9 @@ light_industrial relaxes Rule 13b gate (b) from "10+yr senior" → any level
 (+sparse-resume framing) and raises the FRESH_GRAD/ENTRY cap 55→70 in BOTH the
 prompt instruction line and `enforce_experience_floor` (keep them in lockstep,
 or the model self-caps before post-processing matters).
+
+Rule 13c (industrial schedule silence) lives in the standard prompt on purpose.
+It is domain-gated: manufacturing and other industrial jobs do not lose points
+when a resume never mentions shift. IT roles are excluded. `relax_industrial_schedule_silence`
+strips that gap after scoring so a model that still writes it cannot keep the
+penalty. Do not revert 13c to "protect" the standard literal.

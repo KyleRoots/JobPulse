@@ -1,0 +1,8 @@
+---
+description: Shipped plans that must not be re-proposed
+alwaysApply: true
+---
+
+# Shipped — do not resurface
+
+- **Qualified-only NeverBounce / Twilio** (commit `0653d90c`): DONE and live. Paid NeverBounce/Twilio run only after `is_qualified`. Do not recreate that plan or offer to implement it again.
