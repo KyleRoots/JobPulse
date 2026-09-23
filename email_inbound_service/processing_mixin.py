@@ -775,7 +775,17 @@ class ProcessingMixin:
             self.logger.info(f"Job submission check: job_id={job_id}, candidate_id={candidate_id}, returning_applicant={is_returning}")
             if job_id and candidate_id:
                 self.logger.info(f"Creating job submission for {'RETURNING' if is_returning else 'NEW'} applicant: candidate {candidate_id} -> job {job_id}")
-                submission_id = bullhorn.create_job_submission(candidate_id, job_id, source)
+                # Use the Bullhorn-mapped source from candidate payload so
+                # JobSubmission.source matches Candidate.source options
+                # (e.g. "ZipRecruiter Job Board"), not an unmapped internal label.
+                submission_source = (
+                    (bullhorn_data.get('source') or '').strip()
+                    or self.SOURCE_TO_BULLHORN.get(source, source)
+                    or source
+                )
+                submission_id = bullhorn.create_job_submission(
+                    candidate_id, job_id, submission_source
+                )
                 if submission_id:
                     parsed_email.bullhorn_submission_id = submission_id
                     result['submission_id'] = submission_id

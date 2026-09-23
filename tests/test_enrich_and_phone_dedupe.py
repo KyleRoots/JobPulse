@@ -48,6 +48,8 @@ class TestEnrichBlankPrimaryEmail:
         # Populated phone/mobile must not be overwritten
         assert 'phone' not in enriched
         assert 'mobile' not in enriched
+        # Existing source must not be overwritten on non-Pando enrich
+        assert 'source' not in enriched
 
     def test_does_not_overwrite_existing_primary_email(self, mapper):
         existing = {'email': 'old@example.com'}
@@ -55,6 +57,26 @@ class TestEnrichBlankPrimaryEmail:
         enriched = mapper._build_enrichment_update(existing, new_data)
         assert 'email' not in enriched
         assert enriched.get('occupation') == 'Engineer'
+
+    def test_fills_blank_source_on_duplicate(self, mapper):
+        """Returning Zip/LinkedIn applicants with empty Source get it filled."""
+        existing = {'source': None, 'phone': '6309994804'}
+        new_data = {'source': 'ZipRecruiter Job Board', 'occupation': 'Manager'}
+        enriched = mapper._build_enrichment_update(existing, new_data)
+        assert enriched.get('source') == 'ZipRecruiter Job Board'
+        assert enriched.get('occupation') == 'Manager'
+
+    def test_fills_whitespace_source_as_blank(self, mapper):
+        existing = {'source': '   '}
+        new_data = {'source': 'LinkedIn Job Board'}
+        enriched = mapper._build_enrichment_update(existing, new_data)
+        assert enriched.get('source') == 'LinkedIn Job Board'
+
+    def test_does_not_overwrite_existing_source(self, mapper):
+        existing = {'source': 'Indeed Job Board'}
+        new_data = {'source': 'ZipRecruiter Job Board'}
+        enriched = mapper._build_enrichment_update(existing, new_data)
+        assert 'source' not in enriched
 
 
 class TestPhoneMatchNameConflict:

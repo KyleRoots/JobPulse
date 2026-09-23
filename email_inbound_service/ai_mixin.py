@@ -550,6 +550,10 @@ Consider: name spelling variations, nicknames, contact info matches.
             'employmentPreference', 'email2', 'email3',
             # LinkedIn profile URL (Bullhorn LinkedIn custom field)
             'customText9',
+            # Source attribution: fill ONLY when blank. Never overwrite an
+            # existing source (recruiters may have corrected history). PandoLogic
+            # still corrects source below when is_pando=True.
+            'source',
         ]
 
         enriched = {}
@@ -557,6 +561,11 @@ Consider: name spelling variations, nicknames, contact info matches.
         for field in enrichable_fields:
             existing_val = existing.get(field)
             new_val = new_data.get(field)
+            # Treat whitespace-only source/strings as blank.
+            if isinstance(existing_val, str):
+                existing_val = existing_val.strip() or None
+            if isinstance(new_val, str):
+                new_val = new_val.strip() or None
             if new_val and not existing_val:
                 enriched[field] = new_val
                 self.logger.info(f"  Enriching blank field '{field}' with: {str(new_val)[:80]}")
