@@ -185,7 +185,7 @@ class TestConfig:
         assert cfg['tearsheet_id'] == 2
         assert cfg['state_key'] == 'indeed_tearsheet_publish_state_2'
         assert cfg['private_label_id'] == '51284'
-        assert cfg['job_url_template'] == ''
+        assert cfg['job_url_template'] == 'https://jobs.q-staffing.com/jobs/{job_id}'
         assert cfg['membership_publish_operation'] == 'ADDCHANGE'
         assert cfg['republish_operation'] == 'REPUBLISH'
 

@@ -437,6 +437,7 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
+- **Qualified Indeed jobUrl on publish (Sep 24)**: Plan B publish now sends `https://jobs.q-staffing.com/jobs/{job_id}` (override with `BH_CAREER_PORTAL_JOB_URL_TEMPLATE`) so Bullhorn’s MultiSource Indeed XML is not left as `?source=Indeed` only. Portal ID-only URLs redirect to the SEO slug.
 - **Qualified tearsheet auto-remove alignment (Sep 23)**: The 5-minute monitor now cleans ineligible jobs off the **tenant** sponsored tearsheets (Qualified: LinkedIn 4 / Indeed 2 / Zip 3). Feed XML already skipped closed/hold jobs; Bullhorn tearsheet counts can now catch down to match.
 - **Tearsheet Search gap backfill (Sep 23)**: Sponsored feed generation hydrates JobOrders that appear on the Bullhorn tearsheet Entity association but are missing from Search (`tearsheets.id`). Closes under-publish gaps vs the tearsheet UI count; ineligible (closed/hold/filled) jobs are still filtered before XML.
 - **Duplicate inbound Source backfill (Sep 22)**: Returning applicants with a blank Candidate `source` now get it filled from the detected board (e.g. ZipRecruiter / LinkedIn Job Board). Existing non-blank sources are never overwritten (except the existing PandoLogic correction path). JobSubmission create uses the same Bullhorn-mapped source string.

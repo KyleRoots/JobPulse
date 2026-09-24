@@ -20,6 +20,8 @@ DEFAULT_BASE_URL = 'https://cls45.bullhornstaffing.com'
 DEFAULT_PRIVATE_LABEL_ID_MYTICAS = '52989'
 DEFAULT_PRIVATE_LABEL_ID_QUALIFIED = '51284'
 DEFAULT_JOB_URL_TEMPLATE_MYTICAS = 'https://myticas.com/jobs/{job_id}'
+# ID-only career portal path; redirects to the SEO slug URL.
+DEFAULT_JOB_URL_TEMPLATE_QUALIFIED = 'https://jobs.q-staffing.com/jobs/{job_id}'
 DEFAULT_NOTIFY_EMAIL = 'kroots@myticas.com'
 
 
@@ -36,9 +38,9 @@ def config_from_env() -> dict:
     Myticas/STSI: tearsheet 1640, private label 52989, myticas.com job URLs,
     REPUBLISH for new membership and fingerprint changes.
 
-    Qualified: tearsheet 2, private label 51284, blank jobUrl (matches live
-    Bullhorn Publish capture), ADDCHANGE for first membership publish and
-    REPUBLISH for later fingerprint updates.
+    Qualified: tearsheet 2, private label 51284, jobs.q-staffing.com job URLs
+    (ID-only path that redirects to the SEO slug), ADDCHANGE for first
+    membership publish and REPUBLISH for later fingerprint updates.
     """
     qualified = is_qualified_tenant()
     tearsheet_id = (
@@ -49,11 +51,14 @@ def config_from_env() -> dict:
         if qualified
         else DEFAULT_PRIVATE_LABEL_ID_MYTICAS
     )
-    # Qualified Publish payloads leave jobUrl blank; do not invent myticas.com links.
+    # Prefer explicit override. Qualified default is the ID-only portal URL
+    # Bullhorn/Indeed expect (e.g. .../jobs/79341 → SEO redirect). Empty
+    # string is still allowed via BH_CAREER_PORTAL_JOB_URL_TEMPLATE='' if a
+    # corp must publish without a jobUrl.
     if 'BH_CAREER_PORTAL_JOB_URL_TEMPLATE' in os.environ:
         job_url_template = (os.environ.get('BH_CAREER_PORTAL_JOB_URL_TEMPLATE') or '').strip()
     elif qualified:
-        job_url_template = ''
+        job_url_template = DEFAULT_JOB_URL_TEMPLATE_QUALIFIED
     else:
         job_url_template = DEFAULT_JOB_URL_TEMPLATE_MYTICAS
 

@@ -127,10 +127,12 @@ Qualified tearsheets (Novo IDs, confirmed 19 Sep 2026, job counts were 0):
 | Sponsored - ZipRecruiter | 3 | `qualified-job-feed-ziprecruiter.xml` |
 
 Indeed native Plan B is enabled with `INDEED_TEARSHEET_PUBLISH_ENABLED=true` and
-Qualified `BH_UI_*` (tearsheet **2**, private label `51284`). When on, the Indeed
-XML upload is empty so CFC and XML do not dual-list. Campaign tags map from
-`correlatedCustomText1` (see go-live step 7). Myticas `#INDShow` / tearsheet 1640
-are unchanged.
+Qualified `BH_UI_*` (tearsheet **2**, private label `51284`). Publish payloads use
+`BH_CAREER_PORTAL_JOB_URL_TEMPLATE` or the default
+`https://jobs.q-staffing.com/jobs/{job_id}` (ID-only path; portal redirects to the
+SEO slug). When on, the Indeed XML upload is empty so CFC and Scout XML do not
+dual-list. Campaign tags map from `correlatedCustomText1` (see go-live step 7).
+Myticas `#INDShow` / tearsheet 1640 are unchanged.
 
 ## Confirmed picklists (19 Sep 2026)
 
