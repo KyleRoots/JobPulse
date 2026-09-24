@@ -118,16 +118,14 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
                             self.tearsheet_id = tearsheet_id
                             self.is_active = True
 
+                    from feeds.feed_config import get_tearsheet_monitor_mapping
                     db_monitors = [
-                        MockMonitor('Sponsored - OTT', 1256),
-                        MockMonitor('Sponsored - VMS', 1264),
-                        MockMonitor('Sponsored - GR', 1499),
-                        MockMonitor('Sponsored - CHI', 1257),
-                        MockMonitor('Sponsored - STSI - LinkedIn', 1531),
-                        MockMonitor('Sponsored - STSI - Indeed', 1640),
-                        MockMonitor('Sponsored - STSI - Zip Recruiter', 1641),
+                        MockMonitor(name, tid)
+                        for tid, name in sorted(get_tearsheet_monitor_mapping().items())
                     ]
-                    app.logger.info(f"Using {len(db_monitors)} hardcoded tearsheet monitors (fallback)")
+                    app.logger.info(
+                        f"Using {len(db_monitors)} tenant tearsheet monitors (fallback)"
+                    )
                 else:
                     app.logger.info(f"Using {len(db_monitors)} database monitors")
 

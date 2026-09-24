@@ -658,6 +658,18 @@ This alert was triggered by the zero-job detection safeguard.
         self.auto_removed_jobs = []
         return count
     
+    def _monitored_tearsheets(self) -> List[tuple]:
+        """Tenant-aware (id, name) pairs for sponsored feed tearsheets.
+
+        Auto-removal must target the same tearsheets the XML feeds publish
+        from. Myticas/STSI uses the historical Bullhorn One IDs; Qualified
+        uses LinkedIn 4 / Indeed 2 / ZipRecruiter 3.
+        """
+        from feeds.feed_config import get_tearsheet_monitor_mapping
+
+        mapping = get_tearsheet_monitor_mapping()
+        return [(tid, name) for tid, name in sorted(mapping.items())]
+
     def _fetch_all_tearsheet_jobs(self) -> Dict[str, Dict]:
         """Fetch all jobs from monitored tearsheets with proper pagination and auto-removal of ineligible jobs"""
         all_jobs = {}
@@ -665,7 +677,6 @@ This alert was triggered by the zero-job detection safeguard.
         # Reset auto-removed jobs tracking for this cycle
         self.auto_removed_jobs = []
         
-        # Get active monitors - Bullhorn One tearsheet IDs (January 2026 migration)
         class MockMonitor:
             def __init__(self, name, tearsheet_id):
                 self.name = name
@@ -673,14 +684,8 @@ This alert was triggered by the zero-job detection safeguard.
                 self.is_active = True
         
         monitors = [
-            MockMonitor('Sponsored - OTT', 1231),
-            MockMonitor('Sponsored - CHI', 1232),
-            MockMonitor('Sponsored - CLE', 1233),
-            MockMonitor('Sponsored - VMS', 1239),
-            MockMonitor('Sponsored - GR', 1474),
-            MockMonitor('Sponsored - STSI - LinkedIn', 1531),
-            MockMonitor('Sponsored - STSI - Indeed', 1640),
-            MockMonitor('Sponsored - STSI - Zip Recruiter', 1641),
+            MockMonitor(name, tearsheet_id)
+            for tearsheet_id, name in self._monitored_tearsheets()
         ]
         
         for monitor in monitors:

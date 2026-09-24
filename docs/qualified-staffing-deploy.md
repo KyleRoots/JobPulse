@@ -148,9 +148,12 @@ Pulled from the live Qualified corp. Stored value and label are the same string.
 Job statuses that take a job off the feed already match Scout’s shared
 `INELIGIBLE_STATUSES` (including Closed, Filled, Lost variants, Hold, Qualifying,
 Archive, etc.). `Accepting Candidates` and `Accepting Candidates - Interviewing`
-stay on the feed. Auto-remove from tearsheet **2** then triggers Indeed CFC
-unpublish so checkmarks clear. The public flag is separate from status. The
-portal only publishes jobs that are open, not deleted, and marked public.
+stay on the feed. The 5-minute incremental monitor auto-removes ineligible jobs
+from Qualified tearsheets **2** (Indeed), **3** (ZipRecruiter), and **4**
+(LinkedIn) so Bullhorn membership counts track the XML. Auto-remove from
+tearsheet **2** also triggers Indeed CFC unpublish so checkmarks clear. The
+public flag is separate from status. The portal only publishes jobs that are
+open, not deleted, and marked public.
 
 `Dice` is not a Qualified source. An unmatched source falls back to `Other`, which is on the list.
 
