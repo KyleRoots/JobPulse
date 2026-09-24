@@ -11,6 +11,22 @@ import requests  # noqa: F401  (used by methods via self.session)
 logger = logging.getLogger(__name__)
 
 
+# Fields used when hydrating tearsheet JobOrders from Search or Entity.
+_TEARSHEET_JOB_FIELDS = (
+    "id,title,isOpen,status,dateAdded,"
+    "dateLastModified,clientCorporation(id,name),"
+    "clientContact(firstName,lastName),description,"
+    "publicDescription,numOpenings,isPublic,"
+    "address(address1,city,state,countryName),employmentType,"
+    "salary,salaryUnit,isDeleted,"
+    "categories(id,name),onSite,benefits,bonusPackage,"
+    "degreeList,skillList,certificationList,"
+    "owner(firstName,lastName),"
+    "assignedUsers(firstName,lastName),"
+    "responseUser(firstName,lastName)"
+)
+
+
 def _reconcile_tearsheet_search_results(
     search_jobs: List[Dict],
     entity_job_ids: set,
@@ -38,6 +54,41 @@ def _reconcile_tearsheet_search_results(
             or is_job_eligible(job)
         )
     ]
+
+
+def _entity_only_tearsheet_job_ids(
+    search_jobs: List[Dict],
+    entity_job_ids: set,
+    entity_membership_complete: bool,
+) -> List[int]:
+    """Return Entity tearsheet members that Search did not return.
+
+    Bullhorn Search ``tearsheets.id:<id>`` can lag behind Entity associations,
+    which under-publishes sponsored XML feeds relative to the tearsheet UI
+    count. Callers hydrate these IDs via Entity so open jobs still syndicate.
+    """
+    if not entity_membership_complete or not entity_job_ids:
+        return []
+
+    present: set = set()
+    for job in search_jobs or []:
+        jid = job.get('id')
+        if jid is None:
+            continue
+        try:
+            present.add(int(jid))
+        except (TypeError, ValueError):
+            continue
+
+    missing: List[int] = []
+    for eid in entity_job_ids:
+        try:
+            iid = int(eid)
+        except (TypeError, ValueError):
+            continue
+        if iid not in present:
+            missing.append(iid)
+    return sorted(missing)
 
 
 class JobsMixin:
@@ -179,22 +230,8 @@ class JobsMixin:
             
             # For larger tearsheets, use search API to get all jobs
             query = f"tearsheets.id:{tearsheet_id}"
-            
-            # Define fields to retrieve (enhanced for XML mapping)
-            fields = [
-                "id", "title", "isOpen", "status", "dateAdded", 
-                "dateLastModified", "clientCorporation(id,name)",
-                "clientContact(firstName,lastName)", "description",
-                "publicDescription", "numOpenings", "isPublic",
-                "address(address1,city,state,countryName)", "employmentType",
-                "salary", "salaryUnit", "isDeleted",
-                "categories(id,name)", "onSite", "benefits", "bonusPackage",
-                "degreeList", "skillList", "certificationList",
-                "owner(firstName,lastName)",
-                "assignedUsers(firstName,lastName)",
-                "responseUser(firstName,lastName)"
-            ]
-            
+            fields = _TEARSHEET_JOB_FIELDS
+
             all_jobs = []
             start = 0
             count = 200  # Max records per page
@@ -204,7 +241,7 @@ class JobsMixin:
                 url = f"{self.base_url}search/JobOrder"
                 params = {
                     'query': query,
-                    'fields': ','.join(fields),
+                    'fields': fields,
                     'sort': '-dateLastModified',
                     'start': start,
                     'count': count,
@@ -245,6 +282,29 @@ class JobsMixin:
                     f"are absent from Entity membership and already ineligible"
                 )
             filtered_jobs = reconciled_jobs
+
+            # Entity membership can be ahead of Search. Hydrate those IDs so
+            # sponsored feeds match the tearsheet UI (minus ineligible status).
+            missing_ids = _entity_only_tearsheet_job_ids(
+                filtered_jobs,
+                entity_job_ids,
+                entity_membership_complete,
+            )
+            if missing_ids:
+                backfilled = self._fetch_job_orders_by_ids(missing_ids, fields)
+                backfilled = self._filter_excluded_jobs(backfilled)
+                if backfilled:
+                    logger.info(
+                        f"Tearsheet {tearsheet_id}: backfilled {len(backfilled)} "
+                        f"Entity-only job(s) missing from Search "
+                        f"(requested {len(missing_ids)})"
+                    )
+                    filtered_jobs.extend(backfilled)
+                elif missing_ids:
+                    logger.warning(
+                        f"Tearsheet {tearsheet_id}: Search missed {len(missing_ids)} "
+                        f"Entity member(s) and Entity hydrate returned none"
+                    )
             
             # Log discrepancies between Entity API and Search API
             # Search is retained for eligible Search-only jobs because Entity
@@ -266,6 +326,46 @@ class JobsMixin:
         except Exception as e:
             logger.error(f"Error getting tearsheet jobs: {str(e)}")
             return []
+
+    def _fetch_job_orders_by_ids(
+        self, job_ids: List[int], fields: Optional[str] = None
+    ) -> List[Dict]:
+        """Hydrate JobOrders by id via Entity (batched). Used for Search gaps."""
+        if not job_ids:
+            return []
+        if not self.base_url or not self.rest_token:
+            if not self.authenticate():
+                return []
+
+        field_str = (fields or _TEARSHEET_JOB_FIELDS).strip()
+        out: List[Dict] = []
+        batch_size = 20
+        for i in range(0, len(job_ids), batch_size):
+            batch = job_ids[i:i + batch_size]
+            id_path = ','.join(str(jid) for jid in batch)
+            url = f"{self.base_url}entity/JobOrder/{id_path}"
+            params = {
+                'fields': field_str,
+                'BhRestToken': self.rest_token,
+            }
+            try:
+                response = self.session.get(url, params=params, timeout=60)
+                if response.status_code != 200:
+                    logger.error(
+                        f"Failed to hydrate JobOrders {batch}: "
+                        f"{response.status_code} - {response.text[:200]}"
+                    )
+                    continue
+                data = self._safe_json_parse(response)
+                payload = data.get('data')
+                if isinstance(payload, list):
+                    out.extend(payload)
+                elif isinstance(payload, dict):
+                    out.append(payload)
+            except Exception as exc:
+                logger.error(f"Error hydrating JobOrders {batch}: {exc}")
+        return out
+
     def get_jobs_by_query(self, query: str) -> List[Dict]:
         """
         Get jobs using a custom search query with proper pagination

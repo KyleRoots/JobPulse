@@ -437,6 +437,7 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
+- **Tearsheet Search gap backfill (Sep 23)**: Sponsored feed generation hydrates JobOrders that appear on the Bullhorn tearsheet Entity association but are missing from Search (`tearsheets.id`). Closes under-publish gaps vs the tearsheet UI count; ineligible (closed/hold/filled) jobs are still filtered before XML.
 - **Duplicate inbound Source backfill (Sep 22)**: Returning applicants with a blank Candidate `source` now get it filled from the detected board (e.g. ZipRecruiter / LinkedIn Job Board). Existing non-blank sources are never overwritten (except the existing PandoLogic correction path). JobSubmission create uses the same Bullhorn-mapped source string.
 - **Indeed publish response-user fallback (Sep 22)**: If a tearsheet job has no assigned recruiter, Indeed native publish uses the job **Owner** (when that user has an email). Skips Unassigned-style owner placeholders. Cuts “no assigned recruiter” publish blocks when Recruiter is blank in Bullhorn.
 - **Qualified job→candidate Internal Department (Sep 22)**: On `SCOUT_TENANT=qualified_staffing`, LinkedIn/Zip/apply-form intake via `apply@q-staffing.com` copies the job’s Internal Department (`JobOrder.correlatedCustomText1`, e.g. Dalton on 71006) onto the candidate (`Candidate.customText3`). New and returning applicants. Myticas/STSI unchanged.

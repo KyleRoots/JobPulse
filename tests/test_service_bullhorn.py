@@ -197,6 +197,29 @@ class TestBullhornServiceJobRetrieval:
 class TestTearsheetSearchReconciliation:
     """Bullhorn Search may retain removed tearsheet memberships indefinitely."""
 
+    def test_entity_only_ids_are_listed_for_backfill(self):
+        from bullhorn_service.jobs import _entity_only_tearsheet_job_ids
+
+        search_jobs = [
+            {'id': 1, 'title': 'In search'},
+            {'id': '2', 'title': 'Also in search'},
+        ]
+        missing = _entity_only_tearsheet_job_ids(
+            search_jobs,
+            entity_job_ids={1, 2, 45258, 1748},
+            entity_membership_complete=True,
+        )
+        assert missing == [1748, 45258]
+
+    def test_entity_only_ids_skipped_without_complete_membership(self):
+        from bullhorn_service.jobs import _entity_only_tearsheet_job_ids
+
+        assert _entity_only_tearsheet_job_ids(
+            [{'id': 1}],
+            entity_job_ids={1, 99},
+            entity_membership_complete=False,
+        ) == []
+
     def test_suppresses_search_only_ineligible_jobs(self):
         from bullhorn_service.jobs import _reconcile_tearsheet_search_results
 
