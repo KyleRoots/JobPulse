@@ -116,8 +116,10 @@ class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMi
 
     def detect_new_applicants(self, since_minutes: int = 5) -> List[Dict]:
         """
-        Find new candidates with "Online Applicant" status that haven't been processed yet.
-        Uses dateLastModified filter to catch both new and returning candidates.
+        Find new candidates with the tenant inbound status that haven't been
+        processed yet. Uses dateLastModified filter to catch both new and
+        returning candidates. Qualified searches ``New Lead``; Myticas/STSI
+        search ``Online Applicant``.
         
         Args:
             since_minutes: Only look at candidates created/updated in the last N minutes
@@ -143,10 +145,18 @@ class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMi
                 logger.info(f"First run - only detecting candidates from last {since_minutes} minutes")
             
             since_timestamp = int(since_time.timestamp() * 1000)
+
+            # Qualified: board/email ingest uses New Lead (aligned with career
+            # portal). Myticas/STSI keep Online Applicant.
+            try:
+                from feeds.feed_config import get_inbound_candidate_status
+                inbound_status = get_inbound_candidate_status()
+            except Exception:
+                inbound_status = 'Online Applicant'
             
             url = f"{bullhorn.base_url}search/Candidate"
             params = {
-                'query': f'status:"Online Applicant" AND dateLastModified:[{since_timestamp} TO *]',
+                'query': f'status:"{inbound_status}" AND dateLastModified:[{since_timestamp} TO *]',
                 'fields': 'id,firstName,lastName,email,phone,status,dateAdded,dateLastModified,source,occupation,description,address(address1,city,state,countryName),owner(id,name)',
                 'count': 50,
                 'sort': '-dateLastModified',

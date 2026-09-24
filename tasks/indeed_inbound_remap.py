@@ -12,6 +12,10 @@ Email inbound (LinkedIn / Indeed emails / apply forms) instead creates:
 This task remaps the native Indeed shape to match email inbound so Scout
 detectors and Owner Reassignment see a consistent inbound profile.
 
+On ``SCOUT_TENANT=qualified_staffing``, status stays **New Lead** (Qualified
+wants one inbound status for portal + boards). Source and Unassigned→API
+owner remaps still run.
+
 Backlog: the Lucene query selects by still-wrong source (Indeed, excluding
 Indeed Job Board / Indeed Resume Search) with no date floor by default —
 same pattern as LinkedIn source cleanup. Existing New Lead + Indeed +
@@ -175,10 +179,17 @@ def build_indeed_inbound_remap_payload(
         'source': TARGET_SOURCE,
     }
 
-    # Only New Lead → Online Applicant (never stomp recruiter-set statuses).
+    # Only New Lead → Online Applicant on Myticas/STSI (never stomp
+    # recruiter-set statuses). Qualified keeps New Lead for all inbound.
     status = str(candidate.get('status') or '').strip()
     if status == 'New Lead':
-        updates['status'] = TARGET_STATUS
+        try:
+            from feeds.feed_config import is_qualified_tenant
+            remapped_status = not is_qualified_tenant()
+        except Exception:
+            remapped_status = True
+        if remapped_status:
+            updates['status'] = TARGET_STATUS
 
     owner = candidate.get('owner')
     if is_unassigned_owner(owner):

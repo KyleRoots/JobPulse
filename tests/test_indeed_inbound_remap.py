@@ -101,6 +101,16 @@ class TestBuildPayload:
         assert payload['source'] == 'Indeed Job Board'
         assert payload['owner']['id'] == 1147490
 
+    def test_qualified_keeps_new_lead_status(self, monkeypatch):
+        """Qualified inbound stays New Lead; source/owner still remapped."""
+        monkeypatch.setenv('SCOUT_TENANT', 'qualified_staffing')
+        payload = build_indeed_inbound_remap_payload(
+            _cand(), api_user_id=2204241
+        )
+        assert 'status' not in payload
+        assert payload['source'] == TARGET_SOURCE
+        assert payload['owner']['id'] == 2204241
+
     def test_qualified_api_user_override(self):
         payload = build_indeed_inbound_remap_payload(
             _cand(), api_user_id=2204241

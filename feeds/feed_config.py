@@ -342,6 +342,18 @@ def all_xml_feed_tearsheet_ids() -> List[int]:
     return ids
 
 
+def get_inbound_candidate_status() -> str:
+    """Bullhorn Candidate.status for new board/email/apply-form ingest.
+
+    Qualified Staffing uses ``New Lead`` for all new candidates (career portal
+    and job-board paths) so recruiters see one inbound status. Myticas/STSI
+    keep ``Online Applicant`` for historical Scout detectors and workflows.
+    """
+    if is_qualified_tenant():
+        return 'New Lead'
+    return 'Online Applicant'
+
+
 def feeds_configured_for_tenant() -> bool:
     """True when this tenant has at least one tearsheet ID to publish."""
     return bool(all_xml_feed_tearsheet_ids())

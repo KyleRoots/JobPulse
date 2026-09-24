@@ -110,7 +110,7 @@ class ResumeMixin:
                     f"{self.PANDO_FEED_SOURCE!r}, owner left unchanged"
                 )
 
-        candidate['status'] = 'Online Applicant'
+        candidate['status'] = self._inbound_candidate_status()
 
         work_auth = work_auth or email_data.get('work_authorization')
         if work_auth:
@@ -151,6 +151,12 @@ class ResumeMixin:
         # customText9 already set above when a LinkedIn /in/ URL was resolved
 
         return candidate
+
+    @staticmethod
+    def _inbound_candidate_status() -> str:
+        """Tenant-aware Candidate.status for new board/email ingest."""
+        from feeds.feed_config import get_inbound_candidate_status
+        return get_inbound_candidate_status()
 
     @staticmethod
     def _is_pando_feed(feed: Optional[str]) -> bool:

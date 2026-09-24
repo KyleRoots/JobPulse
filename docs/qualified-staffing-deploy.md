@@ -144,8 +144,8 @@ Pulled from the live Qualified corp. Stored value and label are the same string.
 | `Indeed Job Board` | Candidate source | Present |
 | `ZipRecruiter Job Board` | Candidate source | Present |
 | `Corporate Website` | Candidate source | Present. The career portal (`jobs.q-staffing.com`) also uses this when source is blank, and does not overwrite a source already set. |
-| `Online Applicant` | Candidate status | Present. This is what new email/apply candidates are set to. |
-| `New Lead` | Candidate status | Present |
+| `Online Applicant` | Candidate status | Present on the picklist. Myticas/STSI Scout ingest still uses this. On Qualified, board/email ingest uses **New Lead** instead (aligned with the career portal). |
+| `New Lead` | Candidate status | Present. Qualified: all new candidates (portal + Zip/Indeed/LinkedIn board ingest). |
 
 Job statuses that take a job off the feed already match Scout’s shared
 `INELIGIBLE_STATUSES` (including Closed, Filled, Lost variants, Hold, Qualifying,
