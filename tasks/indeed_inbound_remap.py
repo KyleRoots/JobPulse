@@ -463,3 +463,8 @@ def run_indeed_inbound_remap():
             remap_indeed_inbound_fields()
         except Exception as exc:
             logger.error('indeed_inbound_remap: unexpected error — %s', exc)
+        try:
+            from tasks.indeed_inbound_enrich import enrich_indeed_job_board_candidates
+            enrich_indeed_job_board_candidates()
+        except Exception as exc:
+            logger.error('indeed enrich: unexpected error — %s', exc)
