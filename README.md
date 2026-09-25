@@ -437,6 +437,7 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
+- **Qualified Talent Platform source (Sep 24)**: Candidates owned by the Talent Platform API user (default CorporateUser **191**) with a blank `source` are set to **Corporate Website**. Existing sources are never overwritten. Myticas/STSI skipped. Toggle with `TALENT_PLATFORM_SOURCE_BACKFILL_ENABLED`.
 - **Qualified inbound status New Lead (Sep 24)**: On `SCOUT_TENANT=qualified_staffing`, Zip/Indeed/LinkedIn board and apply-form ingest create Candidates as **New Lead** (same as the career portal), not Online Applicant. Source still reflects the board. Indeed native remap still normalizes `Indeed` → `Indeed Job Board` and Unassigned → API owner, but does **not** flip status to Online Applicant. Scout does not write `CAN-New Applicant-1st Contact` notes (that was a Bullhorn-side action tied to Online Applicant). Myticas/STSI unchanged.
 - **Qualified Indeed jobUrl on publish (Sep 24)**: Plan B publish now sends `https://jobs.q-staffing.com/jobs/{job_id}` (override with `BH_CAREER_PORTAL_JOB_URL_TEMPLATE`) so Bullhorn’s MultiSource Indeed XML is not left as `?source=Indeed` only. Portal ID-only URLs redirect to the SEO slug.
 - **Qualified tearsheet auto-remove alignment (Sep 23)**: The 5-minute monitor now cleans ineligible jobs off the **tenant** sponsored tearsheets (Qualified: LinkedIn 4 / Indeed 2 / Zip 3). Feed XML already skipped closed/hold jobs; Bullhorn tearsheet counts can now catch down to match.

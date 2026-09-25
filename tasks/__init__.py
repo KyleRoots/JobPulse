@@ -30,6 +30,7 @@ from .bullhorn_maintenance import (
 )
 from .indeed_tearsheet_publish import sync_indeed_tearsheet_publish
 from .indeed_inbound_remap import run_indeed_inbound_remap
+from .talent_platform_source import run_talent_platform_source_backfill
 from .owner_reassignment import reassign_api_user_candidates, run_owner_reassignment_daily
 from .mailbox_pull import (
     run_mailbox_pull_cycle,
@@ -60,6 +61,7 @@ __all__ = [
     "enforce_tearsheet_jobs_public",
     "sync_indeed_tearsheet_publish",
     "run_indeed_inbound_remap",
+    "run_talent_platform_source_backfill",
     "run_requirements_maintenance",
     "reassign_api_user_candidates",
     "run_owner_reassignment_daily",

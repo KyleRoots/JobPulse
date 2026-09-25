@@ -535,6 +535,23 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
             "(gated by INDEED_INBOUND_REMAP_ENABLED, default ON)"
         )
 
+    # Qualified only: Talent Platform (owner 191) blank source → Corporate Website.
+    if is_primary_worker:
+        from tasks import run_talent_platform_source_backfill
+        scheduler.add_job(
+            func=run_talent_platform_source_backfill,
+            trigger=IntervalTrigger(minutes=15),
+            id='talent_platform_source_backfill',
+            name='Talent Platform blank source → Corporate Website (15 min)',
+            replace_existing=True,
+            misfire_grace_time=300,
+            coalesce=True,
+        )
+        app.logger.info(
+            "🌐 Talent Platform source backfill registered — every 15 minutes "
+            "(Qualified only; blank source owned by Talent Platform API user)"
+        )
+
     # ── Ownership Reassignment (every 5 minutes) ─────────────────────────────
     if is_primary_worker:
         from tasks import reassign_api_user_candidates
