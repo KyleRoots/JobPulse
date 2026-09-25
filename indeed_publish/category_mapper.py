@@ -53,6 +53,45 @@ _ALIASES = {
     'logistics': 'Logistics/Transportation',
 }
 
+# Qualified light-industrial titles. Checked as a phrase inside the title
+# (longest first). Myticas/STSI do not use this list; their unmatched jobs
+# still fall back to IT/Software Development.
+_QUALIFIED_TITLE_ALIASES: Tuple[Tuple[str, str], ...] = (
+    ('food packaging', 'Food Services/Hospitality'),
+    ('food production', 'Food Services/Hospitality'),
+    ('school nutrition', 'Food Services/Hospitality'),
+    ('nutrition', 'Food Services/Hospitality'),
+    ('cherry picker', 'Warehouse'),
+    ('material handler', 'Warehouse'),
+    ('fork lift', 'Warehouse'),
+    ('forklift', 'Warehouse'),
+    ('palletizer', 'Warehouse'),
+    ('picker', 'Warehouse'),
+    ('packer', 'Warehouse'),
+    ('stacker', 'Warehouse'),
+    ('warehouse', 'Warehouse'),
+    ('quality inspector', 'Quality Assurance'),
+    ('call center', 'Customer Service'),
+    ('route driver', 'Logistics/Transportation'),
+    ('dispatcher', 'Logistics/Transportation'),
+    ('machine operator', 'Manufacturing'),
+    ('mig weld', 'Manufacturing'),
+    ('welder', 'Manufacturing'),
+    ('assembly', 'Manufacturing'),
+    ('cnc', 'Manufacturing'),
+    ('sanitation', 'Manufacturing'),
+    ('janitorial', 'Manufacturing'),
+    ('custodian', 'Manufacturing'),
+    ('production', 'Manufacturing'),
+    ('packaging', 'Manufacturing'),
+    ('packager', 'Manufacturing'),
+    ('fabricator', 'Manufacturing'),
+    ('die setter', 'Manufacturing'),
+    ('general labor', 'Manufacturing'),
+    ('substitute teacher', 'Administrative'),
+    ('absentee voting', 'Administrative'),
+)
+
 
 def _norm(text: str) -> str:
     text = (text or '').strip().lower()
@@ -82,16 +121,36 @@ def _job_category_names(job: Dict[str, Any]) -> List[str]:
     return names
 
 
+def _qualified_title_alias(job: Dict[str, Any]) -> Optional[Tuple[int, str, str]]:
+    """Phrase match on title and Bullhorn category names. Qualified only."""
+    texts = [_norm(str(job.get('title') or ''))]
+    texts.extend(_norm(name) for name in _job_category_names(job))
+    for text in texts:
+        if not text:
+            continue
+        for key, target in _QUALIFIED_TITLE_ALIASES:
+            if key in text:
+                cid = category_id_by_name(target)
+                if cid is not None:
+                    return cid, target, f'qualified-alias:{key}->{target}'
+    return None
+
+
 def map_published_category(
     job: Dict[str, Any],
     *,
     min_ratio: float = 0.55,
+    qualified: bool = False,
 ) -> Tuple[int, str, str]:
     """
     Return (category_id, category_name, reason).
 
-    Strategy: exact → alias → fuzzy against catalog using job categories + title.
-    Falls back to DEFAULT IT/Software Development when nothing is close enough.
+    Strategy: exact → (Qualified title phrases) → alias → fuzzy against catalog
+    using job categories + title.
+
+    Unmatched Myticas/STSI jobs fall back to IT/Software Development.
+    Unmatched Qualified jobs fall back to Manufacturing. The IT default was
+    hiding light-industrial posts on Indeed.
     """
     choices = category_choices()
     title = str(job.get('title') or '')
@@ -102,6 +161,11 @@ def map_published_category(
         if exact_id is not None:
             name = next((n for i, n in choices if i == exact_id), raw)
             return exact_id, name, f'exact:{raw}'
+
+    if qualified:
+        aliased = _qualified_title_alias(job)
+        if aliased:
+            return aliased
 
     for raw in sources:
         needle = _norm(raw)
@@ -137,6 +201,11 @@ def map_published_category(
     if best and best[0] >= min_ratio:
         ratio, cid, name, raw = best
         return cid, name, f'fuzzy:{raw}->{name}@{ratio:.2f}'
+
+    if qualified:
+        manufacturing_id = category_id_by_name('Manufacturing')
+        if manufacturing_id is not None:
+            return manufacturing_id, 'Manufacturing', 'fallback:qualified-manufacturing'
 
     return (
         DEFAULT_PUBLISHED_CATEGORY_ID,

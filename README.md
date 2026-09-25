@@ -437,6 +437,7 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
+- **Qualified Indeed publish categories (Sep 25)**: On Qualified, industrial titles map to Warehouse, Manufacturing, Customer Service, Logistics, or Food Services instead of falling through to IT/Software Development. Titles that still do not match fall back to Manufacturing. Myticas/STSI still fall back to IT/Software Development. A category change republishes the job on the next Indeed tearsheet cycle.
 - **Indeed applicant summary + department (Sep 25)**: Native Indeed Apply candidates (source Indeed Job Board) get the same AI Resume Summary note as Zip/LinkedIn when Bullhorn already stored a resume, and on Qualified the applied job's Internal Department is copied onto a blank candidate `customText3`. Runs on the existing 5-minute Indeed remap cycle. Existing department values and existing summary notes are not overwritten.
 - **Qualified Talent Platform source (Sep 24)**: Candidates owned by the Talent Platform API user (default CorporateUser **191**) with a blank `source` are set to **Corporate Website**. Existing sources are never overwritten. Myticas/STSI skipped. Toggle with `TALENT_PLATFORM_SOURCE_BACKFILL_ENABLED`.
 - **Qualified inbound status New Lead (Sep 24)**: On `SCOUT_TENANT=qualified_staffing`, Zip/Indeed/LinkedIn board and apply-form ingest create Candidates as **New Lead** (same as the career portal), not Online Applicant. Source still reflects the board. Indeed native remap still normalizes `Indeed` → `Indeed Job Board` and Unassigned → API owner, but does **not** flip status to Online Applicant. Scout does not write `CAN-New Applicant-1st Contact` notes (that was a Bullhorn-side action tied to Online Applicant). Myticas/STSI unchanged.
@@ -693,5 +694,5 @@ Access health endpoints for status checks:
 
 ---
 
-**Last Updated**: September 22, 2026
+**Last Updated**: September 25, 2026
 **Version**: 2.9 (Main-branch Railway deploy; Render log monitoring removed)

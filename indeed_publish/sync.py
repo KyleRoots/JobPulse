@@ -507,7 +507,9 @@ class IndeedTearsheetPublishService:
                 if not tag:
                     result['skipped'].append({'job_id': jid, 'reason': tag_reason})
                     continue
-                cat_id, _, _ = map_published_category(job)
+                cat_id, _, _ = map_published_category(
+                    job, qualified=is_qualified_tenant()
+                )
                 uid, _, err = self._resolve_response_user(bh, job)
                 if err or not uid:
                     result['skipped'].append({'job_id': jid, 'reason': err or 'no recruiter'})
@@ -648,7 +650,9 @@ class IndeedTearsheetPublishService:
         if not campaign_tag:
             raise BullhornUIClientError(tag_reason)
 
-        cat_id, cat_name, reason = map_published_category(job)
+        cat_id, cat_name, reason = map_published_category(
+            job, qualified=is_qualified_tenant()
+        )
         uid, email, err = self._resolve_response_user(bh, job)
         if err or not uid:
             raise BullhornUIClientError(err or 'cannot resolve published contact')
@@ -694,7 +698,9 @@ class IndeedTearsheetPublishService:
         cat_id = 0
         uid = 0
         try:
-            cat_id, _, _ = map_published_category(job)
+            cat_id, _, _ = map_published_category(
+                job, qualified=is_qualified_tenant()
+            )
             resolved_uid, _, _ = self._resolve_response_user(bh, job)
             uid = resolved_uid or 0
         except Exception:

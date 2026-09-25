@@ -132,7 +132,10 @@ Qualified `BH_UI_*` (tearsheet **2**, private label `51284`). Publish payloads u
 `https://jobs.q-staffing.com/jobs/{job_id}` (ID-only path; portal redirects to the
 SEO slug). When on, the Indeed XML upload is empty so CFC and Scout XML do not
 dual-list. Campaign tags map from `correlatedCustomText1` (see go-live step 7).
-Myticas `#INDShow` / tearsheet 1640 are unchanged.
+Qualified published categories follow the job title (Warehouse, Manufacturing,
+Customer Service, Logistics, Food Services, and similar). Unmatched Qualified
+jobs fall back to Manufacturing, not IT/Software Development. Myticas `#INDShow`
+/ tearsheet 1640 still fall back to IT/Software Development.
 
 ## Confirmed picklists (19 Sep 2026)
 

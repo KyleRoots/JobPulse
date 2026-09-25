@@ -48,7 +48,40 @@ class TestCategoryMapper:
         job = {'title': 'ZZZ Unknown Role XYZ', 'categories': {'data': []}}
         cid, name, reason = map_published_category(job)
         assert cid == 2000021
+        assert name == 'IT/Software Development'
         assert reason.startswith('fallback:') or reason.startswith('fuzzy:')
+
+    def test_qualified_unknown_falls_back_to_manufacturing(self):
+        job = {'title': 'ZZZ Unknown Role XYZ', 'categories': {'data': []}}
+        cid, name, reason = map_published_category(job, qualified=True)
+        assert cid == 2000026
+        assert name == 'Manufacturing'
+        assert reason == 'fallback:qualified-manufacturing'
+
+    def test_qualified_industrial_title_aliases(self):
+        cases = [
+            ('Material Handler', 'Warehouse'),
+            ('Cherry Picker Operator', 'Warehouse'),
+            ('Machine Operator - Vertical Form Fill & Seal', 'Manufacturing'),
+            ('Remote Call Center (TX)', 'Customer Service'),
+            ('Route Driver - Appliance Installation - Direct Hire', 'Logistics/Transportation'),
+            ('MIG WELDERS| Corsair | 1st and 2nd Shift Openings', 'Manufacturing'),
+            ('Food Production', 'Food Services/Hospitality'),
+        ]
+        for title, expected in cases:
+            cid, name, reason = map_published_category(
+                {'title': title, 'categories': {'data': []}},
+                qualified=True,
+            )
+            assert name == expected, (title, name, reason)
+            assert cid == category_id_by_name(expected)
+            assert reason.startswith('qualified-alias:')
+
+    def test_myticas_material_handler_does_not_use_qualified_alias(self):
+        job = {'title': 'Material Handler', 'categories': {'data': []}}
+        _, name, reason = map_published_category(job, qualified=False)
+        assert not reason.startswith('qualified-alias:')
+        assert name == 'IT/Software Development'
 
 
 class TestIndShowTag:
