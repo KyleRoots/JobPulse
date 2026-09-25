@@ -154,7 +154,18 @@ def map_published_category(
     """
     choices = category_choices()
     title = str(job.get('title') or '')
-    sources = _job_category_names(job) + ([title] if title else [])
+    # Publish writes the chosen category back onto the job. A previous IT
+    # fallback then exact-matches forever and blocks a later title fix.
+    sources: List[str] = []
+    for name in _job_category_names(job):
+        if (
+            qualified
+            and category_id_by_name(name) == DEFAULT_PUBLISHED_CATEGORY_ID
+        ):
+            continue
+        sources.append(name)
+    if title:
+        sources.append(title)
 
     for raw in sources:
         exact_id = category_id_by_name(raw)

@@ -77,6 +77,26 @@ class TestCategoryMapper:
             assert cid == category_id_by_name(expected)
             assert reason.startswith('qualified-alias:')
 
+    def test_qualified_ignores_stale_it_category(self):
+        job = {
+            'title': 'Material Handler',
+            'categories': {'data': [{'id': 2000021, 'name': 'IT/Software Development'}]},
+        }
+        cid, name, reason = map_published_category(job, qualified=True)
+        assert name == 'Warehouse'
+        assert cid == 2000040
+        assert reason.startswith('qualified-alias:')
+
+    def test_myticas_keeps_exact_it_category(self):
+        job = {
+            'title': 'Material Handler',
+            'categories': {'data': [{'id': 2000021, 'name': 'IT/Software Development'}]},
+        }
+        cid, name, reason = map_published_category(job, qualified=False)
+        assert cid == 2000021
+        assert name == 'IT/Software Development'
+        assert reason.startswith('exact:')
+
     def test_myticas_material_handler_does_not_use_qualified_alias(self):
         job = {'title': 'Material Handler', 'categories': {'data': []}}
         _, name, reason = map_published_category(job, qualified=False)
