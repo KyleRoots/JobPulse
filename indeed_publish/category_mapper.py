@@ -11,6 +11,7 @@ from .categories import (
     DEFAULT_PUBLISHED_CATEGORY_NAME,
     category_choices,
     category_id_by_name,
+    qualified_category_id,
 )
 
 # Extra aliases → published category name (normalized later)
@@ -122,17 +123,19 @@ def _job_category_names(job: Dict[str, Any]) -> List[str]:
 
 
 def _qualified_title_alias(job: Dict[str, Any]) -> Optional[Tuple[int, str, str]]:
-    """Phrase match on title and Bullhorn category names. Qualified only."""
-    texts = [_norm(str(job.get('title') or ''))]
-    texts.extend(_norm(name) for name in _job_category_names(job))
-    for text in texts:
-        if not text:
-            continue
-        for key, target in _QUALIFIED_TITLE_ALIASES:
-            if key in text:
-                cid = category_id_by_name(target)
-                if cid is not None:
-                    return cid, target, f'qualified-alias:{key}->{target}'
+    """Phrase match on the title only. Qualified only.
+
+    Category names are not used here. A previous publish writes its category
+    back onto the job, and that label must not beat the title.
+    """
+    text = _norm(str(job.get('title') or ''))
+    if not text:
+        return None
+    for key, target in _QUALIFIED_TITLE_ALIASES:
+        if key in text:
+            cid = category_id_by_name(target)
+            if cid is not None:
+                return cid, target, f'qualified-alias:{key}->{target}'
     return None
 
 
@@ -150,10 +153,25 @@ def map_published_category(
 
     Unmatched Myticas/STSI jobs fall back to IT/Software Development.
     Unmatched Qualified jobs fall back to Manufacturing. The IT default was
-    hiding light-industrial posts on Indeed.
+    hiding light-industrial posts on Indeed. Qualified IDs come from that
+    corp's category list, which does not include the duplicate IT row in the
+    shared catalog.
     """
+    def emit(cid: int, name: str, reason: str) -> Tuple[int, str, str]:
+        if qualified:
+            qid = qualified_category_id(name)
+            if qid is not None:
+                cid = qid
+        return cid, name, reason
+
     choices = category_choices()
     title = str(job.get('title') or '')
+    # Title phrases win over a category a previous publish wrote back.
+    if qualified:
+        aliased = _qualified_title_alias(job)
+        if aliased:
+            return emit(*aliased)
+
     # Publish writes the chosen category back onto the job. A previous IT
     # fallback then exact-matches forever and blocks a later title fix.
     sources: List[str] = []
@@ -171,12 +189,7 @@ def map_published_category(
         exact_id = category_id_by_name(raw)
         if exact_id is not None:
             name = next((n for i, n in choices if i == exact_id), raw)
-            return exact_id, name, f'exact:{raw}'
-
-    if qualified:
-        aliased = _qualified_title_alias(job)
-        if aliased:
-            return aliased
+            return emit(exact_id, name, f'exact:{raw}')
 
     for raw in sources:
         needle = _norm(raw)
@@ -189,7 +202,7 @@ def map_published_category(
         if alias:
             cid = category_id_by_name(alias)
             if cid is not None:
-                return cid, alias, f'alias:{raw}->{alias}'
+                return emit(cid, alias, f'alias:{raw}->{alias}')
 
     best: Optional[Tuple[float, int, str, str]] = None
     for raw in sources:
@@ -211,14 +224,14 @@ def map_published_category(
 
     if best and best[0] >= min_ratio:
         ratio, cid, name, raw = best
-        return cid, name, f'fuzzy:{raw}->{name}@{ratio:.2f}'
+        return emit(cid, name, f'fuzzy:{raw}->{name}@{ratio:.2f}')
 
     if qualified:
-        manufacturing_id = category_id_by_name('Manufacturing')
+        manufacturing_id = qualified_category_id('Manufacturing')
         if manufacturing_id is not None:
             return manufacturing_id, 'Manufacturing', 'fallback:qualified-manufacturing'
 
-    return (
+    return emit(
         DEFAULT_PUBLISHED_CATEGORY_ID,
         DEFAULT_PUBLISHED_CATEGORY_NAME,
         'fallback:default',

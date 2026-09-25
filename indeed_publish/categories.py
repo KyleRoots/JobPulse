@@ -62,6 +62,55 @@ PREFERRED_CATEGORY_IDS: Dict[str, int] = {
 DEFAULT_PUBLISHED_CATEGORY_ID = 2000021  # IT/Software Development
 DEFAULT_PUBLISHED_CATEGORY_NAME = 'IT/Software Development'
 
+# Qualified private label (51284), from options/Category on 25 Sep 2026.
+# The shared catalog above includes a duplicate IT/Software row at 2000022,
+# which shifts every later ID by one versus this corp. Publishing those IDs
+# stored Web Development for a Warehouse job. Myticas/STSI keep the shared catalog.
+QUALIFIED_CATEGORY_IDS: Dict[str, int] = {
+    'accounting': 2000001,
+    'administrative': 2000002,
+    'advertising': 2000003,
+    'architecture/design': 2000004,
+    'banking/finance': 2000005,
+    'biotech/r&d/science': 2000006,
+    'business analysis': 2000007,
+    'business intelligence': 2000008,
+    'creative/design': 2000009,
+    'customer service': 2000010,
+    'database administration': 2000011,
+    'desktop support': 2000012,
+    'engineering': 2000013,
+    'erp': 2000014,
+    'food services/hospitality': 2000015,
+    'general analyst': 2000016,
+    'human resources': 2000017,
+    'infrastructure': 2000018,
+    'it asset management': 2000019,
+    'it/networking/hardware': 2000020,
+    'it/software development': 2000021,
+    'legal': 2000022,
+    'logistics/transportation': 2000023,
+    'management/operations': 2000024,
+    'manufacturing': 2000025,
+    'marketing': 2000026,
+    'medical/healthcare': 2000027,
+    'network': 2000028,
+    'procurement': 2000029,
+    'programming/development': 2000030,
+    'project management': 2000031,
+    'quality assurance': 2000032,
+    'recruiting': 2000033,
+    'sales/business dev.': 2000034,
+    'security': 2000035,
+    'systems engineer': 2000036,
+    'technical writing': 2000037,
+    'user experience': 2000038,
+    'warehouse': 2000039,
+    'web development': 2000040,
+    'z-skills': 2000042,
+    'z - skills': 2000042,
+}
+
 
 def category_choices() -> List[Tuple[int, str]]:
     """Unique name→preferred-id choices for mapping (drops duplicate names)."""
@@ -87,3 +136,10 @@ def category_id_by_name(name: str) -> int | None:
         if cname.strip().lower() == key:
             return cid
     return None
+
+
+def qualified_category_id(name: str) -> int | None:
+    """Category id for the Qualified private label. None if the name is unknown."""
+    if not name:
+        return None
+    return QUALIFIED_CATEGORY_IDS.get(name.strip().lower())

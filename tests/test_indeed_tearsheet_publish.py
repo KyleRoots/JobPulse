@@ -54,7 +54,7 @@ class TestCategoryMapper:
     def test_qualified_unknown_falls_back_to_manufacturing(self):
         job = {'title': 'ZZZ Unknown Role XYZ', 'categories': {'data': []}}
         cid, name, reason = map_published_category(job, qualified=True)
-        assert cid == 2000026
+        assert cid == 2000025
         assert name == 'Manufacturing'
         assert reason == 'fallback:qualified-manufacturing'
 
@@ -74,17 +74,24 @@ class TestCategoryMapper:
                 qualified=True,
             )
             assert name == expected, (title, name, reason)
-            assert cid == category_id_by_name(expected)
+            assert cid == {
+                'Warehouse': 2000039,
+                'Manufacturing': 2000025,
+                'Customer Service': 2000010,
+                'Logistics/Transportation': 2000023,
+                'Food Services/Hospitality': 2000015,
+            }[expected]
             assert reason.startswith('qualified-alias:')
 
     def test_qualified_ignores_stale_it_category(self):
         job = {
             'title': 'Material Handler',
-            'categories': {'data': [{'id': 2000021, 'name': 'IT/Software Development'}]},
+            'categories': {'data': [{'id': 2000040, 'name': 'Web Development'}]},
+            'publishedCategory': {'id': 2000040, 'name': 'Web Development'},
         }
         cid, name, reason = map_published_category(job, qualified=True)
         assert name == 'Warehouse'
-        assert cid == 2000040
+        assert cid == 2000039
         assert reason.startswith('qualified-alias:')
 
     def test_myticas_keeps_exact_it_category(self):
