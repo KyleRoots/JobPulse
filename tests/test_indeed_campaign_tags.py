@@ -21,6 +21,9 @@ def test_resolve_core_departments():
     assert resolve_qualified_campaign_tag('Columbus-Key') == '#INDCol'
     assert resolve_qualified_campaign_tag('Columbus Key') == '#INDCol'
     assert resolve_qualified_campaign_tag('Port Huron') == '#INDMary'
+    assert resolve_qualified_campaign_tag('Chattanooga') == '#INDChat'
+    assert resolve_qualified_campaign_tag('Grand Rapids') == '#INDGrand'
+    assert resolve_qualified_campaign_tag('Katy') == '#INDKat'
     assert resolve_qualified_campaign_tag('QPT') == '#INDQT'
     assert resolve_qualified_campaign_tag('Technical') == '#INDQT'
     assert resolve_qualified_campaign_tag('Unknown Town') is None
