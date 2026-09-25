@@ -36,11 +36,11 @@ _QUALIFIED_DEPARTMENT_TAGS = {
     'conyers': '#INDCon',
     'warner robins': '#INDWar',
     'columbus': '#INDCol',
-    # Columbus internal / satellite dept values → Conyers campaign (#INDCon)
+    'columbus-key': '#INDCol',
+    'columbus key': '#INDCol',
+    # Columbus-KIT is the Conyers campaign. Columbus-Key is Columbus (#INDCol).
     'columbus-kit': '#INDCon',
-    'columbus-key': '#INDCon',
     'columbus kit': '#INDCon',
-    'columbus key': '#INDCon',
     'port huron': '#INDMary',
     'internal': '#INDWin',
     'internal reqs': '#INDWin',
