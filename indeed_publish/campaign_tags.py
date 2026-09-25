@@ -41,9 +41,8 @@ _QUALIFIED_DEPARTMENT_TAGS = {
     'columbus': '#INDCol',
     'columbus-key': '#INDCol',
     'columbus key': '#INDCol',
-    # Columbus-KIT is the Conyers campaign. Columbus-Key is Columbus (#INDCol).
-    'columbus-kit': '#INDCon',
-    'columbus kit': '#INDCon',
+    'columbus-kit': '#INDCol',
+    'columbus kit': '#INDCol',
     'port huron': '#INDMary',
     'internal': '#INDWin',
     'internal reqs': '#INDWin',
