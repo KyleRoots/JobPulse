@@ -130,6 +130,58 @@ class TestInboundNoiseGate:
             row = ParsedEmail.query.get(result['parsed_email_id'])
             assert row.status == 'failed'
 
+    def test_ziprecruiter_verify_email_is_ignored_no_ai_no_alert(self, app):
+        """ZipRecruiter 'Please Verify Your Email' is account mail, not an apply."""
+        from models import ParsedEmail
+
+        with app.app_context():
+            svc = _make_service(
+                monkeypatch=None,
+                attachments=[],
+                resume_file=None,
+                source='ZipRecruiter Job Board',
+            )
+            payload = {
+                'from': 'ZipRecruiter <noreply@ziprecruiter.com>',
+                'to': 'apply@q-staffing.com',
+                'subject': 'Please Verify Your Email',
+                'text': 'Confirm this address to sign in.',
+                'html': '',
+            }
+
+            result = svc.process_email(payload)
+
+            assert result['ignored'] is True
+            svc._last_resort_ai_extraction.assert_not_called()
+            svc._notify_admin_parse_failure.assert_not_called()
+            row = ParsedEmail.query.get(result['parsed_email_id'])
+            assert row.status == 'ignored'
+
+    def test_ziprecruiter_great_match_is_not_ignored(self, app):
+        """A real Zip application must not be caught by the account-notice filter."""
+        from models import ParsedEmail
+
+        with app.app_context():
+            svc = _make_service(
+                monkeypatch=None,
+                attachments=[],
+                resume_file=None,
+                source='ZipRecruiter Job Board',
+            )
+            payload = {
+                'from': 'ZipRecruiter <noreply@ziprecruiter.com>',
+                'to': 'apply@q-staffing.com',
+                'subject': "Great Match: Jane Candidate for 'Material Handler (46939)'",
+                'text': '',
+                'html': '',
+            }
+
+            result = svc.process_email(payload)
+
+            assert result['ignored'] is False
+            svc._notify_admin_parse_failure.assert_called_once()
+            assert ParsedEmail.query.get(result['parsed_email_id']).status == 'failed'
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

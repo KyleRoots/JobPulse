@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import datetime, timedelta
 from typing import Dict, Any
 
@@ -14,6 +15,19 @@ from utils.candidate_name_extraction import (
 )
 
 logger = logging.getLogger(__name__)
+
+# ZipRecruiter account mail that lands in the apply inbox. Not an application.
+# Real candidate mail uses subjects like "Great Match: Name for 'Job'".
+_ZIP_VERIFY_SUBJECT = 'please verify your email'
+
+
+def is_ziprecruiter_account_notice(sender: str, subject: str) -> bool:
+    """True for ZipRecruiter sign-in / email-verification notices."""
+    sender_l = (sender or '').lower()
+    if 'ziprecruiter.com' not in sender_l:
+        return False
+    subject_l = re.sub(r'\s+', ' ', (subject or '').strip().lower())
+    return subject_l == _ZIP_VERIFY_SUBJECT
 
 
 class ProcessingMixin:
@@ -234,6 +248,26 @@ class ProcessingMixin:
             attachments = self._extract_attachments(sendgrid_payload)
 
             resume_file = self._select_best_resume(attachments)
+
+            if not resume_file and is_ziprecruiter_account_notice(sender, subject):
+                # Account verification, not a candidate. Skip resume AI and the
+                # admin parse-failure alert so these do not look like stalled applies.
+                self.logger.info(
+                    "Ignoring ZipRecruiter account notice from '%s' subject='%s'",
+                    sender,
+                    (subject or '')[:80],
+                )
+                parsed_email.status = 'ignored'
+                parsed_email.processed_at = datetime.utcnow()
+                parsed_email.processing_notes = (
+                    "Ignored ZipRecruiter account notice (Please Verify Your Email); "
+                    "not a candidate application"
+                )
+                db.session.commit()
+                result['success'] = False
+                result['message'] = 'Ignored ZipRecruiter account notice'
+                result['ignored'] = True
+                return result
 
             if resume_file:
                 parsed_email.resume_filename = resume_file['filename']
