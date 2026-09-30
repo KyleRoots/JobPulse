@@ -4,6 +4,7 @@ from indeed_publish.campaign_tags import (
     MYTICAS_CAMPAIGN_TAG,
     apply_campaign_tag,
     campaign_tag_for_job,
+    department_owns_campaign_tag,
     resolve_qualified_campaign_tag,
     strip_campaign_tags,
 )
@@ -11,7 +12,11 @@ from indeed_publish.campaign_tags import (
 
 def test_resolve_core_departments():
     assert resolve_qualified_campaign_tag('Calhoun') == '#INDCal'
-    assert resolve_qualified_campaign_tag('Appleton (WI)') == '#IND-WH'
+    assert resolve_qualified_campaign_tag('Appleton') is None
+    assert resolve_qualified_campaign_tag('Appleton (WI)') is None
+    assert department_owns_campaign_tag('Appleton') is True
+    assert department_owns_campaign_tag('  Appleton (WI) ') is True
+    assert department_owns_campaign_tag('Calhoun') is False
     assert resolve_qualified_campaign_tag('Internal') == '#INDWin'
     assert resolve_qualified_campaign_tag('Internal Reqs') == '#INDWin'
     assert resolve_qualified_campaign_tag('Southfield') == '#INDLiv'
@@ -55,6 +60,33 @@ def test_campaign_tag_for_job_myticas(monkeypatch):
     tag, reason = campaign_tag_for_job({'correlatedCustomText1': 'Calhoun'}, qualified=False)
     assert tag == '#INDShow'
     assert reason == 'myticas'
+
+
+def test_other_department_still_replaces_appleton_leftover():
+    out = apply_campaign_tag('<p>body</p>   #IND-WH', '#INDCal')
+    assert out.endswith('   #INDCal')
+    assert '#IND-WH' not in out
+    out_w = apply_campaign_tag('<p>body</p>   #IND-W', '#INDCal')
+    assert '#IND-W' not in out_w
+    assert out_w.endswith('   #INDCal')
+
+
+def test_appleton_is_manual_and_myticas_is_not():
+    tag, reason = campaign_tag_for_job(
+        {'correlatedCustomText1': 'Appleton'}, qualified=True
+    )
+    assert tag == ''
+    assert reason == 'manual-department:Appleton'
+    wi_tag, wi_reason = campaign_tag_for_job(
+        {'correlatedCustomText1': 'Appleton (WI)'}, qualified=True
+    )
+    assert wi_tag == ''
+    assert wi_reason.startswith('manual-department:')
+    myticas_tag, myticas_reason = campaign_tag_for_job(
+        {'correlatedCustomText1': 'Appleton'}, qualified=False
+    )
+    assert myticas_tag == '#INDShow'
+    assert myticas_reason == 'myticas'
 
 
 def test_campaign_tag_for_job_qualified():

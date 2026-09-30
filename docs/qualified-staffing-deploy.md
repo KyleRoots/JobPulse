@@ -200,8 +200,10 @@ Bullhorn Support finishes whitelisting
    after `BH_UI_*` are set. When enabled, the Indeed XML file is uploaded empty
    so CFC Publish and XML do not dual-list the same jobs (LinkedIn/Zip XML stay).
    Campaign groups come from `correlatedCustomText1` (department → `#INDMary`,
-   `#IND-WH` for Appleton, `#INDWin` for Internal, `#INDLiv` for Southfield, etc.).
-   `#INDShow` is stripped on republish. Blank/unmapped department skips that job.
+   `#INDWin` for Internal, `#INDLiv` for Southfield, etc.). Appleton and
+   Appleton (WI) are the exception: the description is published as saved, and
+   Scout does not add or strip a hashtag. `#INDShow` is stripped on republish
+   for every other department. Blank/unmapped department skips that job.
 8. Unpublish UAT: remove from tearsheet **2**, or set status to Closed / any
    `INELIGIBLE_STATUSES` value (auto-remove then CFC unpublish). Confirm Indeed
    checkmarks clear. Accepting-candidates statuses stay published.

@@ -13,6 +13,7 @@ from .campaign_tags import (
     MYTICAS_CAMPAIGN_TAG,
     apply_campaign_tag,
     campaign_tag_for_job,
+    is_manual_campaign_reason,
 )
 from .category_mapper import map_published_category
 from .config import (
@@ -504,9 +505,12 @@ class IndeedTearsheetPublishService:
                 tag, tag_reason = campaign_tag_for_job(
                     job, qualified=is_qualified_tenant()
                 )
-                if not tag:
+                manual_tag = is_manual_campaign_reason(tag_reason)
+                if not tag and not manual_tag:
                     result['skipped'].append({'job_id': jid, 'reason': tag_reason})
                     continue
+                if manual_tag:
+                    tag = ''
                 cat_id, _, _ = map_published_category(
                     job, qualified=is_qualified_tenant()
                 )
@@ -647,8 +651,11 @@ class IndeedTearsheetPublishService:
         campaign_tag, tag_reason = campaign_tag_for_job(
             job, qualified=is_qualified_tenant()
         )
-        if not campaign_tag:
+        manual_tag = is_manual_campaign_reason(tag_reason)
+        if not campaign_tag and not manual_tag:
             raise BullhornUIClientError(tag_reason)
+        if manual_tag:
+            campaign_tag = ''
 
         cat_id, cat_name, reason = map_published_category(
             job, qualified=is_qualified_tenant()
@@ -660,7 +667,7 @@ class IndeedTearsheetPublishService:
         raw_desc = _job_description_html(job)
         if not raw_desc:
             raise BullhornUIClientError('job has empty description/publicDescription')
-        desc = apply_campaign_tag(raw_desc, campaign_tag)
+        desc = raw_desc if manual_tag else apply_campaign_tag(raw_desc, campaign_tag)
 
         logger.info(
             'Indeed %s job %s category=%s (%s) contact=%s <%s> via %s tag=%s (%s)',
@@ -682,7 +689,7 @@ class IndeedTearsheetPublishService:
             job_url=self._job_url(jid),
             operation=operation,
         )
-        if desc != raw_desc or INDSHOW_TAG in raw_desc:
+        if not manual_tag and (desc != raw_desc or INDSHOW_TAG in raw_desc):
             self._persist_campaign_description(bh, job, desc, campaign_tag)
         time.sleep(0.2)
         return _fingerprint(job, cat_id, uid, campaign_tag)

@@ -17,8 +17,6 @@ MYTICAS_CAMPAIGN_TAG = '#INDShow'
 _QUALIFIED_DEPARTMENT_TAGS = {
     'marysville': '#INDMary',
     'calhoun': '#INDCal',
-    'appleton': '#IND-WH',
-    'appleton (wi)': '#IND-WH',
     'cookeville': '#INDCoo',
     'dalton': '#INDDal',
     'flint': '#INDFli',
@@ -54,7 +52,8 @@ _STRIP_TAGS = frozenset(
     [
         MYTICAS_CAMPAIGN_TAG,
         *_QUALIFIED_DEPARTMENT_TAGS.values(),
-        # Legacy Appleton / unhashed variants seen in live descriptions
+        # Appleton types its own tag. Other departments still strip leftovers.
+        '#IND-WH',
         '#IND-W',
         'INDMary',
         'INDCal',
@@ -87,6 +86,24 @@ def _norm_department(value: str) -> str:
     text = (value or '').strip().lower()
     text = re.sub(r'\s+', ' ', text)
     return text
+
+
+# Appleton adds and edits the Indeed hashtag itself. Publish still follows
+# tearsheet membership and job status, but we do not append, replace, or strip
+# a campaign tag on these departments.
+_MANUAL_CAMPAIGN_DEPARTMENTS = frozenset({
+    'appleton',
+    'appleton (wi)',
+})
+
+
+def department_owns_campaign_tag(department: Optional[str]) -> bool:
+    """True when this Qualified department manages its own Indeed hashtag."""
+    return _norm_department(department or '') in _MANUAL_CAMPAIGN_DEPARTMENTS
+
+
+def is_manual_campaign_reason(reason: str) -> bool:
+    return (reason or '').startswith('manual-department:')
 
 
 def resolve_qualified_campaign_tag(department: Optional[str]) -> Optional[str]:
@@ -143,6 +160,8 @@ def campaign_tag_for_job(job: dict, *, qualified: bool) -> Tuple[Optional[str], 
     if not qualified:
         return MYTICAS_CAMPAIGN_TAG, 'myticas'
     dept = (job.get('correlatedCustomText1') or '').strip()
+    if department_owns_campaign_tag(dept):
+        return '', f'manual-department:{dept}'
     tag = resolve_qualified_campaign_tag(dept)
     if tag:
         return tag, f'department:{dept}'

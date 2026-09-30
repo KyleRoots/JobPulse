@@ -399,6 +399,217 @@ class TestSyncService:
         assert ui.publish_boards.call_args.kwargs['description_html'] == tagged
         bh.update_job_order.assert_not_called()
 
+    def test_appleton_publish_keeps_manual_hashtag(self, monkeypatch):
+        """Appleton description, including whatever hashtag they typed, is sent as saved."""
+        monkeypatch.setattr('indeed_publish.sync.is_qualified_tenant', lambda: True)
+        ui = MagicMock()
+        bh = MagicMock()
+        saved = '<p>Qualifications</p>\n#IND-W'
+        job = {
+            'id': 79398,
+            'title': 'Production Worker',
+            'description': saved,
+            'publicDescription': saved,
+            'correlatedCustomText1': 'Appleton',
+            'categories': {'data': [{'name': 'Manufacturing'}]},
+            'assignedUsers': {
+                'data': [{'id': 65, 'email': 'elena@example.com', 'firstName': 'Elena'}]
+            },
+            'dateLastModified': 1,
+        }
+        svc = IndeedTearsheetPublishService(
+            config={
+                'enabled': True,
+                'tearsheet_id': 2,
+                'job_url_template': 'https://jobs.q-staffing.com/jobs/{job_id}',
+            },
+            ui_client=ui,
+        )
+        svc._publish_one(ui, bh, job, {}, operation='ADDCHANGE')
+        assert ui.publish_boards.call_args.kwargs['description_html'] == saved
+        assert '#IND-WH' not in ui.publish_boards.call_args.kwargs['description_html']
+        bh.update_job_order.assert_not_called()
+        assert job['publicDescription'] == saved
+
+    def test_appleton_wi_without_hashtag_still_publishes(self, monkeypatch):
+        monkeypatch.setattr('indeed_publish.sync.is_qualified_tenant', lambda: True)
+        ui = MagicMock()
+        bh = MagicMock()
+        saved = '<p>body</p>'
+        job = {
+            'id': 79399,
+            'title': 'Production Worker',
+            'description': saved,
+            'publicDescription': saved,
+            'correlatedCustomText1': 'Appleton (WI)',
+            'categories': {'data': [{'name': 'Manufacturing'}]},
+            'assignedUsers': {
+                'data': [{'id': 65, 'email': 'elena@example.com', 'firstName': 'Elena'}]
+            },
+        }
+        svc = IndeedTearsheetPublishService(
+            config={
+                'enabled': True,
+                'tearsheet_id': 2,
+                'job_url_template': 'https://jobs.q-staffing.com/jobs/{job_id}',
+            },
+            ui_client=ui,
+        )
+        svc._publish_one(ui, bh, job, {}, operation='ADDCHANGE')
+        assert ui.publish_boards.call_args.kwargs['description_html'] == saved
+        bh.update_job_order.assert_not_called()
+
+    def test_calhoun_still_gets_automatic_tag(self, monkeypatch):
+        monkeypatch.setattr('indeed_publish.sync.is_qualified_tenant', lambda: True)
+        ui = MagicMock()
+        bh = MagicMock()
+        bh.update_job_order.return_value = True
+        job = {
+            'id': 79400,
+            'title': 'Production Worker',
+            'description': '<p>body</p>',
+            'publicDescription': '<p>body</p>',
+            'correlatedCustomText1': 'Calhoun',
+            'categories': {'data': [{'name': 'Manufacturing'}]},
+            'assignedUsers': {
+                'data': [{'id': 65, 'email': 'elena@example.com', 'firstName': 'Elena'}]
+            },
+        }
+        svc = IndeedTearsheetPublishService(
+            config={
+                'enabled': True,
+                'tearsheet_id': 2,
+                'job_url_template': 'https://jobs.q-staffing.com/jobs/{job_id}',
+            },
+            ui_client=ui,
+        )
+        svc._publish_one(ui, bh, job, {}, operation='ADDCHANGE')
+        sent = ui.publish_boards.call_args.kwargs['description_html']
+        assert sent.endswith('   #INDCal')
+        bh.update_job_order.assert_called_once()
+
+    def _appleton_member(self, desc, job_id=79398, department='Appleton'):
+        return {
+            'id': job_id,
+            'title': 'Production Worker',
+            'description': desc,
+            'publicDescription': desc,
+            'correlatedCustomText1': department,
+            'categories': {'data': [{'name': 'Manufacturing'}]},
+            'assignedUsers': {
+                'data': [{'id': 65, 'email': 'elena@example.com', 'firstName': 'Elena'}]
+            },
+            'dateLastModified': 1,
+        }
+
+    def test_appleton_hashtag_edit_republishes_without_rewriting_description(self, monkeypatch):
+        monkeypatch.setattr('indeed_publish.sync.is_qualified_tenant', lambda: True)
+        ui = MagicMock()
+        ui.current_user_id = '25'
+        bh = MagicMock()
+        bh.authenticate.return_value = True
+        desc = '<p>Qualifications</p>\n#IND-WH'
+        job = self._appleton_member(desc)
+        cat_id, _, _ = map_published_category(job, qualified=True)
+        old_fp = _fingerprint(self._appleton_member('<p>Qualifications</p>'), cat_id, 65, '')
+        cfg = self._sync_cfg()
+        cfg['tearsheet_id'] = 2
+        svc = IndeedTearsheetPublishService(config=cfg, ui_client=ui)
+        with patch.object(IndeedTearsheetPublishService, '_fetch_tearsheet_jobs', return_value=[job]), \
+             patch('indeed_publish.sync._load_state', return_value={
+                 'job_ids': [79398],
+                 'fingerprints': {'79398': old_fp},
+                 'pending_unpublish': [],
+             }), \
+             patch('indeed_publish.sync._save_state'), \
+             patch('indeed_publish.sync._save_last_result'), \
+             patch('utils.bullhorn_helpers.get_bullhorn_service', return_value=bh):
+            result = svc.run_sync()
+        assert 79398 in result['republished']
+        assert ui.publish_boards.call_args.kwargs['description_html'] == desc
+        bh.update_job_order.assert_not_called()
+
+    def test_appleton_unchanged_description_is_not_republished(self, monkeypatch):
+        monkeypatch.setattr('indeed_publish.sync.is_qualified_tenant', lambda: True)
+        ui = MagicMock()
+        ui.current_user_id = '25'
+        bh = MagicMock()
+        bh.authenticate.return_value = True
+        desc = '<p>Qualifications</p>\n#IND-W'
+        job = self._appleton_member(desc)
+        cat_id, _, _ = map_published_category(job, qualified=True)
+        fp = _fingerprint(job, cat_id, 65, '')
+        cfg = self._sync_cfg()
+        cfg['tearsheet_id'] = 2
+        svc = IndeedTearsheetPublishService(config=cfg, ui_client=ui)
+        with patch.object(IndeedTearsheetPublishService, '_fetch_tearsheet_jobs', return_value=[job]), \
+             patch('indeed_publish.sync._load_state', return_value={
+                 'job_ids': [79398],
+                 'fingerprints': {'79398': fp},
+                 'pending_unpublish': [],
+             }), \
+             patch('indeed_publish.sync._save_state'), \
+             patch('indeed_publish.sync._save_last_result'), \
+             patch('utils.bullhorn_helpers.get_bullhorn_service', return_value=bh):
+            result = svc.run_sync()
+        assert result['republished'] == []
+        assert result['published'] == []
+        ui.publish_boards.assert_not_called()
+        bh.update_job_order.assert_not_called()
+
+    def test_appleton_removed_from_tearsheet_still_unpublishes(self, monkeypatch):
+        monkeypatch.setattr('indeed_publish.sync.is_qualified_tenant', lambda: True)
+        ui = MagicMock()
+        ui.current_user_id = '25'
+        bh = MagicMock()
+        bh.authenticate.return_value = True
+        cfg = self._sync_cfg()
+        cfg['tearsheet_id'] = 2
+        svc = IndeedTearsheetPublishService(config=cfg, ui_client=ui)
+        with patch.object(IndeedTearsheetPublishService, '_fetch_tearsheet_jobs', return_value=[]), \
+             patch.object(
+                 IndeedTearsheetPublishService,
+                 '_fetch_job_detail',
+                 return_value=self._appleton_member('<p>x</p> #IND-WH'),
+             ), \
+             patch('indeed_publish.sync._load_state', return_value={
+                 'job_ids': [79398],
+                 'fingerprints': {'79398': 'old'},
+                 'pending_unpublish': [],
+             }), \
+             patch('indeed_publish.sync._save_state'), \
+             patch('indeed_publish.sync._save_last_result'), \
+             patch('utils.bullhorn_helpers.get_bullhorn_service', return_value=bh):
+            result = svc.run_sync()
+        assert 79398 in result['unpublished']
+        ui.unpublish_boards.assert_called()
+        bh.update_job_order.assert_not_called()
+
+    def test_unmapped_department_is_still_skipped(self, monkeypatch):
+        monkeypatch.setattr('indeed_publish.sync.is_qualified_tenant', lambda: True)
+        ui = MagicMock()
+        ui.current_user_id = '25'
+        bh = MagicMock()
+        bh.authenticate.return_value = True
+        job = self._appleton_member('<p>body</p>', department='Unknown Town')
+        cfg = self._sync_cfg()
+        cfg['tearsheet_id'] = 2
+        svc = IndeedTearsheetPublishService(config=cfg, ui_client=ui)
+        with patch.object(IndeedTearsheetPublishService, '_fetch_tearsheet_jobs', return_value=[job]), \
+             patch('indeed_publish.sync._load_state', return_value={
+                 'job_ids': [],
+                 'fingerprints': {},
+                 'pending_unpublish': [],
+             }), \
+             patch('indeed_publish.sync._save_state'), \
+             patch('indeed_publish.sync._save_last_result'), \
+             patch('indeed_publish.sync._notify_failure'), \
+             patch('utils.bullhorn_helpers.get_bullhorn_service', return_value=bh):
+            result = svc.run_sync()
+        assert result['published'] == []
+        assert any(item['job_id'] == 79398 for item in result['skipped'])
+        ui.publish_boards.assert_not_called()
+
     def test_unpublish_does_not_append_indshow(self):
         ui = MagicMock()
         bh = MagicMock()

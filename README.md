@@ -437,6 +437,7 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
+- **Appleton Indeed hashtag (Sep 30)**: Appleton and Appleton (WI) still publish and unpublish from the Indeed tearsheet and job status. Scout no longer adds, replaces, or strips the campaign hashtag on those jobs. Whatever is saved in the description, including `#IND-WH`, `#IND-W`, or no tag, is what Indeed receives. A later edit to that text republishes. Every other department still gets its tag automatically.
 - **Qualified Zip Apply webhook receiver (Sep 30)**: `POST https://qualified.scoutgenius.ai/api/ziprecruiter/apply` accepts a ZipRecruiter Apply JSON delivery and returns 200 when it is stored. The XML feed and Great Match emails are unchanged. This receiver does not create Bullhorn candidates yet. Resume bytes are not stored.
 - **ZipRecruiter account notices ignored (Sep 26)**: Inbound mail from ZipRecruiter with subject "Please Verify Your Email" and no resume is recorded as ignored. It does not call the identity AI step or send a candidate parse-failure alert. Real Zip applications are unchanged.
 - **Qualified Indeed campaign tags (Sep 25)**: Columbus, Columbus-Key, and Columbus-KIT publish as `#INDCol`. Conyers stays `#INDCon`. Chattanooga is `#INDChat`, Grand Rapids is `#INDGrand`, and Katy is `#INDKat`.
