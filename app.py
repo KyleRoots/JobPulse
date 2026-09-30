@@ -171,6 +171,7 @@ from routes.knowledge_hub import knowledge_hub_bp
 from routes.admin_health import admin_health_bp
 from routes.ai_cost import ai_cost_bp
 from routes.backup import backup_bp
+from routes.zip_apply import zip_apply_bp
 app.register_blueprint(auth_bp)
 app.register_blueprint(health_bp)
 app.register_blueprint(settings_bp)
@@ -195,6 +196,7 @@ app.register_blueprint(knowledge_hub_bp)
 app.register_blueprint(admin_health_bp)
 app.register_blueprint(ai_cost_bp)
 app.register_blueprint(backup_bp)
+app.register_blueprint(zip_apply_bp)
 
 from routes.scout_prospector import scout_prospector_bp
 app.register_blueprint(scout_prospector_bp)

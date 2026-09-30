@@ -97,6 +97,7 @@ from models.openai_telemetry import OpenAICallLog
 from models.cost_forecast import CostForecastOverride, CostForecastScenario
 from models.placement_margin import PlacementMarginCalcLog
 from models.client_onboarding_notify import ClientOnboardingNotifyLog
+from models.zip_apply_webhook import ZipApplyDelivery
 from models.reporting import MonthlyReportRun
 from models.fraud import (
     CandidateFraudAssessment,
@@ -138,6 +139,7 @@ __all__ = [
     # placement margin
     'PlacementMarginCalcLog',
     'ClientOnboardingNotifyLog',
+    'ZipApplyDelivery',
     # reporting
     'MonthlyReportRun',
     # fraud detection

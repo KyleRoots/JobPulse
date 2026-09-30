@@ -437,6 +437,7 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
+- **Qualified Zip Apply webhook receiver (Sep 30)**: `POST https://qualified.scoutgenius.ai/api/ziprecruiter/apply` accepts a ZipRecruiter Apply JSON delivery and returns 200 when it is stored. The XML feed and Great Match emails are unchanged. This receiver does not create Bullhorn candidates yet. Resume bytes are not stored.
 - **ZipRecruiter account notices ignored (Sep 26)**: Inbound mail from ZipRecruiter with subject "Please Verify Your Email" and no resume is recorded as ignored. It does not call the identity AI step or send a candidate parse-failure alert. Real Zip applications are unchanged.
 - **Qualified Indeed campaign tags (Sep 25)**: Columbus, Columbus-Key, and Columbus-KIT publish as `#INDCol`. Conyers stays `#INDCon`. Chattanooga is `#INDChat`, Grand Rapids is `#INDGrand`, and Katy is `#INDKat`.
 - **Qualified Indeed publish categories (Sep 25)**: On Qualified, industrial titles map to Warehouse, Manufacturing, Customer Service, Logistics, or Food Services instead of falling through to IT/Software Development. Titles that still do not match fall back to Manufacturing. Category IDs are Qualified's own list (the shared catalog's duplicate IT row would otherwise publish Warehouse as Web Development). A leftover IT or wrong published category from an earlier publish does not override the title. Myticas/STSI still use the shared catalog and fall back to IT/Software Development.
@@ -696,5 +697,5 @@ Access health endpoints for status checks:
 
 ---
 
-**Last Updated**: September 25, 2026
+**Last Updated**: September 30, 2026
 **Version**: 2.9 (Main-branch Railway deploy; Render log monitoring removed)

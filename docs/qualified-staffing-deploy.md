@@ -14,6 +14,12 @@ Myticas and STSI are Brands on one Bullhorn instance. Qualified Staffing is a di
 | Database | `Postgres-Qualified` | Dedicated Postgres; do **not** point at Myticas `Postgres` |
 | Project | `scout-genius` | Shared Railway project, isolated services |
 
+## ZipRecruiter Apply webhook (receive only)
+
+Live URL for the Q-Staffing test: `POST https://qualified.scoutgenius.ai/api/ziprecruiter/apply`
+
+Content-Type must be `application/json`. A `200` means the delivery was accepted and recorded. The current XML feed stays as-is, and Great Match mail to `apply@q-staffing.com` is unchanged. The receiver stores the job id, response id, and which fields were present. It does not store the resume file and it does not create a Bullhorn candidate until a live payload has been reviewed.
+
 ## Mailbox (inbound)
 
 - Target apply address: **`apply@q-staffing.com`** (confirm with Qualified IT; Graph UPN must match).
