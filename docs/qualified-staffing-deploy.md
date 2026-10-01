@@ -14,6 +14,10 @@ Myticas and STSI are Brands on one Bullhorn instance. Qualified Staffing is a di
 | Database | `Postgres-Qualified` | Dedicated Postgres; do **not** point at Myticas `Postgres` |
 | Project | `scout-genius` | Shared Railway project, isolated services |
 
+## Duplicate merge
+
+Qualified does not auto-merge or auto-archive candidates. The hourly job and the manual bulk scan both no-op on this service. Set `DUPLICATE_MERGE_ENABLED=true` only after a later decision to turn it back on. Myticas/STSI keep the hourly merge.
+
 ## ZipRecruiter Apply webhook (receive only)
 
 Live URL for the Q-Staffing test: `POST https://qualified.scoutgenius.ai/api/ziprecruiter/apply`

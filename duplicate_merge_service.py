@@ -1,11 +1,28 @@
 import json
 import logging
+import os
 import time
 from datetime import datetime, timedelta
 from collections import defaultdict
 from extensions import db
 
 logger = logging.getLogger(__name__)
+
+def duplicate_merge_enabled() -> bool:
+    """Hourly and bulk auto-merge.
+
+    Qualified is off unless ``DUPLICATE_MERGE_ENABLED`` is explicitly true.
+    That corp's Talent Platform is broken by archive-on-merge. Myticas/STSI
+    stay on unless the same variable is explicitly false.
+    """
+    explicit = (os.environ.get('DUPLICATE_MERGE_ENABLED') or '').strip().lower()
+    if explicit in ('0', 'false', 'no', 'off'):
+        return False
+    if explicit in ('1', 'true', 'yes', 'on'):
+        return True
+    from feeds.feed_config import is_qualified_tenant
+    return not is_qualified_tenant()
+
 
 CONFIDENCE_THRESHOLD = 0.80
 BATCH_SIZE = 200
@@ -834,6 +851,20 @@ class DuplicateMergeService:
     def run_bulk_scan(self, progress_callback=None):
         from models import CandidateMergeLog
 
+        if not duplicate_merge_enabled():
+            logger.info("Bulk duplicate scan skipped: duplicate merge is disabled")
+            return {
+                'candidates_scanned': 0,
+                'duplicates_found': 0,
+                'merged': 0,
+                'skipped_below_threshold': 0,
+                'skipped_both_placements': 0,
+                'skipped_already_processed': 0,
+                'errors': 0,
+                'disabled': True,
+                'started_at': datetime.utcnow().isoformat(),
+            }
+
         self._ensure_auth()
 
         stats = {
@@ -947,6 +978,24 @@ class DuplicateMergeService:
 
     def run_scheduled_check(self):
         from models import CandidateMergeLog
+
+        if not duplicate_merge_enabled():
+            logger.info("Scheduled dedup skipped: duplicate merge is disabled")
+            return {
+                'candidates_checked': 0,
+                'merged': 0,
+                'skipped': 0,
+                'errors': 0,
+                'fuzzy_candidates_checked': 0,
+                'fuzzy_merged': 0,
+                'fuzzy_skipped': 0,
+                'fuzzy_errors': 0,
+                'fuzzy_backfilled': 0,
+                'fuzzy_queued': 0,
+                'fuzzy_drained': 0,
+                'fuzzy_queue_depth': 0,
+                'disabled': True,
+            }
 
         self._ensure_auth()
 
