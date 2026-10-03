@@ -33,3 +33,14 @@ def test_summary_note_matches_email_shape():
     assert 'Key Skills: Sanitation, Fryer' in text
     assert 'Experience: 3 years' in text
     assert summary_note_text({}) == ''
+
+
+def test_scout_application_note_query_covers_zip_and_linkedin():
+    from tasks.indeed_inbound_enrich import scout_application_note_query
+
+    query = scout_application_note_query()
+    assert 'isDeleted:false' in query
+    assert 'source:"ZipRecruiter Job Board"' in query
+    assert 'source:"LinkedIn Job Board"' in query
+    assert 'source:"Indeed Job Board"' in query
+    assert 'source:"Corporate Website"' in query

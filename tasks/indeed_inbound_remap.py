@@ -468,3 +468,8 @@ def run_indeed_inbound_remap():
             enrich_indeed_job_board_candidates()
         except Exception as exc:
             logger.error('indeed enrich: unexpected error — %s', exc)
+        try:
+            from tasks.indeed_inbound_enrich import refresh_scout_application_notes
+            refresh_scout_application_notes()
+        except Exception as exc:
+            logger.error('application note refresh: unexpected error — %s', exc)

@@ -5,11 +5,10 @@ runs. This follow-up, on the same 5-minute Indeed remap cycle:
 
 * Qualified only: copy the applied job's Internal Department onto the
   candidate when it is missing (same field pair as mailbox / portal ingest).
-* Qualified only: write one Application Received note (job, company,
-  recruiter, time, source, then the AI résumé summary). Job, company, and
-  recruiter names link to their Bullhorn records.
-* Any tenant: if Qualified did not write that combined note, write an AI
-  Resume Summary from the resume file Bullhorn already stored.
+* Any tenant: write an AI Resume Summary from the stored resume when this
+  Indeed path is not the Qualified combined-note refresh.
+* Qualified combined Application Received notes (Zip, LinkedIn, Indeed,
+  apply form, and other Scout sources) are refreshed separately.
 
 Existing department values and completed snapshot notes are left alone.
 """
@@ -29,6 +28,26 @@ MAX_SCAN = 300
 MAX_DEPARTMENT_UPDATES = 40
 MAX_SUMMARIES = 8
 MAX_SNAPSHOTS = 40
+SCOUT_APPLICATION_NOTE_SOURCES = (
+    'Indeed Job Board',
+    'ZipRecruiter Job Board',
+    'LinkedIn Job Board',
+    'Corporate Website',
+    'Dice',
+    'CareerBuilder',
+    'Facebook',
+    'Glassdoor',
+    'Monster',
+    'Twitter',
+)
+
+
+def scout_application_note_query() -> str:
+    """Lucene clause for candidates Scout created or remapped."""
+    parts = ' OR '.join(
+        f'source:"{source}"' for source in SCOUT_APPLICATION_NOTE_SOURCES
+    )
+    return f'isDeleted:false AND ({parts})'
 
 
 def department_update(current: Any, job_department: Optional[str]) -> Optional[str]:
@@ -116,13 +135,175 @@ def _extract_resume_text(base_url: str, headers: Dict[str, str], candidate_id: i
             os.unlink(path)
 
 
+def _try_write_application_note(
+    bh,
+    headers: Dict[str, str],
+    candidate: Dict[str, Any],
+    *,
+    parser,
+    summary_budget: int,
+) -> tuple:
+    """Write or update the combined Application Received note. Returns snap, budget, parser."""
+    from inbound_application_note import (
+        APPLICATION_NOTE_ACTION,
+        SUMMARY_HEADING,
+        resume_summary_body,
+        write_application_received_note,
+    )
+
+    cid = candidate.get('id')
+    if not cid:
+        return False, summary_budget, parser
+    submissions = bh.get_candidate_submissions(int(cid), count=5) or []
+    job_id = latest_job_id(submissions)
+    if not job_id:
+        return False, summary_budget, parser
+    applied_at = submissions[0].get('dateAdded') if submissions else None
+    summary_body = ''
+    prior = bh.get_candidate_notes(
+        int(cid),
+        action_filter=[SUMMARY_ACTION, APPLICATION_NOTE_ACTION],
+        count=20,
+    )
+    already_combined = any(
+        SUMMARY_HEADING in (n.get('comments') or '')
+        and (n.get('action') or '') == APPLICATION_NOTE_ACTION
+        for n in prior or []
+    )
+    has_ai_note = any(
+        (n.get('action') or '') == SUMMARY_ACTION
+        and SUMMARY_HEADING in (n.get('comments') or '')
+        for n in prior or []
+    )
+    if not already_combined and not has_ai_note and summary_budget > 0:
+        files_resp = _requests.get(
+            f'{bh.base_url}entity/Candidate/{cid}/fileAttachments',
+            headers=headers,
+            params={'fields': 'id,name,type', 'BhRestToken': bh.rest_token},
+            timeout=20,
+        )
+        files = []
+        if files_resp.status_code == 200:
+            files = (files_resp.json() or {}).get('data') or []
+        resume = _resume_file(files)
+        if resume:
+            text = _extract_resume_text(bh.base_url, headers, int(cid), resume)
+            if parser is None:
+                from email_inbound_service import EmailInboundService
+                parser = EmailInboundService()
+            parsed = parser.parse_resume_with_ai(text) if text else {}
+            summary_body = resume_summary_body(parsed)
+            if summary_body:
+                summary_budget -= 1
+    snap_id = write_application_received_note(
+        bh,
+        int(cid),
+        job_id,
+        source=candidate.get('source') or 'Corporate Website',
+        applied_at=applied_at,
+        summary_text=summary_body,
+    )
+    if snap_id:
+        logger.info(
+            'application note: candidate %s job %s source %s',
+            cid, job_id, candidate.get('source'),
+        )
+        return True, summary_budget, parser
+    return False, summary_budget, parser
+
+
+def refresh_scout_application_notes() -> Dict[str, Any]:
+    """Qualified: fold Scout inbound notes into the linked Application Received note."""
+    summary = {
+        'scanned': 0,
+        'snapshots_created': 0,
+        'skipped': 0,
+        'failed': 0,
+    }
+    from feeds.feed_config import is_qualified_tenant
+    from bullhorn_service import BullhornService
+
+    if not is_qualified_tenant():
+        summary['message'] = 'skipped (not qualified tenant)'
+        return summary
+    bh = BullhornService()
+    if not bh.authenticate():
+        logger.warning('application note refresh: Bullhorn auth failed')
+        return summary
+    headers = {
+        'BhRestToken': bh.rest_token,
+        'Accept': 'application/json',
+    }
+    parser = None
+    snapshot_budget = MAX_SNAPSHOTS
+    summary_budget = MAX_SUMMARIES
+    start = 0
+    query = scout_application_note_query()
+    while start < MAX_SCAN and snapshot_budget > 0:
+        response = _requests.get(
+            f'{bh.base_url}search/Candidate',
+            headers=headers,
+            params={
+                'query': query,
+                'fields': 'id,source',
+                'count': 50,
+                'start': start,
+                'sort': '-dateAdded',
+            },
+            timeout=30,
+        )
+        if response.status_code != 200:
+            logger.warning(
+                'application note refresh: search HTTP %s', response.status_code
+            )
+            break
+        rows = (response.json() or {}).get('data') or []
+        if not rows:
+            break
+        for candidate in rows:
+            if snapshot_budget <= 0:
+                break
+            cid = candidate.get('id')
+            if not cid:
+                continue
+            summary['scanned'] += 1
+            try:
+                written, summary_budget, parser = _try_write_application_note(
+                    bh,
+                    headers,
+                    candidate,
+                    parser=parser,
+                    summary_budget=summary_budget,
+                )
+                if written:
+                    summary['snapshots_created'] += 1
+                    snapshot_budget -= 1
+                else:
+                    summary['skipped'] += 1
+            except Exception as exc:
+                summary['failed'] += 1
+                logger.warning(
+                    'application note refresh: candidate %s failed: %s', cid, exc
+                )
+        if len(rows) < 50:
+            break
+        start += len(rows)
+    logger.info(
+        'application note refresh: scanned=%s snapshots=%s skipped=%s failed=%s',
+        summary['scanned'],
+        summary['snapshots_created'],
+        summary['skipped'],
+        summary['failed'],
+    )
+    return summary
+
+
 def enrich_indeed_job_board_candidates() -> Dict[str, Any]:
     """Backfill Internal Department and AI Resume Summary for Indeed Job Board."""
     summary = {
         'scanned': 0,
         'department_updated': 0,
         'summaries_created': 0,
-        'snapshots_created': 0,
         'skipped': 0,
         'failed': 0,
     }
@@ -145,12 +326,9 @@ def enrich_indeed_job_board_candidates() -> Dict[str, Any]:
     parser = None
     dept_budget = MAX_DEPARTMENT_UPDATES
     summary_budget = MAX_SUMMARIES
-    snapshot_budget = MAX_SNAPSHOTS
     start = 0
 
-    while start < MAX_SCAN and (
-        dept_budget > 0 or summary_budget > 0 or snapshot_budget > 0
-    ):
+    while start < MAX_SCAN and (dept_budget > 0 or summary_budget > 0):
         response = _requests.get(
             f'{bh.base_url}search/Candidate',
             headers=headers,
@@ -170,7 +348,7 @@ def enrich_indeed_job_board_candidates() -> Dict[str, Any]:
         if not rows:
             break
         for candidate in rows:
-            if dept_budget <= 0 and summary_budget <= 0 and snapshot_budget <= 0:
+            if dept_budget <= 0 and summary_budget <= 0:
                 break
             cid = candidate.get('id')
             if not cid:
@@ -208,84 +386,11 @@ def enrich_indeed_job_board_candidates() -> Dict[str, Any]:
                         else:
                             summary['failed'] += 1
 
-                snapshot_written = False
                 from feeds.feed_config import is_qualified_tenant
                 qualified = is_qualified_tenant()
-                job_id = latest_job_id(_submissions()) if (qualified or (mirror_dept and dept_budget > 0)) else None
-                if snapshot_budget > 0 and qualified:
-                    from inbound_application_note import (
-                        SUMMARY_HEADING,
-                        resume_summary_body,
-                        write_application_received_note,
-                    )
-
-                    rows_sub = _submissions() or []
-                    applied_at = rows_sub[0].get('dateAdded') if rows_sub else None
-                    if job_id:
-                        summary_body = ''
-                        prior = bh.get_candidate_notes(
-                            int(cid),
-                            action_filter=[SUMMARY_ACTION, 'Application Received'],
-                            count=20,
-                        )
-                        already_combined = any(
-                            SUMMARY_HEADING in (n.get('comments') or '')
-                            and (n.get('action') or '') == 'Application Received'
-                            for n in prior or []
-                        )
-                        has_ai_note = any(
-                            (n.get('action') or '') == SUMMARY_ACTION
-                            and SUMMARY_HEADING in (n.get('comments') or '')
-                            for n in prior or []
-                        )
-                        if (
-                            not already_combined
-                            and not has_ai_note
-                            and summary_budget > 0
-                        ):
-                            files_resp = _requests.get(
-                                f'{bh.base_url}entity/Candidate/{cid}/fileAttachments',
-                                headers=headers,
-                                params={
-                                    'fields': 'id,name,type',
-                                    'BhRestToken': bh.rest_token,
-                                },
-                                timeout=20,
-                            )
-                            files = []
-                            if files_resp.status_code == 200:
-                                files = (files_resp.json() or {}).get('data') or []
-                            resume = _resume_file(files)
-                            if resume:
-                                text = _extract_resume_text(
-                                    bh.base_url, headers, int(cid), resume
-                                )
-                                if parser is None:
-                                    from email_inbound_service import EmailInboundService
-                                    parser = EmailInboundService()
-                                parsed = parser.parse_resume_with_ai(text) if text else {}
-                                summary_body = resume_summary_body(parsed)
-                                if summary_body:
-                                    summary_budget -= 1
-                        snap_id = write_application_received_note(
-                            bh,
-                            int(cid),
-                            job_id,
-                            source=candidate.get('source') or 'Indeed Job Board',
-                            applied_at=applied_at,
-                            summary_text=summary_body,
-                        )
-                        if snap_id:
-                            summary['snapshots_created'] += 1
-                            snapshot_budget -= 1
-                            snapshot_written = True
-                            logger.info(
-                                'indeed enrich: Application Received note on candidate %s job %s',
-                                cid, job_id,
-                            )
 
                 note_written = False
-                if summary_budget > 0 and not (qualified and job_id):
+                if summary_budget > 0 and not qualified:
                     notes = bh.get_candidate_notes(int(cid), action_filter=[SUMMARY_ACTION], count=5)
                     if not _has_summary_note(notes):
                         files_resp = _requests.get(
@@ -310,7 +415,7 @@ def enrich_indeed_job_board_candidates() -> Dict[str, Any]:
                                 summary_budget -= 1
                                 note_written = True
                                 logger.info('indeed enrich: AI Resume Summary on candidate %s', cid)
-                if not dept_written and not note_written and not snapshot_written:
+                if not dept_written and not note_written:
                     summary['skipped'] += 1
             except Exception as exc:
                 summary['failed'] += 1
@@ -320,11 +425,10 @@ def enrich_indeed_job_board_candidates() -> Dict[str, Any]:
         start += len(rows)
 
     logger.info(
-        'indeed enrich: scanned=%s department=%s summaries=%s snapshots=%s skipped=%s failed=%s',
+        'indeed enrich: scanned=%s department=%s summaries=%s skipped=%s failed=%s',
         summary['scanned'],
         summary['department_updated'],
         summary['summaries_created'],
-        summary['snapshots_created'],
         summary['skipped'],
         summary['failed'],
     )
