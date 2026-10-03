@@ -32,7 +32,6 @@ SCOUT_APPLICATION_NOTE_SOURCES = (
     'Indeed Job Board',
     'ZipRecruiter Job Board',
     'LinkedIn Job Board',
-    'Corporate Website',
     'Dice',
     'CareerBuilder',
     'Facebook',
@@ -40,14 +39,24 @@ SCOUT_APPLICATION_NOTE_SOURCES = (
     'Monster',
     'Twitter',
 )
+PORTAL_WEBSITE_SOURCE = 'Corporate Website'
+MAX_WEBSITE_COLLAPSE = 40
 
 
 def scout_application_note_query() -> str:
-    """Lucene clause for candidates Scout created or remapped."""
+    """Lucene clause for board/mailbox sources Scout may need to backfill.
+
+    Corporate Website is omitted. Career-site applies are written by
+    staffing-portal. Scout apply-form and Pando notes are written at ingest.
+    """
     parts = ' OR '.join(
         f'source:"{source}"' for source in SCOUT_APPLICATION_NOTE_SOURCES
     )
     return f'isDeleted:false AND ({parts})'
+
+
+def is_portal_website_source(source: Optional[str]) -> bool:
+    return (source or '').strip() == PORTAL_WEBSITE_SOURCE
 
 
 def department_update(current: Any, job_department: Optional[str]) -> Optional[str]:
@@ -154,6 +163,8 @@ def _try_write_application_note(
     cid = candidate.get('id')
     if not cid:
         return False, summary_budget, parser
+    if is_portal_website_source(candidate.get('source')):
+        return False, summary_budget, parser
     submissions = bh.get_candidate_submissions(int(cid), count=5) or []
     job_id = latest_job_id(submissions)
     if not job_id:
@@ -210,6 +221,54 @@ def _try_write_application_note(
         )
         return True, summary_budget, parser
     return False, summary_budget, parser
+
+
+def _collapse_website_duplicate_notes(bh, candidate: Dict[str, Any]) -> bool:
+    """Soft-delete extra Application Received notes on portal website applies.
+
+    Does not create notes and does not rewrite the keeper's comments.
+    """
+    from inbound_application_note import (
+        APPLICATION_NOTE_ACTION,
+        SNAPSHOT_JOB_FIELDS,
+        SUMMARY_ACTION,
+        _pick_snapshot_keeper,
+        _soft_delete_duplicate_snapshots,
+        company_record_from_job,
+        matching_snapshot_notes,
+    )
+
+    cid = candidate.get('id')
+    if not cid:
+        return False
+    submissions = bh.get_candidate_submissions(int(cid), count=5) or []
+    job_id = latest_job_id(submissions)
+    if not job_id:
+        return False
+    notes = bh.get_candidate_notes(
+        int(cid),
+        action_filter=[APPLICATION_NOTE_ACTION, SUMMARY_ACTION],
+        count=50,
+    )
+    job = bh.get_entity('JobOrder', int(job_id), fields=SNAPSHOT_JOB_FIELDS) or {}
+    title = str(job.get('title') or '').strip()
+    company, _company_id = company_record_from_job(job)
+    matches = matching_snapshot_notes(
+        notes, title=title, company=company, job_id=int(job_id)
+    )
+    if len(matches) < 2:
+        return False
+    keeper = _pick_snapshot_keeper(matches)
+    if not keeper or not keeper.get('id'):
+        return False
+    _soft_delete_duplicate_snapshots(
+        bh, matches, kept_id=int(keeper['id'])
+    )
+    logger.info(
+        'application note: collapsed Corporate Website duplicates on candidate %s kept %s',
+        cid, keeper.get('id'),
+    )
+    return True
 
 
 def refresh_scout_application_notes() -> Dict[str, Any]:
@@ -288,11 +347,58 @@ def refresh_scout_application_notes() -> Dict[str, Any]:
         if len(rows) < 50:
             break
         start += len(rows)
+
+    collapse_budget = MAX_WEBSITE_COLLAPSE
+    collapse_start = 0
+    summary['website_collapsed'] = 0
+    while collapse_start < MAX_SCAN and collapse_budget > 0:
+        response = _requests.get(
+            f'{bh.base_url}search/Candidate',
+            headers=headers,
+            params={
+                'query': (
+                    f'isDeleted:false AND source:"{PORTAL_WEBSITE_SOURCE}"'
+                ),
+                'fields': 'id,source',
+                'count': 50,
+                'start': collapse_start,
+                'sort': '-dateAdded',
+            },
+            timeout=30,
+        )
+        if response.status_code != 200:
+            logger.warning(
+                'application note collapse: search HTTP %s', response.status_code
+            )
+            break
+        rows = (response.json() or {}).get('data') or []
+        if not rows:
+            break
+        for candidate in rows:
+            if collapse_budget <= 0:
+                break
+            cid = candidate.get('id')
+            if not cid:
+                continue
+            try:
+                if _collapse_website_duplicate_notes(bh, candidate):
+                    summary['website_collapsed'] += 1
+                    collapse_budget -= 1
+            except Exception as exc:
+                summary['failed'] += 1
+                logger.warning(
+                    'application note collapse: candidate %s failed: %s', cid, exc
+                )
+        if len(rows) < 50:
+            break
+        collapse_start += len(rows)
+
     logger.info(
-        'application note refresh: scanned=%s snapshots=%s skipped=%s failed=%s',
+        'application note refresh: scanned=%s snapshots=%s skipped=%s collapsed=%s failed=%s',
         summary['scanned'],
         summary['snapshots_created'],
         summary['skipped'],
+        summary['website_collapsed'],
         summary['failed'],
     )
     return summary

@@ -127,6 +127,26 @@ def test_dedup_matches_same_job_and_company():
     )
 
 
+def test_dedup_matches_ampersand_title_encoded_or_decoded():
+    decoded = (
+        '<b>Indeed Applicant</b> for <b><a href="'
+        'https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm'
+        '?entity=JobOrder&id=80111">Welder/Tig& Mig</a></b> at <b>Woodard -C.M LLC</b>'
+        '<br>Indeed Job Board'
+    )
+    encoded = (
+        '<b>Indeed Applicant</b> for <b><a href="'
+        'https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm'
+        '?entity=JobOrder&amp;id=80111">Welder/Tig&amp; Mig</a></b> at <b>Woodard -C.M LLC</b>'
+        '<br>Indeed Job Board'
+    )
+    for comments in (decoded, encoded):
+        existing = [{'action': APPLICATION_NOTE_ACTION, 'comments': comments}]
+        assert snapshot_already_present(
+            existing, title='Welder/Tig& Mig', company='Woodard -C.M LLC', job_id=80111
+        )
+
+
 def test_format_applied_at_eastern():
     applied = datetime(2026, 10, 1, 23, 18, tzinfo=timezone.utc)
     assert format_applied_at(applied) == 'Thursday, October 1, 2026 at 7:18 PM'
@@ -270,3 +290,76 @@ def test_write_strips_corporate_user_openwindow_link(monkeypatch):
     assert 'entity=CorporateUser' not in updated
     assert '<b>Laura Madsen</b>' in updated
     assert 'entity=JobOrder&amp;id=79398' in updated
+
+
+def test_write_collapses_duplicate_notes_for_same_job(monkeypatch):
+    monkeypatch.setenv('SCOUT_TENANT', 'qualified_staffing')
+    bh = MagicMock()
+    bh.get_entity.return_value = {
+        'id': 79398,
+        'title': 'Production Worker',
+        'clientCorporation': {'id': 1001, 'name': 'SC Johnson Wisconsin'},
+    }
+    snapshot = build_application_note_text(
+        source='Indeed Job Board',
+        title='Production Worker',
+        company='SC Johnson Wisconsin',
+        job_id=79398,
+        company_id=1001,
+    )
+    bh.get_candidate_notes.return_value = [
+        {'id': 31, 'action': APPLICATION_NOTE_ACTION, 'comments': snapshot, 'dateAdded': 3},
+        {
+            'id': 20,
+            'action': APPLICATION_NOTE_ACTION,
+            'comments': snapshot + '<br><br>AI-Generated Resume Summary:\n\nWelder.',
+            'dateAdded': 2,
+        },
+        {'id': 11, 'action': APPLICATION_NOTE_ACTION, 'comments': snapshot, 'dateAdded': 1},
+    ]
+    assert write_application_received_note(
+        bh, 3339333, 79398, source='Indeed Job Board'
+    ) is None
+    bh.create_candidate_note.assert_not_called()
+    deleted = [call.args[1] for call in bh.delete_entity.call_args_list]
+    assert 11 in deleted
+    assert 31 in deleted
+    assert 20 not in deleted
+
+
+def test_collapse_website_duplicates_does_not_rewrite(monkeypatch):
+    from tasks.indeed_inbound_enrich import _collapse_website_duplicate_notes
+
+    bh = MagicMock()
+    snapshot = build_application_note_text(
+        source='Corporate Website',
+        title='Welder/Tig& Mig',
+        company='Woodard -C.M LLC',
+        job_id=80111,
+        company_id=9,
+    )
+    bh.get_candidate_submissions.return_value = [
+        {'jobOrder': {'id': 80111}, 'dateAdded': 1},
+    ]
+    bh.get_candidate_notes.return_value = [
+        {'id': 1, 'action': APPLICATION_NOTE_ACTION, 'comments': snapshot, 'dateAdded': 1},
+        {
+            'id': 2,
+            'action': APPLICATION_NOTE_ACTION,
+            'comments': snapshot + '<br><br>AI-Generated Resume Summary:\n\nWelder.',
+            'dateAdded': 2,
+        },
+        {'id': 3, 'action': APPLICATION_NOTE_ACTION, 'comments': snapshot, 'dateAdded': 3},
+    ]
+    bh.get_entity.return_value = {
+        'id': 80111,
+        'title': 'Welder/Tig& Mig',
+        'clientCorporation': {'id': 9, 'name': 'Woodard -C.M LLC'},
+    }
+    assert _collapse_website_duplicate_notes(bh, {'id': 3339333, 'source': 'Corporate Website'})
+    bh.create_candidate_note.assert_not_called()
+    bh.update_entity.assert_not_called()
+    deleted = [call.args[1] for call in bh.delete_entity.call_args_list]
+    assert 1 in deleted
+    assert 3 in deleted
+    assert 2 not in deleted

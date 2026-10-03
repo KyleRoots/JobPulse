@@ -195,8 +195,76 @@ def snapshot_already_present(
     *,
     title: Optional[str],
     company: Optional[str] = None,
+    job_id: Optional[int] = None,
 ) -> bool:
-    return matching_snapshot_note(notes, title=title, company=company) is not None
+    return matching_snapshot_note(
+        notes, title=title, company=company, job_id=job_id
+    ) is not None
+
+
+def _job_order_linked(comments: str, job_id: int) -> bool:
+    job_id = int(job_id)
+    return (
+        f'entity=JobOrder&id={job_id}' in comments
+        or f'entity=JobOrder&amp;id={job_id}' in comments
+    )
+
+
+def _comments_include(haystack: str, needle: str) -> bool:
+    text = (needle or '').strip()
+    if not text:
+        return False
+    if text in haystack or html.escape(text) in haystack:
+        return True
+    decoded = html.unescape(haystack)
+    return text in decoded or html.escape(text) in decoded
+
+
+def _pick_snapshot_keeper(notes: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    if not notes:
+        return None
+    with_summary = [
+        note for note in notes
+        if SUMMARY_HEADING in (note.get('comments') or '')
+    ]
+    pool = with_summary or notes
+    return sorted(
+        pool,
+        key=lambda note: (note.get('dateAdded') or 0, note.get('id') or 0),
+    )[0]
+
+
+def matching_snapshot_notes(
+    notes: Optional[List[Dict[str, Any]]],
+    *,
+    title: Optional[str],
+    company: Optional[str] = None,
+    job_id: Optional[int] = None,
+) -> List[Dict[str, Any]]:
+    job_title = (title or '').strip()
+    has_job_id = False
+    try:
+        job_id_int = int(job_id) if job_id is not None else 0
+        has_job_id = job_id_int > 0
+    except (TypeError, ValueError):
+        job_id_int = 0
+    if not job_title and not has_job_id:
+        return []
+    found: List[Dict[str, Any]] = []
+    for note in notes or []:
+        if (note.get('action') or '') != APPLICATION_NOTE_ACTION:
+            continue
+        comments = note.get('comments') or ''
+        if has_job_id and _job_order_linked(comments, job_id_int):
+            found.append(note)
+            continue
+        if not job_title or not _comments_include(comments, job_title):
+            continue
+        company_clean = (company or '').strip()
+        if company_clean and not _comments_include(comments, company_clean):
+            continue
+        found.append(note)
+    return found
 
 
 def matching_snapshot_note(
@@ -204,22 +272,11 @@ def matching_snapshot_note(
     *,
     title: Optional[str],
     company: Optional[str] = None,
+    job_id: Optional[int] = None,
 ) -> Optional[Dict[str, Any]]:
-    job_title = (title or '').strip()
-    if not job_title:
-        return None
-    title_needle = html.escape(job_title)
-    company_needle = html.escape((company or '').strip()) if (company or '').strip() else ''
-    for note in notes or []:
-        if (note.get('action') or '') != APPLICATION_NOTE_ACTION:
-            continue
-        comments = note.get('comments') or ''
-        if title_needle not in comments:
-            continue
-        if company_needle and company_needle not in comments:
-            continue
-        return note
-    return None
+    return _pick_snapshot_keeper(
+        matching_snapshot_notes(notes, title=title, company=company, job_id=job_id)
+    )
 
 
 def write_application_received_note(
@@ -272,13 +329,13 @@ def write_application_received_note(
             recruiter_id=recruiter_id,
         )
         combined = combine_application_note_text(snapshot, summary_text)
-        match = matching_snapshot_note(existing, title=title, company=company)
+        matches = matching_snapshot_notes(
+            existing, title=title, company=company, job_id=int(job_id)
+        )
+        match = _pick_snapshot_keeper(matches)
         if match:
             comments = match.get('comments') or ''
-            job_linked = (
-                f'entity=JobOrder&id={int(job_id)}' in comments
-                or f'entity=JobOrder&amp;id={int(job_id)}' in comments
-            )
+            job_linked = _job_order_linked(comments, int(job_id))
             summary_present = SUMMARY_HEADING in comments
             has_user_link = 'entity=CorporateUser' in comments
             needs_rewrite = (
@@ -286,23 +343,28 @@ def write_application_received_note(
                 or (bool(summary_text) and not summary_present)
                 or has_user_link
             )
+            match_id = int(match['id'])
             if needs_rewrite:
                 updated = bullhorn.update_entity(
-                    'Note', int(match['id']), {'comments': combined}
+                    'Note', match_id, {'comments': combined}
                 )
                 if updated:
                     _soft_delete_standalone_summaries(
-                        bullhorn, existing, kept_id=int(match['id'])
+                        bullhorn, existing, kept_id=match_id
+                    )
+                    _soft_delete_duplicate_snapshots(
+                        bullhorn, matches, kept_id=match_id
                     )
                     logger.info(
                         'application snapshot: updated note %s on candidate %s',
                         match['id'], candidate_id,
                     )
-                    return int(match['id'])
+                    return match_id
             if summary_present:
                 _soft_delete_standalone_summaries(
-                    bullhorn, existing, kept_id=int(match['id'])
+                    bullhorn, existing, kept_id=match_id
                 )
+            _soft_delete_duplicate_snapshots(bullhorn, matches, kept_id=match_id)
             logger.info(
                 'application snapshot: already present for candidate %s job %s',
                 candidate_id, job_id,
@@ -325,6 +387,27 @@ def write_application_received_note(
             candidate_id, job_id, exc,
         )
         return None
+
+
+def _soft_delete_duplicate_snapshots(bullhorn, notes, *, kept_id: int) -> None:
+    """Remove extra Application Received notes for the same job after one keeper remains."""
+    for note in notes or []:
+        if (note.get('action') or '') != APPLICATION_NOTE_ACTION:
+            continue
+        note_id = note.get('id')
+        if not note_id or int(note_id) == int(kept_id):
+            continue
+        try:
+            bullhorn.delete_entity('Note', int(note_id), soft_delete=True)
+            logger.info(
+                'application snapshot: removed duplicate Application Received note %s',
+                note_id,
+            )
+        except Exception as exc:
+            logger.warning(
+                'application snapshot: could not remove duplicate note %s: %s',
+                note_id, exc,
+            )
 
 
 def _soft_delete_standalone_summaries(bullhorn, notes, *, kept_id: int) -> None:
