@@ -127,7 +127,41 @@ def test_dedup_matches_same_job_and_company():
     )
 
 
-def test_dedup_matches_ampersand_title_encoded_or_decoded():
+def test_dedup_matches_capital_entity_openwindow():
+    comments = (
+        '<b>Web Applicant</b> for <b><a href="'
+        'https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm'
+        '?Entity=JobOrder&id=80111">Welder/Tig&amp; Mig</a></b> at '
+        '<b>Woodard -C.M LLC</b> under <b>Andrea Glowski</b> '
+        'on Saturday, October 3, 2026 at 1:33 PM<br>Corporate Website'
+    )
+    existing = [{'action': APPLICATION_NOTE_ACTION, 'comments': comments}]
+    assert snapshot_already_present(
+        existing, title='Welder/Tig& Mig', company='Woodard -C.M LLC', job_id=80111
+    )
+
+
+def test_duplicate_groups_same_job_and_apply_time():
+    from inbound_application_note import duplicate_application_note_groups
+
+    when = 'on Saturday, October 3, 2026 at 1:33 PM'
+    href = (
+        'https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm'
+        '?Entity=JobOrder&amp;id=80111'
+    )
+    comments = (
+        f'<b>Web Applicant</b> for <b><a href="{href}">Welder/Tig&amp; Mig</a></b> '
+        f'at <b>Woodard -C.M LLC</b> {when}<br>Corporate Website'
+    )
+    later = comments.replace('1:33 PM', '2:22 PM')
+    notes = [
+        {'id': 1, 'action': APPLICATION_NOTE_ACTION, 'comments': comments},
+        {'id': 2, 'action': APPLICATION_NOTE_ACTION, 'comments': comments},
+        {'id': 3, 'action': APPLICATION_NOTE_ACTION, 'comments': later},
+    ]
+    groups = duplicate_application_note_groups(notes)
+    assert len(groups) == 1
+    assert {n['id'] for n in groups[0]} == {1, 2}
     decoded = (
         '<b>Indeed Applicant</b> for <b><a href="'
         'https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm'
@@ -328,7 +362,7 @@ def test_write_collapses_duplicate_notes_for_same_job(monkeypatch):
 
 
 def test_collapse_website_duplicates_does_not_rewrite(monkeypatch):
-    from tasks.indeed_inbound_enrich import _collapse_website_duplicate_notes
+    from tasks.indeed_inbound_enrich import _collapse_duplicate_application_notes
 
     bh = MagicMock()
     snapshot = build_application_note_text(
@@ -337,10 +371,8 @@ def test_collapse_website_duplicates_does_not_rewrite(monkeypatch):
         company='Woodard -C.M LLC',
         job_id=80111,
         company_id=9,
+        applied_at=datetime(2026, 10, 3, 17, 33, tzinfo=timezone.utc),
     )
-    bh.get_candidate_submissions.return_value = [
-        {'jobOrder': {'id': 80111}, 'dateAdded': 1},
-    ]
     bh.get_candidate_notes.return_value = [
         {'id': 1, 'action': APPLICATION_NOTE_ACTION, 'comments': snapshot, 'dateAdded': 1},
         {
@@ -351,12 +383,9 @@ def test_collapse_website_duplicates_does_not_rewrite(monkeypatch):
         },
         {'id': 3, 'action': APPLICATION_NOTE_ACTION, 'comments': snapshot, 'dateAdded': 3},
     ]
-    bh.get_entity.return_value = {
-        'id': 80111,
-        'title': 'Welder/Tig& Mig',
-        'clientCorporation': {'id': 9, 'name': 'Woodard -C.M LLC'},
-    }
-    assert _collapse_website_duplicate_notes(bh, {'id': 3339333, 'source': 'Corporate Website'})
+    assert _collapse_duplicate_application_notes(
+        bh, {'id': 3339333, 'source': 'Corporate Website'}
+    )
     bh.create_candidate_note.assert_not_called()
     bh.update_entity.assert_not_called()
     deleted = [call.args[1] for call in bh.delete_entity.call_args_list]

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import html
 import logging
+import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
@@ -25,6 +26,15 @@ SNAPSHOT_JOB_FIELDS = (
     'assignedUsers(id,firstName,lastName)'
 )
 _DISPLAY_TZ = ZoneInfo('America/New_York')
+_JOB_ORDER_ID_RE = re.compile(
+    r'entity=JobOrder(?:&amp;|&)id=(\d+)',
+    re.IGNORECASE,
+)
+_APPLIED_AT_RE = re.compile(
+    r' on (?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday), '
+    r'[A-Za-z]+ \d+, \d{4} at \d+:\d{2} [AP]M',
+    re.IGNORECASE,
+)
 
 
 def applicant_label_for_source(source: Optional[str]) -> str:
@@ -202,12 +212,41 @@ def snapshot_already_present(
     ) is not None
 
 
+def application_note_job_ids(comments: Optional[str]) -> List[int]:
+    found: List[int] = []
+    for raw in _JOB_ORDER_ID_RE.findall(comments or ''):
+        try:
+            found.append(int(raw))
+        except (TypeError, ValueError):
+            continue
+    return found
+
+
+def application_note_applied_at_phrase(comments: Optional[str]) -> str:
+    match = _APPLIED_AT_RE.search(comments or '')
+    return match.group(0).strip().lower() if match else ''
+
+
 def _job_order_linked(comments: str, job_id: int) -> bool:
-    job_id = int(job_id)
-    return (
-        f'entity=JobOrder&id={job_id}' in comments
-        or f'entity=JobOrder&amp;id={job_id}' in comments
-    )
+    return int(job_id) in application_note_job_ids(comments)
+
+
+def duplicate_application_note_groups(
+    notes: Optional[List[Dict[str, Any]]],
+) -> List[List[Dict[str, Any]]]:
+    """Notes for the same job at the same apply time. Those are Scout duplicates."""
+    buckets: Dict[tuple, List[Dict[str, Any]]] = {}
+    for note in notes or []:
+        if (note.get('action') or '') != APPLICATION_NOTE_ACTION:
+            continue
+        comments = note.get('comments') or ''
+        job_ids = application_note_job_ids(comments)
+        when = application_note_applied_at_phrase(comments)
+        if not job_ids or not when:
+            continue
+        key = (job_ids[0], when)
+        buckets.setdefault(key, []).append(note)
+    return [rows for rows in buckets.values() if len(rows) >= 2]
 
 
 def _comments_include(haystack: str, needle: str) -> bool:
@@ -344,6 +383,9 @@ def write_application_received_note(
                 or has_user_link
             )
             match_id = int(match['id'])
+            extras = list(matches)
+            for group in duplicate_application_note_groups(existing):
+                extras.extend(group)
             if needs_rewrite:
                 updated = bullhorn.update_entity(
                     'Note', match_id, {'comments': combined}
@@ -353,7 +395,7 @@ def write_application_received_note(
                         bullhorn, existing, kept_id=match_id
                     )
                     _soft_delete_duplicate_snapshots(
-                        bullhorn, matches, kept_id=match_id
+                        bullhorn, extras, kept_id=match_id
                     )
                     logger.info(
                         'application snapshot: updated note %s on candidate %s',
@@ -364,7 +406,7 @@ def write_application_received_note(
                 _soft_delete_standalone_summaries(
                     bullhorn, existing, kept_id=match_id
                 )
-            _soft_delete_duplicate_snapshots(bullhorn, matches, kept_id=match_id)
+            _soft_delete_duplicate_snapshots(bullhorn, extras, kept_id=match_id)
             logger.info(
                 'application snapshot: already present for candidate %s job %s',
                 candidate_id, job_id,

@@ -44,6 +44,12 @@ def test_scout_application_note_query_covers_zip_and_linkedin():
     assert 'source:"LinkedIn Job Board"' in query
     assert 'source:"Indeed Job Board"' in query
     assert 'source:"Corporate Website"' not in query
-    from tasks.indeed_inbound_enrich import is_portal_website_source
+    from tasks.indeed_inbound_enrich import (
+        is_portal_website_source,
+        scout_duplicate_collapse_query,
+    )
     assert is_portal_website_source('Corporate Website')
     assert not is_portal_website_source('ZipRecruiter Job Board')
+    collapse = scout_duplicate_collapse_query()
+    assert 'source:"Corporate Website"' in collapse
+    assert 'source:"ZipRecruiter Job Board"' in collapse

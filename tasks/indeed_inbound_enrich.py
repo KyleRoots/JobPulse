@@ -55,6 +55,15 @@ def scout_application_note_query() -> str:
     return f'isDeleted:false AND ({parts})'
 
 
+def scout_duplicate_collapse_query() -> str:
+    """Board plus career-site sources, used only to find duplicate snapshot notes."""
+    parts = ' OR '.join(
+        f'source:"{source}"'
+        for source in (*SCOUT_APPLICATION_NOTE_SOURCES, PORTAL_WEBSITE_SOURCE)
+    )
+    return f'isDeleted:false AND ({parts})'
+
+
 def is_portal_website_source(source: Optional[str]) -> bool:
     return (source or '').strip() == PORTAL_WEBSITE_SOURCE
 
@@ -223,52 +232,41 @@ def _try_write_application_note(
     return False, summary_budget, parser
 
 
-def _collapse_website_duplicate_notes(bh, candidate: Dict[str, Any]) -> bool:
-    """Soft-delete extra Application Received notes on portal website applies.
+def _collapse_duplicate_application_notes(bh, candidate: Dict[str, Any]) -> bool:
+    """Soft-delete extra Application Received notes for the same job and apply time.
 
     Does not create notes and does not rewrite the keeper's comments.
     """
     from inbound_application_note import (
         APPLICATION_NOTE_ACTION,
-        SNAPSHOT_JOB_FIELDS,
         SUMMARY_ACTION,
         _pick_snapshot_keeper,
         _soft_delete_duplicate_snapshots,
-        company_record_from_job,
-        matching_snapshot_notes,
+        duplicate_application_note_groups,
     )
 
     cid = candidate.get('id')
     if not cid:
         return False
-    submissions = bh.get_candidate_submissions(int(cid), count=5) or []
-    job_id = latest_job_id(submissions)
-    if not job_id:
-        return False
     notes = bh.get_candidate_notes(
         int(cid),
         action_filter=[APPLICATION_NOTE_ACTION, SUMMARY_ACTION],
-        count=50,
+        count=100,
     )
-    job = bh.get_entity('JobOrder', int(job_id), fields=SNAPSHOT_JOB_FIELDS) or {}
-    title = str(job.get('title') or '').strip()
-    company, _company_id = company_record_from_job(job)
-    matches = matching_snapshot_notes(
-        notes, title=title, company=company, job_id=int(job_id)
-    )
-    if len(matches) < 2:
-        return False
-    keeper = _pick_snapshot_keeper(matches)
-    if not keeper or not keeper.get('id'):
-        return False
-    _soft_delete_duplicate_snapshots(
-        bh, matches, kept_id=int(keeper['id'])
-    )
-    logger.info(
-        'application note: collapsed Corporate Website duplicates on candidate %s kept %s',
-        cid, keeper.get('id'),
-    )
-    return True
+    collapsed = False
+    for group in duplicate_application_note_groups(notes):
+        keeper = _pick_snapshot_keeper(group)
+        if not keeper or not keeper.get('id'):
+            continue
+        _soft_delete_duplicate_snapshots(
+            bh, group, kept_id=int(keeper['id'])
+        )
+        collapsed = True
+        logger.info(
+            'application note: collapsed duplicates on candidate %s kept %s count %s',
+            cid, keeper.get('id'), len(group),
+        )
+    return collapsed
 
 
 def refresh_scout_application_notes() -> Dict[str, Any]:
@@ -356,9 +354,7 @@ def refresh_scout_application_notes() -> Dict[str, Any]:
             f'{bh.base_url}search/Candidate',
             headers=headers,
             params={
-                'query': (
-                    f'isDeleted:false AND source:"{PORTAL_WEBSITE_SOURCE}"'
-                ),
+                'query': scout_duplicate_collapse_query(),
                 'fields': 'id,source',
                 'count': 50,
                 'start': collapse_start,
@@ -381,7 +377,7 @@ def refresh_scout_application_notes() -> Dict[str, Any]:
             if not cid:
                 continue
             try:
-                if _collapse_website_duplicate_notes(bh, candidate):
+                if _collapse_duplicate_application_notes(bh, candidate):
                     summary['website_collapsed'] += 1
                     collapse_budget -= 1
             except Exception as exc:
