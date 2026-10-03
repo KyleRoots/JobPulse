@@ -28,7 +28,7 @@ On this service, Scout writes one **Application Received** note when it knows th
 - Native Indeed Apply follow-up (same 5-minute enrich cycle)
 - A Qualified refresh on that same cycle, for existing notes from Scout sources (Zip, LinkedIn, Indeed, Corporate Website, Dice, and apply-form board tags). Notes missing job links or missing the résumé summary are updated; leftover **AI Resume Summary** notes are removed after the combined note is written.
 
-The note names the job, company, recruiter, time, and source first (for example Indeed Applicant vs ZipRecruiter Applicant vs Web Applicant). The AI résumé summary is included under that, not as a second note. The job title, company, and recruiter names link to those records in Bullhorn.
+The note names the job, company, recruiter, time, and source first (for example Indeed Applicant vs ZipRecruiter Applicant vs Web Applicant). The AI résumé summary is included under that, not as a second note. The job title and company names link to those records in Bullhorn. The recruiter name is shown in bold only. Novo has no OpenWindow page for an internal user, so that name is not a hyperlink.
 
 Career-site / staffing-portal applies that never reach Scout still need the same note written in that project. Do not have the portal rewrite Zip/LinkedIn/Indeed mailbox notes. The Zip Apply webhook still does not create Bullhorn candidates, so it does not write this note yet.
 

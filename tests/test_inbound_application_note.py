@@ -36,7 +36,8 @@ def test_king_catron_preview_shape():
     assert 'Production Worker' in text
     assert 'entity=JobOrder&amp;id=79398' in text
     assert 'entity=ClientCorporation&amp;id=1001' in text
-    assert 'entity=CorporateUser&amp;id=2002' in text
+    assert 'entity=CorporateUser' not in text
+    assert '<b>Laura Madsen</b>' in text
     assert 'SC Johnson Wisconsin' in text
     assert 'Laura Madsen' in text
     assert 'October 1, 2026 at 7:18 PM' in text
@@ -231,3 +232,41 @@ def test_write_skips_when_links_and_summary_already_present(monkeypatch):
     ) is None
     bh.create_candidate_note.assert_not_called()
     bh.update_entity.assert_not_called()
+
+
+def test_write_strips_corporate_user_openwindow_link(monkeypatch):
+    monkeypatch.setenv('SCOUT_TENANT', 'qualified_staffing')
+    bh = MagicMock()
+    bh.get_entity.return_value = {
+        'id': 79398,
+        'title': 'Production Worker',
+        'clientCorporation': {'id': 1001, 'name': 'SC Johnson Wisconsin'},
+        'assignedUsers': {
+            'data': [{'id': 2002, 'firstName': 'Laura', 'lastName': 'Madsen'}],
+        },
+    }
+    old = build_application_note_text(
+        source='Indeed Job Board',
+        title='Production Worker',
+        company='SC Johnson Wisconsin',
+        recruiter='Laura Madsen',
+        job_id=79398,
+        company_id=1001,
+    ).replace(
+        '<b>Laura Madsen</b>',
+        '<b><a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=CorporateUser&amp;id=2002">Laura Madsen</a></b>',
+    ) + '<br><br>AI-Generated Resume Summary:\n\nDone.'
+    bh.get_candidate_notes.return_value = [{
+        'id': 10,
+        'action': APPLICATION_NOTE_ACTION,
+        'comments': old,
+    }]
+    bh.update_entity.return_value = True
+    note_id = write_application_received_note(
+        bh, 3339038, 79398, source='Indeed Job Board'
+    )
+    assert note_id == 10
+    updated = bh.update_entity.call_args[0][2]['comments']
+    assert 'entity=CorporateUser' not in updated
+    assert '<b>Laura Madsen</b>' in updated
+    assert 'entity=JobOrder&amp;id=79398' in updated

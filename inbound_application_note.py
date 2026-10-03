@@ -153,7 +153,8 @@ def build_application_note_text(
     recruiter_clean = (recruiter or '').strip()
     if recruiter_clean:
         pieces.append(' under ')
-        pieces.append(_linked_name(recruiter_clean, 'CorporateUser', recruiter_id))
+        # CorporateUser is not an OpenWindow entity in Novo (job/company are).
+        pieces.append(f'<b>{html.escape(recruiter_clean)}</b>')
     pieces.append(f' on {html.escape(format_applied_at(applied_at))}')
     first_line = ''.join(pieces)
     second = html.escape(source_display_line(source))
@@ -279,7 +280,12 @@ def write_application_received_note(
                 or f'entity=JobOrder&amp;id={int(job_id)}' in comments
             )
             summary_present = SUMMARY_HEADING in comments
-            needs_rewrite = (not job_linked) or (bool(summary_text) and not summary_present)
+            has_user_link = 'entity=CorporateUser' in comments
+            needs_rewrite = (
+                (not job_linked)
+                or (bool(summary_text) and not summary_present)
+                or has_user_link
+            )
             if needs_rewrite:
                 updated = bullhorn.update_entity(
                     'Note', int(match['id']), {'comments': combined}
