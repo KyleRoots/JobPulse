@@ -22,12 +22,12 @@ Qualified does not auto-merge or auto-archive candidates. The hourly job and the
 
 Qualified recruiters asked to see the applied job on **Notes / Overview**, not only under More → Pipeline → Response.
 
-On this service, Scout writes a separate **Application Received** note when it knows the job:
+On this service, Scout writes one **Application Received** note when it knows the job:
 
 - Mailbox inbound (Zip, LinkedIn, Indeed email, Scout apply form)
-- Native Indeed Apply follow-up (same 5-minute enrich cycle as the résumé summary)
+- Native Indeed Apply follow-up (same 5-minute enrich cycle)
 
-The note names the job, company, recruiter, time, and source (for example Indeed Applicant vs Web Applicant). The AI résumé summary is unchanged and stays a second note. Existing snapshot notes are not duplicated.
+The note names the job, company, recruiter, time, and source first (for example Indeed Applicant vs Web Applicant). The AI résumé summary is included under that, not as a second note. The job title, company, and recruiter names link to those records in Bullhorn. Existing split notes are folded into this one note on the next enrich cycle.
 
 Career-site / staffing-portal applies that never reach Scout still need the same note written in that project. The Zip Apply webhook still does not create Bullhorn candidates, so it does not write this note yet.
 

@@ -1,7 +1,6 @@
-"""Qualified-only snapshot note: which job, company, owner, when, and how they applied.
+"""Qualified-only application note: job snapshot first, then the AI résumé summary.
 
-Kept separate from the AI Resume Summary. Recruiters read this on Overview / Notes
-instead of opening More → Pipeline → Response.
+Recruiters read this on Overview / Notes instead of opening More → Pipeline → Response.
 """
 from __future__ import annotations
 
@@ -14,6 +13,11 @@ from zoneinfo import ZoneInfo
 logger = logging.getLogger(__name__)
 
 APPLICATION_NOTE_ACTION = 'Application Received'
+SUMMARY_ACTION = 'AI Resume Summary'
+SUMMARY_HEADING = 'AI-Generated Resume Summary:'
+BH_OPEN_WINDOW = (
+    'https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm'
+)
 SNAPSHOT_JOB_FIELDS = (
     'id,title,clientCorporation(id,name),'
     'owner(id,firstName,lastName),'
@@ -59,19 +63,45 @@ def person_name(value: Any) -> str:
     return ' '.join(part for part in (first, last) if part)
 
 
-def company_from_job(job: Optional[Dict[str, Any]]) -> str:
+def _record_id(value: Any) -> Optional[int]:
+    if not isinstance(value, dict):
+        return None
+    try:
+        raw = value.get('id')
+        return int(raw) if raw is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _linked_name(label: str, entity: str, entity_id: Optional[int]) -> str:
+    escaped = html.escape(label)
+    if not entity_id:
+        return f'<b>{escaped}</b>'
+    url = html.escape(
+        f'{BH_OPEN_WINDOW}?entity={entity}&id={int(entity_id)}',
+        quote=True,
+    )
+    return f'<b><a href="{url}">{escaped}</a></b>'
+
+
+def company_record_from_job(job: Optional[Dict[str, Any]]) -> tuple:
     if not isinstance(job, dict):
-        return ''
+        return '', None
     corp = job.get('clientCorporation')
-    if isinstance(corp, dict):
-        return str(corp.get('name') or '').strip()
-    return ''
+    if not isinstance(corp, dict):
+        return '', None
+    return str(corp.get('name') or '').strip(), _record_id(corp)
 
 
-def recruiter_from_job(job: Optional[Dict[str, Any]]) -> str:
+def company_from_job(job: Optional[Dict[str, Any]]) -> str:
+    name, _company_id = company_record_from_job(job)
+    return name
+
+
+def recruiter_record_from_job(job: Optional[Dict[str, Any]]) -> tuple:
     """Prefer assigned recruiter, then response user, then owner."""
     if not isinstance(job, dict):
-        return ''
+        return '', None
     assigned = job.get('assignedUsers')
     rows: List[Any] = []
     if isinstance(assigned, dict):
@@ -85,12 +115,18 @@ def recruiter_from_job(job: Optional[Dict[str, Any]]) -> str:
     for row in rows:
         name = person_name(row)
         if name:
-            return name
+            return name, _record_id(row)
     for key in ('responseUser', 'owner'):
-        name = person_name(job.get(key))
+        person = job.get(key)
+        name = person_name(person)
         if name:
-            return name
-    return ''
+            return name, _record_id(person)
+    return '', None
+
+
+def recruiter_from_job(job: Optional[Dict[str, Any]]) -> str:
+    name, _recruiter_id = recruiter_record_from_job(job)
+    return name
 
 
 def build_application_note_text(
@@ -100,20 +136,57 @@ def build_application_note_text(
     company: Optional[str] = None,
     recruiter: Optional[str] = None,
     applied_at: Optional[Any] = None,
+    job_id: Optional[int] = None,
+    company_id: Optional[int] = None,
+    recruiter_id: Optional[int] = None,
 ) -> str:
     label = html.escape(applicant_label_for_source(source))
-    job_title = html.escape((title or 'this job').strip() or 'this job')
-    pieces = [f'<b>{label}</b> for <b>{job_title}</b>']
+    job_title = (title or 'this job').strip() or 'this job'
+    pieces = [
+        f'<b>{label}</b> for ',
+        _linked_name(job_title, 'JobOrder', job_id),
+    ]
     company_clean = (company or '').strip()
     if company_clean:
-        pieces.append(f' at <b>{html.escape(company_clean)}</b>')
+        pieces.append(' at ')
+        pieces.append(_linked_name(company_clean, 'ClientCorporation', company_id))
     recruiter_clean = (recruiter or '').strip()
     if recruiter_clean:
-        pieces.append(f' under <b>{html.escape(recruiter_clean)}</b>')
+        pieces.append(' under ')
+        pieces.append(_linked_name(recruiter_clean, 'CorporateUser', recruiter_id))
     pieces.append(f' on {html.escape(format_applied_at(applied_at))}')
     first_line = ''.join(pieces)
     second = html.escape(source_display_line(source))
-    return f'{first_line}\n\n{second}'
+    return f'{first_line}<br>{second}'
+
+
+def resume_summary_body(resume_data: Optional[Dict[str, Any]]) -> str:
+    """Same résumé-summary body as mailbox ingest, without a separate note action."""
+    summary = str((resume_data or {}).get('summary') or '').strip()
+    if not summary:
+        return ''
+    parts = [f'{SUMMARY_HEADING}\n\n{summary}']
+    skills = (resume_data or {}).get('skills') or []
+    if isinstance(skills, list) and skills:
+        parts.append('\n\nKey Skills: ' + ', '.join(str(s) for s in skills[:10]))
+    years = (resume_data or {}).get('years_experience')
+    if years:
+        parts.append(f'\n\nExperience: {years} years')
+    return ''.join(parts)
+
+
+def combine_application_note_text(
+    snapshot: str,
+    summary_text: Optional[str] = None,
+) -> str:
+    """Application details first, AI summary underneath. Empty summary is omitted."""
+    snapshot = (snapshot or '').strip()
+    summary_text = (summary_text or '').strip()
+    if not summary_text:
+        return snapshot
+    if SUMMARY_HEADING in snapshot:
+        return snapshot
+    return f'{snapshot}<br><br>{summary_text}'
 
 
 def snapshot_already_present(
@@ -122,21 +195,30 @@ def snapshot_already_present(
     title: Optional[str],
     company: Optional[str] = None,
 ) -> bool:
+    return matching_snapshot_note(notes, title=title, company=company) is not None
+
+
+def matching_snapshot_note(
+    notes: Optional[List[Dict[str, Any]]],
+    *,
+    title: Optional[str],
+    company: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
     job_title = (title or '').strip()
     if not job_title:
-        return False
-    needle = f'for <b>{html.escape(job_title)}</b>'
+        return None
+    title_needle = html.escape(job_title)
     company_needle = html.escape((company or '').strip()) if (company or '').strip() else ''
     for note in notes or []:
         if (note.get('action') or '') != APPLICATION_NOTE_ACTION:
             continue
         comments = note.get('comments') or ''
-        if needle not in comments:
+        if title_needle not in comments:
             continue
         if company_needle and company_needle not in comments:
             continue
-        return True
-    return False
+        return note
+    return None
 
 
 def write_application_received_note(
@@ -146,8 +228,9 @@ def write_application_received_note(
     *,
     source: Optional[str],
     applied_at: Optional[Any] = None,
+    summary_text: Optional[str] = None,
 ) -> Optional[int]:
-    """Create the snapshot when Qualified knows the applied job. None if skipped or failed."""
+    """Create or update the combined application note. None if skipped or failed."""
     from feeds.feed_config import is_qualified_tenant
 
     if not is_qualified_tenant():
@@ -163,30 +246,68 @@ def write_application_received_note(
                 job_id, candidate_id,
             )
             return None
-        company = company_from_job(job)
-        recruiter = recruiter_from_job(job)
+        company, company_id = company_record_from_job(job)
+        recruiter, recruiter_id = recruiter_record_from_job(job)
         existing = bullhorn.get_candidate_notes(
             int(candidate_id),
-            action_filter=[APPLICATION_NOTE_ACTION],
+            action_filter=[APPLICATION_NOTE_ACTION, SUMMARY_ACTION],
             count=50,
         )
-        if snapshot_already_present(existing, title=title, company=company):
-            logger.info(
-                'application snapshot: already present for candidate %s job %s',
-                candidate_id, job_id,
-            )
-            return None
-        text = build_application_note_text(
+        summary_text = (summary_text or '').strip()
+        if not summary_text:
+            for note in existing or []:
+                comments = note.get('comments') or ''
+                if (note.get('action') or '') == SUMMARY_ACTION and SUMMARY_HEADING in comments:
+                    summary_text = comments.strip()
+                    break
+        snapshot = build_application_note_text(
             source=source,
             title=title,
             company=company,
             recruiter=recruiter,
             applied_at=applied_at,
+            job_id=int(job_id),
+            company_id=company_id,
+            recruiter_id=recruiter_id,
         )
+        combined = combine_application_note_text(snapshot, summary_text)
+        match = matching_snapshot_note(existing, title=title, company=company)
+        if match:
+            comments = match.get('comments') or ''
+            job_linked = (
+                f'entity=JobOrder&id={int(job_id)}' in comments
+                or f'entity=JobOrder&amp;id={int(job_id)}' in comments
+            )
+            summary_present = SUMMARY_HEADING in comments
+            needs_rewrite = (not job_linked) or (bool(summary_text) and not summary_present)
+            if needs_rewrite:
+                updated = bullhorn.update_entity(
+                    'Note', int(match['id']), {'comments': combined}
+                )
+                if updated:
+                    _soft_delete_standalone_summaries(
+                        bullhorn, existing, kept_id=int(match['id'])
+                    )
+                    logger.info(
+                        'application snapshot: updated note %s on candidate %s',
+                        match['id'], candidate_id,
+                    )
+                    return int(match['id'])
+            if summary_present:
+                _soft_delete_standalone_summaries(
+                    bullhorn, existing, kept_id=int(match['id'])
+                )
+            logger.info(
+                'application snapshot: already present for candidate %s job %s',
+                candidate_id, job_id,
+            )
+            return None
+        text = combined
         note_id = bullhorn.create_candidate_note(
             int(candidate_id), text, APPLICATION_NOTE_ACTION
         )
         if note_id:
+            _soft_delete_standalone_summaries(bullhorn, existing, kept_id=int(note_id))
             logger.info(
                 'application snapshot: note %s on candidate %s for job %s',
                 note_id, candidate_id, job_id,
@@ -198,6 +319,27 @@ def write_application_received_note(
             candidate_id, job_id, exc,
         )
         return None
+
+
+def _soft_delete_standalone_summaries(bullhorn, notes, *, kept_id: int) -> None:
+    """Remove leftover AI Resume Summary notes after the combined note is in place."""
+    for note in notes or []:
+        if (note.get('action') or '') != SUMMARY_ACTION:
+            continue
+        note_id = note.get('id')
+        if not note_id or int(note_id) == int(kept_id):
+            continue
+        comments = note.get('comments') or ''
+        if SUMMARY_HEADING not in comments:
+            continue
+        try:
+            bullhorn.delete_entity('Note', int(note_id), soft_delete=True)
+            logger.info('application snapshot: removed standalone AI Resume Summary note %s', note_id)
+        except Exception as exc:
+            logger.warning(
+                'application snapshot: could not remove standalone summary note %s: %s',
+                note_id, exc,
+            )
 
 
 def _as_eastern(applied_at: Optional[Any]) -> Optional[datetime]:

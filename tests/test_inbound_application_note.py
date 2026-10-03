@@ -28,13 +28,20 @@ def test_king_catron_preview_shape():
         company='SC Johnson Wisconsin',
         recruiter='Laura Madsen',
         applied_at=applied,
+        job_id=79398,
+        company_id=1001,
+        recruiter_id=2002,
     )
-    assert text.startswith(
-        '<b>Indeed Applicant</b> for <b>Production Worker</b> at '
-        '<b>SC Johnson Wisconsin</b> under <b>Laura Madsen</b> on '
-    )
+    assert text.startswith('<b>Indeed Applicant</b> for ')
+    assert 'Production Worker' in text
+    assert 'entity=JobOrder&amp;id=79398' in text
+    assert 'entity=ClientCorporation&amp;id=1001' in text
+    assert 'entity=CorporateUser&amp;id=2002' in text
+    assert 'SC Johnson Wisconsin' in text
+    assert 'Laura Madsen' in text
     assert 'October 1, 2026 at 7:18 PM' in text
     assert text.endswith('Indeed Job Board')
+    assert '<br>' in text
     assert 'AI-Generated Resume Summary' not in text
 
 
@@ -51,6 +58,30 @@ def test_web_applicant_preview_shape():
     assert 'Garden Fresh Gourmet' in text
     assert 'Monica Myska' in text
     assert text.endswith('Corporate Website')
+
+
+def test_combined_note_puts_summary_under_snapshot():
+    from inbound_application_note import combine_application_note_text, resume_summary_body
+
+    snapshot = build_application_note_text(
+        source='Indeed Job Board',
+        title='Experienced Machine Operators in West Point, MS!',
+        company='Fabricators Supply, Llc',
+        recruiter='Salem Barksdale',
+        job_id=555,
+        company_id=666,
+        recruiter_id=777,
+        applied_at=datetime(2026, 10, 3, 12, 0, tzinfo=timezone.utc),
+    )
+    summary = resume_summary_body({
+        'summary': 'Skilled Forklift Operator with 2 years of experience.',
+        'skills': ['Material Handling'],
+        'years_experience': 9,
+    })
+    text = combine_application_note_text(snapshot, summary)
+    assert text.index('Indeed Applicant') < text.index('AI-Generated Resume Summary:')
+    assert 'Skilled Forklift Operator' in text
+    assert 'Key Skills: Material Handling' in text
 
 
 def test_html_escapes_job_title():
@@ -115,14 +146,17 @@ def test_write_creates_note_on_qualified(monkeypatch):
     bh.get_entity.return_value = {
         'id': 79398,
         'title': 'Production Worker',
-        'clientCorporation': {'name': 'SC Johnson Wisconsin'},
-        'assignedUsers': {'data': [{'firstName': 'Laura', 'lastName': 'Madsen'}]},
+        'clientCorporation': {'id': 1001, 'name': 'SC Johnson Wisconsin'},
+        'assignedUsers': {
+            'data': [{'id': 2002, 'firstName': 'Laura', 'lastName': 'Madsen'}],
+        },
     }
     bh.get_candidate_notes.return_value = []
     bh.create_candidate_note.return_value = 555
     note_id = write_application_received_note(
         bh, 3339038, 79398, source='Indeed Job Board',
         applied_at=datetime(2026, 10, 1, 23, 18, tzinfo=timezone.utc),
+        summary_text='AI-Generated Resume Summary:\n\nCook with food-safety experience.',
     )
     assert note_id == 555
     args, kwargs = bh.create_candidate_note.call_args
@@ -130,24 +164,70 @@ def test_write_creates_note_on_qualified(monkeypatch):
     assert args[2] == APPLICATION_NOTE_ACTION
     assert 'Indeed Applicant' in args[1]
     assert 'Production Worker' in args[1]
+    assert 'entity=JobOrder&amp;id=79398' in args[1]
+    assert args[1].index('Indeed Applicant') < args[1].index('AI-Generated Resume Summary:')
 
 
-def test_write_skips_duplicate_on_qualified(monkeypatch):
+def test_write_updates_existing_note_with_links_and_summary(monkeypatch):
     monkeypatch.setenv('SCOUT_TENANT', 'qualified_staffing')
     bh = MagicMock()
     bh.get_entity.return_value = {
+        'id': 79398,
         'title': 'Production Worker',
-        'clientCorporation': {'name': 'SC Johnson Wisconsin'},
+        'clientCorporation': {'id': 1001, 'name': 'SC Johnson Wisconsin'},
+        'assignedUsers': {
+            'data': [{'id': 2002, 'firstName': 'Laura', 'lastName': 'Madsen'}],
+        },
     }
+    bh.get_candidate_notes.return_value = [
+        {
+            'id': 10,
+            'action': APPLICATION_NOTE_ACTION,
+            'comments': 'Indeed Applicant for <b>Production Worker</b> at <b>SC Johnson Wisconsin</b>',
+        },
+        {
+            'id': 11,
+            'action': 'AI Resume Summary',
+            'comments': 'AI-Generated Resume Summary:\n\nWarehouse experience.',
+        },
+    ]
+    bh.update_entity.return_value = True
+    bh.delete_entity.return_value = True
+    note_id = write_application_received_note(
+        bh, 3339038, 79398, source='Indeed Job Board',
+        applied_at=datetime(2026, 10, 1, 23, 18, tzinfo=timezone.utc),
+    )
+    assert note_id == 10
+    bh.update_entity.assert_called_once()
+    updated = bh.update_entity.call_args[0][2]['comments']
+    assert 'entity=JobOrder&amp;id=79398' in updated
+    assert 'AI-Generated Resume Summary:' in updated
+    bh.delete_entity.assert_called_once()
+    assert bh.delete_entity.call_args[0][1] == 11
+
+
+def test_write_skips_when_links_and_summary_already_present(monkeypatch):
+    monkeypatch.setenv('SCOUT_TENANT', 'qualified_staffing')
+    bh = MagicMock()
+    bh.get_entity.return_value = {
+        'id': 79398,
+        'title': 'Production Worker',
+        'clientCorporation': {'id': 1001, 'name': 'SC Johnson Wisconsin'},
+    }
+    comments = build_application_note_text(
+        source='Indeed Job Board',
+        title='Production Worker',
+        company='SC Johnson Wisconsin',
+        job_id=79398,
+        company_id=1001,
+    ) + '<br><br>AI-Generated Resume Summary:\n\nDone.'
     bh.get_candidate_notes.return_value = [{
+        'id': 10,
         'action': APPLICATION_NOTE_ACTION,
-        'comments': build_application_note_text(
-            source='Indeed Job Board',
-            title='Production Worker',
-            company='SC Johnson Wisconsin',
-        ),
+        'comments': comments,
     }]
     assert write_application_received_note(
         bh, 3339038, 79398, source='Indeed Job Board'
     ) is None
     bh.create_candidate_note.assert_not_called()
+    bh.update_entity.assert_not_called()
