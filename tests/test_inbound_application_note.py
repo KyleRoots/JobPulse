@@ -137,7 +137,12 @@ def test_dedup_matches_capital_entity_openwindow():
     )
     existing = [{'action': APPLICATION_NOTE_ACTION, 'comments': comments}]
     assert snapshot_already_present(
-        existing, title='Welder/Tig& Mig', company='Woodard -C.M LLC', job_id=80111
+        existing, title='Welder/Tig& Mig', company='Woodard -C.M LLC', job_id=80111,
+        applied_at=datetime(2026, 10, 3, 17, 33, tzinfo=timezone.utc),
+    )
+    assert not snapshot_already_present(
+        existing, title='Welder/Tig& Mig', company='Woodard -C.M LLC', job_id=80111,
+        applied_at=datetime(2026, 10, 3, 18, 22, tzinfo=timezone.utc),
     )
 
 
@@ -238,7 +243,10 @@ def test_write_updates_existing_note_with_links_and_summary(monkeypatch):
         {
             'id': 10,
             'action': APPLICATION_NOTE_ACTION,
-            'comments': 'Indeed Applicant for <b>Production Worker</b> at <b>SC Johnson Wisconsin</b>',
+            'comments': (
+                'Indeed Applicant for <b>Production Worker</b> at '
+                '<b>SC Johnson Wisconsin</b> on Thursday, October 1, 2026 at 7:18 PM'
+            ),
         },
         {
             'id': 11,
@@ -269,12 +277,14 @@ def test_write_skips_when_links_and_summary_already_present(monkeypatch):
         'title': 'Production Worker',
         'clientCorporation': {'id': 1001, 'name': 'SC Johnson Wisconsin'},
     }
+    applied = datetime(2026, 10, 1, 23, 18, tzinfo=timezone.utc)
     comments = build_application_note_text(
         source='Indeed Job Board',
         title='Production Worker',
         company='SC Johnson Wisconsin',
         job_id=79398,
         company_id=1001,
+        applied_at=applied,
     ) + '<br><br>AI-Generated Resume Summary:\n\nDone.'
     bh.get_candidate_notes.return_value = [{
         'id': 10,
@@ -282,7 +292,7 @@ def test_write_skips_when_links_and_summary_already_present(monkeypatch):
         'comments': comments,
     }]
     assert write_application_received_note(
-        bh, 3339038, 79398, source='Indeed Job Board'
+        bh, 3339038, 79398, source='Indeed Job Board', applied_at=applied
     ) is None
     bh.create_candidate_note.assert_not_called()
     bh.update_entity.assert_not_called()
@@ -299,6 +309,7 @@ def test_write_strips_corporate_user_openwindow_link(monkeypatch):
             'data': [{'id': 2002, 'firstName': 'Laura', 'lastName': 'Madsen'}],
         },
     }
+    applied = datetime(2026, 10, 1, 23, 18, tzinfo=timezone.utc)
     old = build_application_note_text(
         source='Indeed Job Board',
         title='Production Worker',
@@ -306,6 +317,7 @@ def test_write_strips_corporate_user_openwindow_link(monkeypatch):
         recruiter='Laura Madsen',
         job_id=79398,
         company_id=1001,
+        applied_at=applied,
     ).replace(
         '<b>Laura Madsen</b>',
         '<b><a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=CorporateUser&amp;id=2002">Laura Madsen</a></b>',
@@ -317,7 +329,7 @@ def test_write_strips_corporate_user_openwindow_link(monkeypatch):
     }]
     bh.update_entity.return_value = True
     note_id = write_application_received_note(
-        bh, 3339038, 79398, source='Indeed Job Board'
+        bh, 3339038, 79398, source='Indeed Job Board', applied_at=applied
     )
     assert note_id == 10
     updated = bh.update_entity.call_args[0][2]['comments']
@@ -359,6 +371,42 @@ def test_write_collapses_duplicate_notes_for_same_job(monkeypatch):
     assert 11 in deleted
     assert 31 in deleted
     assert 20 not in deleted
+
+
+def test_write_creates_new_note_for_later_apply_to_same_job(monkeypatch):
+    monkeypatch.setenv('SCOUT_TENANT', 'qualified_staffing')
+    bh = MagicMock()
+    bh.get_entity.return_value = {
+        'id': 79398,
+        'title': 'Production Worker',
+        'clientCorporation': {'id': 1001, 'name': 'SC Johnson Wisconsin'},
+    }
+    first = datetime(2026, 10, 1, 23, 18, tzinfo=timezone.utc)
+    second = datetime(2026, 10, 3, 18, 22, tzinfo=timezone.utc)
+    existing = build_application_note_text(
+        source='Indeed Job Board',
+        title='Production Worker',
+        company='SC Johnson Wisconsin',
+        job_id=79398,
+        company_id=1001,
+        applied_at=first,
+    ) + '<br><br>AI-Generated Resume Summary:\n\nFirst apply.'
+    bh.get_candidate_notes.return_value = [{
+        'id': 10,
+        'action': APPLICATION_NOTE_ACTION,
+        'comments': existing,
+    }]
+    bh.create_candidate_note.return_value = 99
+    note_id = write_application_received_note(
+        bh, 3339038, 79398, source='Indeed Job Board', applied_at=second,
+        summary_text='AI-Generated Resume Summary:\n\nSecond apply.',
+    )
+    assert note_id == 99
+    bh.update_entity.assert_not_called()
+    created = bh.create_candidate_note.call_args[0][1]
+    assert '2:22 PM' in created
+    assert '7:18 PM' not in created
+    bh.delete_entity.assert_not_called()
 
 
 def test_collapse_website_duplicates_does_not_rewrite(monkeypatch):

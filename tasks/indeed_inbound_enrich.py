@@ -165,6 +165,8 @@ def _try_write_application_note(
     from inbound_application_note import (
         APPLICATION_NOTE_ACTION,
         SUMMARY_HEADING,
+        _job_order_linked,
+        _same_applied_at,
         resume_summary_body,
         write_application_received_note,
     )
@@ -188,6 +190,8 @@ def _try_write_application_note(
     already_combined = any(
         SUMMARY_HEADING in (n.get('comments') or '')
         and (n.get('action') or '') == APPLICATION_NOTE_ACTION
+        and _job_order_linked(n.get('comments') or '', job_id)
+        and _same_applied_at(n.get('comments') or '', applied_at)
         for n in prior or []
     )
     has_ai_note = any(

@@ -206,9 +206,14 @@ def snapshot_already_present(
     title: Optional[str],
     company: Optional[str] = None,
     job_id: Optional[int] = None,
+    applied_at: Optional[Any] = None,
 ) -> bool:
     return matching_snapshot_note(
-        notes, title=title, company=company, job_id=job_id
+        notes,
+        title=title,
+        company=company,
+        job_id=job_id,
+        applied_at=applied_at,
     ) is not None
 
 
@@ -225,6 +230,23 @@ def application_note_job_ids(comments: Optional[str]) -> List[int]:
 def application_note_applied_at_phrase(comments: Optional[str]) -> str:
     match = _APPLIED_AT_RE.search(comments or '')
     return match.group(0).strip().lower() if match else ''
+
+
+def expected_applied_at_phrase(applied_at: Optional[Any]) -> str:
+    """Same 'on Weekday, Month D, YYYY at h:mm AM/PM' clause written into the note."""
+    if applied_at is None:
+        return ''
+    return f'on {format_applied_at(applied_at)}'.strip().lower()
+
+
+def _same_applied_at(comments: str, applied_at: Optional[Any]) -> bool:
+    expected = expected_applied_at_phrase(applied_at)
+    if not expected:
+        return True
+    phrase = application_note_applied_at_phrase(comments)
+    if not phrase:
+        return False
+    return phrase == expected
 
 
 def _job_order_linked(comments: str, job_id: int) -> bool:
@@ -279,6 +301,7 @@ def matching_snapshot_notes(
     title: Optional[str],
     company: Optional[str] = None,
     job_id: Optional[int] = None,
+    applied_at: Optional[Any] = None,
 ) -> List[Dict[str, Any]]:
     job_title = (title or '').strip()
     has_job_id = False
@@ -295,12 +318,15 @@ def matching_snapshot_notes(
             continue
         comments = note.get('comments') or ''
         if has_job_id and _job_order_linked(comments, job_id_int):
-            found.append(note)
+            if _same_applied_at(comments, applied_at):
+                found.append(note)
             continue
         if not job_title or not _comments_include(comments, job_title):
             continue
         company_clean = (company or '').strip()
         if company_clean and not _comments_include(comments, company_clean):
+            continue
+        if not _same_applied_at(comments, applied_at):
             continue
         found.append(note)
     return found
@@ -312,9 +338,16 @@ def matching_snapshot_note(
     title: Optional[str],
     company: Optional[str] = None,
     job_id: Optional[int] = None,
+    applied_at: Optional[Any] = None,
 ) -> Optional[Dict[str, Any]]:
     return _pick_snapshot_keeper(
-        matching_snapshot_notes(notes, title=title, company=company, job_id=job_id)
+        matching_snapshot_notes(
+            notes,
+            title=title,
+            company=company,
+            job_id=job_id,
+            applied_at=applied_at,
+        )
     )
 
 
@@ -369,7 +402,11 @@ def write_application_received_note(
         )
         combined = combine_application_note_text(snapshot, summary_text)
         matches = matching_snapshot_notes(
-            existing, title=title, company=company, job_id=int(job_id)
+            existing,
+            title=title,
+            company=company,
+            job_id=int(job_id),
+            applied_at=applied_at,
         )
         match = _pick_snapshot_keeper(matches)
         if match:
@@ -385,7 +422,8 @@ def write_application_received_note(
             match_id = int(match['id'])
             extras = list(matches)
             for group in duplicate_application_note_groups(existing):
-                extras.extend(group)
+                if any(int(n.get('id') or 0) == match_id for n in group):
+                    extras.extend(group)
             if needs_rewrite:
                 updated = bullhorn.update_entity(
                     'Note', match_id, {'comments': combined}
@@ -418,6 +456,16 @@ def write_application_received_note(
         )
         if note_id:
             _soft_delete_standalone_summaries(bullhorn, existing, kept_id=int(note_id))
+            extras = []
+            for group in duplicate_application_note_groups(existing):
+                comments = (group[0].get('comments') if group else '') or ''
+                if _job_order_linked(comments, int(job_id)) and _same_applied_at(
+                    comments, applied_at
+                ):
+                    extras.extend(group)
+            _soft_delete_duplicate_snapshots(
+                bullhorn, extras, kept_id=int(note_id)
+            )
             logger.info(
                 'application snapshot: note %s on candidate %s for job %s',
                 note_id, candidate_id, job_id,
