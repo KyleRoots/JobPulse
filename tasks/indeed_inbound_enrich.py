@@ -5,10 +5,13 @@ runs. This follow-up, on the same 5-minute Indeed remap cycle:
 
 * Qualified only: copy the applied job's Internal Department onto the
   candidate when it is missing (same field pair as mailbox / portal ingest).
+* Qualified only: write an Application Received snapshot (job, company,
+  recruiter, time, source) when a submission exists. Does not replace the
+  résumé summary.
 * Any tenant: write an AI Resume Summary note from the resume file Bullhorn
   already stored, using the same parser and note action as Zip and LinkedIn.
 
-Existing department values and existing summary notes are left alone.
+Existing department values, snapshot notes, and summary notes are left alone.
 """
 from __future__ import annotations
 
@@ -25,6 +28,7 @@ SUMMARY_ACTION = 'AI Resume Summary'
 MAX_SCAN = 300
 MAX_DEPARTMENT_UPDATES = 40
 MAX_SUMMARIES = 8
+MAX_SNAPSHOTS = 40
 
 
 def department_update(current: Any, job_department: Optional[str]) -> Optional[str]:
@@ -127,6 +131,7 @@ def enrich_indeed_job_board_candidates() -> Dict[str, Any]:
         'scanned': 0,
         'department_updated': 0,
         'summaries_created': 0,
+        'snapshots_created': 0,
         'skipped': 0,
         'failed': 0,
     }
@@ -149,9 +154,12 @@ def enrich_indeed_job_board_candidates() -> Dict[str, Any]:
     parser = None
     dept_budget = MAX_DEPARTMENT_UPDATES
     summary_budget = MAX_SUMMARIES
+    snapshot_budget = MAX_SNAPSHOTS
     start = 0
 
-    while start < MAX_SCAN and (dept_budget > 0 or summary_budget > 0):
+    while start < MAX_SCAN and (
+        dept_budget > 0 or summary_budget > 0 or snapshot_budget > 0
+    ):
         response = _requests.get(
             f'{bh.base_url}search/Candidate',
             headers=headers,
@@ -171,17 +179,24 @@ def enrich_indeed_job_board_candidates() -> Dict[str, Any]:
         if not rows:
             break
         for candidate in rows:
-            if dept_budget <= 0 and summary_budget <= 0:
+            if dept_budget <= 0 and summary_budget <= 0 and snapshot_budget <= 0:
                 break
             cid = candidate.get('id')
             if not cid:
                 continue
             summary['scanned'] += 1
             try:
+                submissions = None
+
+                def _submissions():
+                    nonlocal submissions
+                    if submissions is None:
+                        submissions = bh.get_candidate_submissions(int(cid), count=5)
+                    return submissions
+
                 dept_written = False
                 if mirror_dept and dept_budget > 0:
-                    submissions = bh.get_candidate_submissions(int(cid), count=5)
-                    job_id = latest_job_id(submissions)
+                    job_id = latest_job_id(_submissions())
                     incoming = fetch_job_internal_department(bh, job_id) if job_id else None
                     value = department_update(candidate.get('customText3'), incoming)
                     if value:
@@ -201,6 +216,32 @@ def enrich_indeed_job_board_candidates() -> Dict[str, Any]:
                             )
                         else:
                             summary['failed'] += 1
+
+                snapshot_written = False
+                if snapshot_budget > 0:
+                    from feeds.feed_config import is_qualified_tenant
+                    from inbound_application_note import write_application_received_note
+
+                    if is_qualified_tenant():
+                        job_id = latest_job_id(_submissions())
+                        rows_sub = _submissions() or []
+                        applied_at = rows_sub[0].get('dateAdded') if rows_sub else None
+                        if job_id:
+                            snap_id = write_application_received_note(
+                                bh,
+                                int(cid),
+                                job_id,
+                                source=candidate.get('source') or 'Indeed Job Board',
+                                applied_at=applied_at,
+                            )
+                            if snap_id:
+                                summary['snapshots_created'] += 1
+                                snapshot_budget -= 1
+                                snapshot_written = True
+                                logger.info(
+                                    'indeed enrich: Application Received snapshot on candidate %s job %s',
+                                    cid, job_id,
+                                )
 
                 note_written = False
                 if summary_budget > 0:
@@ -228,7 +269,7 @@ def enrich_indeed_job_board_candidates() -> Dict[str, Any]:
                                 summary_budget -= 1
                                 note_written = True
                                 logger.info('indeed enrich: AI Resume Summary on candidate %s', cid)
-                if not dept_written and not note_written:
+                if not dept_written and not note_written and not snapshot_written:
                     summary['skipped'] += 1
             except Exception as exc:
                 summary['failed'] += 1
@@ -238,10 +279,11 @@ def enrich_indeed_job_board_candidates() -> Dict[str, Any]:
         start += len(rows)
 
     logger.info(
-        'indeed enrich: scanned=%s department=%s summaries=%s skipped=%s failed=%s',
+        'indeed enrich: scanned=%s department=%s summaries=%s snapshots=%s skipped=%s failed=%s',
         summary['scanned'],
         summary['department_updated'],
         summary['summaries_created'],
+        summary['snapshots_created'],
         summary['skipped'],
         summary['failed'],
     )

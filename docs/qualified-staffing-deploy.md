@@ -18,6 +18,19 @@ Myticas and STSI are Brands on one Bullhorn instance. Qualified Staffing is a di
 
 Qualified does not auto-merge or auto-archive candidates. The hourly job and the manual bulk scan both no-op on this service. Set `DUPLICATE_MERGE_ENABLED=true` only after a later decision to turn it back on. Myticas/STSI keep the hourly merge.
 
+## Application snapshot notes
+
+Qualified recruiters asked to see the applied job on **Notes / Overview**, not only under More → Pipeline → Response.
+
+On this service, Scout writes a separate **Application Received** note when it knows the job:
+
+- Mailbox inbound (Zip, LinkedIn, Indeed email, Scout apply form)
+- Native Indeed Apply follow-up (same 5-minute enrich cycle as the résumé summary)
+
+The note names the job, company, recruiter, time, and source (for example Indeed Applicant vs Web Applicant). The AI résumé summary is unchanged and stays a second note. Existing snapshot notes are not duplicated.
+
+Career-site / staffing-portal applies that never reach Scout still need the same note written in that project. The Zip Apply webhook still does not create Bullhorn candidates, so it does not write this note yet.
+
 ## ZipRecruiter Apply webhook (receive only)
 
 Live URL for the Q-Staffing test: `POST https://qualified.scoutgenius.ai/api/ziprecruiter/apply`

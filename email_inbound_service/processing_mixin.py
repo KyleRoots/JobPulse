@@ -757,7 +757,39 @@ class ProcessingMixin:
                             self.logger.warning(f"Failed to create AI summary note for candidate {candidate_id}")
                             note_status = "ai_summary_failed"
 
-                if not note_created:
+                snapshot_written = False
+                if candidate_id and job_id:
+                    try:
+                        from feeds.feed_config import is_qualified_tenant
+                        from inbound_application_note import write_application_received_note
+
+                        if is_qualified_tenant():
+                            snap_source = (
+                                (bullhorn_data.get('source') or '').strip()
+                                or self.SOURCE_TO_BULLHORN.get(source, source)
+                                or source
+                            )
+                            snap_id = write_application_received_note(
+                                bullhorn,
+                                candidate_id,
+                                job_id,
+                                source=snap_source,
+                                applied_at=datetime.utcnow(),
+                            )
+                            if snap_id:
+                                snapshot_written = True
+                                if not note_id_created:
+                                    note_id_created = snap_id
+                                if note_status in ('not_attempted',):
+                                    note_status = 'snapshot_created'
+                                else:
+                                    note_status = f'{note_status}+snapshot'
+                    except Exception as snap_err:
+                        self.logger.warning(
+                            f"Application snapshot note failed for candidate {candidate_id}: {snap_err}"
+                        )
+
+                if not note_created and not snapshot_written:
                     self.logger.info(f"Creating fallback application note for candidate {candidate_id}")
 
                     note_parts = [f"Job Application Received via {source}"]
