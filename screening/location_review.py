@@ -35,6 +35,9 @@ Used by:
 LOCATION_NEAR_MISS_PENALTY_CAP = 15
 
 
+from screening.job_threshold import resolve_job_threshold
+
+
 def resolve_match_threshold(match, job_threshold_map, global_threshold: float) -> float:
     """
     Return the per-job custom vetting threshold for a match if one is defined,
@@ -44,20 +47,12 @@ def resolve_match_threshold(match, job_threshold_map, global_threshold: float) -
     same threshold that determined its is_qualified status — keeping the new
     notification path consistent with the per-job qualification logic in
     candidate_vetting_service.py.
-
-    Args:
-        match: a CandidateJobMatch (must have bullhorn_job_id attribute)
-        job_threshold_map: dict mapping bullhorn_job_id -> custom threshold,
-            or empty/None if no per-job thresholds are configured
-        global_threshold: the global VettingConfig match_threshold to fall
-            back to when no per-job override exists
     """
-    if not job_threshold_map:
-        return global_threshold
-    job_id = getattr(match, 'bullhorn_job_id', None)
-    if job_id is None:
-        return global_threshold
-    return job_threshold_map.get(job_id, global_threshold)
+    return resolve_job_threshold(
+        job_threshold_map,
+        getattr(match, 'bullhorn_job_id', None),
+        global_threshold,
+    )
 
 
 def is_location_review_match(match, threshold: float) -> bool:

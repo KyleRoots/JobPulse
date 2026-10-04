@@ -18,6 +18,7 @@ from app import db
 from models import CandidateJobMatch, CandidateVettingLog, JobVettingRequirements
 from screening.location_review import is_location_review_match, resolve_match_threshold
 from screening.near_miss import NEAR_MISS_BAND_POINTS, is_near_miss_match
+from screening.job_threshold import coerce_job_id, custom_job_threshold
 
 _MONTH_ABBREV = (
     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -470,7 +471,9 @@ class NoteBuilderMixin:
             and 'location mismatch' in (match.gaps_identified or '').lower()
         )
 
-        match_custom = job_threshold_map.get(match.bullhorn_job_id)
+        match_custom = custom_job_threshold(
+            job_threshold_map, match.bullhorn_job_id
+        )
         if has_location_penalty:
             score_text = f"  Technical Fit: {tech:.0f}% → Location Penalty → Final: {match.match_score:.0f}%"
         else:
@@ -589,9 +592,11 @@ class NoteBuilderMixin:
                         JobVettingRequirements.vetting_threshold.isnot(None),
                     ).all()
                     for req in custom_reqs:
-                        job_threshold_map_preview[req.bullhorn_job_id] = float(
-                            req.vetting_threshold
-                        )
+                        jid = coerce_job_id(req.bullhorn_job_id)
+                        if jid is not None:
+                            job_threshold_map_preview[jid] = float(
+                                req.vetting_threshold
+                            )
                 except Exception:
                     job_threshold_map_preview = {}
 
@@ -697,7 +702,9 @@ class NoteBuilderMixin:
                     JobVettingRequirements.vetting_threshold.isnot(None)
                 ).all()
                 for req in custom_reqs:
-                    job_threshold_map[req.bullhorn_job_id] = float(req.vetting_threshold)
+                    jid = coerce_job_id(req.bullhorn_job_id)
+                    if jid is not None:
+                        job_threshold_map[jid] = float(req.vetting_threshold)
             except Exception as e:
                 logger.warning(f"Could not fetch per-job thresholds for note: {str(e)}")
         
@@ -809,7 +816,9 @@ class NoteBuilderMixin:
             ]
             for m in top_lr:
                 tech = m.technical_score or m.match_score
-                match_custom = job_threshold_map.get(m.bullhorn_job_id)
+                match_custom = custom_job_threshold(
+                    job_threshold_map, m.bullhorn_job_id
+                )
                 if tech and tech != m.match_score:
                     score_line = f"  Technical Fit: {tech:.0f}% → Location Penalty → Final: {m.match_score:.0f}%"
                 else:
@@ -925,7 +934,9 @@ class NoteBuilderMixin:
                 f"POSITION(S) TO VALIDATE:",
             ]
             for m in top_nm:
-                match_custom = job_threshold_map.get(m.bullhorn_job_id)
+                match_custom = custom_job_threshold(
+                    job_threshold_map, m.bullhorn_job_id
+                )
                 m_threshold = resolve_match_threshold(m, job_threshold_map, threshold)
                 score_line = f"  Score: {(m.match_score or 0):.0f}%  |  Threshold: {m_threshold:.0f}%"
                 if match_custom:
@@ -1001,7 +1012,7 @@ class NoteBuilderMixin:
                 f"🎯 SCOUT SCREENING - QUALIFIED CANDIDATE",
                 f"",
                 f"Analysis Date: {vetting_log.analyzed_at.strftime('%Y-%m-%d %H:%M UTC') if vetting_log.analyzed_at else 'N/A'}",
-                f"Threshold: {threshold}%",
+                f"Threshold: {threshold}% default (custom bars are listed per job below)",
                 f"Qualified Matches: {len(qualified_matches)} of {len(matches)} jobs",
                 f"Highest Match Score: {vetting_log.highest_match_score:.0f}%",
                 f"",
@@ -1074,11 +1085,11 @@ class NoteBuilderMixin:
                 f"📋 SCOUT SCREENING - NOT RECOMMENDED",
                 f"",
                 f"Analysis Date: {vetting_log.analyzed_at.strftime('%Y-%m-%d %H:%M UTC') if vetting_log.analyzed_at else 'N/A'}",
-                f"Threshold: {threshold}%",
+                f"Threshold: {threshold}% default (custom bars are listed per job below)",
                 f"Highest Match Score: {vetting_log.highest_match_score:.0f}%",
                 f"Jobs Analyzed: {len(matches)}",
                 f"",
-                f"This candidate did not meet the {threshold}% match threshold for any current open positions.",
+                f"This candidate did not meet the qualifying threshold for any scored position.",
                 f"",
             ]
             

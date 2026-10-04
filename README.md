@@ -437,6 +437,7 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
+- **Per-job recommend threshold (Oct 4)**: Scout Recommend uses each job's custom match bar when one is set, whether that is below or above the global 80% baseline. A job set to 60% recommends at 60% or higher. A job set to 90% requires 90%. Closed jobs, location barriers, and years/tenure gates still apply. Existing notes are not rewritten until the candidate is screened again.
 - **Qualified application snapshot notes (Oct 3)**: On Qualified, inbound email and native Indeed Apply write one **Application Received** note: job, company, recruiter, time, and source first, then the AI résumé summary. Job title and company link to those Bullhorn records. The recruiter name is bold text only (Novo has no internal-user page). The 5-minute cycle updates older Scout board notes (Zip, LinkedIn, Indeed, Dice). It does not rewrite career-site Corporate Website notes. Duplicate Application Received notes for the same job are collapsed. Myticas/STSI unchanged. Career-site applies still need the same note in staffing-portal.
 - **Qualified duplicate merge paused (Oct 1)**: The hourly auto-merge, which also archives the extra candidate, is off on Qualified. The manual bulk scan is off there too. Myticas/STSI are unchanged. Turn it back on for Qualified only with `DUPLICATE_MERGE_ENABLED=true`. Candidate cleanup (missing email, description, occupation) is still on.
 - **Appleton Indeed hashtag (Sep 30)**: Appleton and Appleton (WI) still publish and unpublish from the Indeed tearsheet and job status. Scout no longer adds, replaces, or strips the campaign hashtag on those jobs. Whatever is saved in the description, including `#IND-WH`, `#IND-W`, or no tag, is what Indeed receives. A later edit to that text republishes. Every other department still gets its tag automatically.
@@ -700,5 +701,5 @@ Access health endpoints for status checks:
 
 ---
 
-**Last Updated**: October 3, 2026
+**Last Updated**: October 4, 2026
 **Version**: 2.9 (Main-branch Railway deploy; Render log monitoring removed)

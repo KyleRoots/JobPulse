@@ -401,7 +401,7 @@ def show_sample_notes():
     qualified_note = """🎯 SCOUT SCREENING - QUALIFIED CANDIDATE
 
 Analysis Date: 2026-01-29 12:45 UTC
-Threshold: 80%
+Threshold: 80% default (custom bars are listed per job below)
 Qualified Matches: 2 of 5 jobs
 Highest Match Score: 85%
 
@@ -421,11 +421,11 @@ QUALIFIED POSITIONS:
     not_qualified_note = """📋 SCOUT SCREENING - NOT RECOMMENDED
 
 Analysis Date: 2026-01-29 12:45 UTC
-Threshold: 80%
+Threshold: 80% default (custom bars are listed per job below)
 Highest Match Score: 62%
 Jobs Analyzed: 5
 
-This candidate did not meet the 80% match threshold for any current open positions.
+This candidate did not meet the qualifying threshold for any scored position.
 
 TOP ANALYSIS RESULTS:
 
@@ -479,11 +479,11 @@ QUALIFIED POSITIONS:
             note_text = f"""📋 SCOUT SCREENING - NOT RECOMMENDED
 
 Analysis Date: {now}
-Threshold: 80%
+Threshold: 80% default (custom bars are listed per job below)
 Highest Match Score: 62%
 Jobs Analyzed: 5
 
-This candidate did not meet the 80% match threshold for any current open positions."""
+This candidate did not meet the qualifying threshold for any scored position."""
             action = "Scout Screen - Not Qualified"
 
         note_id = bullhorn.create_candidate_note(candidate_id, note_text, action=action)

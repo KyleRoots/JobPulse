@@ -34,7 +34,7 @@ The AI Candidate Vetting Module is an advanced feature of Scout Genius™ that a
 - **Transparent Scoring**: Match scores (0-100%) with detailed explanations of skills alignment, experience match, and gaps identified
 
 ### 4. Comprehensive Audit Trail
-- **Notes for ALL Candidates**: Creates Bullhorn notes on both qualified (80%+) and non-qualified candidates
+- **Notes for ALL Candidates**: Creates Bullhorn notes on both qualified and non-qualified candidates. Qualification uses each job's custom bar when set, otherwise the global 80% baseline.
 - **Qualified Notes**: Show all positions matched, scores, and key qualifications
 - **Not Recommended Notes**: Show top matches and specific gaps identified
 - **Full Logging**: Complete processing history with candidate IDs for troubleshooting
@@ -84,7 +84,7 @@ The AI Candidate Vetting Module is an advanced feature of Scout Genius™ that a
 │        - Call GPT-4o to analyze match                               │
 │        - Store score and explanations                               │
 │     e. Create Bullhorn note (qualified or not)                      │
-│     f. If qualified (80%+):                                         │
+│     f. If qualified (score meets that job's threshold):             │
 │        - Send recruiter notification email                          │
 │     g. Mark ParsedEmail.vetted_at = now                             │
 │                                                                     │
@@ -175,7 +175,7 @@ The GPT-4o prompt is carefully engineered to:
 | Setting | Description | Default |
 |---------|-------------|---------|
 | **Enable AI Vetting** | Master toggle for the entire system | OFF (production: ON) |
-| **Match Threshold** | Minimum score for "qualified" status | 80% |
+| **Match Threshold** | Global baseline for "qualified" when a job has no custom bar | 80% |
 | **Batch Size** | Candidates processed per 5-minute cycle | 25 |
 
 ### Environment Variables
@@ -194,7 +194,7 @@ The GPT-4o prompt is carefully engineered to:
 🎯 AI VETTING SUMMARY - QUALIFIED CANDIDATE
 
 Analysis Date: 2026-01-30 15:30 UTC
-Threshold: 80%
+Threshold: 80% default (custom bars are listed per job below)
 Qualified Matches: 2 of 5 jobs
 Highest Match Score: 92%
 
@@ -217,11 +217,11 @@ QUALIFIED POSITIONS:
 📋 AI VETTING SUMMARY - NOT RECOMMENDED
 
 Analysis Date: 2026-01-30 15:30 UTC
-Threshold: 80%
+Threshold: 80% default (custom bars are listed per job below)
 Highest Match Score: 45%
 Jobs Analyzed: 5
 
-This candidate did not meet the 80% match threshold for any current open positions.
+This candidate did not meet the qualifying threshold for any scored position.
 
 TOP ANALYSIS RESULTS:
 
@@ -282,7 +282,7 @@ TOP ANALYSIS RESULTS:
 ### Activity Dashboard
 The vetting settings page includes an activity dashboard showing:
 - All Candidates: Complete list of vetted candidates
-- Recommended (80%+): Qualified candidates only
+- Recommended: Qualified candidates only (job custom bar, or 80% global)
 - Not Recommended: Candidates below threshold
 
 Each entry includes:

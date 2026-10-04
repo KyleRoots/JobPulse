@@ -16,6 +16,12 @@ from models import (
     EmbeddingFilterLog,
 )
 from utils.text_sanitization import sanitize_text
+from screening.job_threshold import (
+    coerce_job_id,
+    resolve_job_threshold,
+    score_clears_job_threshold,
+    threshold_map_from_requirements,
+)
 
 logger = logging.getLogger('candidate_vetting_service')
 
@@ -524,7 +530,11 @@ class CandidateProcessingMixin:
             logger.info(f"📄 Resume: {len(cached_resume_text)} chars, First 200: {cached_resume_text[:200]}")
 
             job_requirements_cache = {}
-            batch_job_ids = [job.get('id') for job in jobs_to_analyze if job.get('id')]
+            batch_job_ids = [
+                jid for jid in (
+                    coerce_job_id(job.get('id')) for job in jobs_to_analyze
+                ) if jid is not None
+            ]
             if batch_job_ids:
                 try:
                     batch_reqs = JobVettingRequirements.query.filter(
@@ -532,8 +542,9 @@ class CandidateProcessingMixin:
                     ).all()
                     for req in batch_reqs:
                         active = req.get_active_requirements()
-                        if active:
-                            job_requirements_cache[req.bullhorn_job_id] = active
+                        req_id = coerce_job_id(req.bullhorn_job_id)
+                        if active and req_id is not None:
+                            job_requirements_cache[req_id] = active
                 except Exception as e:
                     logger.error(f"Error batch-fetching job requirements: {str(e)}")
 
@@ -576,13 +587,17 @@ class CandidateProcessingMixin:
                 batch_threshold_reqs = JobVettingRequirements.query.filter(
                     JobVettingRequirements.bullhorn_job_id.in_(batch_job_ids)
                 ).all()
+                job_threshold_cache = threshold_map_from_requirements(
+                    batch_threshold_reqs
+                )
                 for req in batch_threshold_reqs:
-                    if req.vetting_threshold is not None:
-                        job_threshold_cache[req.bullhorn_job_id] = float(req.vetting_threshold)
+                    req_id = coerce_job_id(req.bullhorn_job_id)
+                    if req_id is None:
+                        continue
                     if req.employer_prestige_boost:
-                        job_prestige_boost_cache[req.bullhorn_job_id] = True
+                        job_prestige_boost_cache[req_id] = True
                     if getattr(req, 'employer_telecom_boost', False):
-                        job_telecom_boost_cache[req.bullhorn_job_id] = True
+                        job_telecom_boost_cache[req_id] = True
             except Exception as e:
                 logger.error(f"Error pre-fetching job thresholds: {str(e)}")
 
@@ -600,9 +615,12 @@ class CandidateProcessingMixin:
                 job_id = job.get('id')
                 # Related (non-applied) tearsheet matches use short prose to
                 # cut output tokens; applied role keeps full near-miss detail.
-                _applied_id = getattr(vetting_log, 'applied_job_id', None)
+                _applied_id = coerce_job_id(getattr(vetting_log, 'applied_job_id', None))
+                _job_id_int = coerce_job_id(job_id)
                 _related_brief = bool(
-                    _applied_id is not None and job_id != _applied_id
+                    _applied_id is not None
+                    and _job_id_int is not None
+                    and _job_id_int != _applied_id
                 )
                 try:
                     analysis = self.analyze_candidate_job_match(
@@ -620,10 +638,12 @@ class CandidateProcessingMixin:
                     # boost-adjusted qualify floor so a candidate is never
                     # cheap-rejected if they could possibly qualify — even via a
                     # low job threshold or a prestige boost.
-                    route_job_threshold = job_threshold_cache.get(job_id, global_threshold)
+                    route_job_threshold = resolve_job_threshold(
+                        job_threshold_cache, job_id, global_threshold
+                    )
                     boost_eligible = bool(
-                        job_prestige_boost_cache.get(job_id)
-                        or job_telecom_boost_cache.get(job_id)
+                        job_prestige_boost_cache.get(coerce_job_id(job_id))
+                        or job_telecom_boost_cache.get(coerce_job_id(job_id))
                     )
                     qualify_floor = self._cheap_first_qualify_floor(
                         route_job_threshold,
@@ -726,7 +746,12 @@ class CandidateProcessingMixin:
                     }
 
             jobs_with_requirements = [
-                {'job': job, 'requirements': job_requirements_cache.get(job.get('id'), '')}
+                {
+                    'job': job,
+                    'requirements': job_requirements_cache.get(
+                        coerce_job_id(job.get('id')), ''
+                    ),
+                }
                 for job in jobs_to_analyze
             ]
 
@@ -795,7 +820,13 @@ class CandidateProcessingMixin:
                 recruiter_email = ', '.join(recruiter_emails) if recruiter_emails else ''
                 recruiter_id = int(recruiter_ids[0]) if recruiter_ids else None
 
-                is_applied_job = vetting_log.applied_job_id == job_id if vetting_log.applied_job_id else False
+                applied_int = coerce_job_id(
+                    getattr(vetting_log, 'applied_job_id', None)
+                )
+                is_applied_job = (
+                    applied_int is not None
+                    and applied_int == coerce_job_id(job_id)
+                )
 
                 # Skip persisting individual infra-failed analyses when mixed with
                 # successful scores — they are not real 0% matches.
@@ -806,14 +837,16 @@ class CandidateProcessingMixin:
                     )
                     continue
 
-                job_threshold = job_threshold_cache.get(job_id, global_threshold)
+                job_threshold = resolve_job_threshold(
+                    job_threshold_cache, job_id, global_threshold
+                )
 
                 from screening.prestige import resolve_employer_boost
                 _boost_name = resolve_employer_boost(
                     analysis.get('_prestige_consulting_employer'),
                     analysis.get('_prestige_telecom_employer'),
-                    bool(job_prestige_boost_cache.get(job_id)),
-                    bool(job_telecom_boost_cache.get(job_id)),
+                    bool(job_prestige_boost_cache.get(coerce_job_id(job_id))),
+                    bool(job_telecom_boost_cache.get(coerce_job_id(job_id))),
                 )
                 _prestige_employer = _boost_name or analysis.get('_prestige_employer')
                 _prestige_boost_applied = False
@@ -833,7 +866,7 @@ class CandidateProcessingMixin:
                 from utils.job_status import job_can_qualify
                 from screening.post_processing import years_tenure_allows_qualify
                 score_clears_threshold = (
-                    (_final_score >= job_threshold)
+                    score_clears_job_threshold(_final_score, job_threshold)
                     and not analysis.get('is_location_barrier', False)
                 )
                 can_qualify = job_can_qualify(job)
@@ -965,12 +998,16 @@ class CandidateProcessingMixin:
                                             'revised_gaps', match_record.gaps_identified
                                         )
                                     )
-                                    job_threshold = job_threshold_cache.get(
-                                        match_record.bullhorn_job_id, global_threshold
+                                    job_threshold = resolve_job_threshold(
+                                        job_threshold_cache,
+                                        match_record.bullhorn_job_id,
+                                        global_threshold,
                                     )
                                     from utils.job_status import job_can_qualify
                                     match_record.is_qualified = (
-                                        new_score >= job_threshold
+                                        score_clears_job_threshold(
+                                            new_score, job_threshold
+                                        )
                                         and job_can_qualify(job)
                                     )
                                     if match_record.is_qualified:
