@@ -1,7 +1,10 @@
-"""ZipRecruiter Apply webhook receiver.
+"""ZipRecruiter Apply webhook.
 
-Public POST. A 2xx response means the delivery was accepted and stored.
-Candidate creation in Bullhorn is a later step, after a live payload is reviewed.
+Public POST. On Qualified (SCOUT_TENANT=qualified_staffing) a delivery is
+adapted into the same Bullhorn path as mail to apply@q-staffing.com.
+Other tenants only store a receipt. Resume bytes are not stored.
+A 200 means the delivery landed or was already recorded. A 503 means
+Bullhorn processing failed and Zip should retry with the same body.
 """
 import logging
 
@@ -16,10 +19,13 @@ from zip_apply.digest import (
     signature_header_present,
     summarize_payload,
 )
+from zip_apply.ingest import ingest_zip_apply, webhook_creates_candidates
 
 logger = logging.getLogger(__name__)
 
 zip_apply_bp = Blueprint("zip_apply", __name__)
+
+_LANDED = ("processed", "unmatched_job", "duplicate")
 
 
 @zip_apply_bp.route("/api/ziprecruiter/apply", methods=["GET", "POST"])
@@ -48,9 +54,31 @@ def zip_apply_webhook():
 
     summary = summarize_payload(payload)
     digest = body_sha256(raw)
-    existing = None
-    if summary["response_id"]:
-        existing = ZipApplyDelivery.query.filter_by(response_id=summary["response_id"]).first()
+    creates = webhook_creates_candidates()
+    existing = _prior_delivery(summary["response_id"], creates)
+
+    ingest_status = "received"
+    candidate_id = None
+    submission_id = None
+    ingest_error = None
+    http_status = 200
+
+    if creates and existing and existing.ingest_status in _LANDED:
+        ingest_status = "duplicate"
+    elif creates:
+        try:
+            outcome = ingest_zip_apply(payload)
+        except Exception:
+            logger.exception("zip_apply ingest failed job_id=%s", summary["job_id"])
+            outcome = {"success": False, "message": "ingest failed"}
+        if outcome.get("success"):
+            candidate_id = outcome.get("candidate_id")
+            submission_id = outcome.get("submission_id")
+            ingest_status = "unmatched_job" if outcome.get("unmatched_job") else "processed"
+        else:
+            ingest_status = "failed"
+            ingest_error = (outcome.get("message") or "ingest failed")[:500]
+            http_status = 503
 
     row = ZipApplyDelivery(
         job_id=summary["job_id"],
@@ -65,20 +93,36 @@ def zip_apply_webhook():
         signature_header_present=signature_header_present(request.headers),
         duplicate_of_id=existing.id if existing else None,
         field_names=summary["field_names"],
+        ingest_status=ingest_status,
+        bullhorn_candidate_id=candidate_id,
+        bullhorn_submission_id=submission_id,
+        ingest_error=ingest_error,
     )
     db.session.add(row)
     db.session.commit()
 
     logger.info(
-        "zip_apply accepted id=%s job_id=%s bytes=%s duplicate=%s fields=%s",
+        "zip_apply id=%s job_id=%s bytes=%s duplicate=%s ingest=%s candidate=%s",
         row.id,
         row.job_id,
         row.body_bytes,
         bool(existing),
-        row.field_names,
+        ingest_status,
+        candidate_id,
     )
+    if http_status != 200:
+        return jsonify({"status": "error", "id": row.id, "error": "processing failed"}), 503
     return jsonify({
         "status": "accepted",
         "id": row.id,
-        "duplicate": bool(existing),
+        "duplicate": bool(existing) and (not creates or ingest_status == "duplicate"),
     }), 200
+
+
+def _prior_delivery(response_id, creates):
+    if not response_id:
+        return None
+    query = ZipApplyDelivery.query.filter_by(response_id=response_id)
+    if creates:
+        query = query.filter(ZipApplyDelivery.ingest_status.in_(_LANDED))
+    return query.order_by(ZipApplyDelivery.id.asc()).first()

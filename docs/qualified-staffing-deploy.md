@@ -30,13 +30,15 @@ On this service, Scout writes one **Application Received** note when it knows th
 
 The note names the job, company, recruiter, time, and source first (for example Indeed Applicant vs ZipRecruiter Applicant vs Web Applicant). The AI résumé summary is included under that, not as a second note. The job title and company names link to those records in Bullhorn. The recruiter name is shown in bold only. Novo has no OpenWindow page for an internal user, so that name is not a hyperlink.
 
-Career-site / staffing-portal applies that never reach Scout still need the same note written in that project. Do not have the portal rewrite Zip/LinkedIn/Indeed mailbox notes. The Zip Apply webhook still does not create Bullhorn candidates, so it does not write this note yet.
+Career-site / staffing-portal applies that never reach Scout still need the same note written in that project. Do not have the portal rewrite Zip/LinkedIn/Indeed mailbox notes. Qualified Zip Apply webhook deliveries that create a candidate go through the same note path as mailbox apply.
 
-## ZipRecruiter Apply webhook (receive only)
+## ZipRecruiter Apply webhook
 
-Live URL for the Q-Staffing test: `POST https://qualified.scoutgenius.ai/api/ziprecruiter/apply`
+Live URL: `POST https://qualified.scoutgenius.ai/api/ziprecruiter/apply`
 
-Content-Type must be `application/json`. A `200` means the delivery was accepted and recorded. The current XML feed stays as-is, and Great Match mail to `apply@q-staffing.com` is unchanged. The receiver stores the job id, response id, and which fields were present. It does not store the resume file and it does not create a Bullhorn candidate until a live payload has been reviewed.
+Content-Type must be `application/json`. On Qualified, the JSON is adapted into the same intake path as mail to `apply@q-staffing.com`. A résumé file is uploaded and parsed into the candidate Resume field. When the applicant did not attach a file, the Zip profile (work history and summary) is parsed the same way. The Zip `job_id` is matched to the current feed reference, then to a retired reference kept when that number was replaced. A job taken off the feed keeps those numbers, so a late application can still attach while the Bullhorn job exists. A `200` means the person was written, or this `response_id` already landed. A `503` means processing failed and Zip should send the same body again. The receipt row stores ids and field presence only, not the résumé. Deliveries stored before this write path cannot be replayed. The XML feed still publishes a new reference on the existing refresh. Myticas/STSI do not create candidates from this route.
+
+Zip notification emails to `apply@q-staffing.com` are still parsed. After a live webhook applicant lands on the right job, set `ZIP_EMAIL_INTAKE_ENABLED=false` on JobPulse-Qualified to ignore those Zip emails. Indeed, LinkedIn, and other mailbox applies are unchanged. Leave the variable unset until then. The webhook payload is marked so this switch does not drop it.
 
 ## Mailbox (inbound)
 

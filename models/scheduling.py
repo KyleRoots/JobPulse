@@ -114,6 +114,24 @@ class JobReferenceNumber(db.Model):
         return f'<JobReferenceNumber {self.bullhorn_job_id}: {self.reference_number}>'
 
 
+class JobReferenceAlias(db.Model):
+    """A reference number that used to be on the feed for a Bullhorn job.
+
+    The published feed keeps only the current number. A board can still show
+    the posting under an older number, including after the job leaves the feed.
+    Lookup uses this row. Removing a job from the feed does not delete it.
+    """
+    __tablename__ = "job_reference_alias"
+
+    id = db.Column(db.Integer, primary_key=True)
+    reference_number = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    bullhorn_job_id = db.Column(db.String(50), nullable=False, index=True)
+    retired_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    def __repr__(self):
+        return f'<JobReferenceAlias {self.bullhorn_job_id}: {self.reference_number}>'
+
+
 class RefreshLog(db.Model):
     """Track reference number refresh completions"""
     id = db.Column(db.Integer, primary_key=True)

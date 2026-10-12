@@ -100,6 +100,11 @@ def run_schema_migrations(db):
         # Per-user Location Review email kill-switch (Sep 2026). Default ON;
         # seed sets Adam Gebara (agebara@myticas.com) to OFF.
         ("user", "location_review_emails_enabled", "BOOLEAN DEFAULT TRUE"),
+        # Zip Apply webhook outcome. Receipt rows stay free of resume bytes.
+        ("zip_apply_delivery", "ingest_status", "VARCHAR(32)"),
+        ("zip_apply_delivery", "bullhorn_candidate_id", "INTEGER"),
+        ("zip_apply_delivery", "bullhorn_submission_id", "INTEGER"),
+        ("zip_apply_delivery", "ingest_error", "VARCHAR(500)"),
     ]
 
     _SAFE_IDENTIFIER = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
@@ -152,6 +157,16 @@ def run_schema_migrations(db):
         except Exception as e:
             db.session.rollback()
             logger.warning(f"⚠️ Migration skipped for {table}.{column}: {str(e)}")
+
+    try:
+        db.session.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_zip_apply_delivery_ingest_status "
+            "ON zip_apply_delivery (ingest_status)"
+        ))
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ zip_apply ingest_status index skipped: {str(e)}")
 
     # Backfill spec_create_notified_at for pre-existing AI requirement specs so
     # the deferred Scout Screening notify flush does not re-email historical rows
