@@ -1,8 +1,8 @@
 """Received ZipRecruiter Apply webhook deliveries.
 
-The first version only records that a JSON delivery arrived and which
-fields were present. It does not create Bullhorn candidates. Resume
-bytes are not stored.
+Receipt rows store ids and presence flags only. Resume bytes and contact
+values are not stored here. On Qualified, the live JSON is handed to the
+same Bullhorn path as mailbox apply. Past rows cannot be replayed.
 """
 from datetime import datetime
 
@@ -32,3 +32,11 @@ class ZipApplyDelivery(db.Model):
     signature_header_present = db.Column(db.Boolean, nullable=False, default=False)
     duplicate_of_id = db.Column(db.Integer, nullable=True)
     field_names = db.Column(db.Text, nullable=True)
+    # received: stored only. processed: candidate written. unmatched_job:
+    # person written, Zip reference did not map to a Bullhorn job.
+    # failed: Bullhorn path did not finish (Zip should retry).
+    # duplicate: a prior row for this response already landed.
+    ingest_status = db.Column(db.String(32), nullable=True, index=True)
+    bullhorn_candidate_id = db.Column(db.Integer, nullable=True)
+    bullhorn_submission_id = db.Column(db.Integer, nullable=True)
+    ingest_error = db.Column(db.String(500), nullable=True)
