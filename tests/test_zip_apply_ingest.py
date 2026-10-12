@@ -54,6 +54,32 @@ def test_reference_number_resolves_to_bullhorn_job(app):
         assert resolve_bullhorn_job_id("missing") is None
 
 
+def test_profile_without_a_file_is_attached_as_a_text_resume():
+    payload = {
+        "job_id": "IR2WJJTS89",
+        "response_id": "resp-profile",
+        "first_name": "Jamie",
+        "last_name": "Applicant",
+        "email": "jamie@example.com",
+        "phone": "5551112222",
+        "profile": {
+            "job_records": [{
+                "position": "Picker",
+                "employer": "Acme Warehouse",
+                "description": "Picked orders for four years on the night shift.",
+            }],
+        },
+    }
+    built = build_mailbox_payload(payload, "35135")
+    assert "X-Scout-Zip-Apply: webhook" in built["headers"]
+    assert "Picked orders" not in built["text"]
+    attachment = json.loads(built["attachments"])[0]
+    assert attachment["filename"].endswith("_resume.txt")
+    text = base64.b64decode(attachment["content"]).decode("utf-8")
+    assert "Picker at Acme Warehouse" in text
+    assert "Picked orders for four years" in text
+
+
 def test_qualified_webhook_records_bullhorn_ids(client, app, monkeypatch):
     monkeypatch.setenv("SCOUT_TENANT", "qualified_staffing")
     seen = {}

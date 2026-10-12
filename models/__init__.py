@@ -26,6 +26,7 @@ from models.scheduling import (
     ScheduleConfig,
     ProcessingLog,
     JobReferenceNumber,
+    JobReferenceAlias,
     RefreshLog,
     GlobalSettings,
     EmailParsingConfig,  # Backward-compat alias for GlobalSettings
@@ -110,7 +111,7 @@ __all__ = [
     # user
     'AVAILABLE_MODULES', 'User', 'UserActivityLog', 'RecruiterMapping', 'PasswordResetToken',
     # scheduling
-    'ScheduleConfig', 'ProcessingLog', 'JobReferenceNumber', 'RefreshLog',
+    'ScheduleConfig', 'ProcessingLog', 'JobReferenceNumber', 'JobReferenceAlias', 'RefreshLog',
     'GlobalSettings', 'EmailParsingConfig', 'SchedulerLock',
     # ats
     'BullhornMonitor', 'BullhornActivity', 'TearsheetJobHistory',

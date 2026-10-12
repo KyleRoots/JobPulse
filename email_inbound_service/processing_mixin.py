@@ -235,6 +235,26 @@ class ProcessingMixin:
             source = self.detect_source(sender, subject, body)
             parsed_email.source_platform = source
 
+            from zip_apply.email_gate import should_ignore_zip_mailbox
+            if should_ignore_zip_mailbox(source, sendgrid_payload.get("headers", "")):
+                self.logger.info(
+                    "Ignoring ZipRecruiter email because ZIP_EMAIL_INTAKE_ENABLED is off "
+                    "from '%s' subject='%s'",
+                    sender,
+                    (subject or "")[:80],
+                )
+                parsed_email.status = "ignored"
+                parsed_email.processed_at = datetime.utcnow()
+                parsed_email.processing_notes = (
+                    "Ignored ZipRecruiter notification email. "
+                    "Zip applications are ingested from the Apply webhook."
+                )
+                db.session.commit()
+                result["success"] = False
+                result["message"] = "Ignored ZipRecruiter notification email"
+                result["ignored"] = True
+                return result
+
             job_id = self.extract_bullhorn_job_id(subject, body)
             parsed_email.bullhorn_job_id = job_id
 

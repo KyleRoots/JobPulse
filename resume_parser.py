@@ -51,6 +51,18 @@ except ImportError:
     logger.warning("python-docx not available - DOCX parsing disabled")
 
 
+def _plain_text_to_html(raw_text: str) -> str:
+    """Turn profile or text-resume lines into Resume-pane HTML."""
+    if not raw_text:
+        return ""
+    blocks = []
+    for block in raw_text.split("\n\n"):
+        lines = [html.escape(line.strip()) for line in block.splitlines() if line.strip()]
+        if lines:
+            blocks.append("<p>" + "<br>".join(lines) + "</p>")
+    return "\n".join(blocks)
+
+
 class ResumeParser:
     """Resume parser with HTML formatting preservation for Bullhorn"""
     
@@ -324,6 +336,13 @@ OUTPUT: Return ONLY the formatted HTML, nothing else. No explanation, no markdow
                     except Exception as e:
                         raw_text = ""
                         logger.warning(f"DOC extraction failed for {filename}: {e}")
+                elif filename.lower().endswith('.txt'):
+                    raw_bytes = file_content or b""
+                    if not raw_bytes and file_path and os.path.exists(file_path):
+                        with open(file_path, 'rb') as _txt:
+                            raw_bytes = _txt.read()
+                    raw_text = raw_bytes.decode('utf-8', errors='replace').strip()
+                    formatted_html = _plain_text_to_html(raw_text)
                 else:
                     raw_text = ""
                     formatted_html = ""

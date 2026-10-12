@@ -48,11 +48,8 @@ def lightweight_refresh_references(xml_path='myticas-job-feed.xml', output_path=
             ref_elem = job.find('referencenumber')
             
             if ref_elem is not None:
-                # Generate unique reference number
-                new_ref = generate_reference_number()
-                while new_ref in used_references:
-                    new_ref = generate_reference_number()
-                
+                from reference_history import allocate_reference
+                new_ref = allocate_reference(used_references, generate_reference_number)
                 used_references.add(new_ref)
                 
                 # Update ONLY the reference number with CDATA wrapping
@@ -120,11 +117,8 @@ def lightweight_refresh_references_from_content(xml_content):
             ref_elem = job.find('referencenumber')
             
             if ref_elem is not None:
-                # Generate unique reference number
-                new_ref = generate_reference_number()
-                while new_ref in used_references:
-                    new_ref = generate_reference_number()
-                
+                from reference_history import allocate_reference
+                new_ref = allocate_reference(used_references, generate_reference_number)
                 used_references.add(new_ref)
                 
                 # Update ONLY the reference number with CDATA wrapping
@@ -174,6 +168,7 @@ def save_references_to_database(xml_content):
     try:
         from app import db
         from models import JobReferenceNumber
+        from reference_history import remember_retired_reference
         
         # Parse XML content to extract job references
         parser = etree.XMLParser(strip_cdata=False)
@@ -197,10 +192,14 @@ def save_references_to_database(xml_content):
                     existing_ref = JobReferenceNumber.query.filter_by(bullhorn_job_id=job_id).first()
                     
                     if existing_ref:
-                        # Update existing reference if it changed
+                        # Update existing reference if it changed. Keep the
+                        # previous number so an application still quoting it
+                        # resolves to this Bullhorn job.
                         if existing_ref.reference_number != ref_text:
+                            previous = existing_ref.reference_number
                             existing_ref.reference_number = ref_text
                             existing_ref.job_title = job_title
+                            remember_retired_reference(previous, existing_ref.bullhorn_job_id)
                             updated_count += 1
                     else:
                         # Create new reference entry
@@ -398,11 +397,8 @@ def preserve_references_from_published_xml(new_xml_content, published_xml_path='
                     ref_elem.text = etree.CDATA(f" {existing_ref} ")
                     jobs_preserved += 1
                 else:
-                    # Generate new reference for jobs not in published XML
-                    new_ref = generate_reference_number()
-                    while new_ref in used_references:
-                        new_ref = generate_reference_number()
-                    
+                    from reference_history import allocate_reference
+                    new_ref = allocate_reference(used_references, generate_reference_number)
                     used_references.add(new_ref)
                     
                     # Add new reference as CDATA
@@ -485,11 +481,8 @@ def preserve_existing_references_in_content(xml_content, preserve_all=True):
                     # Preserve existing reference number (don't change it)
                     jobs_preserved += 1
                 else:
-                    # Only generate new reference for jobs without any
-                    new_ref = generate_reference_number()
-                    while new_ref in used_references:
-                        new_ref = generate_reference_number()
-                    
+                    from reference_history import allocate_reference
+                    new_ref = allocate_reference(used_references, generate_reference_number)
                     used_references.add(new_ref)
                     
                     # Add new reference as CDATA

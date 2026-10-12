@@ -35,20 +35,14 @@ def message_id_for(payload: Dict[str, Any]) -> str:
 
 
 def resolve_bullhorn_job_id(reference: Optional[str]) -> Optional[str]:
-    """Map Zip's alphanumeric job id to the numeric Bullhorn job id."""
-    if not reference or not str(reference).strip():
-        return None
-    from models.scheduling import JobReferenceNumber
+    """Map Zip's job id to the numeric Bullhorn job id.
 
-    row = JobReferenceNumber.query.filter(
-        JobReferenceNumber.reference_number == str(reference).strip()
-    ).first()
-    if not row or not row.bullhorn_job_id:
-        return None
-    job_id = str(row.bullhorn_job_id).strip()
-    if not job_id.isdigit():
-        return None
-    return job_id
+    Matches the current feed number, then a retired number kept after a
+    reference refresh or after the job left the feed.
+    """
+    from reference_history import bullhorn_job_id_for_reference
+
+    return bullhorn_job_id_for_reference(reference)
 
 
 def _text(value: Any) -> str:
@@ -72,7 +66,26 @@ def _person(payload: Dict[str, Any]) -> Tuple[str, str, str, str, str]:
     return first, last, (name or "Applicant"), email, phone
 
 
+def _piece(value: Any) -> str:
+    if value is None or isinstance(value, (dict, list)):
+        return ""
+    return str(value).strip()
+
+
+def _record_lines(record: Dict[str, Any]) -> str:
+    title = _piece(record.get("position") or record.get("title") or record.get("job_title"))
+    employer = _piece(record.get("employer") or record.get("company") or record.get("organization"))
+    start = _piece(record.get("start_date") or record.get("start") or record.get("start_year"))
+    end = _piece(record.get("end_date") or record.get("end") or record.get("end_year") or record.get("current"))
+    description = _piece(record.get("description") or record.get("text"))
+    heading = " at ".join(part for part in (title, employer) if part)
+    dates = " - ".join(part for part in (start, end) if part)
+    lines = [part for part in (heading, dates, description) if part]
+    return "\n".join(lines)
+
+
 def _profile_text(payload: Dict[str, Any]) -> str:
+    """Resume-like text from a Zip profile, including when no file was attached."""
     profile = payload.get("profile")
     if isinstance(profile, str):
         return profile.strip()[:20000]
@@ -83,6 +96,34 @@ def _profile_text(payload: Dict[str, Any]) -> str:
         value = profile.get(key)
         if isinstance(value, str) and value.strip():
             parts.append(value.strip())
+    for key in ("job_records", "jobs", "work_history", "positions"):
+        records = profile.get(key)
+        if not isinstance(records, list):
+            continue
+        for record in records:
+            if isinstance(record, dict):
+                block = _record_lines(record)
+                if block:
+                    parts.append(block)
+            elif isinstance(record, str) and record.strip():
+                parts.append(record.strip())
+    education = profile.get("education") or profile.get("education_records")
+    if isinstance(education, list):
+        for record in education:
+            if isinstance(record, dict):
+                block = _record_lines(record)
+                if block:
+                    parts.append(block)
+            elif isinstance(record, str) and record.strip():
+                parts.append(record.strip())
+    skills = profile.get("skills")
+    if isinstance(skills, list):
+        names = [_piece(item) for item in skills]
+        names = [item for item in names if item]
+        if names:
+            parts.append("Skills: " + ", ".join(names[:40]))
+    elif isinstance(skills, str) and skills.strip():
+        parts.append("Skills: " + skills.strip())
     return "\n\n".join(parts)[:20000]
 
 
@@ -144,7 +185,8 @@ def build_mailbox_payload(payload: Dict[str, Any], bullhorn_job_id: Optional[str
     lines.append("")
     lines.append("Submitted via ZipRecruiter Apply.")
     profile = _profile_text(payload)
-    if profile:
+    content, filename = _resume_bytes(payload)
+    if content and filename and profile:
         lines.extend(["", profile])
     body = "\n".join(lines)
     outbound = {
@@ -153,9 +195,12 @@ def build_mailbox_payload(payload: Dict[str, Any], bullhorn_job_id: Optional[str
         "subject": subject,
         "text": body,
         "html": "",
-        "headers": f"Message-ID: {message_id_for(payload)}\n",
+        "headers": (
+            f"Message-ID: {message_id_for(payload)}\n"
+            "X-Scout-Zip-Apply: webhook\n"
+        ),
     }
-    content, filename = _resume_bytes(payload)
+    attachments = []
     if content and filename:
         content_type = "application/pdf"
         if filename.lower().endswith(".docx"):
@@ -164,11 +209,21 @@ def build_mailbox_payload(payload: Dict[str, Any], bullhorn_job_id: Optional[str
             content_type = "application/msword"
         elif filename.lower().endswith(".txt"):
             content_type = "text/plain"
-        outbound["attachments"] = json.dumps([{
+        attachments.append({
             "filename": filename,
             "type": content_type,
             "content": base64.b64encode(content).decode("ascii"),
-        }])
+        })
+    elif profile:
+        _first, last, _name, _email, _phone = _person(payload)
+        stem = _SAFE_NAME.sub("_", last or "applicant")[:40] or "applicant"
+        attachments.append({
+            "filename": f"{stem}_resume.txt",
+            "type": "text/plain",
+            "content": base64.b64encode(profile.encode("utf-8")).decode("ascii"),
+        })
+    if attachments:
+        outbound["attachments"] = json.dumps(attachments)
     return outbound
 
 
