@@ -1349,23 +1349,52 @@ def _work_auth_sentence_from_analysis(analysis):
 def _drop_work_auth_contradictions(text: str, phrases) -> str:
     """Drop clauses that contain a contradictory phrase and keep the rest.
 
-    A pipe, sentence boundary, semicolon, or ", and " starts a new clause.
-    Unrelated text in the same sentence stays.
+    Unrelated sentences keep their original separators. A semicolon or
+    ", and " can split one sentence so only the contradictory clause goes.
     """
     if not text:
         return ''
-    parts = re.split(r'\s*\|\s*|(?<=[.!?])\s+', text)
-    kept = []
-    for part in parts:
-        clauses = re.split(r'\s*;\s*|\s*,\s+and\s+', part, flags=re.IGNORECASE)
-        for clause in clauses:
-            lowered = clause.lower()
-            if any(phrase in lowered for phrase in phrases):
+    if not phrases or not any(phrase in text.lower() for phrase in phrases):
+        return text
+
+    def _without_matches(segment, splitter):
+        tokens = re.split(splitter, segment, flags=re.IGNORECASE)
+        kept = []
+        pending_sep = ''
+        for token in tokens:
+            if token == '':
                 continue
-            cleaned = clause.strip(' ,')
-            if cleaned:
-                kept.append(cleaned)
-    return ' | '.join(kept)
+            if re.fullmatch(splitter, token, flags=re.IGNORECASE):
+                pending_sep = token
+                continue
+            if any(phrase in token.lower() for phrase in phrases):
+                pending_sep = ''
+                continue
+            if kept and pending_sep:
+                kept.append(pending_sep)
+            kept.append(token)
+            pending_sep = ''
+        return ''.join(kept).strip()
+
+    clause_splitter = r'(\s*;\s*|\s*,\s+and\s+)'
+    sentence_splitter = r'(\s*\|\s*|(?<=[.!?])\s+)'
+    rebuilt = []
+    pending_sep = ''
+    for token in re.split(sentence_splitter, text):
+        if token == '':
+            continue
+        if re.fullmatch(r'\s*\|\s*', token) or re.fullmatch(r'\s+', token):
+            pending_sep = token
+            continue
+        cleaned = _without_matches(token, clause_splitter)
+        if not cleaned:
+            pending_sep = ''
+            continue
+        if rebuilt and pending_sep:
+            rebuilt.append(pending_sep)
+        rebuilt.append(cleaned)
+        pending_sep = ''
+    return ''.join(rebuilt).strip()
 
 
 def _append_work_auth_sentence(text: str, sentence: str, *, separate_with_period: bool) -> str:

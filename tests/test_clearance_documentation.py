@@ -384,6 +384,36 @@ def test_work_auth_missing_analysis_is_not_a_resume_finding():
     assert result["technical_score"] == 42
 
 
+def test_work_auth_cleanup_keeps_unrelated_sentence_breaks():
+    result = _base_result(
+        match_summary="Strong Java match. Good AWS depth.",
+        gaps="No Kubernetes experience noted",
+    )
+    result["work_authorization_analysis"] = {
+        "explicit_statement": "US Permanent Resident (Green Card)",
+        "penalty_applied": 0,
+    }
+    enforce_work_authorization_documentation(result, 47, None, US_AUTH_JD)
+    assert result["match_summary"].startswith("Strong Java match. Good AWS depth.")
+    assert " | " not in result["match_summary"]
+
+    dropped = _base_result(
+        match_summary=(
+            "Strong Java match. The résumé does not explicitly confirm "
+            "work-authorization status. Good AWS depth."
+        ),
+        gaps="No Kubernetes experience noted",
+    )
+    dropped["work_authorization_analysis"] = result["work_authorization_analysis"]
+    enforce_work_authorization_documentation(dropped, 48, None, US_AUTH_JD)
+    assert dropped["match_summary"].startswith("Strong Java match. Good AWS depth.")
+    assert "does not explicitly confirm" not in dropped["match_summary"].lower()
+    assert " | " not in dropped["match_summary"]
+    assert result["match_score"] == 42
+    assert result["technical_score"] == 42
+    assert dropped["match_score"] == 42
+
+
 def test_work_auth_mixed_sentence_keeps_unrelated_assessment():
     result = _base_result(
         match_summary=(
