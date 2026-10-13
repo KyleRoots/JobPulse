@@ -149,6 +149,52 @@ class TestMissingKeysCreatedBySeed:
             'owner_reassignment_heartbeat_hours',
             # commit 771e29e6: Screening skip for human-owned candidates
             'screening_skip_human_owned',
+            # May 2026 Loop-Killer skip-gate batch
+            'self_screen_cooldown_minutes',
+            'recruiter_decision_skip_enabled',
+            # Hand-maintained additions. Do not replace this set with the live seed dict.
+            'ai_cost_alert_cooldown_hours',
+            'ai_cost_alert_critical_usd_24h',
+            'ai_cost_alert_email',
+            'ai_cost_alert_enabled',
+            'ai_cost_alert_warn_usd_24h',
+            'candidate_country_backfill_batch_size',
+            'candidate_country_backfill_enabled',
+            'candidate_country_backfill_phase',
+            'candidate_country_normalization_batch_size',
+            'candidate_country_normalization_enabled',
+            'candidate_country_normalization_lookback_hours',
+            'cross_route_dedupe_enabled',
+            'cross_route_dedupe_window_minutes',
+            'fraud_bullhorn_note_enabled',
+            'fraud_contact_validation_enabled',
+            'fraud_detection_enabled',
+            'fraud_high_risk_threshold',
+            'fraud_linkedin_crosscheck_enabled',
+            'fraud_note_all_bands_enabled',
+            'fraud_review_threshold',
+            'mailbox_pull_backfill_hours',
+            'mailbox_pull_batch_size',
+            'mailbox_pull_enabled',
+            'ops_early_warning_cooldown_hours',
+            'ops_early_warning_email',
+            'ops_early_warning_enabled',
+            'ops_early_warning_inbound_min_completed',
+            'ops_early_warning_inbound_null_critical',
+            'ops_early_warning_inbound_null_warn',
+            'ops_early_warning_inbound_window_hours',
+            'ops_early_warning_miss_boot_grace_min',
+            'ops_early_warning_miss_critical',
+            'ops_early_warning_miss_stamp_absurd_max_min',
+            'ops_early_warning_miss_warn',
+            'ops_early_warning_sftp_critical_min',
+            'ops_early_warning_sftp_warn_min',
+            'ops_early_warning_stall_failed_critical',
+            'ops_early_warning_stall_failed_warn',
+            'ops_early_warning_stall_oldest_critical_min',
+            'ops_early_warning_stall_oldest_warn_min',
+            'ops_early_warning_stall_zero_progress_min',
+            'ops_early_warning_stall_zombie_age_min',
         }
 
         with app.app_context():
@@ -179,9 +225,20 @@ class TestSeedDefaultsEnvironmentAgnostic:
                 GlobalSettings.query.delete()
                 db.session.commit()
 
-                with patch('seed_database.is_production_environment', return_value=is_prod):
-                    seed_vetting_config(db, VettingConfig)
-                    seed_global_settings(db, GlobalSettings)
+                with patch.dict('os.environ', {
+                    # Production seed refuses empty provider config. These
+                    # fakes keep that check from requiring real secrets.
+                    'BULLHORN_CLIENT_ID': 'test-client-id',
+                    'BULLHORN_CLIENT_SECRET': 'test-client-secret',
+                    'BULLHORN_USERNAME': 'test-user',
+                    'BULLHORN_PASSWORD': 'test-password',
+                    'SFTP_HOSTNAME': 'sftp.test.invalid',
+                    'SFTP_USERNAME': 'test-user',
+                    'SFTP_PASSWORD': 'test-password',
+                }):
+                    with patch('seed_database.is_production_environment', return_value=is_prod):
+                        seed_vetting_config(db, VettingConfig)
+                        seed_global_settings(db, GlobalSettings)
 
                 for key in toggle_keys_vetting:
                     val = VettingConfig.query.filter_by(

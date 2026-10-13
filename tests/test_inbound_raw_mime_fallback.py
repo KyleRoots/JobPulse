@@ -21,6 +21,18 @@ from email.message import EmailMessage
 
 import pytest
 
+# conftest removes SENDGRID_INBOUND_WEBHOOK_SECRET so a checkout cannot
+# use a real inbound secret. With the secret unset, the route acknowledges
+# and does not parse. These tests cover parsing, so they present a fake.
+_TEST_INBOUND_SECRET = "test-inbound-webhook-secret"
+_INBOUND_URL = f"/api/email/inbound?webhook_secret={_TEST_INBOUND_SECRET}"
+
+
+@pytest.fixture(autouse=True)
+def _inbound_webhook_secret(monkeypatch):
+    monkeypatch.setenv("SENDGRID_INBOUND_WEBHOOK_SECRET", _TEST_INBOUND_SECRET)
+    monkeypatch.delenv("SENDGRID_INBOUND_PARSE_ENABLED", raising=False)
+
 
 def _build_raw_mime(*, sender, subject, body_text,
                     attachment_name=None, attachment_bytes=None,
@@ -141,7 +153,7 @@ class TestWebhookFallback:
             attachment_bytes=b'%PDF-1.4 data',
         )
 
-        resp = client.post('/api/email/inbound', data={'email': raw})
+        resp = client.post(_INBOUND_URL, data={'email': raw})
         assert resp.status_code == 200
 
         # Background thread is started; give it a beat to capture.
@@ -166,7 +178,7 @@ class TestWebhookFallback:
 
         monkeypatch.setattr('routes.email._process_email_in_background', _fake_process)
 
-        resp = client.post('/api/email/inbound', data={
+        resp = client.post(_INBOUND_URL, data={
             'from': 'recruiter@partner.com',
             'to': 'apply@myticas.com',
             'subject': 'Real candidate',
@@ -205,7 +217,7 @@ class TestWebhookFallback:
             attachment_bytes=b'%PDF-1.4 data',
         )
 
-        resp = client.post('/api/email/inbound', data={
+        resp = client.post(_INBOUND_URL, data={
             'from': '', 'subject': '', 'text': '', 'html': '',
             'attachments': '0',
             'email': raw,
@@ -242,7 +254,7 @@ class TestWebhookFallback:
             body_text='hi there',
         )
 
-        resp = client.post('/api/email/inbound', data=raw, content_type='text/plain')
+        resp = client.post(_INBOUND_URL, data=raw, content_type='text/plain')
         assert resp.status_code == 200
 
         import time
@@ -262,7 +274,7 @@ class TestWebhookFallback:
             'routes.email._process_email_in_background',
             lambda *a, **k: None,
         )
-        resp = client.post('/api/email/inbound', data={})
+        resp = client.post(_INBOUND_URL, data={})
         assert resp.status_code == 200
 
 
@@ -376,7 +388,7 @@ class TestWebhookBoundaryMismatch:
         )
 
         resp = client.post(
-            '/api/email/inbound',
+            _INBOUND_URL,
             data=body,
             content_type='multipart/form-data; boundary=DECLARED_does_not_match',
         )
@@ -416,7 +428,7 @@ class TestWebhookBoundaryMismatch:
             },
         )
         resp = client.post(
-            '/api/email/inbound',
+            _INBOUND_URL,
             data=body,
             content_type='multipart/form-data; boundary=Matching123',
         )
@@ -556,7 +568,7 @@ class TestTruncatedBodyRequestsRetry:
               'application/pdf')],
         )
         resp = client.post(
-            '/api/email/inbound',
+            _INBOUND_URL,
             data=body,
             content_type='multipart/form-data; boundary=xYzZY',
         )
@@ -579,7 +591,7 @@ class TestTruncatedBodyRequestsRetry:
               'application/pdf')],
         )
         resp = client.post(
-            '/api/email/inbound',
+            _INBOUND_URL,
             data=body,
             content_type='multipart/form-data; boundary=xYzZY',
         )
@@ -604,7 +616,7 @@ class TestTruncatedBodyRequestsRetry:
              'subject': 'Real candidate', 'text': 'see resume'},
         )
         resp = client.post(
-            '/api/email/inbound',
+            _INBOUND_URL,
             data=body,
             content_type='multipart/form-data; boundary=Matching123',
         )

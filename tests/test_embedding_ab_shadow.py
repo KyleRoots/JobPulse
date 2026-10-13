@@ -29,7 +29,10 @@ class TestShadowToggleAndPairing(unittest.TestCase):
 
     def test_shadow_on_via_truthy_values(self):
         for val in ('true', 'True', '1', 'yes', 'YES'):
-            with patch.dict(os.environ, {'EMBEDDING_AB_SHADOW_ENABLED': val}):
+            with patch.dict(os.environ, {
+                'EMBEDDING_AB_SHADOW_ENABLED': val,
+                'SHADOW_LOGGING_DISABLED': 'false',
+            }):
                 self.assertTrue(EmbeddingService._shadow_enabled(), f"value={val!r}")
 
     def test_shadow_off_via_falsy_values(self):
@@ -126,7 +129,10 @@ class TestShadowFilterIntegration(unittest.TestCase):
         """If shadow resume embedding fails, no shadow comparisons are attempted
         but production decision is still made."""
         from models import EmbeddingABLog
-        with patch.dict(os.environ, {'EMBEDDING_AB_SHADOW_ENABLED': 'true'}):
+        with patch.dict(os.environ, {
+            'EMBEDDING_AB_SHADOW_ENABLED': 'true',
+            'SHADOW_LOGGING_DISABLED': 'false',
+        }):
             svc = EmbeddingService()
             with patch.object(svc, 'generate_embedding', return_value=[1.0] + [0.0] * 7), \
                  patch.object(svc, 'get_job_embedding', return_value=[1.0] + [0.0] * 7), \
@@ -149,7 +155,10 @@ class TestShadowFilterIntegration(unittest.TestCase):
     def test_shadow_on_writes_ab_rows_when_succeeds(self):
         """Happy path: both resume + job shadow embeddings succeed → AB rows written."""
         from models import EmbeddingABLog
-        with patch.dict(os.environ, {'EMBEDDING_AB_SHADOW_ENABLED': 'true'}):
+        with patch.dict(os.environ, {
+            'EMBEDDING_AB_SHADOW_ENABLED': 'true',
+            'SHADOW_LOGGING_DISABLED': 'false',
+        }):
             svc = EmbeddingService()
             # Identical vectors → similarity = 1.0 for both
             vec = [1.0] + [0.0] * 7
@@ -177,7 +186,10 @@ class TestShadowFilterIntegration(unittest.TestCase):
     def test_shadow_on_per_job_failure_does_not_break_others(self):
         """If a single job's shadow embedding fails, others still get logged."""
         from models import EmbeddingABLog
-        with patch.dict(os.environ, {'EMBEDDING_AB_SHADOW_ENABLED': 'true'}):
+        with patch.dict(os.environ, {
+            'EMBEDDING_AB_SHADOW_ENABLED': 'true',
+            'SHADOW_LOGGING_DISABLED': 'false',
+        }):
             svc = EmbeddingService()
             vec = [1.0] + [0.0] * 7
 
@@ -279,6 +291,7 @@ class TestShadowJobCap(unittest.TestCase):
             db.session.commit()
             with patch.dict(os.environ, {
                 'EMBEDDING_AB_SHADOW_ENABLED': 'true',
+                'SHADOW_LOGGING_DISABLED': 'false',
                 'EMBEDDING_AB_SHADOW_MAX_JOBS': '2',
             }):
                 svc = EmbeddingService()

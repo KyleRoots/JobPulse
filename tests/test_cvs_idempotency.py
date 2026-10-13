@@ -76,7 +76,12 @@ class TestShouldSkipCandidate:
             db.session.commit()
 
     def test_different_job_always_rescreened(self, app):
-        """Same candidate but different job → always allow, even if vetted recently."""
+        """Different job is screened once the candidate-level cooldown has passed.
+
+        The seeded self-screen cooldown is 120 minutes and blocks every job.
+        This fixture sits outside that window so the different-job rule itself
+        is what the assertion checks.
+        """
         from app import db
         from models import CandidateVettingLog
         cvs = _make_cvs()
@@ -87,7 +92,7 @@ class TestShouldSkipCandidate:
                 candidate_name='CrossJob',
                 status='completed',
                 applied_job_id=50,
-                created_at=datetime.utcnow() - timedelta(hours=1)
+                created_at=datetime.utcnow() - timedelta(hours=3)
             )
             db.session.add(log)
             db.session.commit()

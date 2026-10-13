@@ -316,6 +316,193 @@ def test_clearance_verdict_without_literal_word_is_recognized():
     assert result["match_score"] == 42
 
 
+def test_work_auth_explicit_statement_is_candidate_reported():
+    result = _base_result(
+        match_summary="Strong Java match.",
+        gaps="No Kubernetes experience noted",
+    )
+    result["work_authorization_analysis"] = {
+        "explicit_statement": "US Permanent Resident (Green Card)",
+        "penalty_applied": 0,
+        "inference_tier": "N/A - explicit statement",
+    }
+    enforce_work_authorization_documentation(result, 40, None, US_AUTH_JD)
+    for surface in (result["match_summary"], result["gaps_identified"]):
+        lowered = surface.lower()
+        assert 'candidate reports "us permanent resident (green card)"' in lowered
+        assert "not independently verified legal status" in lowered
+        assert "does not explicitly confirm" not in lowered
+        assert "could not be automatically inferred" not in lowered
+        assert "citizenship" not in lowered
+    assert result["match_score"] == 42
+    assert result["technical_score"] == 42
+
+
+def test_work_auth_history_inference_is_not_confirmed():
+    result = _base_result(
+        match_summary="Excellent DevOps match.",
+        gaps="",
+    )
+    result["work_authorization_analysis"] = {
+        "total_us_years": 9,
+        "inference_tier": "5+ years - strong likelihood, no penalty",
+        "penalty_applied": 0,
+        "us_roles_enumerated": ["DevOps Engineer, Seattle WA (2016-2019)"],
+    }
+    enforce_work_authorization_documentation(result, 41, None, US_AUTH_JD)
+    for surface in (result["match_summary"], result["gaps_identified"]):
+        lowered = surface.lower()
+        assert "9 years of u.s. employment history" in lowered
+        assert "not confirmed work authorization" in lowered
+        assert "recruiter verification is recommended" in lowered
+        assert "could not be automatically inferred" not in lowered
+        assert "citizenship" not in lowered
+        assert "authorization is confirmed" not in lowered
+    assert result["match_score"] == 42
+    assert result["technical_score"] == 42
+
+
+def test_work_auth_missing_analysis_is_not_a_resume_finding():
+    """A missing analysis block is not evidence that the résumé lacks a statement."""
+    result = _base_result(
+        match_summary="Strong backend match on the core stack.",
+        gaps="Limited messaging-queue depth.",
+    )
+    assert "work_authorization_analysis" not in result
+    enforce_work_authorization_documentation(result, 42, None, US_AUTH_JD)
+    for surface in (result["match_summary"], result["gaps_identified"]):
+        lowered = surface.lower()
+        assert "not assessed" in lowered
+        assert "recruiter verification is needed" in lowered
+        assert "does not explicitly confirm" not in lowered
+        assert "does not explicitly state" not in lowered
+        assert "could not be automatically inferred" not in lowered
+        assert "résumé" not in lowered
+        assert "resume" not in lowered
+        assert "citizenship" not in lowered
+    assert result["match_score"] == 42
+    assert result["technical_score"] == 42
+
+
+def test_work_auth_cleanup_keeps_unrelated_sentence_breaks():
+    result = _base_result(
+        match_summary="Strong Java match. Good AWS depth.",
+        gaps="No Kubernetes experience noted",
+    )
+    result["work_authorization_analysis"] = {
+        "explicit_statement": "US Permanent Resident (Green Card)",
+        "penalty_applied": 0,
+    }
+    enforce_work_authorization_documentation(result, 47, None, US_AUTH_JD)
+    assert result["match_summary"].startswith("Strong Java match. Good AWS depth.")
+    assert " | " not in result["match_summary"]
+
+    dropped = _base_result(
+        match_summary=(
+            "Strong Java match. The résumé does not explicitly confirm "
+            "work-authorization status. Good AWS depth."
+        ),
+        gaps="No Kubernetes experience noted",
+    )
+    dropped["work_authorization_analysis"] = result["work_authorization_analysis"]
+    enforce_work_authorization_documentation(dropped, 48, None, US_AUTH_JD)
+    assert dropped["match_summary"].startswith("Strong Java match. Good AWS depth.")
+    assert "does not explicitly confirm" not in dropped["match_summary"].lower()
+    assert " | " not in dropped["match_summary"]
+    assert result["match_score"] == 42
+    assert result["technical_score"] == 42
+    assert dropped["match_score"] == 42
+
+
+def test_work_auth_mixed_sentence_keeps_unrelated_assessment():
+    result = _base_result(
+        match_summary=(
+            "Strong Java assessment, and the résumé does not explicitly "
+            "confirm work-authorization status."
+        ),
+        gaps="Limited messaging-queue depth.",
+    )
+    result["work_authorization_analysis"] = {
+        "explicit_statement": "US Permanent Resident (Green Card)",
+        "penalty_applied": 0,
+    }
+    enforce_work_authorization_documentation(result, 45, None, US_AUTH_JD)
+    lowered = result["match_summary"].lower()
+    assert "strong java assessment" in lowered
+    assert "does not explicitly confirm" not in lowered
+    assert 'candidate reports "us permanent resident (green card)"' in lowered
+    assert result["match_score"] == 42
+    assert result["technical_score"] == 42
+
+
+def test_work_auth_explicit_statement_replaces_negative_verdict():
+    result = _base_result(
+        match_summary=(
+            "Candidate is not authorized to work in the US. Strong Java assessment."
+        ),
+        gaps="Some tooling gaps.",
+    )
+    result["work_authorization_analysis"] = {
+        "explicit_statement": "US Permanent Resident (Green Card)",
+        "penalty_applied": 0,
+    }
+    enforce_work_authorization_documentation(result, 46, None, US_AUTH_JD)
+    for surface in (result["match_summary"], result["gaps_identified"]):
+        lowered = surface.lower()
+        assert "not authorized to work" not in lowered
+        assert 'candidate reports "us permanent resident (green card)"' in lowered
+    assert "strong java assessment" in result["match_summary"].lower()
+    assert result["match_score"] == 42
+    assert result["technical_score"] == 42
+
+
+def test_work_auth_conflicting_analysis_keeps_both_facts():
+    result = _base_result(
+        match_summary=(
+            "Scout Screening notes this role requires US work authorization; "
+            "the résumé does not explicitly confirm work-authorization status "
+            "and it could not be automatically inferred — recruiter "
+            "verification recommended."
+        ),
+        gaps="No Kubernetes experience noted",
+    )
+    result["work_authorization_analysis"] = {
+        "explicit_statement": "US Permanent Resident (Green Card)",
+        "penalty_applied": 15,
+    }
+    before_score = result["match_score"]
+    enforce_work_authorization_documentation(result, 43, None, US_AUTH_JD)
+    for surface in (result["match_summary"], result["gaps_identified"]):
+        lowered = surface.lower()
+        assert 'candidate reports "us permanent resident (green card)"' in lowered
+        assert "not independently verified legal status" in lowered
+        assert "work-authorization penalty" in lowered
+        assert "conflicts with that statement" in lowered
+        assert "does not explicitly confirm" not in lowered
+        assert "could not be automatically inferred" not in lowered
+        assert "citizenship" not in lowered
+    assert result["match_score"] == before_score
+    assert result["technical_score"] == 42
+
+
+def test_work_auth_history_penalty_conflict_does_not_confirm():
+    result = _base_result(match_summary="Solid match.", gaps="Some tooling gaps.")
+    result["work_authorization_analysis"] = {
+        "total_us_years": 9,
+        "inference_tier": "5+ years - strong likelihood, no penalty",
+        "penalty_applied": 10,
+    }
+    enforce_work_authorization_documentation(result, 44, None, US_AUTH_JD)
+    for surface in (result["match_summary"], result["gaps_identified"]):
+        lowered = surface.lower()
+        assert "not confirmed work authorization" in lowered
+        assert "conflicts with that inference" in lowered
+        assert "recruiter verification is recommended" in lowered
+        assert "could not be automatically inferred" not in lowered
+        assert "citizenship" not in lowered
+    assert result["match_score"] == 42
+
+
 def test_work_auth_does_not_require_sponsorship_is_verdict():
     # "does not require sponsorship" is a candidate verdict, NOT requirement echo.
     result = _base_result(
