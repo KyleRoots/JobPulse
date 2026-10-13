@@ -1292,8 +1292,8 @@ def _work_auth_sentence_from_analysis(analysis):
 
     An explicit résumé statement is candidate-reported, not verified legal
     status. A zero penalty, U.S. work history, or inference tier is not
-    confirmed authorization. Missing analysis stays on the generic
-    uncertainty sentence.
+    confirmed authorization. Missing analysis returns None so the caller
+    can say the question was not assessed.
     """
     if not isinstance(analysis, dict) or not analysis:
         return None
@@ -1347,17 +1347,24 @@ def _work_auth_sentence_from_analysis(analysis):
 
 
 def _drop_work_auth_contradictions(text: str, phrases) -> str:
+    """Drop clauses that contain a contradictory phrase and keep the rest.
+
+    A pipe, sentence boundary, semicolon, or ", and " starts a new clause.
+    Unrelated text in the same sentence stays.
+    """
     if not text:
         return ''
     parts = re.split(r'\s*\|\s*|(?<=[.!?])\s+', text)
     kept = []
     for part in parts:
-        lowered = part.lower()
-        if any(phrase in lowered for phrase in phrases):
-            continue
-        cleaned = part.strip()
-        if cleaned:
-            kept.append(cleaned)
+        clauses = re.split(r'\s*;\s*|\s*,\s+and\s+', part, flags=re.IGNORECASE)
+        for clause in clauses:
+            lowered = clause.lower()
+            if any(phrase in lowered for phrase in phrases):
+                continue
+            cleaned = clause.strip(' ,')
+            if cleaned:
+                kept.append(cleaned)
     return ' | '.join(kept)
 
 
@@ -1387,7 +1394,14 @@ def _apply_work_auth_analysis_sentence(text: str, sentence: str, analysis: dict,
     if explicit or has_inference:
         phrases.append('could not be automatically inferred')
     if explicit:
-        phrases.append('does not explicitly confirm')
+        phrases.extend((
+            'does not explicitly confirm',
+            'not authorized to work',
+            'not authorised to work',
+            'no work authorization',
+            'lacks work authorization',
+            'without work authorization',
+        ))
     cleaned = _drop_work_auth_contradictions(text, phrases)
     return _append_work_auth_sentence(cleaned, sentence, separate_with_period=separate_with_period)
 
