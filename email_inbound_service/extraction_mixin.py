@@ -9,6 +9,80 @@ from utils.candidate_name_extraction import (
 )
 
 
+
+_PAREN_JOB_ID = re.compile(r'\((\d{4,6})\)')
+_CANDIDATE_SEPARATOR = re.compile(r'\s+[-–—]\s+')
+
+
+def parenthetical_job_id(subject: str) -> Optional[int]:
+    """Job id written as (1234) to (123456) in the job title, not the name.
+
+    Zip quotes the title: ``for 'Title (2024) (79463)'``. The appended
+    Bullhorn id is the last parenthetical in that quote. A number on the
+    candidate name, outside the quotes, is ignored. If the quoted title has
+    no such id, a parenthetical on the name is not used.
+
+    LinkedIn and Indeed use ``Title (79463) - Candidate Name``. Only the
+    text before the last spaced dash is the title. One id there matches the
+    old first-id result. When the title itself has more than one, the last
+    is the suffix this feed appends. A number after the dash stays with the
+    candidate.
+
+    Returns None when the title has no 4 to 6 digit parenthetical. The
+    caller may then use the body or the first bare 5-digit number. This
+    does not treat 3-digit or 7-digit groups as ids.
+    """
+    subject = subject or ''
+    quoted = _quoted_job_title(subject)
+    if quoted is not None:
+        ids = _PAREN_JOB_ID.findall(quoted)
+        if not ids:
+            return None
+        return int(ids[-1])
+
+    separators = list(_CANDIDATE_SEPARATOR.finditer(subject))
+    if not separators:
+        ids = _PAREN_JOB_ID.findall(subject)
+        if not ids:
+            return None
+        return int(ids[-1])
+
+    title_portion = subject[:separators[-1].start()]
+    title_ids = _PAREN_JOB_ID.findall(title_portion)
+    if title_ids:
+        return int(title_ids[-1])
+
+    # The dash was inside the title ("Job Title - Azure (34707)") and there
+    # is no separate candidate segment holding the id. One id in the whole
+    # subject is that job id. More than one, with none before the last dash,
+    # is ambiguous unless the subject ends on the appended suffix.
+    all_ids = _PAREN_JOB_ID.findall(subject)
+    if len(all_ids) == 1:
+        return int(all_ids[0])
+    if len(all_ids) > 1 and subject.rstrip().endswith(')'):
+        return int(all_ids[-1])
+    return None
+
+
+def _quoted_job_title(subject: str) -> Optional[str]:
+    """Title inside the board's ``for '...'`` or ``for "..."`` quotes."""
+    single = re.search(r"for\s+'(.*)'", subject)
+    double = re.search(r'for\s+"(.*)"', subject)
+    if single and double:
+        single_ids = _PAREN_JOB_ID.findall(single.group(1))
+        double_ids = _PAREN_JOB_ID.findall(double.group(1))
+        if single_ids and not double_ids:
+            return single.group(1)
+        if double_ids and not single_ids:
+            return double.group(1)
+    if single:
+        return single.group(1)
+    if double:
+        return double.group(1)
+    return None
+
+
+
 class ExtractionMixin:
 
     def detect_source(self, sender: str, subject: str, body: str) -> str:
@@ -137,27 +211,34 @@ class ExtractionMixin:
             return value
         return ''
 
+
     def extract_bullhorn_job_id(self, subject: str, body: str, source: str = None) -> Optional[int]:
         """
-        Extract Bullhorn Job ID from email subject or body
+        Extract Bullhorn Job ID from email subject or body.
 
         Patterns:
         - Subject: "Job Title (34613) - Candidate Name"
         - Subject: "Job Title - Azure (34707) - Candidate Name"
+        - Zip: "Great Match: Name for 'Job Title (34613)'"
         - Dice subject: "Job ID - 33633 | UX Designer - Moises Frausto has applied"
         - Body: "Bullhorn ID: 34613"
+        - Last resort: the first standalone 5-digit number in the subject
+
+        Parenthetical ids are 4 to 6 digits only. A number in the candidate's
+        name is not a job id. ``source`` is unused; callers do not pass it.
         """
+        subject = subject or ''
+        body = body or ''
         self.logger.info(f"Extracting job ID from subject: {subject[:100]}...")
 
-        dice_match = re.search(r'Job\s*ID\s*[-–]\s*(\d{4,6})', subject, re.IGNORECASE)
+        dice_match = re.search(r'Job\s*ID\s*[-–—]\s*(\d{4,6})', subject, re.IGNORECASE)
         if dice_match:
             job_id = int(dice_match.group(1))
             self.logger.info(f"Extracted job ID from Dice 'Job ID -' format: {job_id}")
             return job_id
 
-        match = re.search(r'\((\d{4,6})\)', subject)
-        if match:
-            job_id = int(match.group(1))
+        job_id = parenthetical_job_id(subject)
+        if job_id is not None:
             self.logger.info(f"Extracted job ID from subject parentheses: {job_id}")
             return job_id
 

@@ -170,8 +170,20 @@ class MappingMixin:
             # Remove any other parenthetical content like (J.D)
             clean_title = re.sub(r'\s*\([^)]+\)\s*', ' ', clean_title).strip()
             
-            # Add job ID in parentheses to the cleaned title
+            # LinkedIn and any other channel keep this historical title.
+            # Mailbox matching reads the parenthetical id. The apply URL
+            # below still uses clean_title, not formatted_title.
             formatted_title = f"{clean_title} ({job_id})"
+            # ZipRecruiter and the Indeed XML fallback keep Bullhorn
+            # punctuation, including slashes, and still append the id.
+            # Native Indeed publish does not call this mapper.
+            from feeds.feed_config import SOURCE_INDEED, SOURCE_ZIPRECRUITER
+            if (source_channel or '') in (SOURCE_ZIPRECRUITER, SOURCE_INDEED):
+                from feeds.board_titles import display_title_keeping_punctuation
+                formatted_title = display_title_keeping_punctuation(
+                    bullhorn_job.get('title', 'Untitled Position'),
+                    job_id,
+                )
             
             # Log the field mapping for debugging
             self.logger.debug(f"Mapping job {job_id}: title='{formatted_title}'")
