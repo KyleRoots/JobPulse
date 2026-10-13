@@ -433,7 +433,8 @@ class TestGC4_WorkAuthExplicitGreenCard:
     Expected behavior (Rule 0):
       - No work-auth penalty at all
       - Score reflects only technical/experience gaps, not authorization
-      - Gap text does not contain 'authorization' or 'citizenship'
+      - Both surfaces describe the Green Card line as candidate-reported,
+        not as verified legal status or a citizenship deficiency
     """
 
     def test_gc4_explicit_wa_no_penalty(self, service):
@@ -505,16 +506,27 @@ class TestGC4_WorkAuthExplicitGreenCard:
             f"score to auth penalty, got {result['match_score']}"
         )
 
-        # EVIDENCE: no auth-related gap text
         gaps = result.get('gaps_identified', '')
-        assert 'authorization' not in gaps.lower(), (
-            f"GC-4 REGRESSION: no auth gap expected for explicit Green Card, "
-            f"got gaps: {gaps}"
-        )
-        assert 'citizenship' not in gaps.lower(), (
-            f"GC-4 REGRESSION: no citizenship gap expected for explicit Green Card, "
-            f"got gaps: {gaps}"
-        )
+        summary = result.get('match_summary', '')
+        for surface_name, surface in (('gaps', gaps), ('summary', summary)):
+            lowered = surface.lower()
+            assert 'us permanent resident (green card)' in lowered, (
+                f"GC-4: {surface_name} must report the explicit statement, got {surface}"
+            )
+            assert 'candidate reports' in lowered, (
+                f"GC-4: {surface_name} must describe the statement as candidate-reported, got {surface}"
+            )
+            assert 'not independently verified' in lowered, (
+                f"GC-4: {surface_name} must not treat the statement as verified legal status, got {surface}"
+            )
+            assert 'does not explicitly confirm' not in lowered, (
+                f"GC-4: {surface_name} contradicts the explicit statement, got {surface}"
+            )
+            assert 'could not be automatically inferred' not in lowered, surface
+            assert 'citizenship' not in lowered, (
+                f"GC-4: {surface_name} invented a citizenship deficiency, got {surface}"
+            )
+            assert 'authorization is confirmed' not in lowered, surface
 
 
 # ===========================================================================
@@ -527,7 +539,8 @@ class TestGC5_WorkAuthLongUSHistory:
     Expected behavior:
       - Work auth enumeration shows all US roles and total years
       - Inference Tier 1 (5+ years): no penalty
-      - No 'citizenship' or 'authorization' gap text
+      - Both surfaces keep the history as unconfirmed and ask for recruiter
+        verification, without a citizenship deficiency
       - Score reflects technical match, not auth concerns
     """
 
@@ -606,16 +619,24 @@ class TestGC5_WorkAuthLongUSHistory:
             f"score ≥80, got {result['match_score']}"
         )
 
-        # EVIDENCE: no authorization/citizenship gap
         gaps = result.get('gaps_identified', '')
-        assert 'authorization' not in gaps.lower(), (
-            f"GC-5 REGRESSION: no auth gap for 9yr US history, "
-            f"got gaps: {gaps}"
-        )
-        assert 'citizenship' not in gaps.lower(), (
-            f"GC-5 REGRESSION: no citizenship gap for 9yr US history, "
-            f"got gaps: {gaps}"
-        )
+        summary = result.get('match_summary', '')
+        for surface_name, surface in (('gaps', gaps), ('summary', summary)):
+            lowered = surface.lower()
+            assert '9 years of u.s. employment history' in lowered, (
+                f"GC-5: {surface_name} must use the employment history, got {surface}"
+            )
+            assert 'not confirmed work authorization' in lowered, (
+                f"GC-5: {surface_name} must not treat history as confirmed authorization, got {surface}"
+            )
+            assert 'recruiter verification is recommended' in lowered, surface
+            assert 'could not be automatically inferred' not in lowered, (
+                f"GC-5: {surface_name} denies the inference the analysis already made, got {surface}"
+            )
+            assert 'citizenship not' not in lowered
+            assert 'no citizenship' not in lowered
+            assert 'not a us citizen' not in lowered
+            assert 'not a u.s. citizen' not in lowered
 
 
 # ===========================================================================

@@ -1268,6 +1268,130 @@ _WORK_AUTH_TOPIC_TOKENS = (
 )
 
 
+def _work_auth_penalty_is_nonzero(penalty) -> bool:
+    if penalty is None or penalty is False:
+        return False
+    try:
+        return float(penalty) != 0
+    except (TypeError, ValueError):
+        return False
+
+
+def _format_us_years(value) -> str:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return ' '.join(str(value).split())
+    if number.is_integer():
+        return str(int(number))
+    return str(number)
+
+
+def _work_auth_sentence_from_analysis(analysis):
+    """Sentence that matches the screening analysis, or None when it is missing.
+
+    An explicit résumé statement is candidate-reported, not verified legal
+    status. A zero penalty, U.S. work history, or inference tier is not
+    confirmed authorization. Missing analysis stays on the generic
+    uncertainty sentence.
+    """
+    if not isinstance(analysis, dict) or not analysis:
+        return None
+    explicit = ' '.join(str(analysis.get('explicit_statement') or '').split())
+    if len(explicit) > 180:
+        explicit = explicit[:177].rstrip() + '…'
+    tier = ' '.join(str(analysis.get('inference_tier') or '').split())
+    years = analysis.get('total_us_years')
+    roles = analysis.get('us_roles_enumerated') or []
+    has_years = years not in (None, '')
+    has_roles = isinstance(roles, (list, tuple)) and any(str(role).strip() for role in roles)
+    has_history = has_years or has_roles or bool(tier)
+    penalty = analysis.get('penalty_applied', None)
+    penalty_nonzero = _work_auth_penalty_is_nonzero(penalty)
+    penalty_stated = 'penalty_applied' in analysis
+    unconfirmed = (
+        "This is not confirmed work authorization. "
+        "Recruiter verification is recommended."
+    )
+
+    if explicit:
+        sentence = (
+            f'Candidate reports "{explicit}". This is a candidate-reported '
+            "statement, not independently verified legal status."
+        )
+        if penalty_nonzero:
+            sentence += (
+                " The screening analysis also records a work-authorization "
+                "penalty, which conflicts with that statement. "
+                "Recruiter verification is recommended."
+            )
+        return sentence
+
+    if has_history or (penalty_stated and not penalty_nonzero):
+        details = []
+        if has_years:
+            details.append(f"{_format_us_years(years)} years of U.S. employment history")
+        elif has_roles:
+            details.append("U.S. employment history")
+        if tier:
+            details.append(f"inference tier: {tier}")
+        if details:
+            sentence = "Scout Screening notes " + "; ".join(details) + "."
+        else:
+            sentence = "Scout Screening applied no work-authorization score penalty."
+        if penalty_nonzero:
+            sentence += " The analysis also records a work-authorization penalty, which conflicts with that inference."
+        return f"{sentence} {unconfirmed}"
+
+    return None
+
+
+def _drop_work_auth_contradictions(text: str, phrases) -> str:
+    if not text:
+        return ''
+    parts = re.split(r'\s*\|\s*|(?<=[.!?])\s+', text)
+    kept = []
+    for part in parts:
+        lowered = part.lower()
+        if any(phrase in lowered for phrase in phrases):
+            continue
+        cleaned = part.strip()
+        if cleaned:
+            kept.append(cleaned)
+    return ' | '.join(kept)
+
+
+def _append_work_auth_sentence(text: str, sentence: str, *, separate_with_period: bool) -> str:
+    if sentence in (text or ''):
+        return text or sentence
+    if not text or not text.strip():
+        return sentence
+    base = text.rstrip()
+    if separate_with_period:
+        return f"{base.rstrip('.')}. {sentence}"
+    return f"{base.rstrip('|').rstrip()} | {sentence}"
+
+
+def _apply_work_auth_analysis_sentence(text: str, sentence: str, analysis: dict, *, separate_with_period: bool) -> str:
+    """Put the analysis sentence on one surface and remove a contradictory fallback."""
+    if sentence in (text or ''):
+        return text
+    explicit = ' '.join(str(analysis.get('explicit_statement') or '').split())
+    tier = ' '.join(str(analysis.get('inference_tier') or '').split())
+    years = analysis.get('total_us_years')
+    roles = analysis.get('us_roles_enumerated') or []
+    has_inference = bool(tier) or years not in (None, '') or (
+        isinstance(roles, (list, tuple)) and any(str(role).strip() for role in roles)
+    )
+    phrases = []
+    if explicit or has_inference:
+        phrases.append('could not be automatically inferred')
+    if explicit:
+        phrases.append('does not explicitly confirm')
+    cleaned = _drop_work_auth_contradictions(text, phrases)
+    return _append_work_auth_sentence(cleaned, sentence, separate_with_period=separate_with_period)
+
+
 def enforce_work_authorization_documentation(result, job_id, custom_requirements, job_description):
     """Guarantee a US work-authorization verdict is documented in BOTH surfaces.
 
@@ -1276,6 +1400,13 @@ def enforce_work_authorization_documentation(result, job_id, custom_requirements
     while the Bullhorn note renders both fields, so a verdict in only one field
     is invisible on one surface. This safety net guarantees an explicit
     work-authorization statement in both fields for any auth-triggered job.
+
+    When ``work_authorization_analysis`` is present, both fields use that
+    evidence. An explicit résumé statement is described as candidate-reported.
+    History, a zero penalty, or an inference tier is not described as
+    confirmed authorization. A missing analysis block is not treated as
+    proof about the résumé; both fields say work authorization was not
+    assessed and that recruiter verification is needed.
 
     Documentation-only: NEVER changes ``match_score`` / ``technical_score`` /
     banding. Fully fail-soft.
@@ -1292,6 +1423,21 @@ def enforce_work_authorization_documentation(result, job_id, custom_requirements
 
         summary = result.get('match_summary', '') or ''
         gaps = result.get('gaps_identified', '') or ''
+        analysis = result.get('work_authorization_analysis')
+        from_analysis = _work_auth_sentence_from_analysis(analysis)
+        if from_analysis and isinstance(analysis, dict):
+            result['match_summary'] = _apply_work_auth_analysis_sentence(
+                summary, from_analysis, analysis, separate_with_period=True,
+            )
+            result['gaps_identified'] = _apply_work_auth_analysis_sentence(
+                gaps, from_analysis, analysis, separate_with_period=False,
+            )
+            logger.info(
+                f"🛡️ Work-authorization documentation enforcer: aligned both "
+                f"fields to screening analysis for job {job_id}"
+            )
+            return
+
         in_summary = _field_documents_verdict(
             summary, _WORK_AUTH_TOPIC_TOKENS, _WORK_AUTH_VERDICT_CUES)
         in_gaps = _field_documents_verdict(
@@ -1307,11 +1453,11 @@ def enforce_work_authorization_documentation(result, job_id, custom_requirements
                 gaps, _WORK_AUTH_TOPIC_TOKENS, _WORK_AUTH_VERDICT_CUES)
         )
         if not canonical:
+            # No analysis block and no verdict already written. Do not infer
+            # that the résumé lacks an explicit statement.
             canonical = (
-                "Scout Screening notes this role requires US work authorization; "
-                "the résumé does not explicitly confirm work-authorization status "
-                "and it could not be automatically inferred — recruiter "
-                "verification recommended."
+                "Work authorization was not assessed. "
+                "Recruiter verification is needed."
             )
 
         if not in_summary:
