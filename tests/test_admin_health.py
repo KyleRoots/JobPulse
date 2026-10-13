@@ -128,7 +128,13 @@ class TestAdminHealthAuth:
         assert 'overall_status' in payload
         assert 'last_checked' in payload
         assert isinstance(payload['tiles'], list)
-        assert len(payload['tiles']) == 11
+        assert len(payload['tiles']) == 12
+        assert {tile['key'] for tile in payload['tiles']} == {
+            'database', 'scheduler', 'bullhorn_auth', 'openai',
+            'inflight_vetting', 'failed_vetting_24h',
+            'sftp_uploads', 'onedrive_token', 'ai_cost_24h',
+            'skip_gates', 'monthly_report', 'ops_early_warning',
+        }
         assert payload['overall_status'] in ('green', 'amber', 'red', 'unknown')
         for tile in payload['tiles']:
             for required in ('key', 'label', 'icon', 'status', 'value'):
