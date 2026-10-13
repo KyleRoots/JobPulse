@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # only do "from screening.location_review import …" because Python always
 # initialises the parent package (screening/__init__.py) first.
 #
-# TWO things must happen here at module scope, before any test file is
+# Three things must happen here at module scope, before any test file is
 # imported:
 #
 # 1. Delete DATABASE_URL so Flask-SQLAlchemy falls back to
@@ -38,8 +38,48 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 #    "attempt to write a readonly database".  Deleting the file here
 #    (before any import opens it) lets the first import create a fresh
 #    fallback.db that remains valid for the entire session.
-if "DATABASE_URL" in os.environ:
-    os.environ.pop("DATABASE_URL")
+#
+# 3. Drop inherited provider credentials and ignore .env. main.py calls
+#    load_dotenv() on import, and an auth test reloads that module. Pytest
+#    must not pick up a production environment file or send mail, call paid
+#    APIs, or open Bullhorn or SFTP with inherited credentials.
+_CREDENTIAL_ENV_KEYS = (
+    "DATABASE_URL",
+    "SENDGRID_API_KEY",
+    "SENDGRID_INBOUND_WEBHOOK_SECRET",
+    "TWILIO_ACCOUNT_SID",
+    "TWILIO_AUTH_TOKEN",
+    "NEVERBOUNCE_API_KEY",
+    "OPENAI_API_KEY",
+    "BULLHORN_CLIENT_ID",
+    "BULLHORN_CLIENT_SECRET",
+    "BULLHORN_USERNAME",
+    "BULLHORN_PASSWORD",
+    "BH_CLIENT_ID",
+    "BH_CLIENT_SECRET",
+    "BH_USERNAME",
+    "BH_PASSWORD",
+    "SFTP_HOSTNAME",
+    "SFTP_HOST",
+    "SFTP_USERNAME",
+    "SFTP_USER",
+    "SFTP_PASSWORD",
+    "SFTP_KEY",
+    "SFTP_DIRECTORY",
+    "RAILWAY_TOKEN",
+)
+for _key in _CREDENTIAL_ENV_KEYS:
+    os.environ.pop(_key, None)
+
+
+def _ignore_dotenv(*_args, **_kwargs):
+    """Pytest must not load a local or production .env."""
+    return False
+
+
+import dotenv
+
+dotenv.load_dotenv = _ignore_dotenv
 
 _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _instance_dir = os.path.join(_project_root, "instance")

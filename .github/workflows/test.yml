@@ -12,6 +12,13 @@ jobs:
     
     steps:
     - uses: actions/checkout@v4
+
+    - name: Refuse a checked-in environment file
+      run: |
+        if [ -f .env ] || [ -f .env.local ]; then
+          echo "Refusing to run tests with an environment file in the checkout."
+          exit 1
+        fi
     
     - name: Set up Python 3.11
       uses: actions/setup-python@v5
@@ -26,6 +33,7 @@ jobs:
     
     - name: Run tests
       env:
+        APP_ENV: testing
         FLASK_ENV: testing
         TESTING: 'true'
       run: |
