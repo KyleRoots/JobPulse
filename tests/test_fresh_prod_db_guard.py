@@ -199,7 +199,18 @@ class TestGuardWiredIntoSeedDatabase:
         with app.app_context():
             # Override bypasses the guard. Then we let downstream seed
             # logic run under the test env (no production validation).
-            with patch.dict('os.environ', {'ALLOW_FRESH_PROD_SEED': 'true'}):
+            with patch.dict('os.environ', {
+                'ALLOW_FRESH_PROD_SEED': 'true',
+                # Production seed refuses to continue without these. They are
+                # fake stand-ins so the test does not need real provider secrets.
+                'BULLHORN_CLIENT_ID': 'test-client-id',
+                'BULLHORN_CLIENT_SECRET': 'test-client-secret',
+                'BULLHORN_USERNAME': 'test-user',
+                'BULLHORN_PASSWORD': 'test-password',
+                'SFTP_HOSTNAME': 'sftp.test.invalid',
+                'SFTP_USERNAME': 'test-user',
+                'SFTP_PASSWORD': 'test-password',
+            }):
                 with _patch_prod():
                     # First call — guard sees override, proceeds. The rest
                     # of seed_database runs under is_production=True path.

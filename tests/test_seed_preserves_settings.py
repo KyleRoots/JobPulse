@@ -179,9 +179,20 @@ class TestSeedDefaultsEnvironmentAgnostic:
                 GlobalSettings.query.delete()
                 db.session.commit()
 
-                with patch('seed_database.is_production_environment', return_value=is_prod):
-                    seed_vetting_config(db, VettingConfig)
-                    seed_global_settings(db, GlobalSettings)
+                with patch.dict('os.environ', {
+                    # Production seed refuses empty provider config. These
+                    # fakes keep that check from requiring real secrets.
+                    'BULLHORN_CLIENT_ID': 'test-client-id',
+                    'BULLHORN_CLIENT_SECRET': 'test-client-secret',
+                    'BULLHORN_USERNAME': 'test-user',
+                    'BULLHORN_PASSWORD': 'test-password',
+                    'SFTP_HOSTNAME': 'sftp.test.invalid',
+                    'SFTP_USERNAME': 'test-user',
+                    'SFTP_PASSWORD': 'test-password',
+                }):
+                    with patch('seed_database.is_production_environment', return_value=is_prod):
+                        seed_vetting_config(db, VettingConfig)
+                        seed_global_settings(db, GlobalSettings)
 
                 for key in toggle_keys_vetting:
                     val = VettingConfig.query.filter_by(

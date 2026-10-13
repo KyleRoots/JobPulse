@@ -119,6 +119,7 @@ def app():
     # Import app — extensions.py + app.py will create a fresh
     # instance/fallback.db (SQLite) with the current schema on first import.
     from app import app as flask_app, db
+    from extensions import limiter
 
     # Configure for testing. Note: SQLALCHEMY_DATABASE_URI is intentionally
     # NOT overridden here — the engine was already bound to fallback.db
@@ -134,6 +135,10 @@ def app():
         'SERVER_NAME': 'localhost:5000',
         'RATELIMIT_ENABLED': False,  # Prevent rate-limiter 429s across login tests
     })
+    # Flask-Limiter 3 copies RATELIMIT_ENABLED inside init_app and then
+    # ignores later config changes. A full suite finishes in about a minute
+    # and otherwise trips the login route's 20/minute cap.
+    limiter.enabled = False
 
     # Create application context and database tables
     with flask_app.app_context():
