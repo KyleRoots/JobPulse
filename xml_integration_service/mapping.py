@@ -37,6 +37,59 @@ def _apply_base_url(company_name: str = None) -> str:
     return f"https://{get_default_apply_host()}"
 
 
+def _strip_orphaned_line_leading_list_closers(description: str) -> str:
+    """Remove a line-leading ``</li>`` only when no list item is open.
+
+    A closer that starts its own line is how Bullhorn writes a real
+    ``</li>``. That closer stays. A closer with no open item is the orphan
+    the historical cleaner removed from the start of a line.
+    """
+    open_items = 0
+    lines = []
+    for line in description.split('\n'):
+        if line.lstrip().startswith('</li>') and open_items <= 0:
+            line = re.sub(r'^[\s]*</li>', '', line, count=1)
+        for match in re.finditer(r'</?li\b', line, flags=re.IGNORECASE):
+            if match.group(0).startswith('</'):
+                open_items = max(0, open_items - 1)
+            else:
+                open_items += 1
+        lines.append(line)
+    return '\n'.join(lines)
+
+
+def _wrap_bare_list_items(description: str) -> str:
+    """Wrap ``<li>`` blocks that have no ``<ul>`` or ``<ol>`` parent."""
+    if '<li>' not in description or '<ul>' in description or '<ol>' in description:
+        return description
+    li_pattern = r'(<li>.*?</li>)'
+    list_blocks = re.findall(li_pattern, description, re.DOTALL)
+    if not list_blocks:
+        return description
+    first_block = ''.join(list_blocks)
+    wrapped_block = f'<ul>{first_block}</ul>'
+    description = re.sub(li_pattern, '', description, flags=re.DOTALL)
+    return wrapped_block + description
+
+
+def prepare_description_markup(description: str, *, preserve_explicit_list_closers: bool = False) -> str:
+    """Markup before the HTML repair parse.
+
+    Historical mode deletes every line-leading ``</li>``. Zip mode deletes
+    only an orphan closer, so an explicit list item is unchanged before the
+    parser runs.
+    """
+    if not description:
+        return ''
+    description = html.unescape(description)
+    if preserve_explicit_list_closers:
+        description = _strip_orphaned_line_leading_list_closers(description)
+    else:
+        description = re.sub(r'^[\s]*</li>', '', description, flags=re.MULTILINE)
+    description = re.sub(r'</li>[\s]*<li>', '</li>\n<li>', description)
+    return _wrap_bare_list_items(description)
+
+
 class MappingMixin:
     """Mixin providing mapping-related XMLIntegrationService methods."""
 
@@ -228,8 +281,10 @@ class MappingMixin:
             # The publicDescription field contains the public-facing job description from Bullhorn
             description = bullhorn_job.get('publicDescription', '') or bullhorn_job.get('description', '')
             
-            # Clean up description - remove excessive whitespace and format for XML
-            description = self._clean_description(description)
+            # Clean up description - remove excessive whitespace and format for XML.
+            # Zip keeps explicit </li> closers. Other channels keep the
+            # historical cleaner, which drops a closer that starts a line.
+            description = self._clean_description(description, source_channel=source_channel)
             
             # Format date
             date_added = bullhorn_job.get('dateAdded', '')
@@ -516,58 +571,47 @@ class MappingMixin:
             self.logger.warning(f"Error querying recruiter mapping database: {str(e)}")
             # Fallback to just returning the name if database query fails
             return recruiter_name
-    def _clean_description(self, description: str) -> str:
-        """Clean and format job description for XML with proper HTML formatting"""
+
+    def _clean_description(self, description: str, source_channel: str = None) -> str:
+        """Clean and format job description for XML with proper HTML formatting.
+
+        ``source_channel`` defaults to the historical cleaner. ZipRecruiter
+        keeps an explicit ``</li>`` that Bullhorn places at the start of a
+        line. Orphan closers, bare list wrapping, and the HTML repair parse
+        still run for every channel.
+        """
         if not description:
             return ''
-        
-        import html as html_module
-        
-        # Convert HTML entities back to proper HTML tags for consistent formatting
-        # This ensures &lt;strong&gt; becomes <strong>, &lt;p&gt; becomes <p>, etc.
-        description = html_module.unescape(description)
-        
-        # CRITICAL FIX: Clean up orphaned closing/opening tags BEFORE parsing
-        # These often appear at the beginning of lines from improperly extracted content
-        # Remove orphaned closing tags at the beginning of lines
-        description = re.sub(r'^[\s]*</li>', '', description, flags=re.MULTILINE)
-        # Remove orphaned </li><li> patterns that create invalid HTML
-        description = re.sub(r'</li>[\s]*<li>', '</li>\n<li>', description)
-        
-        # If we have list items without a container, wrap them
-        if '<li>' in description and not ('<ul>' in description or '<ol>' in description):
-            # Find all list items and wrap them in a ul container
-            # This prevents orphaned list items from causing issues
-            li_pattern = r'(<li>.*?</li>)'
-            list_blocks = re.findall(li_pattern, description, re.DOTALL)
-            if list_blocks:
-                # Replace the first occurrence with wrapped version
-                first_block = ''.join(list_blocks)
-                wrapped_block = f'<ul>{first_block}</ul>'
-                description = re.sub(li_pattern, '', description, flags=re.DOTALL)
-                description = wrapped_block + description
-        
+
+        from feeds.feed_config import SOURCE_ZIPRECRUITER
+        preserve_explicit_list_closers = (source_channel or '') == SOURCE_ZIPRECRUITER
+        description = prepare_description_markup(
+            description,
+            preserve_explicit_list_closers=preserve_explicit_list_closers,
+        )
+
         try:
             from lxml import html
-            
-            # Parse the description as an HTML fragment
-            # This automatically fixes unclosed tags like <li>, <p>, etc.
+
+            # Parse the description as an HTML fragment.
+            # This repairs unclosed tags. It is not used to recreate a
+            # </li> that Zip still has from Bullhorn.
             fragment = html.fragment_fromstring(description, create_parent='div')
-            
+
             # Convert back to string with proper HTML serialization
             fixed_description = html.tostring(fragment, encoding='unicode', method='html')
-            
+
             # Remove the wrapper div we added
             if fixed_description.startswith('<div>') and fixed_description.endswith('</div>'):
                 fixed_description = fixed_description[5:-6]
-            
-            # Clean up any excessive whitespace while preserving structure
+
             fixed_description = fixed_description.strip()
-            
-            # FINAL CLEANUP: Remove any remaining orphaned patterns
-            # Sometimes lxml doesn't catch everything, so do a final pass
-            fixed_description = re.sub(r'^[\s]*</li>', '', fixed_description, flags=re.MULTILINE)
-            fixed_description = re.sub(r'</li>[\s]*<li>', '</li>\n<li>', fixed_description)
+
+            # Historical channels drop a closer that the repair parse put
+            # back at the start of a line. Zip keeps that explicit closer.
+            if not preserve_explicit_list_closers:
+                fixed_description = re.sub(r'^[\s]*</li>', '', fixed_description, flags=re.MULTILINE)
+                fixed_description = re.sub(r'</li>[\s]*<li>', '</li>\n<li>', fixed_description)
             
             # Log if HTML fixes were applied
             if '</li>' in fixed_description and '<li>' in fixed_description:
