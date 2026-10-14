@@ -14,8 +14,13 @@ logger = logging.getLogger(__name__)
 
 
 def create_admin_user(db, User):
-    """
-    Create admin user if it doesn't exist, or update if credentials changed (idempotent with rotation)
+    """Create the admin user only when that account is genuinely absent.
+
+    An existing admin, or any user already using the configured username or
+    email, is returned unchanged. ADMIN_PASSWORD is applied only on insert.
+    Startup must not rewrite a saved password, username, email, company, or
+    admin flag, and must not bump auth_revision (that would sign everyone out
+    on boot).
 
     Args:
         db: SQLAlchemy database instance
@@ -30,59 +35,23 @@ def create_admin_user(db, User):
     from feeds.feed_config import get_tenant_company_name
 
     config = seed_database.get_admin_config()
-    company_name = get_tenant_company_name()
 
-    # First, try to find existing admin user by is_admin=True (independent of current env values)
-    # This ensures we update the same admin even if username/email change
+    # Prefer a real admin. Otherwise a row that already owns the configured
+    # username or email is the same account and must be left alone.
     existing_user = User.query.filter_by(is_admin=True).first()
-
-    # If no admin found by is_admin, try to find by current env values (for backwards compatibility)
-    if not existing_user:
+    if existing_user is None:
         existing_user = User.query.filter(
             (User.username == config['username']) | (User.email == config['email'])
         ).first()
 
-    if existing_user:
-        logger.info(f"✅ Admin user already exists: {existing_user.username} ({existing_user.email})")
-
-        # Track what was updated for logging
-        updates = []
-
-        # Update admin status if needed
-        if not existing_user.is_admin:
-            existing_user.is_admin = True
-            updates.append("admin status")
-
-        # Update username if changed
-        if existing_user.username != config['username']:
-            old_username = existing_user.username
-            existing_user.username = config['username']
-            updates.append(f"username ({old_username} -> {config['username']})")
-
-        # Update email if changed
-        if existing_user.email != config['email']:
-            old_email = existing_user.email
-            existing_user.email = config['email']
-            updates.append(f"email ({old_email} -> {config['email']})")
-
-        # Keep sidebar company aligned with this service's tenant
-        if (existing_user.company or '').strip() != company_name:
-            old_company = existing_user.company
-            existing_user.company = company_name
-            updates.append(f"company ({old_company} -> {company_name})")
-
-        # Always update password from current environment (enables rotation)
-        # Note: We can't check if password changed (it's hashed), so always update
-        existing_user.set_password(config['password'])
-        updates.append("password (rotated from env)")
-
-        if updates:
-            db.session.commit()
-            logger.info(f"🔄 Updated admin user: {', '.join(updates)}")
-        else:
-            logger.info(f"✅ Admin user up to date (no changes needed)")
-
+    if existing_user is not None:
+        logger.info(
+            "Admin seed skipped; existing user left unchanged: %s",
+            existing_user.username,
+        )
         return existing_user, False
+
+    company_name = get_tenant_company_name()
 
     # Create new admin user
     try:

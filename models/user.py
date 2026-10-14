@@ -14,6 +14,9 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
+    # 0 keeps the historical plain user id in session and remember cookies.
+    # Password change and reset increment this so those cookies stop matching.
+    auth_revision = db.Column(db.Integer, nullable=False, default=0, server_default='0')
     is_admin = db.Column(db.Boolean, default=False)
     is_company_admin = db.Column(db.Boolean, default=False)
     role = db.Column(db.String(20), default='user')
@@ -46,6 +49,21 @@ class User(UserMixin, db.Model):
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+    def invalidate_other_sessions(self):
+        """Stop existing session and remember cookies for this user.
+
+        Call this only after a successful password change or reset.
+        Seed and new-user creation must not call it: revision 0 stays
+        compatible with cookies that store the plain user id.
+        """
+        self.auth_revision = int(self.auth_revision or 0) + 1
+
+    def get_id(self):
+        revision = int(self.auth_revision or 0)
+        if revision <= 0:
+            return str(self.id)
+        return f'{self.id}:{revision}'
 
     @property
     def is_any_admin(self):

@@ -145,15 +145,24 @@ def stop_impersonation():
 
     admin_id = session.pop('impersonating_admin_id', None)
     session.pop('impersonating_admin_username', None)
+    started_revision = session.pop('impersonating_admin_revision', None)
 
     if not admin_id:
         flash('No active impersonation session.', 'warning')
         return redirect(_get_user_landing())
 
     admin_user = User.query.get(admin_id)
-    if not admin_user or not admin_user.can_view_all_users:
-        flash('Could not restore admin session.', 'error')
+    current_revision = int(admin_user.auth_revision or 0) if admin_user else None
+    if started_revision is None:
+        revision_ok = current_revision == 0
+    else:
+        try:
+            revision_ok = int(started_revision) == current_revision
+        except (TypeError, ValueError):
+            revision_ok = False
+    if not admin_user or not admin_user.can_view_all_users or not revision_ok:
         logout_user()
+        flash('That session is no longer valid. Sign in again.', 'error')
         return redirect(url_for('auth.login'))
 
     login_user(admin_user, remember=True)
@@ -168,6 +177,7 @@ def logout():
     """User logout"""
     session.pop('impersonating_admin_id', None)
     session.pop('impersonating_admin_username', None)
+    session.pop('impersonating_admin_revision', None)
     logout_user()
     flash('You have been logged out successfully.', 'info')
     return redirect(url_for('auth.login'))
@@ -239,6 +249,7 @@ def reset_password(token):
             return render_template('reset_password.html', token=token)
 
         reset_token.user.set_password(password)
+        reset_token.user.invalidate_other_sessions()
         reset_token.used = True
         db.session.commit()
         logger.info(f"Password reset completed for {reset_token.user.email}")
