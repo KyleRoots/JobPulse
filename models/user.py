@@ -56,8 +56,27 @@ class User(UserMixin, db.Model):
         Call this only after a successful password change or reset.
         Seed and new-user creation must not call it: revision 0 stays
         compatible with cookies that store the plain user id.
+
+        The increment is one SQL statement. Two overlapping password
+        changes must not both read N and both store N+1, or a session
+        minted after the first commit would survive the second change.
+        The attribute is expired so a later flush of this object cannot
+        write a stale in-memory value back over that statement.
         """
-        self.auth_revision = int(self.auth_revision or 0) + 1
+        from sqlalchemy import update
+        from sqlalchemy.orm import object_session
+
+        sess = object_session(self)
+        if sess is None:
+            raise RuntimeError('Cannot revoke sessions for a detached user')
+        sess.expire(self, ['auth_revision'])
+        sess.execute(
+            update(User)
+            .where(User.id == self.id)
+            .values(auth_revision=User.auth_revision + 1)
+            .execution_options(synchronize_session=False)
+        )
+        sess.expire(self, ['auth_revision'])
 
     def get_id(self):
         revision = int(self.auth_revision or 0)

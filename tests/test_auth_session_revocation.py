@@ -110,6 +110,7 @@ def test_password_save_revokes_session_and_remember_cookies(app):
 
             with owner_session.session_transaction() as sess:
                 assert sess.get('_user_id') == str(owner_id)
+            untouched_remember = other_session.get_cookie('remember_token').value
 
             response = _save_password(owner_session, owner_id, CHANGED, is_admin=True)
             assert response.status_code == 302
@@ -129,6 +130,14 @@ def test_password_save_revokes_session_and_remember_cookies(app):
             assert int(bystander_row.auth_revision or 0) == 0
             assert bystander_row.check_password(UNCHANGED)
 
+            replay = app.test_client()
+            replay.set_cookie('remember_token', untouched_remember)
+            assert _signed_in(replay) is False
+            _clear_login_cache()
+            denied = replay.get('/settings', follow_redirects=False)
+            assert denied.status_code == 302
+            assert '/login' in (denied.headers.get('Location') or '')
+
             fresh = app.test_client()
             _login(fresh, 'revoke-owner', CHANGED)
             anonymous = app.test_client()
@@ -139,6 +148,91 @@ def test_password_save_revokes_session_and_remember_cookies(app):
             }, follow_redirects=False)
             assert rejected.status_code == 200
             assert _signed_in(anonymous) is False
+        finally:
+            _cleanup(db, User, [owner_id, bystander_id])
+
+
+def test_untouched_remember_cookie_replayed_after_password_change(app):
+    """The cookie value from before the change is replayed only after it."""
+    from app import db
+    from models import User
+
+    with app.app_context():
+        owner = _add_user(db, User, 'remember-replay', ORIGINAL, is_admin=True)
+        owner_id = owner.id
+        try:
+            browser = app.test_client()
+            response = _login(browser, 'remember-replay', ORIGINAL)
+            old_cookie = None
+            for header in response.headers.getlist('Set-Cookie'):
+                if header.startswith('remember_token='):
+                    old_cookie = header.split(';', 1)[0].split('=', 1)[1]
+                    break
+            assert old_cookie
+
+            _save_password(browser, owner_id, CHANGED, is_admin=True)
+
+            replay = app.test_client()
+            replay.set_cookie('remember_token', old_cookie)
+            assert _signed_in(replay) is False
+            _clear_login_cache()
+            denied = replay.get('/settings', follow_redirects=False)
+            assert denied.status_code == 302
+            assert '/login' in (denied.headers.get('Location') or '')
+        finally:
+            _cleanup(db, User, [owner_id])
+
+
+def test_overlapping_password_updates_do_not_reuse_a_revision(app):
+    """Two sessions that both observed revision N must not both store N+1."""
+    from sqlalchemy.orm import sessionmaker
+    from app import db, load_user
+    from models import User
+
+    with app.app_context():
+        owner = _add_user(db, User, 'overlap-owner', ORIGINAL, is_admin=True)
+        bystander = _add_user(db, User, 'overlap-bystander', UNCHANGED, is_admin=False)
+        owner_id = owner.id
+        bystander_id = bystander.id
+        bystander_revision = int(bystander.auth_revision or 0)
+        separate = sessionmaker(bind=db.engine, expire_on_commit=False)
+        first = separate()
+        second = separate()
+        try:
+            left = first.get(User, owner_id)
+            right = second.get(User, owner_id)
+            assert int(left.auth_revision or 0) == 0
+            assert int(right.auth_revision or 0) == 0
+            first.commit()
+            second.commit()
+
+            left.set_password(CHANGED)
+            left.invalidate_other_sessions()
+            first.commit()
+            minted_after_first = left.get_id()
+            assert minted_after_first == f'{owner_id}:1'
+
+            right.set_password('second-password-333')
+            right.invalidate_other_sessions()
+            second.commit()
+            assert int(right.auth_revision) == 2
+            assert right.get_id() == f'{owner_id}:2'
+            assert right.get_id() != minted_after_first
+        finally:
+            first.close()
+            second.close()
+
+        try:
+            db.session.expire_all()
+            final = db.session.get(User, owner_id)
+            assert int(final.auth_revision) == 2
+            assert final.get_id() == f'{owner_id}:2'
+            assert load_user(str(owner_id)) is None
+            assert load_user(minted_after_first) is None
+            assert load_user(final.get_id()).id == owner_id
+            untouched = db.session.get(User, bystander_id)
+            assert int(untouched.auth_revision or 0) == bystander_revision
+            assert untouched.check_password(UNCHANGED)
         finally:
             _cleanup(db, User, [owner_id, bystander_id])
 
