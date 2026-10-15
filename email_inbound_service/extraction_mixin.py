@@ -365,9 +365,11 @@ class ExtractionMixin:
             result['email'] = coalesce_candidate_email(email)
             break
 
-        phone_match = re.search(r'(\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4})', body_text)
-        if phone_match:
-            result['phone'] = phone_match.group(1)
+        from utils.phone_numbers import extract_nanp_phone
+
+        phone = extract_nanp_phone(body_text)
+        if phone:
+            result['phone'] = phone
 
         first, last = self._extract_zip_style_subject_name(subject)
         if not (first or last):
