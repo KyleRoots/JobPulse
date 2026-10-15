@@ -417,6 +417,28 @@ def run_schema_migrations(db):
         db.session.rollback()
         logger.warning(f"⚠️ Migration skipped for user.last_active_at: {str(e)}")
 
+    # auth_revision invalidates session and remember cookies after a password
+    # change or reset. Default 0 keeps cookies issued before this column valid.
+    # Quoted because "user" is a reserved word. Do not use the generic
+    # unquoted ALTER list for this table.
+    try:
+        result = db.session.execute(text("""
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'user' AND column_name = 'auth_revision'
+        """))
+        if result.fetchone() is None:
+            db.session.execute(text("SET LOCAL lock_timeout = '5s'"))
+            db.session.execute(text(
+                'ALTER TABLE "user" ADD COLUMN auth_revision INTEGER NOT NULL DEFAULT 0'
+            ))
+            db.session.commit()
+            logger.info("✅ Added column auth_revision to user table")
+        else:
+            logger.info("ℹ️ Column auth_revision already exists on user table")
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ Migration skipped for user.auth_revision: {str(e)}")
+
     # Add is_sandbox to candidate_vetting_log (added Feb 2026 for Vetting Sandbox feature)
     try:
         result = db.session.execute(text("""
