@@ -468,13 +468,19 @@ class OrchestrationMixin:
                     elif skip_action == 'revet_skipped_stable':
                         summary['revets_skipped_stable'] += 1
 
+            # Snapshot report fields before the reset bulk-deletes this
+            # match and commits. Expired ORM attributes cannot be read after it.
+            match_job_id = applied_match.bullhorn_job_id
+            match_job_title = applied_match.job_title
+            match_score = applied_match.match_score
+
             audit_log = VettingAuditLog(
                 candidate_vetting_log_id=log_id,
                 bullhorn_candidate_id=candidate_id,
                 candidate_name=candidate_name,
-                job_id=applied_match.bullhorn_job_id,
-                job_title=applied_match.job_title,
-                original_score=applied_match.match_score,
+                job_id=match_job_id,
+                job_title=match_job_title,
+                original_score=match_score,
                 audit_finding=audit_finding_text,
                 finding_type=finding_type,
                 confidence=confidence,
@@ -502,7 +508,7 @@ class OrchestrationMixin:
                 logger.info(
                     f"✅ Screening audit ({mode}): re-vet triggered for candidate "
                     f"{candidate_id} ({candidate_name}). "
-                    f"Original score: {applied_match.match_score}%, "
+                    f"Original score: {match_score}%, "
                     f"New score: {revet_new_score}%"
                 )
 
@@ -516,9 +522,9 @@ class OrchestrationMixin:
                 summary['details'].append({
                     'candidate_id': candidate_id,
                     'candidate_name': candidate_name,
-                    'job_id': applied_match.bullhorn_job_id,
-                    'job_title': applied_match.job_title,
-                    'original_score': applied_match.match_score,
+                    'job_id': match_job_id,
+                    'job_title': match_job_title,
+                    'original_score': match_score,
                     'finding_type': finding_type,
                     'confidence': confidence,
                     'action_taken': action_taken,
