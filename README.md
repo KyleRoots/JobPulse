@@ -437,6 +437,8 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
+- **Bullhorn event polls every 2 minutes (Oct 22)**: Placement net-margin and Myticas client-onboarding checks were labeled as 2 minutes and scheduled every 10 seconds. Both now run every 2 minutes, one at a time. Bullhorn keeps the events queued until the next check, so a placement margin update or a new-client email waits about 2 minutes instead of 10 seconds. This cuts the steady REST logins that were hitting the shared API user.
+
 - **Zip and Indeed XML title punctuation (Oct 12)**: The Zip feed and the Indeed XML fallback keep slashes and other Bullhorn title punctuation, and still append the Bullhorn job id. Mailbox matching reads that id from the job title, not from the candidate's name. The Zip Apply webhook does not use the title. It matches the feed reference number. LinkedIn and other channels still use the historical title (slashes removed, id appended). Native Indeed publish still sends the Bullhorn title and does not add an id. This is a feed-content change. It is not live until the next feed publish.
 - **Per-job recommend threshold (Oct 4)**: Scout Recommend uses each job's custom match bar when one is set, whether that is below or above the global 80% baseline. A job set to 60% recommends at 60% or higher. A job set to 90% requires 90%. Closed jobs, location barriers, and years/tenure gates still apply. Existing notes are not rewritten until the candidate is screened again.
 - **Qualified application snapshot notes (Oct 3)**: On Qualified, inbound email and native Indeed Apply write one **Application Received** note: job, company, recruiter, time, and source first, then the AI résumé summary. Job title and company link to those Bullhorn records. The recruiter name is bold text only (Novo has no internal-user page). The 5-minute cycle updates older Scout board notes (Zip, LinkedIn, Indeed, Dice). It does not rewrite career-site Corporate Website notes. Duplicate Application Received notes for the same job are collapsed. Myticas/STSI unchanged. Career-site applies still need the same note in staffing-portal.
@@ -702,5 +704,5 @@ Access health endpoints for status checks:
 
 ---
 
-**Last Updated**: October 12, 2026
+**Last Updated**: October 22, 2026
 **Version**: 2.9 (Main-branch Railway deploy; Render log monitoring removed)

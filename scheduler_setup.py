@@ -190,14 +190,16 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
 
         scheduler.add_job(
             func=run_placement_margin_poll,
-            trigger=IntervalTrigger(seconds=10),
+            trigger=IntervalTrigger(minutes=2),
             id='placement_margin_poll',
-            name='Placement Net Margin % Poller (10 sec)',
+            name='Placement Net Margin % Poller (2 min)',
             replace_existing=True,
+            max_instances=1,
+            coalesce=True,
         )
-        app.logger.info("📐 Placement Net Margin poller enabled (10-sec interval)")
+        app.logger.info("📐 Placement Net Margin poller enabled (2-min interval)")
 
-    # ── Myticas client onboarding notify (every 10 seconds) ───────────────────
+    # ── Myticas client onboarding notify (every 2 minutes) ────────────────────
     if is_primary_worker:
         def run_client_ob_notify_poll():
             """Drain Sendout + Interview events; email Finance once per company."""
@@ -220,13 +222,14 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
 
         scheduler.add_job(
             func=run_client_ob_notify_poll,
-            trigger=IntervalTrigger(seconds=10),
+            trigger=IntervalTrigger(minutes=2),
             id="client_ob_notify_poll",
-            name="Myticas Client Onboarding Notify (10 sec)",
+            name="Myticas Client Onboarding Notify (2 min)",
             replace_existing=True,
             max_instances=1,
+            coalesce=True,
         )
-        app.logger.info("📋 Client onboarding notify poller enabled (10-sec interval)")
+        app.logger.info("📋 Client onboarding notify poller enabled (2-min interval)")
 
     # ── Monitor Health Check (every 2 hours) ──────────────────────────────────
     if is_primary_worker:

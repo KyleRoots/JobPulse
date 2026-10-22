@@ -10,7 +10,7 @@ When the Bullhorn API connection is down (account locked / auth failing), backgr
 ## Bullhorn-dependent — STALL during the outage (but auto-recover on next cycle)
 These read/write the Bullhorn API; during an outage they fail-soft (log + skip/rollback), then catch up automatically when Bullhorn returns because they re-scan by `dateLastModified` or by local "pending" records — **no manual catch-up needed**:
 - Tearsheet monitor (5 min), Requirements maintenance (5 min), Owner reassignment (5 min + daily 2am), Sales-rep name sync (30 min), Duplicate candidate merge (60 min), LinkedIn source cleanup (hourly), Enforce tearsheet jobs public (30 min), Reference-number refresh (120 hr), Candidate data cleanup (15 min), Incomplete rescreen (15 min), Résumé recovery sweep (30 min).
-- **Placement Net Margin poller — every ~10 sec (R/W):** the highest-frequency Bullhorn auth caller; this cadence is the lockout accelerant (a wrong/locked password gets hammered fast). Resilience-hardening target = correct interval + auth-failure backoff.
+- **Placement Net Margin poller — every 2 min (R/W):** was every 10 sec, which authenticated on each tick and could lock a shared API user within minutes of a bad password. Client onboarding notify uses the same 2 min interval. Events stay queued in Bullhorn until the next drain. Auth-failure backoff is still not implemented.
 - **AI Candidate Vetting cycle (1 min) + Screening Quality Audit (15 min) + Incomplete rescreen:** Bullhorn-dependent BUT also separately gated OFF by the June screening pause (`vetting_enabled` / `screening_audit_enabled` false) — so idle regardless of the outage.
 
 ## Independent — KEEP RUNNING normally during the outage
