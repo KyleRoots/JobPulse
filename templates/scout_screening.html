@@ -434,7 +434,7 @@
                     <td>
                         {% if g.candidate_id %}
                         <a class="cand-link"
-                           href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id={{ g.candidate_id }}"
+                           href="https://app.bullhornstaffing.com/openwindow?entity=Candidate&id={{ g.candidate_id }}"
                            target="_blank" rel="noopener" onclick="event.stopPropagation()">
                             {{ g.candidate_name or 'Unknown' }}<i class="fas fa-external-link-alt ext-icon"></i>
                         </a>
@@ -493,7 +493,7 @@
                     </td>
                     <td>
                         <a class="sc-link" style="font-size:0.82rem;"
-                           href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ m.bullhorn_job_id }}"
+                           href="https://app.bullhornstaffing.com/openwindow?entity=JobOrder&id={{ m.bullhorn_job_id }}"
                            target="_blank" rel="noopener">
                             {{ m.job_title or ('Job #' ~ m.bullhorn_job_id) }}<i class="fas fa-external-link-alt ext-icon"></i>
                         </a>
@@ -545,7 +545,7 @@
                     <td>
                         {% if log.bullhorn_candidate_id %}
                         <a class="cand-link"
-                           href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id={{ log.bullhorn_candidate_id }}"
+                           href="https://app.bullhornstaffing.com/openwindow?entity=Candidate&id={{ log.bullhorn_candidate_id }}"
                            target="_blank" rel="noopener">
                             {{ log.candidate_name or 'Unknown' }}<i class="fas fa-external-link-alt ext-icon"></i>
                         </a>
@@ -682,7 +682,7 @@
             <tr>
                 <td>
                     <div>
-                        <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ job_id }}"
+                        <a href="https://app.bullhornstaffing.com/openwindow?entity=JobOrder&id={{ job_id }}"
                            target="_blank" rel="noopener" class="sc-link" style="font-weight:600; font-size:0.87rem; color:rgba(255,255,255,0.82);">
                             {{ job.title }}<i class="fas fa-external-link-alt ext-icon"></i>
                         </a>
@@ -1182,7 +1182,7 @@ function _renderSearchResults(data) {
                     ? `<span class="badge rounded-pill st-loc-barrier">\uD83D\uDCCD Location Barrier</span>`
                     : `<span class="badge rounded-pill st-not-rec">Not Recommended</span>`;
         const candLink = g.candidate_id
-            ? `<a class="cand-link" href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id=${g.candidate_id}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${_esc(g.candidate_name || 'Unknown')}<i class="fas fa-external-link-alt ext-icon"></i></a>`
+            ? `<a class="cand-link" href="https://app.bullhornstaffing.com/openwindow?entity=Candidate&id=${g.candidate_id}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${_esc(g.candidate_name || 'Unknown')}<i class="fas fa-external-link-alt ext-icon"></i></a>`
             : `<span style="color:rgba(255,255,255,0.6);">${_esc(g.candidate_name || 'Unknown')}</span>`;
         const rescreenCell = IS_ADMIN
             ? `<td style="text-align:center;" onclick="event.stopPropagation()">${g.candidate_id
@@ -1245,7 +1245,7 @@ function _renderSearchResults(data) {
             childTr.innerHTML = `
                 <td></td>
                 <td style="color:rgba(255,255,255,0.3); font-size:0.75rem;">${_esc(m.created_at_display)}</td>
-                <td><a class="sc-link" style="font-size:0.82rem;" href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id=${m.job_id}" target="_blank" rel="noopener">${_esc(m.job_title)}<i class="fas fa-external-link-alt ext-icon"></i></a></td>
+                <td><a class="sc-link" style="font-size:0.82rem;" href="https://app.bullhornstaffing.com/openwindow?entity=JobOrder&id=${m.job_id}" target="_blank" rel="noopener">${_esc(m.job_title)}<i class="fas fa-external-link-alt ext-icon"></i></a></td>
                 <td style="text-align:center;">${mScoreBadge}</td>
                 <td>${mStatusBadge}</td>
                 <td${IS_ADMIN ? ' colspan="2"' : ''}>${notesCell}</td>`;
@@ -1726,7 +1726,7 @@ function openNotesModal(candidateName, jobTitle, notes, bullhornId) {
     if (notesBox) notesBox.textContent = notes || '\u2014';
     if (bhLink) {
         bhLink.style.display = bullhornId ? '' : 'none';
-        if (bullhornId) bhLink.href = 'https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id=' + bullhornId;
+        if (bullhornId) bhLink.href = 'https://app.bullhornstaffing.com/openwindow?entity=Candidate&id=' + bullhornId;
     }
     new bootstrap.Modal(document.getElementById('notesModal')).show();
 }

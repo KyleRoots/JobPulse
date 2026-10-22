@@ -19,6 +19,7 @@ from models import CandidateJobMatch, CandidateVettingLog, VettingConfig
 from vetting.name_utils import parse_names, parse_emails
 from screening.location_review import is_location_review_match, resolve_match_threshold
 from screening.near_miss import NEAR_MISS_BAND_POINTS, is_near_miss_match
+from utils.bullhorn_helpers import bullhorn_record_url
 
 # Window for "this recruiter already got an email for this (candidate, job)
 # pair" dedupe. Set wide enough to absorb the auditor's same-day re-vet flow
@@ -878,8 +879,7 @@ class NotificationMixin:
         and all other recruiters CC'd on the same thread. Each job card shows
         which recruiter owns it for complete visibility.
         """
-        # Build Bullhorn candidate URL (using cls45 subdomain for Bullhorn One)
-        candidate_url = f"https://cls45.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=Candidate&id={candidate_id}"
+        candidate_url = bullhorn_record_url("Candidate", candidate_id)
         
         # Build transparency header if there are CC'd recruiters
         transparency_note = ""
@@ -932,7 +932,7 @@ class NotificationMixin:
         
         for match in matches:
             applied_badge = '<span style="background: #ffc107; color: #000; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 8px;">APPLIED</span>' if match.is_applied_job else ''
-            job_url = f"https://cls45.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=JobOrder&id={match.bullhorn_job_id}"
+            job_url = bullhorn_record_url("JobOrder", match.bullhorn_job_id)
             
             # Show recruiter ownership for each job
             recruiter_tag = ""
@@ -975,10 +975,7 @@ class NotificationMixin:
             import html as _html
             _ctx_job_id = int(applied_context_match.bullhorn_job_id or 0)
             _ctx_job_title = _html.escape(applied_context_match.job_title or 'Position')
-            _ctx_job_url = (
-                f"https://cls45.bullhornstaffing.com/BullhornSTAFFING/"
-                f"OpenWindow.cfm?Entity=JobOrder&id={_ctx_job_id}"
-            )
+            _ctx_job_url = bullhorn_record_url("JobOrder", _ctx_job_id)
             _ctx_summary_raw = (applied_context_match.match_summary or '').strip()
             # Compact one-liner: cap at ~220 chars, ellipsize gracefully
             _ctx_summary_truncated = (
@@ -1180,7 +1177,7 @@ class NotificationMixin:
         prestige_firm = prestige_matches[0].prestige_employer
         candidate_name = vetting_log.candidate_name
         candidate_id = vetting_log.bullhorn_candidate_id
-        candidate_url = f"https://cls45.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=Candidate&id={candidate_id}"
+        candidate_url = bullhorn_record_url("Candidate", candidate_id)
         highest_score = max(m.match_score for m in prestige_matches)
 
         subject = f"🏢 Prestige Review: {candidate_name} — Currently at {prestige_firm}"
@@ -1224,7 +1221,7 @@ class NotificationMixin:
         """
 
         for match in prestige_matches:
-            job_url = f"https://cls45.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=JobOrder&id={match.bullhorn_job_id}"
+            job_url = bullhorn_record_url("JobOrder", match.bullhorn_job_id)
             applied_badge = '<span style="background: #ffc107; color: #000; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 8px;">APPLIED</span>' if match.is_applied_job else ''
             boost_badge = ''
             if match.prestige_boost_applied:
@@ -1529,10 +1526,7 @@ class NotificationMixin:
         # ── Build email content ──
         candidate_name = vetting_log.candidate_name
         candidate_id = vetting_log.bullhorn_candidate_id
-        candidate_url = (
-            f"https://cls45.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm"
-            f"?Entity=Candidate&id={candidate_id}"
-        )
+        candidate_url = bullhorn_record_url("Candidate", candidate_id)
 
         # Pick the strongest technical fit among the location-review matches for the subject
         top_match = max(
@@ -1612,10 +1606,7 @@ class NotificationMixin:
         """
 
         for match in location_matches:
-            job_url = (
-                f"https://cls45.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm"
-                f"?Entity=JobOrder&id={match.bullhorn_job_id}"
-            )
+            job_url = bullhorn_record_url("JobOrder", match.bullhorn_job_id)
             applied_badge = (
                 '<span style="background: #ffc107; color: #000; padding: 2px 8px; '
                 'border-radius: 3px; font-size: 11px; margin-left: 8px;">APPLIED</span>'
@@ -1834,10 +1825,7 @@ class NotificationMixin:
 
         candidate_name = vetting_log.candidate_name
         candidate_id = vetting_log.bullhorn_candidate_id
-        candidate_url = (
-            f"https://cls45.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm"
-            f"?Entity=Candidate&id={candidate_id}"
-        )
+        candidate_url = bullhorn_record_url("Candidate", candidate_id)
 
         top_match = max(near_miss_matches, key=lambda m: (m.match_score or 0))
         top_score = top_match.match_score or 0
@@ -1911,10 +1899,7 @@ class NotificationMixin:
         """
 
         for match in sorted(near_miss_matches, key=lambda m: (m.match_score or 0), reverse=True):
-            job_url = (
-                f"https://cls45.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm"
-                f"?Entity=JobOrder&id={match.bullhorn_job_id}"
-            )
+            job_url = bullhorn_record_url("JobOrder", match.bullhorn_job_id)
             applied_badge = (
                 '<span style="background: #ffc107; color: #000; padding: 2px 8px; '
                 'border-radius: 3px; font-size: 11px; margin-left: 8px;">APPLIED</span>'

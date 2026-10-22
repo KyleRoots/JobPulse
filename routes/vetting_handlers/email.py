@@ -20,7 +20,8 @@ def send_test_vetting_email():
     # Sample candidate and job data
     candidate_id = 4583692
     candidate_name = "John Smith"
-    candidate_url = f"https://cls45.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=Candidate&id={candidate_id}"
+    from utils.bullhorn_helpers import bullhorn_record_url
+    candidate_url = bullhorn_record_url("Candidate", candidate_id)
 
     # Job definitions for different scenarios
     jobs = [
@@ -164,7 +165,7 @@ def send_test_vetting_email():
     """
 
     for job in matches:
-        job_url = f"https://cls45.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=JobOrder&id={job['id']}"
+        job_url = bullhorn_record_url("JobOrder", job["id"])
         applied_badge = '<span style="background: #ffc107; color: #000; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 8px;">APPLIED</span>' if job['is_applied'] else ''
 
         html_content += f"""

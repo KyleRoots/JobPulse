@@ -34,7 +34,7 @@ def test_king_catron_preview_shape():
     )
     assert text.startswith('<b>Indeed Applicant</b> for ')
     assert 'Production Worker' in text
-    assert 'entity=JobOrder&amp;id=79398' in text
+    assert 'https://app.bullhornstaffing.com/openwindow?entity=JobOrder&amp;id=79398' in text
     assert 'entity=ClientCorporation&amp;id=1001' in text
     assert 'entity=CorporateUser' not in text
     assert '<b>Laura Madsen</b>' in text
