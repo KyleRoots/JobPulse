@@ -437,7 +437,7 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
-- **Health page noise (Oct 22)**: `/admin/health` no longer shows a red OneDrive tile when Replit tokens are absent. The scheduler tile stays green on a web process that does not own the jobs. Nightly database backup still tries OneDrive.
+- **Health page noise (Oct 22)**: `/admin/health` no longer shows a red OneDrive tile when Replit tokens are absent. The scheduler tile stays green on a web process that does not own the jobs. The 2:00 AM UTC database backup to OneDrive is off. Postgres backups stay with Railway. Past runs remain on `/admin/backups`.
 - **Bullhorn record links (Oct 22)**: Scout emails, screening pages, and application notes now use Bullhorn's Share link, `https://app.bullhornstaffing.com/openwindow?entity=Candidate&id=...` (and the same form for jobs and companies). The old `cls45` `OpenWindow.cfm` address shows Bullhorn's unavailable page. Emails already sent keep the old address. Recruiter names stay plain text.
 - **Bullhorn event polls every 2 minutes (Oct 22)**: Placement net-margin and Myticas client-onboarding checks were labeled as 2 minutes and scheduled every 10 seconds. Both now run every 2 minutes, one at a time. Bullhorn keeps the events queued until the next check, so a placement margin update or a new-client email waits about 2 minutes instead of 10 seconds. This cuts the steady REST logins that were hitting the shared API user.
 

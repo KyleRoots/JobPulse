@@ -1,11 +1,11 @@
 """
-Admin Backup Dashboard — view backup history and trigger on-demand backups.
+Admin Backup Dashboard — view past Scout backup runs.
 
+The 2 AM OneDrive upload is retired. Postgres backups stay with Railway.
 Authorization: super-admin (current_user.is_admin) only.
 """
 
 import logging
-import threading
 from datetime import datetime, timedelta
 
 from flask import Blueprint, render_template, jsonify, abort, request
@@ -74,42 +74,9 @@ def backup_dashboard():
 @backup_bp.route("/run-now", methods=["POST"])
 @login_required
 def run_backup_now():
+    """Refuse on-demand uploads. The OneDrive path cannot authenticate."""
     _require_admin()
-    from extensions import db
-    from models import BackupLog
-
-    _expire_stale_running(db, BackupLog)
-
-    running = BackupLog.query.filter_by(status="running").first()
-    if running:
-        return jsonify({
-            "status": "error",
-            "message": "A backup is already running. Please wait for it to finish.",
-        }), 409
-
-    sentinel = BackupLog(
-        status="running",
-        triggered_by="manual",
-        started_at=datetime.utcnow(),
-    )
-    db.session.add(sentinel)
-    db.session.commit()
-    sentinel_id = sentinel.id
-
-    def _run_in_background(app, log_id):
-        with app.app_context():
-            from backup_service import BackupService
-            svc = BackupService(app=app)
-            svc.run_backup(triggered_by="manual", existing_log_id=log_id)
-
-    from flask import current_app
-    app = current_app._get_current_object()
-    t = threading.Thread(
-        target=_run_in_background, args=(app, sentinel_id), daemon=True
-    )
-    t.start()
-
     return jsonify({
-        "status": "ok",
-        "message": "Backup started. Refresh the page in a few minutes to see the result.",
-    })
+        "status": "error",
+        "message": "Scout database backups are off. Postgres backups stay with Railway.",
+    }), 410
