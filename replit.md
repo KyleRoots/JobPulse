@@ -57,7 +57,7 @@ After every user-feedback-driven deploy batch, the next 24–48h checkpoint must
 - **Web**: Flask (Python 3.11) with modular route blueprints.
 - **DB**: PostgreSQL + SQLAlchemy ORM + Alembic.
 - **Auth**: Flask-Login with granular module-based access control.
-- **Background**: APScheduler (tearsheet monitoring, SFTP uploads, Scout Vetting, nightly DB backup to OneDrive with 30-day retention).
+- **Background**: APScheduler (tearsheet monitoring, SFTP uploads, Scout Vetting). The nightly OneDrive database backup is off. Postgres backups stay with Railway.
 - **XML**: Custom `lxml` processor generating dual XML feeds (V2 + Pando).
 - **Email**: SendGrid.
 - **AI**: OpenAI GPT-5.4 primary; GPT-4.1-mini for vision OCR + non-critical sites.

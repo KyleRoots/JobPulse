@@ -110,12 +110,16 @@ class AdminHealthService:
             self.tile_inflight_vetting,
             self.tile_failed_vetting_24h,
             self.tile_sftp_uploads,
-            self.tile_onedrive_token,
             self.tile_ai_cost_24h,
             self.tile_skip_gates,
             self.tile_monthly_report,
             self.tile_ops_early_warning,
         ]
+        # OneDrive still authenticates through Replit connectors. With those
+        # tokens gone the tile can only be red, which paints the whole page
+        # "Action required". Show it again only if a Replit identity is set.
+        if os.environ.get('REPL_IDENTITY') or os.environ.get('WEB_REPL_RENEWAL'):
+            collectors.insert(7, self.tile_onedrive_token)
         tiles: List[HealthTile] = []
         for collector in collectors:
             try:
@@ -168,15 +172,31 @@ class AdminHealthService:
             )
 
     def tile_scheduler(self) -> HealthTile:
-        """APScheduler running state + scheduled-job count."""
+        """APScheduler running state + scheduled-job count.
+
+        Jobs are registered only on the primary worker. A web process that
+        lost the lock has a running scheduler and an empty job list. That
+        empty list is expected, so it stays green.
+        """
         try:
-            from app import scheduler
+            from app import is_primary_worker, scheduler
             running = bool(scheduler.running)
             try:
                 jobs_count = len(scheduler.get_jobs())
             except Exception:
                 jobs_count = 0
             if running:
+                if jobs_count == 0 and not is_primary_worker:
+                    return HealthTile(
+                        key='scheduler',
+                        label='Scheduler',
+                        icon='fa-clock',
+                        status='green',
+                        value='Running',
+                        subtext='Jobs run on the primary worker',
+                        remediation='',
+                        last_checked=self._now_iso,
+                    )
                 status = 'green' if jobs_count > 0 else 'amber'
                 return HealthTile(
                     key='scheduler',
