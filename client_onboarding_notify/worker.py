@@ -83,8 +83,8 @@ APPOINTMENT_FIELDS = (
 )
 USER_FIELDS = "id,firstName,lastName,email,enabled,primaryDepartment"
 BH_COMPANY_URL = (
-    "https://cls45.bullhornstaffing.com/BullhornStaffing/"
-    "OpenWindow.cfm?Entity=ClientCorporation&id={id}"
+    "https://app.bullhornstaffing.com/openwindow"
+    "?entity=ClientCorporation&id={id}"
 )
 
 

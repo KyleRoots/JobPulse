@@ -11,14 +11,13 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
 
+from utils.bullhorn_helpers import BULLHORN_RECORD_URL as BH_OPEN_WINDOW
+
 logger = logging.getLogger(__name__)
 
 APPLICATION_NOTE_ACTION = 'Application Received'
 SUMMARY_ACTION = 'AI Resume Summary'
 SUMMARY_HEADING = 'AI-Generated Resume Summary:'
-BH_OPEN_WINDOW = (
-    'https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm'
-)
 SNAPSHOT_JOB_FIELDS = (
     'id,title,clientCorporation(id,name),'
     'owner(id,firstName,lastName),'

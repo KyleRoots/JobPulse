@@ -437,6 +437,7 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
+- **Bullhorn record links (Oct 22)**: Scout emails, screening pages, and application notes now use Bullhorn's Share link, `https://app.bullhornstaffing.com/openwindow?entity=Candidate&id=...` (and the same form for jobs and companies). The old `cls45` `OpenWindow.cfm` address shows Bullhorn's unavailable page. Emails already sent keep the old address. Recruiter names stay plain text.
 - **Bullhorn event polls every 2 minutes (Oct 22)**: Placement net-margin and Myticas client-onboarding checks were labeled as 2 minutes and scheduled every 10 seconds. Both now run every 2 minutes, one at a time. Bullhorn keeps the events queued until the next check, so a placement margin update or a new-client email waits about 2 minutes instead of 10 seconds. This cuts the steady REST logins that were hitting the shared API user.
 
 - **Zip and Indeed XML title punctuation (Oct 12)**: The Zip feed and the Indeed XML fallback keep slashes and other Bullhorn title punctuation, and still append the Bullhorn job id. Mailbox matching reads that id from the job title, not from the candidate's name. The Zip Apply webhook does not use the title. It matches the feed reference number. LinkedIn and other channels still use the historical title (slashes removed, id appended). Native Indeed publish still sends the Bullhorn title and does not add an id. This is a feed-content change. It is not live until the next feed publish.

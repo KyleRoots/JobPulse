@@ -46,11 +46,10 @@ def notify_config() -> dict:
 
 
 def bullhorn_job_url(job_id: int, bh_base_url: Optional[str] = None) -> str:
-    base = (bh_base_url or notify_config()['bh_base_url']).rstrip('/')
-    return (
-        f"{base}/BullhornSTAFFING/OpenWindow.cfm"
-        f"?Entity=JobOrder&id={int(job_id)}"
-    )
+    """Share link for a job. The cluster host no longer opens the record."""
+    _ = bh_base_url
+    from utils.bullhorn_helpers import bullhorn_record_url
+    return bullhorn_record_url("JobOrder", job_id)
 
 
 def _excerpt_requirements(requirements: str, max_chars: int = MAX_REQUIREMENTS_EXCERPT_CHARS) -> str:
