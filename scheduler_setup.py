@@ -190,14 +190,16 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
 
         scheduler.add_job(
             func=run_placement_margin_poll,
-            trigger=IntervalTrigger(seconds=10),
+            trigger=IntervalTrigger(minutes=2),
             id='placement_margin_poll',
-            name='Placement Net Margin % Poller (10 sec)',
+            name='Placement Net Margin % Poller (2 min)',
             replace_existing=True,
+            max_instances=1,
+            coalesce=True,
         )
-        app.logger.info("📐 Placement Net Margin poller enabled (10-sec interval)")
+        app.logger.info("📐 Placement Net Margin poller enabled (2-min interval)")
 
-    # ── Myticas client onboarding notify (every 10 seconds) ───────────────────
+    # ── Myticas client onboarding notify (every 2 minutes) ────────────────────
     if is_primary_worker:
         def run_client_ob_notify_poll():
             """Drain Sendout + Interview events; email Finance once per company."""
@@ -220,13 +222,14 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
 
         scheduler.add_job(
             func=run_client_ob_notify_poll,
-            trigger=IntervalTrigger(seconds=10),
+            trigger=IntervalTrigger(minutes=2),
             id="client_ob_notify_poll",
-            name="Myticas Client Onboarding Notify (10 sec)",
+            name="Myticas Client Onboarding Notify (2 min)",
             replace_existing=True,
             max_instances=1,
+            coalesce=True,
         )
-        app.logger.info("📋 Client onboarding notify poller enabled (10-sec interval)")
+        app.logger.info("📋 Client onboarding notify poller enabled (2-min interval)")
 
     # ── Monitor Health Check (every 2 hours) ──────────────────────────────────
     if is_primary_worker:
@@ -296,28 +299,9 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
         )
         app.logger.info("📋 Scheduled activity retention cleanup (15 days)")
 
-    # ── Nightly Database Backup (daily at 2 AM UTC) ──────────────────────────
-    if is_primary_worker:
-        def run_nightly_backup():
-            with app.app_context():
-                try:
-                    from backup_service import BackupService
-                    svc = BackupService(app=app)
-                    result = svc.run_backup(triggered_by="scheduler")
-                    app.logger.info(f"📦 Nightly backup: {result.get('status')}")
-                except Exception as e:
-                    app.logger.error(f"❌ Nightly backup failed: {e}")
-
-        scheduler.add_job(
-            func=run_nightly_backup,
-            trigger='cron',
-            hour=2,
-            minute=0,
-            id='nightly_database_backup',
-            name='Nightly Database Backup (2 AM UTC)',
-            replace_existing=True
-        )
-        app.logger.info("📦 Scheduled nightly database backup (2 AM UTC → OneDrive)")
+    # Nightly pg_dump → OneDrive (2 AM UTC) is retired. It authenticated
+    # through Replit, which this Railway app no longer has. Postgres backups
+    # stay with the host. Do not register nightly_database_backup again.
 
     # ── Email Parsing Timeout Cleanup (every 5 minutes) ───────────────────────
     if is_primary_worker:

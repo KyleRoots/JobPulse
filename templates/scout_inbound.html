@@ -201,11 +201,11 @@
                     {% for job in user_jobs %}
                     <tr data-tearsheet="{{ job.tearsheet_name }}">
                         <td>
-                            <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ job.id }}"
+                            <a href="https://app.bullhornstaffing.com/openwindow?entity=JobOrder&id={{ job.id }}"
                                target="_blank" class="text-info">{{ job.id }} <i class="fas fa-external-link-alt ms-1" style="font-size: 0.6rem; opacity: 0.5;"></i></a>
                         </td>
                         <td>
-                            <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ job.id }}"
+                            <a href="https://app.bullhornstaffing.com/openwindow?entity=JobOrder&id={{ job.id }}"
                                target="_blank" class="job-title-link">{{ job.title }}</a>
                         </td>
                         <td>{{ job.clientName or '-' }}</td>
@@ -333,7 +333,7 @@
                         </td>
                         <td>
                             {% if c.bullhorn_candidate_id %}
-                            <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id={{ c.bullhorn_candidate_id }}"
+                            <a href="https://app.bullhornstaffing.com/openwindow?entity=Candidate&id={{ c.bullhorn_candidate_id }}"
                                target="_blank" class="job-title-link"><strong>{{ c.candidate_name or 'N/A' }}</strong> <i class="fas fa-external-link-alt ms-1" style="font-size: 0.6rem; opacity: 0.5;"></i></a>
                             {% else %}
                             <strong>{{ c.candidate_name or 'N/A' }}</strong>
@@ -344,7 +344,7 @@
                         </td>
                         <td>
                             {% if c.bullhorn_job_id %}
-                            <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=JobOrder&id={{ c.bullhorn_job_id }}"
+                            <a href="https://app.bullhornstaffing.com/openwindow?entity=JobOrder&id={{ c.bullhorn_job_id }}"
                                target="_blank" class="text-info">{{ c.bullhorn_job_id }}</a>
                             {% else %}
                             <span class="text-muted">N/A</span>
@@ -364,7 +364,7 @@
                         </td>
                         <td>
                             {% if c.bullhorn_candidate_id %}
-                            <a href="https://www.bullhornstaffing.com/BullhornStaffing/OpenWindow.cfm?entity=Candidate&id={{ c.bullhorn_candidate_id }}"
+                            <a href="https://app.bullhornstaffing.com/openwindow?entity=Candidate&id={{ c.bullhorn_candidate_id }}"
                                target="_blank" class="text-success">{{ c.bullhorn_candidate_id }}</a>
                             {% if c.bullhorn_submission_id %}
                             <br><small class="text-muted">Sub: {{ c.bullhorn_submission_id }}</small>

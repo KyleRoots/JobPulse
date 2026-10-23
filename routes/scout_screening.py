@@ -1187,7 +1187,8 @@ def bulk_email():
 
         profile_link = ''
         if cid:
-            profile_url = f"https://cls45.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=Candidate&id={cid}"
+            from utils.bullhorn_helpers import bullhorn_record_url
+            profile_url = bullhorn_record_url("Candidate", cid)
             profile_link = f'<a href="{profile_url}" style="color: #667eea; text-decoration: none; font-size: 12px;">View Profile →</a>'
 
         candidate_rows += f"""

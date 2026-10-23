@@ -3,7 +3,7 @@
 {% block title %}Database Backups - Scout Genius™{% endblock %}
 
 {% block page_title %}Database Backups{% endblock %}
-{% block page_subtitle %}<p class="page-subtitle">Nightly pg_dump → OneDrive · retention {{ stats.total }} total runs</p>{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Scout no longer uploads a database backup. Postgres backups stay with Railway. Past runs are listed below.</p>{% endblock %}
 
 {% block extra_styles %}
 <style>
@@ -146,9 +146,6 @@
 
 <div class="action-bar">
     <h5 style="margin: 0; font-weight: 600;">Backup History</h5>
-    <button class="btn-backup" id="btnRunNow" onclick="triggerBackup()">
-        <i class="fas fa-play"></i>&nbsp; Run Backup Now
-    </button>
 </div>
 
 {% if logs %}
@@ -220,54 +217,8 @@
 {% else %}
 <div class="empty-state">
     <i class="fas fa-database"></i>
-    <p>No backups yet. Click <strong>Run Backup Now</strong> to create your first one,<br>
-    or wait for the nightly schedule (2:00 AM UTC).</p>
+    <p>No Scout backups were recorded. Postgres backups stay with Railway.</p>
 </div>
 {% endif %}
 
-{% endblock %}
-
-{% block extra_scripts %}
-<script>
-function triggerBackup() {
-    const btn = document.getElementById('btnRunNow');
-    if (btn.disabled) return;
-
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>&nbsp; Starting…';
-
-    fetch('/admin/backups/run-now', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': '{{ csrf_token() }}',
-        },
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.status === 'ok') {
-            btn.innerHTML = '<i class="fas fa-check"></i>&nbsp; Backup Started';
-            btn.style.background = 'linear-gradient(135deg, #22c55e, #16a34a)';
-            setTimeout(() => location.reload(), 10000);
-        } else {
-            btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i>&nbsp; ' + (data.message || 'Error');
-            btn.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
-            setTimeout(() => {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-play"></i>&nbsp; Run Backup Now';
-                btn.style.background = '';
-            }, 5000);
-        }
-    })
-    .catch(() => {
-        btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i>&nbsp; Network Error';
-        btn.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
-        setTimeout(() => {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-play"></i>&nbsp; Run Backup Now';
-            btn.style.background = '';
-        }, 5000);
-    });
-}
-</script>
 {% endblock %}

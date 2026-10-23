@@ -721,7 +721,7 @@ function toggleSummaryTable() {
                         </td>
                         <td style="padding: 12px 16px;">
                             {% if d.get('job_id') %}
-                            <a href="https://cls30.bullhornstaffing.com/BullhornSTAFFING/OpenWindow.cfm?Entity=JobOrder&id={{ d.job_id }}"
+                            <a href="https://app.bullhornstaffing.com/openwindow?entity=JobOrder&id={{ d.job_id }}"
                                target="_blank" rel="noopener"
                                style="color: rgba(255,255,255,0.85); text-decoration: none; font-weight: 500;">
                                 {{ d.get('job_title') or ('Job #' ~ d.job_id) }}

@@ -2,6 +2,30 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Bullhorn's Share link. The old cluster OpenWindow.cfm page now shows
+# "This page is currently unavailable."
+BULLHORN_RECORD_URL = "https://app.bullhornstaffing.com/openwindow"
+
+
+def bullhorn_record_url(entity, record_id) -> str:
+    """Public link that opens one Bullhorn record after login.
+
+    Matches the Share link button: entity is Candidate, JobOrder,
+    ClientCorporation, and the other record types Bullhorn puts in that URL.
+    """
+    if record_id is None or record_id == "":
+        return ""
+    try:
+        record_id = int(record_id)
+    except (TypeError, ValueError):
+        return ""
+    if record_id <= 0:
+        return ""
+    entity_name = str(entity or "").strip()
+    if not entity_name:
+        return ""
+    return f"{BULLHORN_RECORD_URL}?entity={entity_name}&id={record_id}"
+
 
 def get_bullhorn_service(environment=None):
     """Create a BullhornService for the given Bullhorn environment (tenant).

@@ -100,7 +100,9 @@ class TestAdminHealthAuth:
         resp = client.get('/admin/health/data', follow_redirects=False)
         assert resp.status_code == 403
 
-    def test_admin_can_view_dashboard(self, client, admin_ctx):
+    def test_admin_can_view_dashboard(self, client, admin_ctx, monkeypatch):
+        monkeypatch.delenv('REPL_IDENTITY', raising=False)
+        monkeypatch.delenv('WEB_REPL_RENEWAL', raising=False)
         resp = client.get('/admin/health/')
         assert resp.status_code == 200
         body = resp.get_data(as_text=True)
@@ -115,11 +117,13 @@ class TestAdminHealthAuth:
             'In-Flight Vetting',
             'Vetting Failures (24h)',
             'SFTP Uploads',
-            'OneDrive Token',
         ]:
             assert label in body, f'missing tile: {label}'
+        assert 'OneDrive Token' not in body
 
-    def test_admin_data_endpoint_shape(self, client, admin_ctx):
+    def test_admin_data_endpoint_shape(self, client, admin_ctx, monkeypatch):
+        monkeypatch.delenv('REPL_IDENTITY', raising=False)
+        monkeypatch.delenv('WEB_REPL_RENEWAL', raising=False)
         resp = client.get('/admin/health/data')
         assert resp.status_code == 200
         payload = resp.get_json()
@@ -128,11 +132,11 @@ class TestAdminHealthAuth:
         assert 'overall_status' in payload
         assert 'last_checked' in payload
         assert isinstance(payload['tiles'], list)
-        assert len(payload['tiles']) == 12
+        assert len(payload['tiles']) == 11
         assert {tile['key'] for tile in payload['tiles']} == {
             'database', 'scheduler', 'bullhorn_auth', 'openai',
             'inflight_vetting', 'failed_vetting_24h',
-            'sftp_uploads', 'onedrive_token', 'ai_cost_24h',
+            'sftp_uploads', 'ai_cost_24h',
             'skip_gates', 'monthly_report', 'ops_early_warning',
         }
         assert payload['overall_status'] in ('green', 'amber', 'red', 'unknown')
@@ -186,18 +190,30 @@ class TestAdminHealthService:
     """Service-layer guarantees: every tile method returns a HealthTile and
     never raises, even when its backing service is broken."""
 
-    def test_collect_all_returns_eleven_tiles(self, app):
+    def test_collect_all_returns_eleven_tiles(self, app, monkeypatch):
+        monkeypatch.delenv('REPL_IDENTITY', raising=False)
+        monkeypatch.delenv('WEB_REPL_RENEWAL', raising=False)
         with app.app_context():
             tiles = AdminHealthService().collect_all()
-            assert len(tiles) == 12
+            assert len(tiles) == 11
             assert all(isinstance(t, HealthTile) for t in tiles)
             keys = {t.key for t in tiles}
             assert keys == {
                 'database', 'scheduler', 'bullhorn_auth', 'openai',
                 'inflight_vetting', 'failed_vetting_24h',
-                'sftp_uploads', 'onedrive_token', 'ai_cost_24h',
+                'sftp_uploads', 'ai_cost_24h',
                 'skip_gates', 'monthly_report', 'ops_early_warning',
             }
+
+    def test_collect_all_includes_onedrive_when_replit_identity_set(self, app, monkeypatch):
+        monkeypatch.setenv('REPL_IDENTITY', 'present')
+        monkeypatch.delenv('WEB_REPL_RENEWAL', raising=False)
+        monkeypatch.delenv('REPLIT_CONNECTORS_HOSTNAME', raising=False)
+        with app.app_context():
+            tiles = AdminHealthService().collect_all()
+            onedrive = [t for t in tiles if t.key == 'onedrive_token']
+            assert len(onedrive) == 1
+            assert onedrive[0].status == 'red'
 
     def test_database_tile_green_when_query_succeeds(self, app):
         with app.app_context():
@@ -230,9 +246,20 @@ class TestAdminHealthService:
             mock_sched = MagicMock()
             mock_sched.running = True
             mock_sched.get_jobs.return_value = []
-            with patch.dict('sys.modules', {'app': MagicMock(scheduler=mock_sched)}):
+            with patch.dict('sys.modules', {'app': MagicMock(scheduler=mock_sched, is_primary_worker=True)}):
                 tile = AdminHealthService().tile_scheduler()
             assert tile.status == 'amber'
+
+    def test_scheduler_tile_green_when_web_worker_has_no_jobs(self, app):
+        with app.app_context():
+            mock_sched = MagicMock()
+            mock_sched.running = True
+            mock_sched.get_jobs.return_value = []
+            with patch.dict('sys.modules', {'app': MagicMock(scheduler=mock_sched, is_primary_worker=False)}):
+                tile = AdminHealthService().tile_scheduler()
+            assert tile.status == 'green'
+            assert tile.value == 'Running'
+            assert 'primary worker' in tile.subtext
 
     def test_scheduler_tile_red_when_stopped(self, app):
         with app.app_context():
