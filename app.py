@@ -311,10 +311,37 @@ def _track_module_access():
 
 @login_manager.user_loader
 def load_user(user_id):
+    """Load a user from a session or remember cookie.
+
+    A plain id matches only while auth_revision is still 0, which is every
+    account until its password is changed or reset after this column exists.
+    A bumped revision requires ``id:revision`` and rejects both the old
+    plain id and any earlier revision. A mismatch returns None so Flask-Login
+    treats the cookie as signed out. It must not raise.
+    """
     User = globals().get('User')
-    if User:
-        return User.query.get(int(user_id))
-    return None
+    if not User or user_id is None:
+        return None
+    raw = str(user_id)
+    if ':' in raw:
+        user_part, rev_part = raw.split(':', 1)
+        try:
+            uid = int(user_part)
+            revision = int(rev_part)
+        except ValueError:
+            return None
+        user = User.query.get(uid)
+        if user is None or int(user.auth_revision or 0) != revision:
+            return None
+        return user
+    try:
+        uid = int(raw)
+    except ValueError:
+        return None
+    user = User.query.get(uid)
+    if user is None or int(user.auth_revision or 0) != 0:
+        return None
+    return user
 
 # ============================================================================
 # Security Headers

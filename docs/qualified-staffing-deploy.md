@@ -69,7 +69,7 @@ Zip notification emails to `apply@q-staffing.com` are still parsed. After a live
 | `BULLHORN_USERNAME` | Qualified API user (e.g. `qualifiedstaffing2.api`) |
 | `BULLHORN_PASSWORD` | Qualified API password |
 | `SESSION_SECRET` | Required in production (≥16 chars); generate uniquely for this service |
-| `ADMIN_PASSWORD` | Initial admin login (12+ chars) |
+| `ADMIN_PASSWORD` | Creates the admin only when this service has no admin and no user already uses the configured username or email (12+ chars). A later change does not replace a saved password. |
 | `OPENAI_API_KEY` | Can reuse org key or a dedicated key |
 | `SENDGRID_API_KEY` | Notifications |
 | `MICROSOFT_CLIENT_ID` | Entra **mail** app for Qualified Graph pull (not Support Portal SSO) |
