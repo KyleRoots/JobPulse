@@ -23,7 +23,7 @@ from .config import (
     TEARSHEET_ID,
     config_from_env,
 )
-from .ui_client import BullhornUIClient, BullhornUIClientError
+from .ui_client import BullhornPublishUnavailable, BullhornUIClient, BullhornUIClientError
 from feeds.feed_config import is_qualified_tenant
 
 logger = logging.getLogger(__name__)
@@ -226,7 +226,7 @@ def _notify_failure(subject: str, message: str, notify_email: str) -> None:
 
 
 class IndeedTearsheetPublishService:
-    """Diff Indeed tearsheet membership and drive CFC Publish / Unpublish."""
+    """Diff Indeed tearsheet membership and drive JobPublish publish / unpublish."""
 
     def __init__(self, config: Optional[dict] = None, ui_client: Optional[BullhornUIClient] = None):
         self.config = config or config_from_env()
@@ -455,13 +455,21 @@ class IndeedTearsheetPublishService:
             )
             return result
 
+        outage: Optional[BullhornPublishUnavailable] = None
+
         # Unpublish removals + pending retries first
         for jid in sorted(unpublish_targets):
+            if outage:
+                pending_unpublish.add(jid)
+                continue
             try:
                 job = self._fetch_job_detail(bh, jid) or {'id': jid}
                 self._unpublish_one(ui, bh, job, result)
                 fingerprints.pop(str(jid), None)
                 pending_unpublish.discard(jid)
+            except BullhornPublishUnavailable as exc:
+                outage = exc
+                pending_unpublish.add(jid)
             except Exception as exc:
                 pending_unpublish.add(jid)
                 msg = f'unpublish {jid}: {exc}'
@@ -482,12 +490,16 @@ class IndeedTearsheetPublishService:
             self.config.get('republish_operation') or 'REPUBLISH'
         ).strip() or 'REPUBLISH'
         for jid in sorted(to_add):
+            if outage:
+                break
             job = jobs_by_id[jid]
             try:
                 fp = self._publish_one(ui, bh, job, result, operation=add_op)
                 if fp:
                     fingerprints[str(jid)] = fp
                     result['published'].append(jid)
+            except BullhornPublishUnavailable as exc:
+                outage = exc
             except Exception as exc:
                 msg = f'publish {jid}: {exc}'
                 result['errors'].append(msg)
@@ -500,6 +512,8 @@ class IndeedTearsheetPublishService:
 
         # Republish when fingerprint changed
         for jid in sorted(to_check):
+            if outage:
+                break
             job = jobs_by_id[jid]
             try:
                 tag, tag_reason = campaign_tag_for_job(
@@ -525,6 +539,8 @@ class IndeedTearsheetPublishService:
                 if new_fp:
                     fingerprints[str(jid)] = new_fp
                     result['republished'].append(jid)
+            except BullhornPublishUnavailable as exc:
+                outage = exc
             except Exception as exc:
                 msg = f'republish {jid}: {exc}'
                 result['errors'].append(msg)
@@ -533,6 +549,17 @@ class IndeedTearsheetPublishService:
                     msg,
                     self.config.get('notify_email') or '',
                 )
+
+        if outage:
+            # Unprocessed adds have no fingerprint yet, so the next cycle
+            # republishes them; unprocessed removals sit in pending_unpublish.
+            result['errors'].append(f'Bullhorn publishing unavailable — cycle stopped: {outage}')
+            result['outage'] = True
+            _notify_failure(
+                'Indeed tearsheet publish: Bullhorn publishing unavailable',
+                f'Stopped this cycle after the first failure; will retry next cycle.\n\n{outage}',
+                self.config.get('notify_email') or '',
+            )
 
         # job_ids tracks current tearsheet membership for publish/republish.
         # pending_unpublish retains failed removals so the next sync retries
@@ -814,7 +841,7 @@ def unpublish_job_after_tearsheet_remove(job_id: int, tearsheet_id: int) -> bool
 
 def force_unpublish_jobs(job_ids: List[int]) -> Dict[str, Any]:
     """
-    One-off recovery: unpublish specific jobs via Bullhorn UI JobBoard CFC
+    One-off recovery: unpublish specific jobs via Bullhorn JobPublish
     and clear them from membership / pending_unpublish state on success.
 
     Use when jobs were published to Indeed but never recorded in (or were

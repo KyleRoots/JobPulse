@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 def sync_indeed_tearsheet_publish():
     """
     Diff Indeed tearsheet membership (1640 Myticas/STSI, 2 Qualified) and
-    Publish/Republish/Unpublish via Bullhorn JobBoard CFC (Corporate + Indeed).
+    Publish/Republish/Unpublish via Bullhorn JobPublish (career portal + Indeed).
     Gated by INDEED_TEARSHEET_PUBLISH_ENABLED.
     """
     from app import app
