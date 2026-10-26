@@ -996,8 +996,32 @@ class TestJobPublishClient:
             'operation': 'ADDCHANGE',
             'externalAccountID': -1,
         }
-        assert board_calls[1].kwargs['params']['BhRestToken'] == 'tok-1'
+        assert board_calls[1].kwargs['headers']['BhRestToken'] == 'tok-1'
+        assert 'BhRestToken' not in board_calls[1].kwargs['params']
         assert board_calls[1].kwargs['headers']['Content-Type'] == 'application/json'
+
+    def test_unreachable_errors_do_not_echo_password_or_token(self):
+        import requests as _requests
+        from indeed_publish.ui_client import BullhornPublishUnavailable, BullhornUIClientError
+
+        leak = 'https://x/session/login?password=secret&BhRestToken=tok-1'
+        session = MagicMock()
+        session.post.side_effect = _requests.ConnectionError(f'Max retries exceeded with url: {leak}')
+        with pytest.raises(BullhornUIClientError) as login_err:
+            self._client(session).login()
+        assert 'secret' not in str(login_err.value)
+        assert login_err.value.__cause__ is None
+
+        session = MagicMock()
+        session.post.side_effect = [
+            _fake_resp(200, {}),
+            _fake_resp(200, _LOGIN_OK),
+            _requests.ConnectionError(f'Max retries exceeded with url: {leak}'),
+        ]
+        with pytest.raises(BullhornPublishUnavailable) as pub_err:
+            self._client(session).unpublish_boards(job_id=1)
+        assert 'tok-1' not in str(pub_err.value)
+        assert 'secret' not in str(pub_err.value)
 
     def test_unpublish_deletes_from_career_portal_and_indeed(self):
         import json as _json

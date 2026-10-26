@@ -156,7 +156,10 @@ class BullhornUIClient:
             )
             resp = self.session.post(login_url, timeout=60)
         except requests.RequestException as exc:
-            raise BullhornUIClientError(f'Universal login HTTP 503 (unreachable): {exc}') from exc
+            # urllib3 messages echo the URL, and the login URL carries the password.
+            raise BullhornUIClientError(
+                f'Universal login HTTP 503 (unreachable: {type(exc).__name__})'
+            ) from None
 
         if resp.status_code == 401:
             raise BullhornUIClientError('UI login rejected (401 — check credentials / password expiry)')
@@ -340,10 +343,10 @@ class BullhornUIClient:
                 params={
                     'uniqueCallId': str(uuid.uuid4()),
                     'highLevelCallStack': '/content/actions/publish-job',
-                    'BhRestToken': self.rest_token,
                 },
                 data=body,
                 headers={
+                    'BhRestToken': self.rest_token,
                     'Content-Type': 'application/json',
                     'Accept': 'application/json, text/plain, */*',
                     'Origin': _APP_ORIGIN,
@@ -352,4 +355,6 @@ class BullhornUIClient:
                 timeout=90,
             )
         except requests.RequestException as exc:
-            raise BullhornPublishUnavailable(f'{board} unreachable: {exc}') from exc
+            raise BullhornPublishUnavailable(
+                f'{board} unreachable ({type(exc).__name__})'
+            ) from None
