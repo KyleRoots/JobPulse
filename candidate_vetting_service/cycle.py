@@ -237,6 +237,11 @@ class VettingCycleMixin:
                     summary['errors'].append(error_msg)
                     continue
 
+                # Not started, or fenced out after its lease was recovered:
+                # the queue entry belongs to another run, so leave it alone.
+                if candidate.get('_run_claim_outcome') in ('deferred', 'lease_lost'):
+                    continue
+
                 try:
                     vetting_log = None
                     if vetting_log_id and status == 'completed':

@@ -105,6 +105,8 @@ def run_schema_migrations(db):
         ("zip_apply_delivery", "bullhorn_candidate_id", "INTEGER"),
         ("zip_apply_delivery", "bullhorn_submission_id", "INTEGER"),
         ("zip_apply_delivery", "ingest_error", "VARCHAR(500)"),
+        # Audit re-vet request → covering run binding (Oct 2026).
+        ("vetting_audit_log", "revet_vetting_log_id", "INTEGER"),
     ]
 
     _SAFE_IDENTIFIER = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')

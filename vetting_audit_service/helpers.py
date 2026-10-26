@@ -81,11 +81,6 @@ def get_auditor_model() -> str:
     return DEFAULT_AUDITOR_MODEL
 
 
-# Same window ``_reset_stuck_processing`` waits before it treats a
-# 'processing' vetting log as abandoned. A younger one is a live run.
-INFLIGHT_PROCESSING_MINUTES = 10
-
-
 class RevetResetDeferred(RuntimeError):
     """A reset would delete the vetting log of a run that is still in flight."""
 
@@ -115,7 +110,7 @@ def select_revet_parsed_email(candidate_id: int, audit_job_id: Optional[int] = N
     from models import ParsedEmail
     from screening.candidate_data import _resolve_vetting_cutoff
 
-    query = ParsedEmail.query.filter(
+    query = ParsedEmail.query.populate_existing().filter(
         ParsedEmail.bullhorn_candidate_id == candidate_id,
         ParsedEmail.status == 'completed',
     )
@@ -157,8 +152,10 @@ def clear_candidate_vetting_state(
     ``reset_parsed_email=False`` when the caller enqueues the candidate
     itself in the same cycle.
 
-    Raises ``RevetResetDeferred`` while a vetting run for the candidate is
-    still in flight, so a retry cannot delete live work.
+    Runs under the candidate run lock (see ``run_claim``) and commits.
+    Raises ``RevetResetDeferred`` while any vetting run for the candidate is
+    still ``processing``, whatever its age, and ``CandidateLockUnavailable``
+    when the lock cannot be taken. Nothing is deleted in either case.
 
     Shared by ``RevetMixin._trigger_revet`` (front-line auditor revet path)
     and ``CandidateDetectionMixin.detect_pending_revet_candidates`` (the
@@ -180,14 +177,49 @@ def clear_candidate_vetting_state(
     closes that gap.
 
     Returns a dict with the per-table delete counts for logging.
-    Raises on failure — the caller is responsible for rolling back its
-    transaction.
     """
     from app import db
+    from .run_claim import acquire_candidate_lock
+
+    acquire_candidate_lock(candidate_id)
+    try:
+        stats = reset_candidate_vetting_state_locked(
+            candidate_id, audit_job_id, reset_parsed_email,
+        )
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+    return stats
+
+
+def reset_candidate_vetting_state_locked(
+    candidate_id: int,
+    audit_job_id: Optional[int] = None,
+    reset_parsed_email: bool = True,
+) -> Dict[str, Optional[int]]:
+    """``clear_candidate_vetting_state`` body. The caller holds the candidate
+    run lock in the current transaction and commits or rolls back."""
+    from app import db
+    from sqlalchemy import or_
     from models import (
-        CandidateVettingLog, CandidateJobMatch, ParsedEmail,
+        CandidateVettingLog, CandidateJobMatch,
         EmbeddingFilterLog, EscalationLog, ScoutVettingSession,
     )
+
+    vetting_logs = (
+        db.session.query(CandidateVettingLog.id, CandidateVettingLog.status)
+        .filter(CandidateVettingLog.bullhorn_candidate_id == candidate_id)
+        .all()
+    )
+    inflight_ids = [row_id for row_id, status in vetting_logs if status == 'processing']
+    if inflight_ids:
+        raise RevetResetDeferred(
+            f"clear_candidate_vetting_state deferred: candidate "
+            f"{candidate_id} has vetting run(s) in flight "
+            f"(vetting_log ids {inflight_ids})"
+        )
+    log_ids = [row_id for row_id, _status in vetting_logs]
 
     # FK-safety pre-check (May 2026): ScoutVettingSession.vetting_log_id
     # is a NOT NULL FK to candidate_vetting_log.id with NO ON DELETE
@@ -197,14 +229,10 @@ def clear_candidate_vetting_state(
     # at commit. Query for the actual FK refs that would block the
     # delete — not just "active" sessions — and abort if any exist.
     # Caller catches RuntimeError and reclassifies the audit row.
-    vetting_logs_for_check = CandidateVettingLog.query.filter(
-        CandidateVettingLog.bullhorn_candidate_id == candidate_id,
-    ).all()
-    log_ids_for_check = [vl.id for vl in vetting_logs_for_check]
-    if log_ids_for_check:
+    if log_ids:
         blocking_session_count = (
             ScoutVettingSession.query
-            .filter(ScoutVettingSession.vetting_log_id.in_(log_ids_for_check))
+            .filter(ScoutVettingSession.vetting_log_id.in_(log_ids))
             .count()
         )
         if blocking_session_count > 0:
@@ -217,7 +245,7 @@ def clear_candidate_vetting_state(
             active_count = (
                 ScoutVettingSession.query
                 .filter(
-                    ScoutVettingSession.vetting_log_id.in_(log_ids_for_check),
+                    ScoutVettingSession.vetting_log_id.in_(log_ids),
                     ScoutVettingSession.status.in_(ACTIVE_SESSION_STATES),
                 )
                 .count()
@@ -232,31 +260,11 @@ def clear_candidate_vetting_state(
                 f"CASCADE; deleting would raise IntegrityError"
             )
 
-    inflight_cutoff = datetime.utcnow() - timedelta(minutes=INFLIGHT_PROCESSING_MINUTES)
-    inflight_ids = [
-        vl.id for vl in vetting_logs_for_check
-        if vl.status == 'processing'
-        and vl.created_at is not None
-        and vl.created_at >= inflight_cutoff
-    ]
-    if inflight_ids:
-        raise RevetResetDeferred(
-            f"clear_candidate_vetting_state deferred: candidate "
-            f"{candidate_id} has vetting run(s) in flight "
-            f"(vetting_log ids {inflight_ids})"
-        )
-
     to_reset = pending = None
     if reset_parsed_email:
         to_reset, pending = select_revet_parsed_email(candidate_id, audit_job_id)
         if to_reset is not None:
             to_reset.vetted_at = None
-
-    # Re-fetch (in case anything changed between the pre-check and now)
-    vetting_logs = CandidateVettingLog.query.filter(
-        CandidateVettingLog.bullhorn_candidate_id == candidate_id,
-    ).all()
-    log_ids = [vl.id for vl in vetting_logs]
 
     if log_ids:
         EmbeddingFilterLog.query.filter(
@@ -268,11 +276,19 @@ def clear_candidate_vetting_state(
         CandidateJobMatch.query.filter(
             CandidateJobMatch.vetting_log_id.in_(log_ids)
         ).delete(synchronize_session=False)
-        CandidateVettingLog.query.filter(
-            CandidateVettingLog.id.in_(log_ids)
+        deleted = CandidateVettingLog.query.filter(
+            CandidateVettingLog.id.in_(log_ids),
+            or_(
+                CandidateVettingLog.status.is_(None),
+                CandidateVettingLog.status != 'processing',
+            ),
         ).delete(synchronize_session=False)
-
-    db.session.commit()
+        if deleted != len(log_ids):
+            raise RevetResetDeferred(
+                f"clear_candidate_vetting_state deferred: candidate "
+                f"{candidate_id} vetting logs changed during the reset "
+                f"({deleted} of {len(log_ids)} deletable)"
+            )
 
     return {
         'vetting_logs_deleted': len(log_ids),
@@ -293,9 +309,9 @@ def backfill_revet_new_score(
     return the new score synchronously and the audit row is written with
     ``revet_new_score=NULL``. This helper is invoked from the vetting
     service once the new ``CandidateJobMatch`` rows have been committed;
-    it locates every audit row for this candidate that was waiting on a
-    re-vet score and copies the newly-scored ``match_score`` for the
-    same applied job.
+    it locates the audit rows bound to that run (``revet_vetting_log_id``,
+    set when the run was claimed) that are still waiting on a score and
+    copies the newly-scored ``match_score`` for the same job.
 
     Parameters
     ----------
@@ -320,34 +336,43 @@ def backfill_revet_new_score(
         # later confirms the original score on a previously-stable case, the
         # stored revet_new_score gets back-filled too (otherwise these rows
         # remain permanently null and skew "score drift" reporting).
-        pending = VettingAuditLog.query.filter(
-            VettingAuditLog.bullhorn_candidate_id == candidate_id,
-            VettingAuditLog.action_taken.in_(['revet_triggered', 'revet_skipped_stable']),
-            VettingAuditLog.revet_new_score.is_(None),
-        ).all()
-
-        if not pending:
-            return 0
-
         if vetting_log is not None and getattr(vetting_log, 'id', None):
-            matches = CandidateJobMatch.query.filter_by(
-                vetting_log_id=vetting_log.id
-            ).all()
+            run_id = vetting_log.id
         else:
-            latest = (
-                CandidateVettingLog.query
+            run_id = (
+                db.session.query(CandidateVettingLog.id)
                 .filter_by(
                     bullhorn_candidate_id=candidate_id,
                     status='completed',
                 )
                 .order_by(CandidateVettingLog.id.desc())
-                .first()
+                .scalar()
             )
-            if not latest:
+            if run_id is None:
                 return 0
-            matches = CandidateJobMatch.query.filter_by(
-                vetting_log_id=latest.id
-            ).all()
+
+        run_status = (
+            db.session.query(CandidateVettingLog.status)
+            .filter(CandidateVettingLog.id == run_id)
+            .scalar()
+        )
+        if run_status != 'completed':
+            return 0
+
+        # Only audits bound to this run at claim time (see run_claim): an
+        # audit created after the run started is a later request, and an
+        # older run's score must not satisfy it.
+        pending = VettingAuditLog.query.populate_existing().filter(
+            VettingAuditLog.bullhorn_candidate_id == candidate_id,
+            VettingAuditLog.action_taken.in_(['revet_triggered', 'revet_skipped_stable']),
+            VettingAuditLog.revet_new_score.is_(None),
+            VettingAuditLog.revet_vetting_log_id == run_id,
+        ).all()
+
+        if not pending:
+            return 0
+
+        matches = CandidateJobMatch.query.filter_by(vetting_log_id=run_id).all()
 
         score_by_job: Dict[int, float] = {}
         for m in matches:

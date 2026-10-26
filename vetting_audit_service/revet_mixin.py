@@ -220,6 +220,7 @@ class RevetMixin:
         """
         from app import db
         from .helpers import clear_candidate_vetting_state, RevetResetDeferred
+        from .run_claim import CandidateLockUnavailable
 
         try:
             stats = clear_candidate_vetting_state(
@@ -235,7 +236,7 @@ class RevetMixin:
             )
             return None
 
-        except RevetResetDeferred as e:
+        except (RevetResetDeferred, CandidateLockUnavailable) as e:
             # The audit row stays revet_triggered / revet_new_score=NULL, so
             # detect_pending_revet_candidates retries once the run finishes.
             db.session.rollback()
