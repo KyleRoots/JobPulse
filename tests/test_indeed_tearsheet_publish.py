@@ -1092,6 +1092,75 @@ class TestJobPublishClient:
         assert normalize_operation('PUBLISH') == 'ADDCHANGE'
 
 
+class _FakeSettings:
+    store = {}
+
+    @classmethod
+    def get_value(cls, key, default=None):
+        return cls.store.get(key, default)
+
+    @classmethod
+    def set_value(cls, key, value, **_k):
+        cls.store[key] = value
+
+
+class TestPerSubjectNotifyCooldown:
+    def _patch(self):
+        _FakeSettings.store = {}
+        return patch('models.GlobalSettings', _FakeSettings)
+
+    def test_two_jobs_alternating_each_cool_down(self):
+        from indeed_publish.sync import _notify_on_cooldown, _stamp_notify
+
+        a = 'Indeed republish failed for job 23267'
+        b = 'Indeed republish failed for job 38327'
+        with self._patch():
+            _stamp_notify(a)
+            _stamp_notify(b)
+            assert _notify_on_cooldown(a)
+            assert _notify_on_cooldown(b)
+            assert not _notify_on_cooldown('Indeed republish failed for job 1')
+
+    def test_job_subjects_wait_a_day_and_others_thirty_minutes(self):
+        import json as _json
+        from datetime import datetime, timedelta, timezone
+        from indeed_publish.config import NOTIFY_STAMP_KEY
+        from indeed_publish.sync import _notify_on_cooldown
+
+        two_hours_ago = (datetime.now(timezone.utc) - timedelta(hours=2)).strftime('%Y-%m-%dT%H:%M:%SZ')
+        job = 'Indeed publish failed for job 79605'
+        outage = 'Indeed tearsheet publish: Bullhorn publishing unavailable'
+        with self._patch():
+            _FakeSettings.store[NOTIFY_STAMP_KEY] = _json.dumps(
+                {'sent': {job: two_hours_ago, outage: two_hours_ago}}
+            )
+            assert _notify_on_cooldown(job)
+            assert not _notify_on_cooldown(outage)
+
+    def test_reads_old_single_subject_stamp(self):
+        import json as _json
+        from indeed_publish.config import NOTIFY_STAMP_KEY
+        from indeed_publish.sync import _notify_on_cooldown, _utc_now
+
+        subject = 'Indeed tearsheet publish: Bullhorn UI login failed'
+        with self._patch():
+            _FakeSettings.store[NOTIFY_STAMP_KEY] = _json.dumps({'subject': subject, 'at': _utc_now()})
+            assert _notify_on_cooldown(subject)
+
+    def test_stamp_prunes_entries_older_than_a_day(self):
+        import json as _json
+        from datetime import datetime, timedelta, timezone
+        from indeed_publish.config import NOTIFY_STAMP_KEY
+        from indeed_publish.sync import _stamp_notify
+
+        old = (datetime.now(timezone.utc) - timedelta(days=2)).strftime('%Y-%m-%dT%H:%M:%SZ')
+        with self._patch():
+            _FakeSettings.store[NOTIFY_STAMP_KEY] = _json.dumps({'sent': {'Indeed publish failed for job 1': old}})
+            _stamp_notify('Indeed publish failed for job 2')
+            sent = _json.loads(_FakeSettings.store[NOTIFY_STAMP_KEY])['sent']
+        assert list(sent) == ['Indeed publish failed for job 2']
+
+
 class TestNotifyCooldown:
     def test_skips_repeat_subject_within_window(self):
         from indeed_publish.sync import _notify_failure

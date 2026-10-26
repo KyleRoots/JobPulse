@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
@@ -164,27 +165,52 @@ def _save_last_result(result: Dict[str, Any], cfg: Optional[dict] = None) -> Non
 
 
 NOTIFY_COOLDOWN_SECONDS = 30 * 60
+# A job-level problem (empty description, no recruiter) needs a person to fix
+# the job in Bullhorn, so repeating it every 30 minutes is just noise.
+JOB_NOTIFY_COOLDOWN_SECONDS = 24 * 60 * 60
+_JOB_SUBJECT_RE = re.compile(r'\bjob \d+\b', re.IGNORECASE)
+
+
+def _cooldown_seconds(subject: str) -> int:
+    if _JOB_SUBJECT_RE.search(subject or ''):
+        return JOB_NOTIFY_COOLDOWN_SECONDS
+    return NOTIFY_COOLDOWN_SECONDS
+
+
+def _parse_utc(at: str) -> Optional[datetime]:
+    try:
+        then = datetime.fromisoformat(str(at).strip().replace('Z', '+00:00'))
+    except (TypeError, ValueError):
+        return None
+    if then.tzinfo is None:
+        then = then.replace(tzinfo=timezone.utc)
+    return then
+
+
+def _load_notify_stamps() -> Dict[str, str]:
+    """Subject → last-sent UTC timestamp. Accepts the old single-subject shape."""
+    from models import GlobalSettings
+    raw = GlobalSettings.get_value(NOTIFY_STAMP_KEY)
+    if not raw:
+        return {}
+    data = json.loads(raw) if isinstance(raw, str) else raw
+    if not isinstance(data, dict):
+        return {}
+    if isinstance(data.get('sent'), dict):
+        return {str(k): str(v) for k, v in data['sent'].items()}
+    if data.get('subject') and data.get('at'):
+        return {str(data['subject']): str(data['at'])}
+    return {}
 
 
 def _notify_on_cooldown(subject: str) -> bool:
-    """True when the same subject was emailed within the last 30 minutes."""
+    """True when this subject was already emailed within its cooldown window."""
     try:
-        from models import GlobalSettings
-        raw = GlobalSettings.get_value(NOTIFY_STAMP_KEY)
-        if not raw:
+        then = _parse_utc(_load_notify_stamps().get(subject) or '')
+        if not then:
             return False
-        data = json.loads(raw) if isinstance(raw, str) else raw
-        if not isinstance(data, dict):
-            return False
-        if (data.get('subject') or '') != subject:
-            return False
-        at = str(data.get('at') or '').strip()
-        if not at:
-            return False
-        then = datetime.fromisoformat(at.replace('Z', '+00:00'))
-        if then.tzinfo is None:
-            then = then.replace(tzinfo=timezone.utc)
-        return (datetime.now(timezone.utc) - then).total_seconds() < NOTIFY_COOLDOWN_SECONDS
+        age = (datetime.now(timezone.utc) - then).total_seconds()
+        return age < _cooldown_seconds(subject)
     except Exception:
         return False
 
@@ -192,10 +218,17 @@ def _notify_on_cooldown(subject: str) -> bool:
 def _stamp_notify(subject: str) -> None:
     try:
         from models import GlobalSettings
+        now = datetime.now(timezone.utc)
+        stamps = {}
+        for subj, at in _load_notify_stamps().items():
+            then = _parse_utc(at)
+            if then and (now - then).total_seconds() < JOB_NOTIFY_COOLDOWN_SECONDS:
+                stamps[subj] = at
+        stamps[subject] = _utc_now()
         GlobalSettings.set_value(
             NOTIFY_STAMP_KEY,
-            json.dumps({'subject': subject, 'at': _utc_now()}),
-            description='Last Indeed tearsheet publish failure email (cooldown)',
+            json.dumps({'sent': stamps}),
+            description='Indeed tearsheet publish failure emails sent (per-subject cooldown)',
             category='indeed_publish',
         )
     except Exception as exc:
@@ -206,7 +239,7 @@ def _notify_failure(subject: str, message: str, notify_email: str) -> None:
     if not notify_email:
         return
     if _notify_on_cooldown(subject):
-        logger.info('Indeed publish notify skipped (30m cooldown): %s', subject)
+        logger.info('Indeed publish notify skipped (cooldown): %s', subject)
         return
     try:
         from utils.bullhorn_helpers import get_email_service
