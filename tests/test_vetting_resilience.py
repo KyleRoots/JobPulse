@@ -312,7 +312,9 @@ class TestStuckProcessingReset:
                 candidate_name='Stuck Processing',
                 status='processing',
                 highest_match_score=0,
-                created_at=datetime.utcnow() - timedelta(minutes=15)
+                created_at=datetime.utcnow() - timedelta(minutes=15),
+                # Last lease heartbeat; a dead worker stops renewing it.
+                updated_at=datetime.utcnow() - timedelta(minutes=15),
             )
             db.session.add(log)
             db.session.commit()

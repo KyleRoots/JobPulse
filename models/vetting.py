@@ -424,6 +424,10 @@ class VettingAuditLog(db.Model):
     confidence = db.Column(db.String(20), nullable=True)
     action_taken = db.Column(db.String(50), nullable=False, default='no_action')
     revet_new_score = db.Column(db.Float, nullable=True)
+    # CandidateVettingLog.id of the run claimed after this request was
+    # written; only that run's score may back-fill revet_new_score. No FK:
+    # re-vet resets delete vetting logs, which re-opens the request.
+    revet_vetting_log_id = db.Column(db.Integer, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     __table_args__ = (

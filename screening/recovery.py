@@ -125,58 +125,53 @@ class RecoveryMixin:
         already set, so they never get re-queued.
         
         This method detects and resets those orphaned records:
-        - Only resets 'processing' logs older than 10 minutes
+        - Only 'processing' logs whose lease heartbeat (``updated_at``) is
+          more than ``LEASE_TIMEOUT_MINUTES`` old; live workers renew it
+          after every job analysis
         - Only resets logs with 0 job matches (never started analysis)
+        - Each recovery runs under the candidate run lock; a worker that is
+          in fact still alive cannot commit afterwards (see ``run_claim``)
+        - Re-queues the log's own ParsedEmail, not every email
         - Max 50 per cycle
         """
         try:
-            from models import CandidateVettingLog, CandidateJobMatch, ParsedEmail
-            from sqlalchemy import func
-            
-            cutoff = datetime.utcnow() - timedelta(minutes=10)
-            
-            stuck_logs = CandidateVettingLog.query.filter(
-                CandidateVettingLog.status == 'processing',
-                CandidateVettingLog.created_at < cutoff
-            ).limit(50).all()
-            
-            if not stuck_logs:
-                return
-            
-            reset_count = 0
-            for log in stuck_logs:
-                # Only reset if no job matches were created (cycle died before analysis)
-                match_count = db.session.query(func.count(CandidateJobMatch.id)).filter(
-                    CandidateJobMatch.vetting_log_id == log.id
-                ).scalar()
-                
-                if match_count > 0:
-                    continue  # Has job matches — may be partially complete, skip
-                
-                candidate_id = log.bullhorn_candidate_id
-                log_id = log.id
-                
-                # Delete child records (FK constraints)
-                from models import EmbeddingFilterLog, EscalationLog
-                EmbeddingFilterLog.query.filter_by(vetting_log_id=log_id).delete()
-                EscalationLog.query.filter_by(vetting_log_id=log_id).delete()
-                
-                # Delete the stuck log
-                db.session.delete(log)
-                
-                # Reset vetted_at to re-queue
-                ParsedEmail.query.filter_by(
-                    bullhorn_candidate_id=candidate_id
-                ).update({'vetted_at': None})
-                
-                reset_count += 1
-            
-            if reset_count > 0:
-                db.session.commit()
-                logger.info(f"🔄 Auto-retry: Reset {reset_count} candidates stuck in 'processing' (deployment restart recovery)")
+            from models import CandidateVettingLog
+            from sqlalchemy import and_, or_
+            from vetting_audit_service.run_claim import (
+                LEASE_TIMEOUT_MINUTES, recover_expired_lease,
+            )
+
+            cutoff = datetime.utcnow() - timedelta(minutes=LEASE_TIMEOUT_MINUTES)
+
+            stuck_ids = [
+                row_id for (row_id,) in db.session.query(CandidateVettingLog.id).filter(
+                    CandidateVettingLog.status == 'processing',
+                    or_(
+                        CandidateVettingLog.updated_at < cutoff,
+                        and_(
+                            CandidateVettingLog.updated_at.is_(None),
+                            CandidateVettingLog.created_at < cutoff,
+                        ),
+                    ),
+                ).limit(50)
+            ]
+            db.session.rollback()
         except Exception as e:
             db.session.rollback()
             logger.error(f"Error in stuck-processing reset: {str(e)}")
+            return
+
+        reset_count = 0
+        for log_id in stuck_ids:
+            try:
+                if recover_expired_lease(log_id, cutoff) is not None:
+                    reset_count += 1
+            except Exception as e:
+                db.session.rollback()
+                logger.error(f"Error recovering stuck vetting log {log_id}: {str(e)}")
+
+        if reset_count > 0:
+            logger.info(f"🔄 Auto-retry: Reset {reset_count} candidates stuck in 'processing' (deployment restart recovery)")
     
     def _handle_quota_exhaustion(self):
         """Handle OpenAI quota exhaustion: auto-disable vetting and send alert email.

@@ -55,9 +55,10 @@ def _seed_audit(app, *, candidate_id, job_id, age_hours=1.0):
         return row.id
 
 
-def _seed_completed_run(app, *, candidate_id, scores_by_job_id, age_hours=0.1):
+def _seed_completed_run(app, *, candidate_id, scores_by_job_id, age_hours=0.1, covers=None):
+    """``covers``: audit row id the run was bound to when it was claimed."""
     from app import db
-    from models import CandidateVettingLog, CandidateJobMatch
+    from models import CandidateVettingLog, CandidateJobMatch, VettingAuditLog
 
     with app.app_context():
         applied_job_id = next(iter(scores_by_job_id))
@@ -86,6 +87,8 @@ def _seed_completed_run(app, *, candidate_id, scores_by_job_id, age_hours=0.1):
                 match_summary='post-revet summary',
                 gaps_identified='',
             ))
+        if covers is not None:
+            VettingAuditLog.query.get(covers).revet_vetting_log_id = vlog.id
         db.session.commit()
         return vlog.id
 
@@ -124,12 +127,13 @@ class TestPendingRevetLoopGuard:
             app, candidate_id=candidate_id, job_id=audited_job, age_hours=2.0
         )
         _seed_completed_run(
-            app, candidate_id=candidate_id, scores_by_job_id={35515: 42.0}
+            app, candidate_id=candidate_id, scores_by_job_id={35515: 42.0},
+            covers=audit_id,
         )
 
         with app.app_context():
             with patch(
-                'vetting_audit_service.clear_candidate_vetting_state'
+                'vetting_audit_service.reset_candidate_vetting_state_locked'
             ) as mock_clear:
                 enqueued = detector.detect_pending_revet_candidates()
 
@@ -151,7 +155,7 @@ class TestPendingRevetLoopGuard:
 
         with app.app_context():
             with patch(
-                'vetting_audit_service.clear_candidate_vetting_state'
+                'vetting_audit_service.reset_candidate_vetting_state_locked'
             ) as mock_clear:
                 enqueued = detector.detect_pending_revet_candidates(
                     max_attempt_hours=12.0
@@ -174,7 +178,7 @@ class TestPendingRevetLoopGuard:
 
         with app.app_context():
             with patch(
-                'vetting_audit_service.clear_candidate_vetting_state',
+                'vetting_audit_service.reset_candidate_vetting_state_locked',
                 return_value={'vetting_logs_deleted': 1},
             ):
                 enqueued = detector.detect_pending_revet_candidates(
@@ -189,21 +193,22 @@ class TestPendingRevetLoopGuard:
         row = _read_audit(app, audit_id)
         assert row.action_taken == 'revet_triggered'
 
-    def test_backfillable_row_is_left_alone(self, app, detector):
-        """A completed run that DID score the audited job is a back-fill
-        problem, not a loop — leave the row for backfill_revet_new_score."""
+    def test_backfillable_row_is_repaired_without_rerun(self, app, detector):
+        """A bound completed run that DID score the audited job is a back-fill
+        problem, not a loop — copy its score instead of re-screening."""
         candidate_id = 991003
         audited_job = 40003
         audit_id = _seed_audit(
             app, candidate_id=candidate_id, job_id=audited_job, age_hours=2.0
         )
         _seed_completed_run(
-            app, candidate_id=candidate_id, scores_by_job_id={audited_job: 61.0}
+            app, candidate_id=candidate_id, scores_by_job_id={audited_job: 61.0},
+            covers=audit_id,
         )
 
         with app.app_context():
             with patch(
-                'vetting_audit_service.clear_candidate_vetting_state'
+                'vetting_audit_service.reset_candidate_vetting_state_locked'
             ) as mock_clear:
                 enqueued = detector.detect_pending_revet_candidates()
 
@@ -212,3 +217,4 @@ class TestPendingRevetLoopGuard:
 
         row = _read_audit(app, audit_id)
         assert row.action_taken == 'revet_triggered'
+        assert row.revet_new_score == 61.0
