@@ -1,4 +1,4 @@
-"""Env / constants for Indeed tearsheet → Bullhorn UI JobBoard publish."""
+"""Env / constants for Indeed tearsheet → Bullhorn JobPublish (career portal + Indeed)."""
 
 from __future__ import annotations
 

@@ -754,6 +754,56 @@ class TestSyncService:
         assert any('35409' in e for e in result['errors'])
 
 
+    def test_bullhorn_outage_stops_cycle_with_one_email(self):
+        from indeed_publish.ui_client import BullhornPublishUnavailable
+
+        ui = MagicMock()
+        ui.current_user_id = '25'
+        ui.unpublish_boards.side_effect = BullhornPublishUnavailable('careerPortal DELETE HTTP 503')
+        bh = MagicMock()
+        bh.authenticate.return_value = True
+        member = {
+            'id': 34829,
+            'title': 'New Job',
+            'description': '<p>hi</p>',
+            'publicDescription': '<p>hi</p>',
+            'categories': {'data': [{'name': 'IT/Software Development'}]},
+            'assignedUsers': {
+                'data': [{'id': 65, 'email': 'adam@example.com', 'firstName': 'Adam'}]
+            },
+        }
+        cfg = self._sync_cfg()
+        svc = IndeedTearsheetPublishService(config=cfg, ui_client=ui)
+        with patch.object(
+                IndeedTearsheetPublishService, '_fetch_tearsheet_jobs', return_value=[member]
+             ), \
+             patch.object(
+                 IndeedTearsheetPublishService,
+                 '_fetch_job_detail',
+                 side_effect=lambda _bh, jid: {'id': jid, 'description': '<p>x</p>'},
+             ), \
+             patch('indeed_publish.sync._load_state', return_value={
+                 'job_ids': [35409, 35410],
+                 'fingerprints': {'35409': 'a', '35410': 'b'},
+                 'pending_unpublish': [],
+             }), \
+             patch('indeed_publish.sync._save_state') as save_state, \
+             patch('indeed_publish.sync._save_last_result'), \
+             patch('indeed_publish.sync._notify_failure') as notify, \
+             patch('utils.bullhorn_helpers.get_bullhorn_service', return_value=bh):
+            result = svc.run_sync()
+
+        assert ui.unpublish_boards.call_count == 1
+        ui.publish_boards.assert_not_called()
+        assert result['outage'] is True
+        assert notify.call_count == 1
+        assert 'unavailable' in notify.call_args[0][0]
+        saved = save_state.call_args[0][0]
+        assert saved['pending_unpublish'] == [35409, 35410]
+        assert saved['job_ids'] == [34829]
+        assert '34829' not in saved['fingerprints']
+
+
 class TestAutoRemoveHook:
     def test_skips_non_indeed_tearsheet(self):
         assert unpublish_job_after_tearsheet_remove(1, 1531) is False
@@ -862,6 +912,184 @@ class TestUIClientLoginRetry:
              patch('indeed_publish.ui_client.time.sleep'), \
              pytest.raises(BullhornUIClientError, match='401'):
             client.login_with_retry(max_attempts=2, backoff_seconds=0)
+
+
+def _fake_resp(status, payload=None, text=None):
+    resp = MagicMock()
+    resp.status_code = status
+    resp.text = text if text is not None else (
+        __import__('json').dumps(payload) if payload is not None else ''
+    )
+    resp.json.side_effect = (
+        (lambda: payload) if payload is not None else ValueError('not json')
+    )
+    return resp
+
+
+_LOGIN_OK = {
+    'identity': {'userId': 2204241, 'isApiUser': True},
+    'sessions': [
+        {'name': 'rest', 'value': {
+            'token': 'tok-1',
+            'endpoint': 'https://rest45.bullhornstaffing.com/rest-services/clp2rd/',
+        }},
+    ],
+}
+
+
+class TestJobPublishClient:
+    def _client(self, session):
+        from indeed_publish.ui_client import BullhornUIClient
+
+        return BullhornUIClient(username='svc', password='secret', session=session)
+
+    def test_login_reads_rest_session_and_skips_cls45(self):
+        session = MagicMock()
+        session.post.side_effect = [_fake_resp(200, {}), _fake_resp(200, _LOGIN_OK)]
+        client = self._client(session)
+        client.login()
+        assert client.rest_url == 'https://rest45.bullhornstaffing.com/rest-services/clp2rd/'
+        assert client.rest_token == 'tok-1'
+        assert client.current_user_id == '2204241'
+        for call in session.post.call_args_list + session.get.call_args_list:
+            assert 'cls45' not in str(call)
+
+    def test_login_without_rest_session_fails(self):
+        from indeed_publish.ui_client import BullhornUIClientError
+
+        session = MagicMock()
+        session.post.side_effect = [_fake_resp(200, {}), _fake_resp(200, {'identity': {}})]
+        with pytest.raises(BullhornUIClientError, match='no REST session'):
+            self._client(session).login()
+
+    def test_publish_posts_json_addchange_to_both_boards(self):
+        import json as _json
+
+        session = MagicMock()
+        session.post.side_effect = [
+            _fake_resp(200, {}),
+            _fake_resp(200, _LOGIN_OK),
+            _fake_resp(200, {'success': True, 'message': 'corporate job board'}),
+            _fake_resp(200, {'success': True, 'message': 'This job will be published to Indeed.'}),
+        ]
+        client = self._client(session)
+        out = client.publish_boards(
+            job_id=79614,
+            published_category_id=2000001,
+            response_user_id=272,
+            description_html='<p>x</p>',
+            operation='REPUBLISH',
+        )
+        assert list(out) == ['careerPortal', 'indeed']
+        board_calls = session.post.call_args_list[2:]
+        urls = [c.args[0] for c in board_calls]
+        assert urls == [
+            'https://rest45.bullhornstaffing.com/rest-services/clp2rd/services/JobPublish/careerPortal',
+            'https://rest45.bullhornstaffing.com/rest-services/clp2rd/services/JobPublish/indeed',
+        ]
+        body = _json.loads(board_calls[1].kwargs['data'])
+        assert body == {
+            'jobPostingID': 79614,
+            'description': '<p>x</p>',
+            'publishedCategoryID': 2000001,
+            'responseUserID': 272,
+            'operation': 'ADDCHANGE',
+            'externalAccountID': -1,
+        }
+        assert board_calls[1].kwargs['headers']['BhRestToken'] == 'tok-1'
+        assert 'BhRestToken' not in board_calls[1].kwargs['params']
+        assert board_calls[1].kwargs['headers']['Content-Type'] == 'application/json'
+
+    def test_unreachable_errors_do_not_echo_password_or_token(self):
+        import requests as _requests
+        from indeed_publish.ui_client import BullhornPublishUnavailable, BullhornUIClientError
+
+        leak = 'https://x/session/login?password=secret&BhRestToken=tok-1'
+        session = MagicMock()
+        session.post.side_effect = _requests.ConnectionError(f'Max retries exceeded with url: {leak}')
+        with pytest.raises(BullhornUIClientError) as login_err:
+            self._client(session).login()
+        assert 'secret' not in str(login_err.value)
+        assert login_err.value.__cause__ is None
+
+        session = MagicMock()
+        session.post.side_effect = [
+            _fake_resp(200, {}),
+            _fake_resp(200, _LOGIN_OK),
+            _requests.ConnectionError(f'Max retries exceeded with url: {leak}'),
+        ]
+        with pytest.raises(BullhornPublishUnavailable) as pub_err:
+            self._client(session).unpublish_boards(job_id=1)
+        assert 'tok-1' not in str(pub_err.value)
+        assert 'secret' not in str(pub_err.value)
+
+    def test_unpublish_deletes_from_career_portal_and_indeed(self):
+        import json as _json
+
+        session = MagicMock()
+        session.post.side_effect = [
+            _fake_resp(200, {}),
+            _fake_resp(200, _LOGIN_OK),
+            _fake_resp(200, {'success': True}),
+            _fake_resp(200, {'success': True, 'message': 'This job will be removed from Indeed.'}),
+        ]
+        client = self._client(session)
+        client.unpublish_boards(job_id=79614, published_category_id=2000001, response_user_id=272)
+        board_calls = session.post.call_args_list[2:]
+        assert [c.args[0].rsplit('/', 1)[-1] for c in board_calls] == ['careerPortal', 'indeed']
+        assert all(_json.loads(c.kwargs['data'])['operation'] == 'DELETE' for c in board_calls)
+
+    def test_server_error_raises_unavailable(self):
+        from indeed_publish.ui_client import BullhornPublishUnavailable
+
+        session = MagicMock()
+        session.post.side_effect = [
+            _fake_resp(200, {}),
+            _fake_resp(200, _LOGIN_OK),
+            _fake_resp(503, text='<title>This page is currently unavailable</title>'),
+        ]
+        with pytest.raises(BullhornPublishUnavailable, match='503'):
+            self._client(session).unpublish_boards(job_id=1)
+
+    def test_success_false_raises(self):
+        from indeed_publish.ui_client import BullhornPublishUnavailable, BullhornUIClientError
+
+        session = MagicMock()
+        session.post.side_effect = [
+            _fake_resp(200, {}),
+            _fake_resp(200, _LOGIN_OK),
+            _fake_resp(200, {'success': False, 'message': 'Invalid category'}),
+        ]
+        with pytest.raises(BullhornUIClientError, match='Invalid category') as info:
+            self._client(session).publish_boards(
+                job_id=1, published_category_id=2, response_user_id=3, description_html='d',
+            )
+        assert not isinstance(info.value, BullhornPublishUnavailable)
+
+    def test_expired_rest_session_relogs_once(self):
+        session = MagicMock()
+        session.post.side_effect = [
+            _fake_resp(200, {}),
+            _fake_resp(200, _LOGIN_OK),
+            _fake_resp(401, {'errorMessage': 'Bad BhRestToken'}),
+            _fake_resp(200, {}),
+            _fake_resp(200, _LOGIN_OK),
+            _fake_resp(200, {'success': True}),
+        ]
+        out = self._client(session).publish_boards(
+            job_id=1, published_category_id=2, response_user_id=3,
+            description_html='d', boards=('indeed',),
+        )
+        assert out['indeed']['status_code'] == 200
+        assert session.post.call_count == 6
+
+    def test_legacy_board_names_still_accepted(self):
+        from indeed_publish.ui_client import normalize_board, normalize_operation
+
+        assert normalize_board('Corporate') == 'careerPortal'
+        assert normalize_board('Indeed') == 'indeed'
+        assert normalize_operation('UNPUBLISH') == 'DELETE'
+        assert normalize_operation('PUBLISH') == 'ADDCHANGE'
 
 
 class TestNotifyCooldown:

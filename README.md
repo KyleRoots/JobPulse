@@ -226,15 +226,13 @@ NEVERBOUNCE_API_KEY=
 TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=
 
-# Indeed native publish (Plan B) — tearsheet 1640 → Bullhorn JobBoard CFC
+# Indeed native publish (Plan B) — tearsheet 1640 / 2 → Bullhorn JobPublish REST
 # Keep DISABLED until UI login + a single test job (e.g. 35233) is verified.
 INDEED_TEARSHEET_PUBLISH_ENABLED=false
-BH_UI_USERNAME=service.user
+BH_UI_USERNAME=service.user    # Universal Login user (API user, no MFA)
 BH_UI_PASSWORD=...
-BH_UI_BASE_URL=https://cls45.bullhornstaffing.com
-BH_UI_PRIVATE_LABEL_ID=52989
-BH_UI_ENCRYPTION_KEY=novo
-BH_UI_CURRENT_USER_ID=   # optional; auto-resolved when possible
+# BH_UI_BASE_URL / BH_UI_PRIVATE_LABEL_ID / BH_UI_ENCRYPTION_KEY / BH_UI_CURRENT_USER_ID
+# only fed the retired cls45 JobBoard CFC; they are read but no longer sent.
 BH_CAREER_PORTAL_JOB_URL_TEMPLATE=https://myticas.com/jobs/{job_id}
 INDEED_TEARSHEET_PUBLISH_NOTIFY_EMAIL=kroots@myticas.com
 
@@ -437,6 +435,7 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
+- **Indeed native publish moved off cls45 (Oct 26)**: Bullhorn retired the `cls45` ColdFusion server, so every JobBoard CFC call returned 503. Native Indeed publish now does Universal Login only and POSTs the same JSON the Bullhorn UI sends to `rest-services/{corp}/services/JobPublish/careerPortal` and `/indeed` (`ADDCHANGE` to publish or republish, `DELETE` to remove). Unpublish sends `DELETE` to both, because the UI's Unpublish button only clears the career portal and leaves Indeed live. If Bullhorn returns 5xx or is unreachable, the cycle stops after the first failure and sends one email. It no longer sends one email per job. Queued removals and unpublished adds retry next cycle. Verified end to end on Qualified test job 79614. The `indeed_tearsheet_publish` job stays paused on Automations until it is resumed after deploy.
 - **Health page noise (Oct 22)**: `/admin/health` no longer shows a red OneDrive tile when Replit tokens are absent. The scheduler tile stays green on a web process that does not own the jobs. The 2:00 AM UTC database backup to OneDrive is off. Postgres backups stay with Railway. Past runs remain on `/admin/backups`.
 - **Bullhorn record links (Oct 22)**: Scout emails, screening pages, and application notes now use Bullhorn's Share link, `https://app.bullhornstaffing.com/openwindow?entity=Candidate&id=...` (and the same form for jobs and companies). The old `cls45` `OpenWindow.cfm` address shows Bullhorn's unavailable page. Emails already sent keep the old address. Recruiter names stay plain text.
 - **Bullhorn event polls every 2 minutes (Oct 22)**: Placement net-margin and Myticas client-onboarding checks were labeled as 2 minutes and scheduled every 10 seconds. Both now run every 2 minutes, one at a time. Bullhorn keeps the events queued until the next check, so a placement margin update or a new-client email waits about 2 minutes instead of 10 seconds. This cuts the steady REST logins that were hitting the shared API user.
@@ -706,5 +705,5 @@ Access health endpoints for status checks:
 
 ---
 
-**Last Updated**: October 22, 2026
-**Version**: 2.9 (Main-branch Railway deploy; Render log monitoring removed)
+**Last Updated**: October 26, 2026
+**Version**: 2.10 (Indeed native publish on Bullhorn JobPublish REST)

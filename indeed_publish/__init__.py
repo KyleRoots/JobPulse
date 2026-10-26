@@ -1,4 +1,4 @@
-"""Indeed native syndication (Plan B) — tearsheet 1640 → Bullhorn JobBoard CFC publish."""
+"""Indeed native syndication (Plan B) — tearsheet 1640 → Bullhorn JobPublish REST."""
 
 from .sync import (
     IndeedTearsheetPublishService,

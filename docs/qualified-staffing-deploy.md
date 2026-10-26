@@ -156,8 +156,10 @@ Indeed native Plan B is enabled with `INDEED_TEARSHEET_PUBLISH_ENABLED=true` and
 Qualified `BH_UI_*` (tearsheet **2**, private label `51284`). Publish payloads use
 `BH_CAREER_PORTAL_JOB_URL_TEMPLATE` or the default
 `https://jobs.q-staffing.com/jobs/{job_id}` (ID-only path; portal redirects to the
-SEO slug). When on, the Indeed XML upload is empty so CFC and Scout XML do not
-dual-list. Campaign tags map from `correlatedCustomText1` (see go-live step 7).
+SEO slug). Publishing goes through Universal Login and Bullhorn's
+`services/JobPublish/careerPortal` and `/indeed` REST calls (the old `cls45`
+JobBoard CFC is retired). When on, the Indeed XML upload is empty so native
+publish and Scout XML do not dual-list. Campaign tags map from `correlatedCustomText1` (see go-live step 7).
 Qualified published categories follow the job title (Warehouse, Manufacturing,
 Customer Service, Logistics, Food Services, and similar). Unmatched Qualified
 jobs fall back to Manufacturing, not IT/Software Development. Myticas `#INDShow`
@@ -182,7 +184,7 @@ Archive, etc.). `Accepting Candidates` and `Accepting Candidates - Interviewing`
 stay on the feed. The 5-minute incremental monitor auto-removes ineligible jobs
 from Qualified tearsheets **2** (Indeed), **3** (ZipRecruiter), and **4**
 (LinkedIn) so Bullhorn membership counts track the XML. Auto-remove from
-tearsheet **2** also triggers Indeed CFC unpublish so checkmarks clear. The
+tearsheet **2** also triggers Indeed native unpublish so checkmarks clear. The
 public flag is separate from status. The portal only publishes jobs that are
 open, not deleted, and marked public.
 
@@ -218,14 +220,14 @@ Bullhorn Support finishes whitelisting
 7. Indeed checkbox automation: tearsheet **2**, private label `51284`,
    `ADDCHANGE`/`REPUBLISH`. Enable with `INDEED_TEARSHEET_PUBLISH_ENABLED=true`
    after `BH_UI_*` are set. When enabled, the Indeed XML file is uploaded empty
-   so CFC Publish and XML do not dual-list the same jobs (LinkedIn/Zip XML stay).
+   so native publish and XML do not dual-list the same jobs (LinkedIn/Zip XML stay).
    Campaign groups come from `correlatedCustomText1` (department → `#INDMary`,
    `#INDWin` for Internal, `#INDLiv` for Southfield, etc.). Appleton and
    Appleton (WI) are the exception: the description is published as saved, and
    Scout does not add or strip a hashtag. `#INDShow` is stripped on republish
    for every other department. Blank/unmapped department skips that job.
 8. Unpublish UAT: remove from tearsheet **2**, or set status to Closed / any
-   `INELIGIBLE_STATUSES` value (auto-remove then CFC unpublish). Confirm Indeed
+   `INELIGIBLE_STATUSES` value (auto-remove then native unpublish). Confirm Indeed
    checkmarks clear. Accepting-candidates statuses stay published.
 9. Optional: Bullhorn Support redirect whitelist (still useful; no longer a hard blocker for REST).
 
