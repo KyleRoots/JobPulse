@@ -200,7 +200,12 @@ class RevetMixin:
 
         return None
 
-    def _trigger_revet(self, candidate_id: int, original_log_id: int) -> Optional[float]:
+    def _trigger_revet(
+        self,
+        candidate_id: int,
+        original_log_id: int,
+        audit_job_id: Optional[int] = None,
+    ) -> Optional[float]:
         """Reset the candidate's vetting state so the next cycle re-scores them.
 
         Async by design: the actual re-score is performed by the next
@@ -214,16 +219,27 @@ class RevetMixin:
         detector re-enqueues a stuck audit row later.
         """
         from app import db
-        from .helpers import clear_candidate_vetting_state
+        from .helpers import clear_candidate_vetting_state, RevetResetDeferred
 
         try:
-            stats = clear_candidate_vetting_state(candidate_id)
+            stats = clear_candidate_vetting_state(
+                candidate_id, audit_job_id=audit_job_id,
+            )
             logger.info(
                 f"🔄 Audit re-vet: reset candidate {candidate_id} — "
                 f"cleared {stats['vetting_logs_deleted']} vetting logs, "
-                f"reset {stats['parsed_emails_reset']} ParsedEmails. "
+                f"reset {stats['parsed_emails_reset']} ParsedEmails "
+                f"(parsed_email_id={stats['parsed_email_id']}, "
+                f"already_pending={stats['pending_parsed_email_id']}). "
                 f"Will be picked up by next vetting cycle."
             )
+            return None
+
+        except RevetResetDeferred as e:
+            # The audit row stays revet_triggered / revet_new_score=NULL, so
+            # detect_pending_revet_candidates retries once the run finishes.
+            db.session.rollback()
+            logger.info(f"⏸️ Audit re-vet deferred for candidate {candidate_id}: {e}")
             return None
 
         except Exception as e:

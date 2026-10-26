@@ -81,9 +81,84 @@ def get_auditor_model() -> str:
     return DEFAULT_AUDITOR_MODEL
 
 
-def clear_candidate_vetting_state(candidate_id: int) -> Dict[str, int]:
+# Same window ``_reset_stuck_processing`` waits before it treats a
+# 'processing' vetting log as abandoned. A younger one is a live run.
+INFLIGHT_PROCESSING_MINUTES = 10
+
+
+class RevetResetDeferred(RuntimeError):
+    """A reset would delete the vetting log of a run that is still in flight."""
+
+
+def _parsed_email_recency_key(parsed_email):
+    # Newest received first; NULL received_at sorts oldest; id breaks ties.
+    received = parsed_email.received_at
+    return (received is not None, received or datetime.min, parsed_email.id or 0)
+
+
+def select_revet_parsed_email(candidate_id: int, audit_job_id: Optional[int] = None):
+    """Pick the one ParsedEmail a re-vet should re-queue.
+
+    Only emails the ParsedEmail detector can pick up are considered: status
+    'completed' and, when a vetting cutoff is active, ``received_at`` at or
+    after it.
+
+    Returns ``(to_reset, already_pending)``:
+      - ``already_pending``: newest eligible email with ``vetted_at`` still
+        NULL. It will trigger the analysis by itself, so nothing is reset.
+      - ``to_reset``: otherwise the newest eligible email for the audited job,
+        falling back to the newest eligible email of any job.
+    Both are None when the candidate has no eligible email (non-email intake
+    or everything predates the cutoff); the pending-revet detector re-enqueues
+    those directly.
+    """
+    from models import ParsedEmail
+    from screening.candidate_data import _resolve_vetting_cutoff
+
+    query = ParsedEmail.query.filter(
+        ParsedEmail.bullhorn_candidate_id == candidate_id,
+        ParsedEmail.status == 'completed',
+    )
+    cutoff = _resolve_vetting_cutoff()
+    if cutoff is not None:
+        query = query.filter(
+            ParsedEmail.received_at.isnot(None),
+            ParsedEmail.received_at >= cutoff,
+        )
+    eligible = query.all()
+
+    pending = [pe for pe in eligible if pe.vetted_at is None]
+    if pending:
+        return None, max(pending, key=_parsed_email_recency_key)
+    if not eligible:
+        return None, None
+    if audit_job_id is not None:
+        same_job = [
+            pe for pe in eligible
+            if pe.bullhorn_job_id is not None
+            and int(pe.bullhorn_job_id) == int(audit_job_id)
+        ]
+        if same_job:
+            return max(same_job, key=_parsed_email_recency_key), None
+    return max(eligible, key=_parsed_email_recency_key), None
+
+
+def clear_candidate_vetting_state(
+    candidate_id: int,
+    audit_job_id: Optional[int] = None,
+    reset_parsed_email: bool = True,
+) -> Dict[str, Optional[int]]:
     """Delete the candidate's prior vetting state so the next vetting cycle
     re-scores them from scratch.
+
+    At most one ParsedEmail is re-queued (see ``select_revet_parsed_email``).
+    Re-queuing every completed email made the ParsedEmail detector run one
+    full multi-job analysis per email on successive cycles. Pass
+    ``reset_parsed_email=False`` when the caller enqueues the candidate
+    itself in the same cycle.
+
+    Raises ``RevetResetDeferred`` while a vetting run for the candidate is
+    still in flight, so a retry cannot delete live work.
 
     Shared by ``RevetMixin._trigger_revet`` (front-line auditor revet path)
     and ``CandidateDetectionMixin.detect_pending_revet_candidates`` (the
@@ -157,13 +232,25 @@ def clear_candidate_vetting_state(candidate_id: int) -> Dict[str, int]:
                 f"CASCADE; deleting would raise IntegrityError"
             )
 
-    parsed_emails = ParsedEmail.query.filter(
-        ParsedEmail.bullhorn_candidate_id == candidate_id,
-        ParsedEmail.status == 'completed',
-    ).all()
-    pe_count = len(parsed_emails)
-    for pe in parsed_emails:
-        pe.vetted_at = None
+    inflight_cutoff = datetime.utcnow() - timedelta(minutes=INFLIGHT_PROCESSING_MINUTES)
+    inflight_ids = [
+        vl.id for vl in vetting_logs_for_check
+        if vl.status == 'processing'
+        and vl.created_at is not None
+        and vl.created_at >= inflight_cutoff
+    ]
+    if inflight_ids:
+        raise RevetResetDeferred(
+            f"clear_candidate_vetting_state deferred: candidate "
+            f"{candidate_id} has vetting run(s) in flight "
+            f"(vetting_log ids {inflight_ids})"
+        )
+
+    to_reset = pending = None
+    if reset_parsed_email:
+        to_reset, pending = select_revet_parsed_email(candidate_id, audit_job_id)
+        if to_reset is not None:
+            to_reset.vetted_at = None
 
     # Re-fetch (in case anything changed between the pre-check and now)
     vetting_logs = CandidateVettingLog.query.filter(
@@ -189,7 +276,9 @@ def clear_candidate_vetting_state(candidate_id: int) -> Dict[str, int]:
 
     return {
         'vetting_logs_deleted': len(log_ids),
-        'parsed_emails_reset': pe_count,
+        'parsed_emails_reset': 1 if to_reset is not None else 0,
+        'parsed_email_id': to_reset.id if to_reset is not None else None,
+        'pending_parsed_email_id': pending.id if pending is not None else None,
     }
 
 
