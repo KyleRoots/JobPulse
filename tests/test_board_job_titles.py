@@ -264,11 +264,24 @@ class TestMailboxJobId:
 
 
 class TestIndeedNativePublishDoesNotRewriteTitle:
-    def test_cfc_payload_has_job_id_and_no_title_field(self):
-        import inspect
+    def test_job_publish_payload_has_job_id_and_no_title_field(self):
+        import json
+        from unittest.mock import MagicMock
         from indeed_publish.ui_client import BullhornUIClient
 
-        source = inspect.getsource(BullhornUIClient._post_cfc)
-        assert "jobPostingID" in source
-        assert "'title'" not in source
-        assert '"title"' not in source
+        client = BullhornUIClient(username='svc', password='secret')
+        client._logged_in = True
+        client.rest_url = 'https://rest45.bullhornstaffing.com/rest-services/x/'
+        client.rest_token = 't'
+        ok = MagicMock(status_code=200, text='{"success":true}')
+        ok.json.return_value = {'success': True}
+        client.session = MagicMock()
+        client.session.post.return_value = ok
+
+        client.publish_boards(
+            job_id=79614, published_category_id=1, response_user_id=2,
+            description_html='d', boards=('indeed',),
+        )
+        body = json.loads(client.session.post.call_args.kwargs['data'])
+        assert body['jobPostingID'] == 79614
+        assert 'title' not in body
