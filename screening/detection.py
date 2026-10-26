@@ -965,7 +965,11 @@ class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMi
         """
         from app import db
         from models import VettingAuditLog, CandidateVettingLog, CandidateJobMatch
-        from vetting_audit_service import clear_candidate_vetting_state
+        from vetting_audit_service import (
+            RevetResetDeferred,
+            clear_candidate_vetting_state,
+            select_revet_parsed_email,
+        )
 
         cutoff = datetime.utcnow() - timedelta(days=lookback_days)
         try:
@@ -994,6 +998,8 @@ class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMi
         skipped_already_revetted = 0
         skipped_active_session = 0
         skipped_clear_failed = 0
+        skipped_email_pending = 0
+        skipped_inflight = 0
         resolved_unbackfillable = 0
 
         for audit in pending_audits:
@@ -1140,8 +1146,50 @@ class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMi
             # ``RuntimeError`` when an active ``ScoutVettingSession``
             # would be orphaned by the delete — treat that as a separate
             # skip class so it shows up clearly in telemetry.
+            # A ParsedEmail for this candidate is already queued (the
+            # auditor's reset, or a fresh application). The ParsedEmail
+            # detector will run that analysis; enqueuing here too would
+            # delete its state and screen the candidate twice.
             try:
-                stats = clear_candidate_vetting_state(candidate_id)
+                _, pending_email = select_revet_parsed_email(
+                    candidate_id, audit.job_id,
+                )
+            except Exception as e:
+                pending_email = None
+                logger.warning(
+                    f"⚠️ Pending-revet detector: ParsedEmail lookup failed for "
+                    f"candidate {candidate_id} ({type(e).__name__}: {e}); "
+                    f"continuing"
+                )
+            if pending_email is not None:
+                skipped_email_pending += 1
+                logger.info(
+                    f"⏸️ Pending-revet detector: candidate {candidate_id} "
+                    f"audit row {audit.id} skipped — ParsedEmail "
+                    f"{pending_email.id} is already queued for vetting"
+                )
+                continue
+
+            # This detector enqueues the candidate itself, so it re-queues no
+            # ParsedEmail: that would add a second analysis next cycle.
+            try:
+                stats = clear_candidate_vetting_state(
+                    candidate_id,
+                    audit_job_id=audit.job_id,
+                    reset_parsed_email=False,
+                )
+            except RevetResetDeferred as e:
+                from app import db
+                try:
+                    db.session.rollback()
+                except Exception:
+                    pass
+                logger.info(
+                    f"⏸️ Pending-revet detector: candidate {candidate_id} "
+                    f"audit row {audit.id} skipped — {e}"
+                )
+                skipped_inflight += 1
+                continue
             except RuntimeError as e:
                 from app import db
                 try:
@@ -1197,11 +1245,15 @@ class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMi
             or skipped_already_revetted
             or skipped_active_session
             or skipped_clear_failed
+            or skipped_email_pending
+            or skipped_inflight
             or resolved_unbackfillable
         ):
             logger.info(
                 f"🔁 Pending revets: {len(candidates_to_enqueue)} re-enqueued, "
                 f"{skipped_already_revetted} already-revetted (back-fill pending), "
+                f"{skipped_email_pending} waiting on a queued ParsedEmail, "
+                f"{skipped_inflight} waiting on an in-flight run, "
                 f"{skipped_active_session} blocked by active Scout session, "
                 f"{skipped_clear_failed} failed clear, "
                 f"{resolved_unbackfillable} terminated as un-backfillable, "

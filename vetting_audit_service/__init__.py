@@ -33,6 +33,8 @@ from .helpers import (
     get_auditor_model,
     backfill_revet_new_score,
     clear_candidate_vetting_state,
+    select_revet_parsed_email,
+    RevetResetDeferred,
     get_qualified_sample_rate,
     get_revet_cap_per_24h,
     get_revet_score_tolerance,
