@@ -19,18 +19,27 @@ Protocol, per Bullhorn candidate ``c``:
   so a worker whose lease was recovered or failed cannot commit after
   replacement. While the worker runs, ``RunLease`` heartbeats ``updated_at``
   from its own thread, including during blocking Bullhorn and model calls, so
-  a lease only expires once its process has stopped heartbeating for
-  ``LEASE_TIMEOUT_MINUTES``. Only ``recover_expired_lease`` may end a lease
-  nobody released; ``release_lease`` ends the worker's own.
+  a lease only goes stale once its process has stopped heartbeating for
+  ``LEASE_TIMEOUT_MINUTES``. Staleness alone never ends a lease: a stalled
+  worker may still have paid calls in flight, so a stale lease is reported
+  and left ``processing`` until an operator explicitly recovers it with
+  ``recover_expired_lease``. ``release_lease`` ends the worker's own.
 * Renewal result is ``held``, ``lost`` or ``unknown``. Lost or unknown stops
   the run: no new paid call starts, calls already in flight finish but their
   results are discarded, nothing is committed, and an ``unknown`` worker
   releases its lease (or leaves it to expire when even that fails). After an
   unknown renewal the heartbeat keeps renewing until the run stops or the
-  lease is lost, so a transient database failure does not let recovery take
-  the candidate while in-flight calls drain. A heartbeat that has not
+  lease is lost, so the lease does not look stale while in-flight calls
+  drain. A heartbeat that has not
   confirmed the lease for ``STALE_HELD_SECONDS`` (a stalled connection) is
   treated as unknown.
+* Final commit: the worker freezes its local lease state (``RunLease.frozen``)
+  across its last check and ``commit_if_lease_held``, so no renewal result
+  can land between the check and the commit. Under ``L(c)`` the committed
+  row decides: only explicit recovery or the worker's own release, both
+  under ``L(c)``, end a lease. External costs are not exactly-once: a call
+  whose result is discarded, or that was in flight when an operator
+  recovered its run, has still been paid for.
 * Audit binding: ``VettingAuditLog.revet_vetting_log_id``. ``claim_run`` binds
   every audit row still waiting on a score to the run it creates, inside the
   same transaction. A run therefore covers only audit requests that were
@@ -52,7 +61,8 @@ Invariants:
    and a score is written only by ``write_bound_score``: a conditional update
    on the expected binding and a still-null score, from a run that is
    ``completed`` when re-read under the same lock.
-7. Recovery never deletes job matches: an expired run with persisted matches
+7. Recovery is explicit, never age-triggered, and never deletes job
+   matches: a recovered run with persisted matches
    is marked ``failed`` with them kept (its ParsedEmail id moved into the
    error message so the email can be claimed again), and its audits are
    released.
@@ -64,6 +74,7 @@ one writer at a time, and nothing here claims concurrency safety from it.
 import logging
 import threading
 import time
+from contextlib import contextmanager
 from datetime import datetime
 from typing import Dict, Iterable, Optional
 
@@ -413,7 +424,7 @@ class RunLease:
         self.interval_seconds = interval_seconds
         self.state = LEASE_HELD
         self.refused_calls = 0
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._stop = threading.Event()
         self._thread = None
         self._confirmed_at = self.clock()
@@ -434,6 +445,12 @@ class RunLease:
                 f"⚠️ Vetting log {self.vetting_log_id}: no confirmed renewal for "
                 f"over {STALE_HELD_SECONDS}s; lease state unknown"
             )
+
+    @contextmanager
+    def frozen(self):
+        """Hold the lease state still: renewal results wait until exit."""
+        with self._lock:
+            yield self
 
     @property
     def held(self) -> bool:
@@ -600,7 +617,9 @@ def _end_processing_run(vetting_log_id: int, expired_before: Optional[datetime],
 
 
 def recover_expired_lease(vetting_log_id: int, expired_before: datetime) -> Optional[Dict]:
-    """End a lease whose holder stopped heartbeating before ``expired_before``.
+    """Explicit recovery: end a lease whose holder stopped heartbeating
+    before ``expired_before``. Never called on age alone; see
+    ``_reset_stuck_processing(explicit_log_ids=...)``.
 
     Applies only while the row is still ``processing`` and its last heartbeat
     — or its creation time when it never heartbeated — is older than the

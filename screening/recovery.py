@@ -3,7 +3,7 @@ Recovery - Auto-retry safeguards for stuck/failed vetting runs.
 
 Contains:
 - _reset_zero_score_failures: Resets candidates with 0% scores (API failure recovery)
-- _reset_stuck_processing: Resets orphaned 'processing' records (deployment restart recovery)
+- _reset_stuck_processing: Reports stale 'processing' records; recovers only explicitly listed ones
 - _handle_quota_exhaustion: Auto-disables vetting on OpenAI quota exhaustion
 """
 
@@ -116,24 +116,25 @@ class RecoveryMixin:
             db.session.rollback()
             logger.error(f"Error in zero-score auto-retry: {str(e)}")
     
-    def _reset_stuck_processing(self):
-        """Reset vetting logs stuck in 'processing' status.
-        
-        When a deployment restart or worker timeout kills a vetting cycle
-        mid-analysis, CandidateVettingLog records get orphaned in 'processing'
-        status with 0 job matches. The candidate's ParsedEmail.vetted_at is
-        already set, so they never get re-queued.
-        
-        This method detects and resets those orphaned records:
-        - Only 'processing' logs whose lease heartbeat (``updated_at``) is
-          more than ``LEASE_TIMEOUT_MINUTES`` old; live workers renew it from
-          a heartbeat thread, including during model calls
-        - Logs with 0 job matches are deleted; logs with persisted partial
-          matches are marked 'failed' with the matches kept
-        - Each recovery runs under the candidate run lock; a worker that is
-          in fact still alive cannot commit afterwards (see ``run_claim``)
-        - Re-queues the log's own ParsedEmail, not every email
-        - Max 50 per cycle
+    def _reset_stuck_processing(self, explicit_log_ids=None):
+        """Surface vetting logs stuck in 'processing'; recover only on request.
+
+        A 'processing' log whose lease heartbeat (``updated_at``, or
+        ``created_at`` when it never heartbeated) is more than
+        ``LEASE_TIMEOUT_MINUTES`` old has unresolved ownership: its worker
+        may have died, or may be alive behind a stalled connection with paid
+        calls in flight. Age alone does not tell the two apart, so the
+        scheduled call (``explicit_log_ids=None``) changes nothing: it logs
+        the stale ids and returns them. Their emails and audits stay pending
+        until an operator recovers them.
+
+        ``explicit_log_ids`` is that explicit recovery: each listed log that
+        is still 'processing' and still stale is ended by
+        ``recover_expired_lease`` under the candidate run lock (deleted
+        without job matches, marked 'failed' with partial matches kept; its
+        own ParsedEmail re-queued). A worker that is in fact still alive
+        cannot commit afterwards; costs it already incurred are not undone.
+        Returns the recovered ids. Max 50 per call.
         """
         try:
             from models import CandidateVettingLog
@@ -144,35 +145,45 @@ class RecoveryMixin:
 
             cutoff = datetime.utcnow() - timedelta(minutes=LEASE_TIMEOUT_MINUTES)
 
-            stuck_ids = [
-                row_id for (row_id,) in db.session.query(CandidateVettingLog.id).filter(
-                    CandidateVettingLog.status == 'processing',
-                    or_(
-                        CandidateVettingLog.updated_at < cutoff,
-                        and_(
-                            CandidateVettingLog.updated_at.is_(None),
-                            CandidateVettingLog.created_at < cutoff,
-                        ),
+            query = db.session.query(CandidateVettingLog.id).filter(
+                CandidateVettingLog.status == 'processing',
+                or_(
+                    CandidateVettingLog.updated_at < cutoff,
+                    and_(
+                        CandidateVettingLog.updated_at.is_(None),
+                        CandidateVettingLog.created_at < cutoff,
                     ),
-                ).limit(50)
-            ]
+                ),
+            )
+            if explicit_log_ids is not None:
+                query = query.filter(CandidateVettingLog.id.in_(list(explicit_log_ids)))
+            stuck_ids = [row_id for (row_id,) in query.order_by(CandidateVettingLog.id).limit(50)]
             db.session.rollback()
         except Exception as e:
             db.session.rollback()
-            logger.error(f"Error in stuck-processing reset: {str(e)}")
-            return
+            logger.error(f"Error in stuck-processing check: {str(e)}")
+            return []
 
-        reset_count = 0
+        if explicit_log_ids is None:
+            if stuck_ids:
+                logger.warning(
+                    f"⚠️ {len(stuck_ids)} vetting log(s) stuck in 'processing' with "
+                    f"unresolved ownership, awaiting explicit recovery: {stuck_ids}"
+                )
+            return stuck_ids
+
+        recovered = []
         for log_id in stuck_ids:
             try:
                 if recover_expired_lease(log_id, cutoff) is not None:
-                    reset_count += 1
+                    recovered.append(log_id)
             except Exception as e:
                 db.session.rollback()
                 logger.error(f"Error recovering stuck vetting log {log_id}: {str(e)}")
 
-        if reset_count > 0:
-            logger.info(f"🔄 Auto-retry: Reset {reset_count} candidates stuck in 'processing' (deployment restart recovery)")
+        if recovered:
+            logger.info(f"🔄 Explicit recovery: ended {len(recovered)} stuck 'processing' vetting log(s): {recovered}")
+        return recovered
     
     def _handle_quota_exhaustion(self):
         """Handle OpenAI quota exhaustion: auto-disable vetting and send alert email.

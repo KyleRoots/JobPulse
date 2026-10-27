@@ -885,7 +885,7 @@ class TestLeases:
                     {'updated_at': _now() - timedelta(minutes=20)}, synchronize_session=False,
                 )
                 db.session.commit()
-                harness.svc._reset_stuck_processing()
+                harness.svc._reset_stuck_processing(explicit_log_ids=[lease])
                 during['lease'] = lease
                 during['logs'] = _logs()
                 during['unvetted'] = _unvetted_ids()
@@ -1582,6 +1582,81 @@ class TestLeaseLifecycle:
         assert lease.stop(timeout=0.05) is True
 
 
+class TestConservativeOwnership:
+    """v5: a stale timestamp never authorises replacing possibly-active paid
+    work, and no renewal result lands between the final check and commit."""
+
+    def test_stale_lease_of_active_worker_is_reported_not_replaced(self, app, harness):
+        from app import db
+        from models import CandidateVettingLog
+        with app.app_context():
+            email = _seed_email(received_at=_now(), vetted=False)
+            audit_id = _seed_audit(age_hours=1.0)
+            during = {}
+
+            def heartbeat_stalls_while_call_in_flight():
+                lease = next(iter(_logs()))
+                CandidateVettingLog.query.filter_by(id=lease).update(
+                    {'updated_at': _now() - timedelta(minutes=45)}, synchronize_session=False,
+                )
+                db.session.commit()
+                during['reported'] = harness.svc._reset_stuck_processing()
+                during['detected'] = harness.svc.detect_pending_revet_candidates()
+                during['lease'] = lease
+                during['logs'] = _logs()
+                during['unvetted'] = _unvetted_ids()
+                during['binding'] = _audit(audit_id).revet_vetting_log_id
+
+            harness.hook = heartbeat_stalls_while_call_in_flight
+            harness.run_cycle()
+
+            lease = during['lease']
+            assert during['reported'] == [lease]
+            assert during['detected'] == []
+            assert during['logs'] == {lease: 'processing'}
+            assert during['unvetted'] == [email]
+            assert during['binding'] == lease
+            assert harness.attempts == [(f'email:{email}', 'claimed')]
+            assert _logs() == {lease: 'completed'}
+            assert _match_scores(lease) == {j: 66.0 for j in TEARSHEET_JOB_IDS}
+            assert _audit(audit_id).revet_new_score == 66.0
+            assert harness.notes == [lease]
+            assert _unvetted_ids() == []
+
+    def test_renewal_result_waits_out_the_check_to_commit_gap(self, app):
+        from app import db
+        from models import CandidateVettingLog
+        from candidate_vetting_service import CandidateVettingService
+        import vetting_audit_service.run_claim as run_claim
+        real_lease_held = run_claim._lease_held
+        seen = {}
+
+        with app.app_context():
+            lease_id = _seed_vlog(created_at=_now(), status='processing')
+            vetting_log = db.session.get(CandidateVettingLog, lease_id)
+            vetting_log.status = 'completed'
+            lease = run_claim.RunLease(app, CANDIDATE, lease_id)
+            renewal = threading.Thread(target=lease.record, args=('unknown',))
+
+            def lease_held_then_renewal_arrives(vetting_log_id):
+                held = real_lease_held(vetting_log_id)
+                renewal.start()
+                renewal.join(0.3)
+                seen['renewal_blocked'] = renewal.is_alive()
+                return held
+
+            candidate = {'id': CANDIDATE}
+            with patch.object(run_claim, '_lease_held', lease_held_then_renewal_arrives):
+                committed = CandidateVettingService._commit_run_result(candidate, vetting_log, lease)
+            renewal.join(5)
+
+            assert seen['renewal_blocked'] is True
+            assert committed is True
+            assert '_run_claim_outcome' not in candidate
+            assert _logs() == {lease_id: 'completed'}
+            assert lease.state == 'unknown'
+
+
 class TestLegacyUniqueConflict:
     """v3 finding 4: a surviving legacy unique constraint defers the item;
     the old row is never re-opened as a lease."""
@@ -1639,7 +1714,7 @@ class TestBoundPartialMatchCap:
             assert _logs() == {dead: 'processing'}
             assert _audit(capped).action_taken == 'revet_triggered'
 
-            harness.svc._reset_stuck_processing()
+            harness.svc._reset_stuck_processing(explicit_log_ids=[dead])
             assert _logs() == {dead: 'failed'}
             assert _match_scores(dead) == {AUDITED_JOB: 35.0}
             kept = db.session.get(CandidateVettingLog, dead)
@@ -1687,7 +1762,7 @@ class TestBoundPartialMatchCap:
             email = _seed_email(received_at=_now() - timedelta(hours=1))
             dead = _seed_vlog(created_at=_now() - timedelta(hours=1), status='processing',
                               updated_at=_now() - timedelta(minutes=30), parsed_email_id=email)
-            harness.svc._reset_stuck_processing()
+            harness.svc._reset_stuck_processing(explicit_log_ids=[dead])
             assert dead not in _logs()
             assert _unvetted_ids() == [email]
 

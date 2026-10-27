@@ -163,16 +163,18 @@ class CandidateProcessingMixin:
         """
         from vetting_audit_service.run_claim import CLAIM_OUTCOME_KEY, commit_if_lease_held
 
-        if not lease.held:
-            cls._stop_run(candidate, lease)
-            return False
         # Read before the check: a lost lease rolls back, expiring vetting_log
         # whose row may be gone.
         candidate_id, vetting_log_id = vetting_log.bullhorn_candidate_id, vetting_log.id
-        if commit_if_lease_held(candidate_id, vetting_log_id,
-                                still_owned=lambda: lease.held):
+        committed = False
+        with lease.frozen():
+            if lease.held:
+                committed = commit_if_lease_held(candidate_id, vetting_log_id,
+                                                 still_owned=lambda: lease.held)
+            still_held = lease.held
+        if committed:
             return True
-        if not lease.held:
+        if not still_held:
             cls._stop_run(candidate, lease)
             return False
         candidate[CLAIM_OUTCOME_KEY] = 'lease_lost'

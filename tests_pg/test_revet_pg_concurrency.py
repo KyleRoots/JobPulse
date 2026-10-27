@@ -379,7 +379,7 @@ class TestBoundPartialMatchCap:
         trans = holder.begin()
         holder.execute(text('SELECT id FROM candidate_vetting_log WHERE id = :i FOR KEY SHARE'), {'i': dead})
         try:
-            recovery = Worker(app, harness.svc._reset_stuck_processing).join()
+            recovery = Worker(app, harness.svc._reset_stuck_processing, [dead]).join()
         finally:
             trans.rollback()
             holder.close()
