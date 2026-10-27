@@ -63,6 +63,40 @@ def test_webhook_hands_two_and_three_digit_ids_straight_through():
     ) == 35135
 
 
+def test_posted_scout_job_id_is_ignored(client, monkeypatch):
+    captured = {}
+
+    def _fake_process(app_ref, payload, is_scout_vetting=False):
+        captured["payload"] = payload
+
+    monkeypatch.setenv("SENDGRID_INBOUND_WEBHOOK_SECRET", "test-inbound-webhook-secret")
+    monkeypatch.delenv("SENDGRID_INBOUND_PARSE_ENABLED", raising=False)
+    monkeypatch.setattr("routes.email._process_email_in_background", _fake_process)
+
+    response = client.post(
+        "/api/email/inbound?webhook_secret=test-inbound-webhook-secret",
+        data={
+            "from": "jobs@ziprecruiter.com",
+            "to": "apply@myticas.com",
+            "subject": "ZipRecruiter Apply (42) - Pat Example",
+            "text": "Applicant",
+            "_scout_bullhorn_job_id": "42",
+            "_scout_other": "nope",
+        },
+    )
+    assert response.status_code == 200
+    import time
+    for _ in range(50):
+        if "payload" in captured:
+            break
+        time.sleep(0.01)
+    payload = captured["payload"]
+    assert "_scout_bullhorn_job_id" not in payload
+    assert "_scout_other" not in payload
+    assert payload["subject"] == "ZipRecruiter Apply (42) - Pat Example"
+    assert payload["from"] == "jobs@ziprecruiter.com"
+
+
 def test_ingest_puts_the_resolved_id_on_the_mailbox(monkeypatch):
     seen = {}
 
