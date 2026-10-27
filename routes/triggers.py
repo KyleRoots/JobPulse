@@ -332,17 +332,19 @@ def fix_system_timing():
 @triggers_bp.route('/api/trigger/cleanup-stale-vetting', methods=['POST'])
 @login_required
 def trigger_cleanup_stale_vetting():
-    """Super-admin trigger: mark CandidateVettingLog rows stuck on
-    status='processing' for >N hours as 'failed'.
+    """Super-admin trigger: preview CandidateVettingLog rows stuck on
+    status='processing' for >N hours; recover only explicitly selected ones.
 
-    Body (JSON, all optional):
+    Body (JSON):
         hours (int, default 24)  — staleness threshold
         apply (bool, default False) — when False, returns a dry-run preview;
-                                      when True, actually writes the updates.
+                                      when True, recovers ``ids`` only.
+        ids (list[int])          — required with apply=true: the vetting log
+                                   ids to recover (max 50), each through the
+                                   shared explicit-recovery primitive.
 
-    Reuses the same logic as ``scripts/cleanup_stale_processing_rows.py``
-    so CLI runs and UI runs stay in sync. Admin-guarded by the blueprint's
-    register_admin_guard().
+    Reuses ``scripts/cleanup_stale_processing_rows.py``, whose CLI is
+    dry-run only. Admin-guarded by the blueprint's register_admin_guard().
     """
     try:
         from scripts.cleanup_stale_processing_rows import cleanup_stale_processing
@@ -366,15 +368,18 @@ def trigger_cleanup_stale_vetting():
             }), 400
         apply_changes = apply_raw
 
-        result = cleanup_stale_processing(hours=hours, apply_changes=apply_changes)
+        result = cleanup_stale_processing(hours=hours, apply_changes=apply_changes,
+                                          log_ids=payload.get('ids'))
         result['timestamp'] = datetime.utcnow().isoformat()
 
-        if apply_changes and result.get('applied'):
+        if apply_changes and result.get('success'):
             current_app.logger.info(
-                "Stale vetting cleanup applied via UI: %d row(s) marked 'failed' "
-                "(hours=%d, ids=%s).",
-                result['count'], hours,
-                [r['id'] for r in result['rows']],
+                "Stale vetting explicit recovery via UI (hours=%d): recovered=%s "
+                "deferred=%s unchanged=%s.",
+                hours,
+                [r['id'] for r in result['recovered']],
+                [r['id'] for r in result['deferred']],
+                [r['id'] for r in result['no_change']],
             )
 
         status_code = 200 if result.get('success') else 400

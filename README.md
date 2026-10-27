@@ -435,6 +435,8 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
+- **Myticas screening fix restored (Oct 27)**: The 2:27 PM EDT GitHub deploy of `d710e8c1` replaced the reviewed Myticas screening build on both Myticas and Qualified. Myticas was restored at 3:07 PM EDT from `8027783c` (the reviewed screening fix on top of that Indeed test) by a single-service upload. Qualified was left on `d710e8c1`. Scheduled audits are on again for Myticas. Indeed publish stays paused there. Merging this branch to `main` would restart Qualified as well, so that merge waits until a Qualified restart is intended.
+
 - **Indeed failure emails per subject (Oct 26)**: The native Indeed publish email cooldown remembered only the last subject, so two jobs failing each cycle (for example, empty descriptions on 23267 and 38327) alternated and sent 2 emails every 5 minutes. Each subject now has its own cooldown: one day for a single job's problem (it needs someone to fix the job in Bullhorn), 30 minutes for login or Bullhorn-outage alerts. The skipped job still retries every cycle.
 - **Indeed native publish moved off cls45 (Oct 26)**: Bullhorn retired the `cls45` ColdFusion server, so every JobBoard CFC call returned 503. Native Indeed publish now does Universal Login only and POSTs the same JSON the Bullhorn UI sends to `rest-services/{corp}/services/JobPublish/careerPortal` and `/indeed` (`ADDCHANGE` to publish or republish, `DELETE` to remove). Unpublish sends `DELETE` to both, because the UI's Unpublish button only clears the career portal and leaves Indeed live. If Bullhorn returns 5xx or is unreachable, the cycle stops after the first failure and sends one email. It no longer sends one email per job. Queued removals and unpublished adds retry next cycle. Verified end to end on Qualified test job 79614. The `indeed_tearsheet_publish` job stays paused on Automations until it is resumed after deploy.
 - **Health page noise (Oct 22)**: `/admin/health` no longer shows a red OneDrive tile when Replit tokens are absent. The scheduler tile stays green on a web process that does not own the jobs. The 2:00 AM UTC database backup to OneDrive is off. Postgres backups stay with Railway. Past runs remain on `/admin/backups`.
@@ -706,5 +708,5 @@ Access health endpoints for status checks:
 
 ---
 
-**Last Updated**: October 26, 2026
+**Last Updated**: October 27, 2026
 **Version**: 2.10 (Indeed native publish on Bullhorn JobPublish REST)

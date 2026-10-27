@@ -33,10 +33,20 @@ from .helpers import (
     get_auditor_model,
     backfill_revet_new_score,
     clear_candidate_vetting_state,
+    reset_candidate_vetting_state_locked,
+    select_revet_parsed_email,
+    RevetResetDeferred,
     get_qualified_sample_rate,
     get_revet_cap_per_24h,
     get_revet_score_tolerance,
     get_audit_cooldown_hours,
+)
+from .run_claim import (
+    CandidateLockUnavailable,
+    acquire_candidate_lock,
+    live_lease_ids,
+    run_statuses,
+    write_bound_score,
 )
 from ._core import _AuditCore
 from .orchestration_mixin import OrchestrationMixin

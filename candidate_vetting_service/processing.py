@@ -152,7 +152,85 @@ class CandidateProcessingMixin:
                 exc_info=True,
             )
 
+    @classmethod
+    def _commit_run_result(cls, candidate: Dict, vetting_log, lease) -> bool:
+        """Commit this run's results only while it still holds its lease and
+        no renewal came back lost or unknown.
+
+        On False the session is rolled back and the caller must return None:
+        the lease was recovered or failed, so another run owns the candidate,
+        or its state is unknown and the run was stopped (``_stop_run``).
+        """
+        from vetting_audit_service.run_claim import CLAIM_OUTCOME_KEY, commit_if_lease_held
+
+        # Read before the check: a lost lease rolls back, expiring vetting_log
+        # whose row may be gone.
+        candidate_id, vetting_log_id = vetting_log.bullhorn_candidate_id, vetting_log.id
+        committed = False
+        with lease.frozen():
+            if lease.held:
+                committed = commit_if_lease_held(candidate_id, vetting_log_id,
+                                                 still_owned=lambda: lease.held)
+            still_held = lease.held
+        if committed:
+            return True
+        if not still_held:
+            cls._stop_run(candidate, lease)
+            return False
+        candidate[CLAIM_OUTCOME_KEY] = 'lease_lost'
+        return False
+
+    @staticmethod
+    def _renew_run_lease(candidate: Dict, vetting_log, lease) -> bool:
+        """Checkpoint: commit pending run state only while the lease holds.
+
+        False when this or any heartbeat renewal came back lost or unknown;
+        the session is rolled back and the caller must return
+        ``_stop_run(...)``.
+        """
+        from vetting_audit_service.run_claim import LEASE_HELD, renew_lease
+
+        if lease.held:
+            lease.record(renew_lease(lease.candidate_id, lease.vetting_log_id))
+        if lease.state == LEASE_HELD:
+            return True
+        db.session.rollback()
+        return False
+
+    @staticmethod
+    def _stop_run(candidate: Dict, lease) -> None:
+        """Stop a run whose renewal was lost or unknown, before any result is
+        committed. In-flight model calls have finished or been cancelled by
+        now and their results are dropped. An unknown lease is released so
+        its queue entry can be claimed again; if that fails it expires."""
+        from vetting_audit_service.run_claim import (
+            CLAIM_OUTCOME_KEY, LEASE_LOST, release_lease,
+        )
+
+        db.session.rollback()
+        if lease.state == LEASE_LOST:
+            candidate[CLAIM_OUTCOME_KEY] = 'lease_lost'
+        else:
+            candidate[CLAIM_OUTCOME_KEY] = 'lease_unknown'
+            release_lease(lease.vetting_log_id, 'worker stopped: lease renewal state unknown')
+        logger.warning(
+            f"🛑 Vetting log {lease.vetting_log_id} lease {lease.state} mid-run "
+            f"({lease.refused_calls} paid call(s) refused); stopped without "
+            f"writing results"
+        )
+        return None
+
     def process_candidate(self, candidate: Dict, cached_jobs: Optional[List[Dict]] = None) -> Optional[CandidateVettingLog]:
+        lease_holder: Dict = {}
+        try:
+            return self._process_candidate(candidate, cached_jobs, lease_holder)
+        finally:
+            lease = lease_holder.get('lease')
+            if lease is not None:
+                lease.stop()
+
+    def _process_candidate(self, candidate: Dict, cached_jobs: Optional[List[Dict]],
+                           lease_holder: Dict) -> Optional[CandidateVettingLog]:
         """
         Process a single candidate through the scoring pipeline (resume + matches).
 
@@ -186,8 +264,12 @@ class CandidateProcessingMixin:
         parsed_email_id = candidate.get('_parsed_email_id')
         applied_job_id = candidate.get('_applied_job_id')
 
+        from vetting_audit_service.run_claim import (
+            CLAIM_OUTCOME_KEY, CandidateLockUnavailable, RunLease, claim_run,
+        )
+
         try:
-            vetting_log = CandidateVettingLog(
+            vetting_log = claim_run(candidate, CandidateVettingLog(
                 bullhorn_candidate_id=candidate_id,
                 candidate_name=candidate_name,
                 candidate_email=candidate_email,
@@ -195,46 +277,38 @@ class CandidateProcessingMixin:
                 status='processing',
                 applied_job_id=applied_job_id,
                 parsed_email_id=parsed_email_id
-            )
-            db.session.add(vetting_log)
-            db.session.commit()
+            ))
+            if vetting_log is None:
+                return None
             db.session.refresh(vetting_log)
+        except CandidateLockUnavailable as e:
+            candidate[CLAIM_OUTCOME_KEY] = 'deferred'
+            logger.warning(f"⏸️ Candidate {candidate_id} not started: {e}")
+            return None
         except Exception as e:
             db.session.rollback()
             if 'UniqueViolation' in str(e) or 'unique constraint' in str(e).lower():
-                existing_log = CandidateVettingLog.query.filter_by(
-                    bullhorn_candidate_id=candidate_id
-                ).first()
-                if existing_log:
-                    if (
-                        existing_log.status == 'incomplete'
-                        or (existing_log.highest_match_score == 0 and existing_log.status == 'completed')
-                    ):
-                        logger.info(
-                            f"🔄 Re-analyzing candidate {candidate_id} ({candidate_name}) — "
-                            f"previous vetting status={existing_log.status} "
-                            f"score={existing_log.highest_match_score}%"
-                        )
-                        CandidateJobMatch.query.filter_by(vetting_log_id=existing_log.id).delete()
-                        existing_log.status = 'processing'
-                        existing_log.highest_match_score = 0.0
-                        existing_log.total_jobs_matched = 0
-                        existing_log.is_qualified = False
-                        existing_log.note_created = False
-                        existing_log.bullhorn_note_id = None
-                        existing_log.analyzed_at = None
-                        existing_log.error_message = None
-                        db.session.commit()
-                        vetting_log = existing_log
-                    else:
-                        logger.info(f"⏭️ Candidate {candidate_id} already vetted with score {existing_log.highest_match_score}%")
-                        return existing_log
-                else:
-                    logger.error(f"Failed to create vetting log for candidate {candidate_id}: {str(e)}")
-                    return None
-            else:
-                logger.error(f"Failed to create vetting log for candidate {candidate_id}: {str(e)}")
+                # Only a surviving legacy one-log-per-candidate unique (dropped
+                # by the boot migration) rejects a second run. Re-opening the
+                # old row would reuse its id as a fencing token without a
+                # claim, so leave the queue entry for a later cycle instead.
+                candidate[CLAIM_OUTCOME_KEY] = 'deferred'
+                logger.error(
+                    f"⏸️ Candidate {candidate_id} not started: run insert hit a "
+                    f"unique constraint ({type(e).__name__}); check the "
+                    f"candidate_vetting_log unique-drop migration"
+                )
                 return None
+            # No run started, so the queue entry stays open (for example a
+            # failed boot migration leaves revet_vetting_log_id missing).
+            candidate[CLAIM_OUTCOME_KEY] = 'deferred'
+            logger.error(f"Failed to create vetting log for candidate {candidate_id}: {str(e)}")
+            return None
+
+        from flask import current_app
+        lease = RunLease(current_app._get_current_object(), candidate_id, vetting_log.id)
+        lease_holder['lease'] = lease
+        lease.start()
 
         try:
             with type(self)._bullhorn_lock:
@@ -243,6 +317,10 @@ class CandidateProcessingMixin:
                 job_order = submission.get('jobOrder', {})
                 vetting_log.applied_job_id = job_order.get('id')
                 vetting_log.applied_job_title = sanitize_text(job_order.get('title'))
+            # Commit lease-row writes before the next external call, so the
+            # heartbeat never queues behind this session's own row lock.
+            if not self._renew_run_lease(candidate, vetting_log, lease):
+                return self._stop_run(candidate, lease)
 
             resume_text = None
             pdf_metadata = {}
@@ -324,6 +402,8 @@ class CandidateProcessingMixin:
             self._run_fraud_assessment(
                 candidate, vetting_log, pdf_metadata=pdf_metadata or None,
             )
+            if not self._renew_run_lease(candidate, vetting_log, lease):
+                return self._stop_run(candidate, lease)
 
             if cached_jobs is not None:
                 jobs = list(cached_jobs)
@@ -373,7 +453,8 @@ class CandidateProcessingMixin:
                                         f"closed/ineligible and previously screened "
                                         f"(log {prior_same_job.id})"
                                     )[:500]
-                                    db.session.commit()
+                                    if not self._commit_run_result(candidate, vetting_log, lease):
+                                        return None
                                     return vetting_log
 
                             jobs.append(applied_job_data)
@@ -396,13 +477,15 @@ class CandidateProcessingMixin:
             if not jobs:
                 vetting_log.status = 'completed'
                 vetting_log.error_message = 'No active jobs found in tearsheets'
-                db.session.commit()
+                if not self._commit_run_result(candidate, vetting_log, lease):
+                    return None
                 return vetting_log
 
             if not vetting_log.resume_text:
                 vetting_log.status = 'completed'
                 vetting_log.error_message = 'No resume text available for analysis'
-                db.session.commit()
+                if not self._commit_run_result(candidate, vetting_log, lease):
+                    return None
                 return vetting_log
 
             cached_resume_text = vetting_log.resume_text
@@ -429,7 +512,8 @@ class CandidateProcessingMixin:
                 logger.error(f"   Resume text length: {len(cached_resume_text) if cached_resume_text else 0}")
                 vetting_log.status = 'completed'
                 vetting_log.error_message = 'Resume text too short for analysis'
-                db.session.commit()
+                if not self._commit_run_result(candidate, vetting_log, lease):
+                    return None
                 return vetting_log
 
             existing_job_ids = set()
@@ -443,7 +527,8 @@ class CandidateProcessingMixin:
                 logger.info(f"All {len(jobs)} jobs already analyzed for this candidate")
                 vetting_log.status = 'completed'
                 vetting_log.analyzed_at = datetime.utcnow()
-                db.session.commit()
+                if not self._commit_run_result(candidate, vetting_log, lease):
+                    return None
                 return vetting_log
 
             pre_filter_count = len(jobs_to_analyze)
@@ -523,8 +608,12 @@ class CandidateProcessingMixin:
                     logger.info(f"All jobs filtered by embedding pre-filter for candidate {candidate_id} — no GPT calls needed")
                     vetting_log.status = 'completed'
                     vetting_log.analyzed_at = datetime.utcnow()
-                    db.session.commit()
+                    if not self._commit_run_result(candidate, vetting_log, lease):
+                        return None
                     return vetting_log
+
+            if not self._renew_run_lease(candidate, vetting_log, lease):
+                return self._stop_run(candidate, lease)
 
             logger.info(f"🚀 Parallel analysis of {len(jobs_to_analyze)} jobs (skipping {len(existing_job_ids)} already analyzed)")
             logger.info(f"📄 Resume: {len(cached_resume_text)} chars, First 200: {cached_resume_text[:200]}")
@@ -601,6 +690,10 @@ class CandidateProcessingMixin:
             except Exception as e:
                 logger.error(f"Error pre-fetching job thresholds: {str(e)}")
 
+            # Lease renewals commit between jobs, which expires vetting_log;
+            # threads must not lazy-load it.
+            prefetched_applied_job_id = coerce_job_id(vetting_log.applied_job_id)
+
             def analyze_single_job(job_with_req):
                 """Analyze one job match - called in parallel threads.
 
@@ -613,9 +706,12 @@ class CandidateProcessingMixin:
                 job = job_with_req['job']
                 prefetched_req = job_with_req['requirements']
                 job_id = job.get('id')
+                if not lease.allow_paid_call():
+                    return {'job': job, 'job_id': job_id, 'analysis': None,
+                            'error': 'lease not held', 'refused': True}
                 # Related (non-applied) tearsheet matches use short prose to
                 # cut output tokens; applied role keeps full near-miss detail.
-                _applied_id = coerce_job_id(getattr(vetting_log, 'applied_job_id', None))
+                _applied_id = prefetched_applied_job_id
                 _job_id_int = coerce_job_id(job_id)
                 _related_brief = bool(
                     _applied_id is not None
@@ -655,6 +751,9 @@ class CandidateProcessingMixin:
                         escalation_range, self.model, qualify_floor
                     )
 
+                    if do_escalate and not lease.allow_paid_call():
+                        return {'job': job, 'job_id': job_id, 'analysis': None,
+                                'error': 'lease not held', 'refused': True}
                     if do_escalate:
                         job_title = job.get('title', 'Unknown')
                         logger.info(
@@ -765,6 +864,15 @@ class CandidateProcessingMixin:
                 for future in as_completed(futures):
                     result = future.result()
                     analysis_results.append(result)
+                    if not self._renew_run_lease(candidate, vetting_log, lease):
+                        for pending in futures:
+                            pending.cancel()
+                        break
+            # Leaving the pool waits for calls already in flight while the
+            # heartbeat keeps the lease live; a run that lost its lease, or
+            # refused or cancelled any call, never commits.
+            if not lease.held or len(analysis_results) != len(futures):
+                return self._stop_run(candidate, lease)
 
             logger.info(f"✅ Parallel analysis complete: {len(analysis_results)} jobs processed")
 
@@ -784,7 +892,8 @@ class CandidateProcessingMixin:
                 vetting_log.error_message = sanitize_text(
                     f"OpenAI infra failure (auth/permissions) — will retry. {sample}"
                 )[:500]
-                db.session.commit()
+                if not self._commit_run_result(candidate, vetting_log, lease):
+                    return None
                 return vetting_log
 
             for result in analysis_results:
@@ -979,6 +1088,8 @@ class CandidateProcessingMixin:
 
                     if reverify_jobs:
                         for match_record, job in reverify_jobs:
+                            if not lease.allow_paid_call():
+                                return self._stop_run(candidate, lease)
                             try:
                                 reverify_result = self._reverify_zero_score(
                                     cached_resume_text, job, candidate_location,
@@ -1042,7 +1153,8 @@ class CandidateProcessingMixin:
             if all_match_results:
                 vetting_log.highest_match_score = max(m.match_score for m in all_match_results)
 
-            db.session.commit()
+            if not self._commit_run_result(candidate, vetting_log, lease):
+                return None
 
             # Paid contact checks only after we know the candidate qualified —
             # NeverBounce/Twilio must not burn credits on clear rejects.
@@ -1064,7 +1176,8 @@ class CandidateProcessingMixin:
                 vetting_log.status = 'failed'
                 vetting_log.error_message = sanitize_text(str(e)[:500])
                 vetting_log.retry_count += 1
-                db.session.commit()
+                if not self._commit_run_result(candidate, vetting_log, lease):
+                    return None
             except Exception as merge_err:
                 db.session.rollback()
                 logger.error(f"Could not update vetting log for candidate {candidate_id}: {str(merge_err)}")

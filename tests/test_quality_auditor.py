@@ -1705,13 +1705,17 @@ class TestRevetNewScoreBackfill:
         *,
         candidate_id,
         scores_by_job_id,
+        covers=(),
     ):
         """Persist a fresh CandidateVettingLog + CandidateJobMatch rows
         representing the post-revet scoring cycle. Returns the new
         vetting_log_id so callers can pass it to the helper if desired.
+
+        ``covers``: audit row ids bound to this run, as ``claim_run`` binds
+        the audits that were open when the run started.
         """
         from app import db
-        from models import CandidateVettingLog, CandidateJobMatch
+        from models import CandidateVettingLog, CandidateJobMatch, VettingAuditLog
         with app.app_context():
             vlog = CandidateVettingLog(
                 bullhorn_candidate_id=candidate_id,
@@ -1737,6 +1741,8 @@ class TestRevetNewScoreBackfill:
                     match_summary='post-revet summary',
                     gaps_identified='',
                 ))
+            for audit_id in covers:
+                VettingAuditLog.query.get(audit_id).revet_vetting_log_id = vlog.id
             db.session.commit()
             return vlog.id
 
@@ -1786,6 +1792,7 @@ class TestRevetNewScoreBackfill:
             self._seed_new_vetting_run(
                 app, candidate_id=candidate_id,
                 scores_by_job_id={job_id: 71.5},
+                covers=[audit_id],
             )
 
             with app.app_context():
@@ -1815,6 +1822,7 @@ class TestRevetNewScoreBackfill:
             target_vlog_id = self._seed_new_vetting_run(
                 app, candidate_id=candidate_id,
                 scores_by_job_id={job_id: 64.0},
+                covers=[audit_id],
             )
 
             with app.app_context():
@@ -1850,6 +1858,7 @@ class TestRevetNewScoreBackfill:
             self._seed_new_vetting_run(
                 app, candidate_id=candidate_id,
                 scores_by_job_id={applied_job: 80.0},
+                covers=[applied_audit_id, unrelated_audit_id],
             )
 
             with app.app_context():

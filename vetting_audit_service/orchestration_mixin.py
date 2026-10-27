@@ -493,7 +493,8 @@ class OrchestrationMixin:
             if action_taken == 'revet_triggered':
                 revet_new_score = self._trigger_revet(
                     candidate_id,
-                    log_id
+                    log_id,
+                    match_job_id,
                 )
                 try:
                     audit_log.revet_new_score = revet_new_score
