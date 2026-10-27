@@ -46,6 +46,7 @@ from .run_claim import (
     acquire_candidate_lock,
     live_lease_ids,
     run_statuses,
+    write_bound_score,
 )
 from ._core import _AuditCore
 from .orchestration_mixin import OrchestrationMixin

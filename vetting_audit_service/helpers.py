@@ -311,7 +311,9 @@ def backfill_revet_new_score(
     service once the new ``CandidateJobMatch`` rows have been committed;
     it locates the audit rows bound to that run (``revet_vetting_log_id``,
     set when the run was claimed) that are still waiting on a score and
-    copies the newly-scored ``match_score`` for the same job.
+    copies the newly-scored ``match_score`` for the same job. The status and
+    binding reads and the writes run in one transaction under the candidate
+    run lock, and each write re-checks the binding and the null score.
 
     Parameters
     ----------
@@ -330,46 +332,56 @@ def backfill_revet_new_score(
     """
     from app import db
     from models import VettingAuditLog, CandidateJobMatch, CandidateVettingLog
+    from .run_claim import acquire_candidate_lock, write_bound_score
 
     try:
-        # I7: Include 'revet_skipped_stable' rows so when an auditor cycle
-        # later confirms the original score on a previously-stable case, the
-        # stored revet_new_score gets back-filled too (otherwise these rows
-        # remain permanently null and skew "score drift" reporting).
         if vetting_log is not None and getattr(vetting_log, 'id', None):
             run_id = vetting_log.id
         else:
-            run_id = (
+            newest = (
                 db.session.query(CandidateVettingLog.id)
                 .filter_by(
                     bullhorn_candidate_id=candidate_id,
                     status='completed',
                 )
                 .order_by(CandidateVettingLog.id.desc())
-                .scalar()
+                .first()
             )
-            if run_id is None:
+            if newest is None:
+                db.session.rollback()
                 return 0
+            run_id = newest[0]
 
+        # Reset, claim (rebind) and detector repairs take the same lock, so
+        # the run status and bindings read below cannot change before the
+        # conditional writes commit.
+        acquire_candidate_lock(candidate_id)
         run_status = (
             db.session.query(CandidateVettingLog.status)
             .filter(CandidateVettingLog.id == run_id)
             .scalar()
         )
         if run_status != 'completed':
+            db.session.rollback()
             return 0
 
         # Only audits bound to this run at claim time (see run_claim): an
         # audit created after the run started is a later request, and an
-        # older run's score must not satisfy it.
-        pending = VettingAuditLog.query.populate_existing().filter(
-            VettingAuditLog.bullhorn_candidate_id == candidate_id,
-            VettingAuditLog.action_taken.in_(['revet_triggered', 'revet_skipped_stable']),
-            VettingAuditLog.revet_new_score.is_(None),
-            VettingAuditLog.revet_vetting_log_id == run_id,
-        ).all()
+        # older run's score must not satisfy it. I7: 'revet_skipped_stable'
+        # rows are back-filled too, so score-drift reporting is not skewed.
+        pending = (
+            db.session.query(VettingAuditLog.id, VettingAuditLog.job_id)
+            .filter(
+                VettingAuditLog.bullhorn_candidate_id == candidate_id,
+                VettingAuditLog.action_taken.in_(['revet_triggered', 'revet_skipped_stable']),
+                VettingAuditLog.revet_new_score.is_(None),
+                VettingAuditLog.revet_vetting_log_id == run_id,
+            )
+            .all()
+        )
 
         if not pending:
+            db.session.rollback()
             return 0
 
         matches = CandidateJobMatch.query.filter_by(vetting_log_id=run_id).all()
@@ -381,19 +393,21 @@ def backfill_revet_new_score(
             score_by_job[int(m.bullhorn_job_id)] = float(m.match_score)
 
         if not score_by_job:
+            db.session.rollback()
             return 0
 
         backfilled = 0
-        for audit_row in pending:
-            if audit_row.job_id is None:
+        for audit_id, job_id in pending:
+            if job_id is None:
                 continue
-            new_score = score_by_job.get(int(audit_row.job_id))
+            new_score = score_by_job.get(int(job_id))
             if new_score is None:
                 continue
-            audit_row.revet_new_score = new_score
-            backfilled += 1
+            if write_bound_score(audit_id, run_id, new_score):
+                backfilled += 1
 
         if backfilled == 0:
+            db.session.rollback()
             return 0
 
         db.session.commit()

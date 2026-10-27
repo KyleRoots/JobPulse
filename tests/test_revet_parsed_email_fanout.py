@@ -93,6 +93,7 @@ class Harness:
         self.notes = []
         self.hook = None
         self.final_hook = None
+        self.call_observer = None
         self.executor = _single_thread_executor
         self._hook_lock = threading.Lock()
 
@@ -111,6 +112,8 @@ class Harness:
 
     def _analyze(self, resume_text, job, location, **kwargs):
         job_id = job.get('id')
+        if self.call_observer is not None:
+            self.call_observer(job_id)
         self.model_calls.append(job_id)
         with self._hook_lock:
             hook, self.hook = self.hook, None
@@ -736,7 +739,7 @@ class TestClaimInterleavings:
     def test_unknown_lock_state_starts_nothing(self, app, harness, auditor):
         from vetting_audit_service import CandidateLockUnavailable
 
-        def unavailable(candidate_id):
+        def unavailable(candidate_id, *args, **kwargs):
             raise CandidateLockUnavailable('synthetic lock failure')
 
         with app.app_context():
@@ -919,14 +922,14 @@ class TestLeases:
         renewals = threading.Semaphore(0)
         real_renew = CandidateVettingService._renew_run_lease
 
-        def counting_renew(candidate, vetting_log):
-            held = real_renew(candidate, vetting_log)
+        def counting_renew(candidate, vetting_log, lease):
+            held = real_renew(candidate, vetting_log, lease)
             renewals.release()
             return held
 
         class GatedExecutor(ThreadPoolExecutor):
-            # Job n starts only after the main thread's (n+1)-th heartbeat:
-            # one before the pool, then one per finished job.
+            # Each job starts only after a further main-thread checkpoint
+            # commit: three before the pool, then one per finished job.
             def __init__(self, max_workers=None, **kwargs):
                 super().__init__(max_workers=1)
 
@@ -955,9 +958,9 @@ class TestLeases:
         import vetting_audit_service.run_claim as run_claim
         real_lock = run_claim.acquire_candidate_lock
 
-        def flush_then_lock(candidate_id):
+        def flush_then_lock(candidate_id, *args, **kwargs):
             db.session.flush()
-            real_lock(candidate_id)
+            real_lock(candidate_id, *args, **kwargs)
 
         with app.app_context():
             email = _seed_email(received_at=_now(), vetted=False)
@@ -1126,3 +1129,449 @@ class TestSelector:
             _seed_email(received_at=t)
             second = _seed_email(received_at=t)
             assert select_revet_parsed_email(CANDIDATE)[0].id == second
+
+
+class _TickLease:
+    """``RunLease`` whose heartbeat thread beats once per ``tick()`` instead
+    of every ``HEARTBEAT_INTERVAL_SECONDS``: no real waiting."""
+
+    def __init__(self):
+        from vetting_audit_service.run_claim import RunLease
+
+        ticks = threading.Semaphore(0)
+        beats = threading.Semaphore(0)
+        self.instances = []
+        owner = self
+
+        class TickLease(RunLease):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                owner.instances.append(self)
+
+            def _wait(self):
+                ticks.acquire()
+                return self._stop.is_set()
+
+            def beat(self):
+                state = super().beat()
+                beats.release()
+                return state
+
+            def stop(self):
+                self._stop.set()
+                ticks.release()
+                super().stop()
+
+        self.cls = TickLease
+        self._ticks, self._beats = ticks, beats
+
+    def tick(self):
+        """Run exactly one heartbeat on the worker's heartbeat thread."""
+        self._ticks.release()
+        assert self._beats.acquire(timeout=5)
+
+    def patch(self):
+        return patch('vetting_audit_service.run_claim.RunLease', self.cls)
+
+
+class TestBackfillBinding:
+    """v3 finding 1: back-fill re-reads under the candidate lock and writes
+    only while the audit is still bound to the run and unscored."""
+
+    def test_status_and_binding_are_read_under_the_lock(self, app):
+        from app import db
+        from sqlalchemy import event
+        import vetting_audit_service.run_claim as run_claim
+        from vetting_audit_service import backfill_revet_new_score
+        with app.app_context():
+            audit_id = _seed_audit()
+            run = _seed_vlog(created_at=_now(), scores={AUDITED_JOB: 66.0}, covers=(audit_id,))
+            events = []
+            real_lock = run_claim.acquire_candidate_lock
+
+            def lock(candidate_id, *args, **kwargs):
+                events.append(('lock', candidate_id))
+                real_lock(candidate_id, *args, **kwargs)
+
+            def record(conn, cursor, statement, params, context, executemany):
+                events.append(('sql', statement.split()[0].upper(), statement))
+
+            event.listen(db.engine, 'before_cursor_execute', record)
+            try:
+                with patch.object(run_claim, 'acquire_candidate_lock', lock):
+                    assert backfill_revet_new_score(CANDIDATE) == 1
+            finally:
+                event.remove(db.engine, 'before_cursor_execute', record)
+
+            lock_at = events.index(('lock', CANDIDATE))
+            after = events[lock_at + 1:]
+            assert 'candidate_vetting_log.status' in after[0][2]
+            assert any('vetting_audit_log.revet_vetting_log_id' in e[2] and e[1] == 'SELECT' for e in after)
+            [update] = [e for e in after if e[1] == 'UPDATE']
+            assert 'revet_vetting_log_id = ' in update[2] and 'revet_new_score IS NULL' in update[2]
+            assert _audit(audit_id).revet_new_score == 66.0
+            assert run in _logs()
+
+    def test_reset_and_rebind_after_read_blocks_stale_write(self, app):
+        """The PostgreSQL lock keeps this interleaving out; here it is forced
+        through a second connection to show the write itself re-checks."""
+        from models import CandidateVettingLog, VettingAuditLog
+        import vetting_audit_service.run_claim as run_claim
+        from vetting_audit_service import backfill_revet_new_score
+        with app.app_context():
+            audit_id = _seed_audit()
+            old = _seed_vlog(created_at=_now() - timedelta(hours=1), scores={AUDITED_JOB: 20.0},
+                             covers=(audit_id,))
+            new = _seed_vlog(created_at=_now(), status='processing')
+            real_write = run_claim.write_bound_score
+
+            def reset_and_rebind_first(audit, run, score):
+                with _other_connection() as conn:
+                    conn.execute(VettingAuditLog.__table__.update().where(
+                        VettingAuditLog.__table__.c.id == audit,
+                    ).values(revet_vetting_log_id=new))
+                    conn.execute(CandidateVettingLog.__table__.update().where(
+                        CandidateVettingLog.__table__.c.id == old,
+                    ).values(status='failed'))
+                return real_write(audit, run, score)
+
+            with patch.object(run_claim, 'write_bound_score', reset_and_rebind_first):
+                assert backfill_revet_new_score(CANDIDATE, vetting_log=CandidateVettingLog.query.get(old)) == 0
+
+            row = _audit(audit_id)
+            assert row.revet_new_score is None
+            assert row.revet_vetting_log_id == new
+
+    def test_scored_by_another_writer_is_not_overwritten(self, app):
+        from models import VettingAuditLog
+        from vetting_audit_service import write_bound_score
+        with app.app_context():
+            audit_id = _seed_audit()
+            run = _seed_vlog(created_at=_now(), scores={AUDITED_JOB: 66.0}, covers=(audit_id,))
+            VettingAuditLog.query.filter_by(id=audit_id).update({'revet_new_score': 41.0})
+            assert write_bound_score(audit_id, run, 66.0) is False
+            assert _audit(audit_id).revet_new_score == 41.0
+
+    def test_lock_unavailable_writes_nothing(self, app):
+        from vetting_audit_service import CandidateLockUnavailable, backfill_revet_new_score
+
+        def unavailable(candidate_id, *args, **kwargs):
+            raise CandidateLockUnavailable('synthetic lock failure')
+
+        with app.app_context():
+            audit_id = _seed_audit()
+            _seed_vlog(created_at=_now(), scores={AUDITED_JOB: 66.0}, covers=(audit_id,))
+            with patch('vetting_audit_service.run_claim.acquire_candidate_lock', unavailable):
+                assert backfill_revet_new_score(CANDIDATE) == 0
+            assert _audit(audit_id).revet_new_score is None
+
+
+class TestBackfillFallback:
+    """v3 finding 5: the no-argument lookup picks the newest completed run."""
+
+    def test_multiple_completed_logs_backfill_from_newest(self, app):
+        from vetting_audit_service import backfill_revet_new_score
+        with app.app_context():
+            audit_id = _seed_audit()
+            _seed_vlog(created_at=_now() - timedelta(hours=3), scores={AUDITED_JOB: 20.0})
+            _seed_vlog(created_at=_now() - timedelta(hours=2), scores={AUDITED_JOB: 30.0})
+            _seed_vlog(created_at=_now(), scores={AUDITED_JOB: 71.0}, covers=(audit_id,))
+            assert backfill_revet_new_score(CANDIDATE) == 1
+            assert _audit(audit_id).revet_new_score == 71.0
+
+    def test_audit_bound_to_older_run_is_not_filled_from_newest(self, app):
+        from vetting_audit_service import backfill_revet_new_score
+        with app.app_context():
+            audit_id = _seed_audit()
+            _seed_vlog(created_at=_now() - timedelta(hours=2), scores={AUDITED_JOB: 30.0},
+                       covers=(audit_id,))
+            _seed_vlog(created_at=_now(), scores={AUDITED_JOB: 71.0})
+            assert backfill_revet_new_score(CANDIDATE) == 0
+            assert _audit(audit_id).revet_new_score is None
+
+
+class TestHeartbeat:
+    """v3 findings 2 and 3: the heartbeat keeps a live run's lease fresh
+    while its model calls block, and a lost or unknown renewal stops it."""
+
+    def test_heartbeat_during_blocking_call_prevents_recovery(self, app, harness):
+        from app import db
+        from models import CandidateVettingLog
+        lease_clock = _TickLease()
+        with app.app_context():
+            email = _seed_email(received_at=_now(), vetted=False)
+            audit_id = _seed_audit(age_hours=1.0)
+            during = {}
+
+            def model_call_blocks_for_twenty_minutes():
+                lease = next(iter(_logs()))
+                # No main-thread renewal can run while the pool blocks.
+                CandidateVettingLog.query.filter_by(id=lease).update(
+                    {'updated_at': _now() - timedelta(minutes=20)}, synchronize_session=False,
+                )
+                db.session.commit()
+                lease_clock.tick()
+                harness.svc._reset_stuck_processing()
+                during['logs'] = _logs()
+                during['lease'] = lease
+
+            harness.hook = model_call_blocks_for_twenty_minutes
+            with lease_clock.patch():
+                harness.run_cycle()
+
+            assert during['logs'] == {during['lease']: 'processing'}
+            assert _logs() == {during['lease']: 'completed'}
+            assert harness.runs == [f'email:{email}']
+            assert len(harness.model_calls) == len(TEARSHEET_JOB_IDS)
+            assert _audit(audit_id).revet_new_score == 66.0
+            [lease] = lease_clock.instances
+            assert lease.state == 'held'
+            assert not lease._thread.is_alive()
+
+    def test_heartbeat_thread_is_stopped_on_every_exit(self, app, harness):
+        lease_clock = _TickLease()
+        with app.app_context():
+            email = _seed_email(received_at=_now(), vetted=False)
+            harness.fail_runs = True
+            with lease_clock.patch():
+                harness.process({'id': CANDIDATE, '_parsed_email_id': email, '_applied_job_id': AUDITED_JOB})
+            [lease] = lease_clock.instances
+            assert not lease._thread.is_alive()
+            assert list(_logs().values()) == ['failed']
+
+    @pytest.mark.parametrize('where', ['heartbeat', 'checkpoint'])
+    def test_unknown_renewal_during_analysis_stops_paid_work(self, app, harness, where):
+        from sqlalchemy.exc import OperationalError
+        import vetting_audit_service.run_claim as run_claim
+        lease_clock = _TickLease()
+        failing = threading.Event()
+        real_timeout = run_claim._set_lock_timeout
+
+        def lock_timeout(timeout_ms):
+            if failing.is_set():
+                raise OperationalError('SET LOCAL lock_timeout', {}, Exception('canceling statement due to lock timeout'))
+            real_timeout(timeout_ms)
+
+        with app.app_context():
+            email = _seed_email(received_at=_now(), vetted=False)
+            audit_id = _seed_audit(age_hours=1.0)
+            during = {}
+
+            def renewal_times_out():
+                during['lease'] = next(iter(_logs()))
+                failing.set()
+                if where == 'heartbeat':
+                    lease_clock.tick()
+
+            states_at_call = []
+            harness.call_observer = lambda job_id: states_at_call.append(lease_clock.instances[0].state)
+            harness.hook = renewal_times_out
+            with lease_clock.patch(), patch.object(run_claim, '_set_lock_timeout', lock_timeout):
+                harness.run_cycle()
+            failing.clear()
+            harness.call_observer = None
+
+            [lease] = lease_clock.instances
+            assert lease.state == 'unknown'
+            # No model call started after the unknown renewal was recorded.
+            # The checkpoint renewal runs after the first job returns, so the
+            # pool thread may already be inside the next call: that call is
+            # in flight, finishes, and is discarded with the rest.
+            assert set(states_at_call) == {'held'}
+            assert harness.model_calls[0] == AUDITED_JOB
+            if where == 'heartbeat':
+                assert harness.model_calls == [AUDITED_JOB]
+                assert lease.refused_calls >= 1
+            assert len(harness.model_calls) + lease.refused_calls <= len(TEARSHEET_JOB_IDS)
+            assert harness.attempts == [(f'email:{email}', 'lease_unknown')]
+            # Released, not committed: no matches, queue entry and audit open.
+            assert _logs() == {}
+            assert _unvetted_ids() == [email]
+            assert harness.notes == []
+            row = _audit(audit_id)
+            assert row.revet_new_score is None and row.revet_vetting_log_id is None
+
+            harness.run_cycle()
+            assert [o for _, o in harness.attempts] == ['lease_unknown', 'claimed']
+            assert _audit(audit_id).revet_new_score == 66.0
+
+    def test_lost_renewal_from_heartbeat_discards_without_release(self, app, harness):
+        from models import CandidateVettingLog
+        lease_clock = _TickLease()
+        with app.app_context():
+            email = _seed_email(received_at=_now(), vetted=False)
+
+            def admin_fails_row_then_heartbeat():
+                lease = next(iter(_logs()))
+                with _other_connection() as conn:
+                    conn.execute(CandidateVettingLog.__table__.update().where(
+                        CandidateVettingLog.__table__.c.id == lease,
+                    ).values(status='failed'))
+                lease_clock.tick()
+
+            harness.hook = admin_fails_row_then_heartbeat
+            with lease_clock.patch():
+                harness.run_cycle()
+
+            [lease] = lease_clock.instances
+            assert lease.state == 'lost'
+            assert harness.model_calls == [AUDITED_JOB]
+            assert harness.attempts == [(f'email:{email}', 'lease_lost')]
+            [(row, status)] = _logs().items()
+            assert status == 'failed' and _match_scores(row) == {}
+
+    def test_renew_lease_is_tri_state(self, app):
+        from sqlalchemy.exc import OperationalError
+        import vetting_audit_service.run_claim as run_claim
+        with app.app_context():
+            lease = _seed_vlog(created_at=_now(), status='processing')
+            assert run_claim.renew_lease(CANDIDATE, lease) == 'held'
+            assert run_claim.renew_lease(CANDIDATE, lease + 999) == 'lost'
+
+            def timeout(ms):
+                raise OperationalError('SET', {}, Exception('lock timeout'))
+
+            with patch.object(run_claim, '_set_lock_timeout', timeout):
+                assert run_claim.renew_lease(CANDIDATE, lease) == 'unknown'
+
+    def test_lease_state_never_returns_to_held(self, app):
+        from vetting_audit_service.run_claim import RunLease
+        lease = RunLease(app, CANDIDATE, 1)
+        assert lease.allow_paid_call()
+        assert lease.record('unknown') == 'unknown'
+        assert lease.record('held') == 'unknown'
+        assert not lease.allow_paid_call()
+        assert lease.record('lost') == 'lost'
+        assert lease.record('unknown') == 'lost'
+        assert lease.refused_calls == 1
+
+
+class TestLegacyUniqueConflict:
+    """v3 finding 4: a surviving legacy unique constraint defers the item;
+    the old row is never re-opened as a lease."""
+
+    def test_conflict_defers_without_reusing_the_old_row(self, app, harness):
+        from app import db
+        from sqlalchemy import text
+        with app.app_context():
+            old = _seed_vlog(created_at=_now() - timedelta(days=2), status='incomplete',
+                             scores={AUDITED_JOB: 0.0})
+            email = _seed_email(received_at=_now(), vetted=False)
+            db.session.execute(text(
+                'CREATE UNIQUE INDEX legacy_cvl_candidate_uq ON candidate_vetting_log (bullhorn_candidate_id)'
+            ))
+            db.session.commit()
+            try:
+                result = harness.process({'id': CANDIDATE, '_parsed_email_id': email, '_applied_job_id': AUDITED_JOB})
+            finally:
+                db.session.rollback()
+                db.session.execute(text('DROP INDEX legacy_cvl_candidate_uq'))
+                db.session.commit()
+
+            assert result is None
+            assert harness.attempts == [(f'email:{email}', 'deferred')]
+            assert harness.model_calls == []
+            assert _logs() == {old: 'incomplete'}
+            assert _match_scores(old) == {AUDITED_JOB: 0.0}
+            assert _unvetted_ids() == [email]
+
+            harness.process({'id': CANDIDATE, '_parsed_email_id': email, '_applied_job_id': AUDITED_JOB})
+            assert harness.attempts[-1] == (f'email:{email}', 'claimed')
+            assert _logs()[old] == 'incomplete'
+
+
+class TestBoundPartialMatchCap:
+    """v3 finding 6: an audit bound to a dead run with partial matches is
+    released by recovery (matches kept) and then meets the 12h cap; a live
+    run past the cap is left alone."""
+
+    def test_dead_partial_run_is_kept_and_audit_hits_the_cap(self, app, harness):
+        from app import db
+        from models import CandidateVettingLog, VettingAuditLog
+        with app.app_context():
+            email = _seed_email(received_at=_now() - timedelta(hours=14))
+            capped = _seed_audit(age_hours=13.0)
+            later = _seed_audit(job_id=OTHER_JOB, age_hours=1.0)
+            dead = _seed_vlog(created_at=_now() - timedelta(hours=13), status='processing',
+                              updated_at=_now() - timedelta(hours=12, minutes=50),
+                              parsed_email_id=email, scores={AUDITED_JOB: 35.0},
+                              covers=(capped,))
+            VettingAuditLog.query.filter_by(id=later).update({'revet_vetting_log_id': None})
+            db.session.commit()
+
+            assert harness.svc.detect_pending_revet_candidates() == []
+            assert _logs() == {dead: 'processing'}
+            assert _audit(capped).action_taken == 'revet_triggered'
+
+            harness.svc._reset_stuck_processing()
+            assert _logs() == {dead: 'failed'}
+            assert _match_scores(dead) == {AUDITED_JOB: 35.0}
+            kept = db.session.get(CandidateVettingLog, dead)
+            assert 'partial job match' in kept.error_message
+            assert f'was ParsedEmail {email}' in kept.error_message
+            assert kept.parsed_email_id is None
+            assert _audit(capped).revet_vetting_log_id is None
+            assert _unvetted_ids() == [email]
+
+            enqueued = harness.svc.detect_pending_revet_candidates()
+            row = _audit(capped)
+            assert row.action_taken == 'revet_skipped_job_mismatch'
+            assert row.revet_new_score is None
+            assert 'cap 12.0h' in row.audit_finding
+            # The genuine later audit is not cut off; the re-queued email
+            # covers it, so the detector waits for that run.
+            assert enqueued == []
+            assert _audit(later).action_taken == 'revet_triggered'
+
+            harness.score = 48.0
+            harness.run_cycle()
+            assert harness.runs == [f'email:{email}']
+            statuses = sorted(_logs().values())
+            assert statuses == ['completed', 'failed']
+            assert _match_scores(dead) == {AUDITED_JOB: 35.0}
+            assert _audit(later).revet_new_score == 48.0
+            assert _audit(capped).revet_new_score is None
+
+    def test_live_run_past_cap_is_not_cut_off(self, app, harness):
+        with app.app_context():
+            capped = _seed_audit(age_hours=13.0)
+            live = _seed_vlog(created_at=_now() - timedelta(hours=13), status='processing',
+                              updated_at=_now() - timedelta(minutes=1),
+                              scores={AUDITED_JOB: 35.0}, covers=(capped,))
+            assert harness.svc.detect_pending_revet_candidates() == []
+            harness.svc._reset_stuck_processing()
+            assert harness.svc.detect_pending_revet_candidates() == []
+            assert _logs() == {live: 'processing'}
+            row = _audit(capped)
+            assert row.action_taken == 'revet_triggered'
+            assert row.revet_vetting_log_id == live
+
+    def test_dead_run_without_matches_is_still_deleted(self, app, harness):
+        with app.app_context():
+            email = _seed_email(received_at=_now() - timedelta(hours=1))
+            dead = _seed_vlog(created_at=_now() - timedelta(hours=1), status='processing',
+                              updated_at=_now() - timedelta(minutes=30), parsed_email_id=email)
+            harness.svc._reset_stuck_processing()
+            assert dead not in _logs()
+            assert _unvetted_ids() == [email]
+
+
+class TestClaimFailure:
+    def test_claim_error_keeps_queue_entry_and_spends_nothing(self, app, harness):
+        from sqlalchemy.exc import OperationalError
+        import vetting_audit_service.run_claim as run_claim
+
+        def missing_column(candidate_id, run_id):
+            raise OperationalError('UPDATE vetting_audit_log', {}, Exception('no such column: revet_vetting_log_id'))
+
+        with app.app_context():
+            email = _seed_email(received_at=_now(), vetted=False)
+            with patch.object(run_claim, '_bind_open_audits', missing_column):
+                harness.run_cycle()
+            assert harness.attempts == [(f'email:{email}', 'deferred')]
+            assert harness.model_calls == []
+            assert _logs() == {}
+            assert _unvetted_ids() == [email]
+
+            harness.run_cycle()
+            assert harness.runs == [f'email:{email}']

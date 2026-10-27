@@ -1009,7 +1009,7 @@ class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMi
         db.session.rollback()
 
         counts = dict.fromkeys((
-            'waiting_on_run', 'repaired', 'unbackfillable', 'inflight',
+            'waiting_on_run', 'past_cap_on_run', 'repaired', 'unbackfillable', 'inflight',
             'email_pending', 'active_session', 'clear_failed', 'guard_failed',
         ), 0)
         candidates_to_enqueue: List[Dict] = []
@@ -1134,7 +1134,8 @@ class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMi
         if candidates_to_enqueue or any(counts.values()):
             logger.info(
                 f"🔁 Pending revets: {len(candidates_to_enqueue)} re-enqueued, "
-                f"{counts['waiting_on_run']} row(s) waiting on their bound run, "
+                f"{counts['waiting_on_run']} row(s) waiting on their bound run "
+                f"({counts['past_cap_on_run']} past the cap), "
                 f"{counts['repaired']} row(s) back-filled from their bound run, "
                 f"{counts['email_pending']} waiting on a queued ParsedEmail, "
                 f"{counts['inflight']} waiting on an in-flight run, "
@@ -1174,7 +1175,7 @@ class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMi
         """
         from app import db
         from models import CandidateJobMatch, VettingAuditLog
-        from vetting_audit_service import run_statuses
+        from vetting_audit_service import run_statuses, write_bound_score
 
         def bump(key):
             if counts is not None:
@@ -1209,8 +1210,20 @@ class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMi
             run_id = audit.revet_vetting_log_id
             status = statuses.get(run_id) if run_id is not None else None
 
+            audit_age_hours = (now - audit.created_at).total_seconds() / 3600
+
             if status == 'processing':
                 bump('waiting_on_run')
+                if audit_age_hours > max_attempt_hours:
+                    # A live run heartbeats, so it is never cut off here. A
+                    # dead one is ended by lease recovery (partial matches
+                    # kept), which releases this row to the cap below.
+                    bump('past_cap_on_run')
+                    logger.warning(
+                        f"⏳ Pending-revet detector: audit row {audit.id} is "
+                        f"{audit_age_hours:.1f}h old (cap {max_attempt_hours}h) "
+                        f"and still bound to processing vetting log {run_id}"
+                    )
                 continue
 
             if status == 'completed':
@@ -1219,7 +1232,8 @@ class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMi
                     if audit.job_id is not None else None
                 )
                 if score is not None:
-                    audit.revet_new_score = score
+                    if not write_bound_score(audit.id, run_id, score):
+                        continue
                     bump('repaired')
                     logger.info(
                         f"🔁 Pending-revet detector: audit row {audit.id} "
@@ -1245,7 +1259,6 @@ class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMi
             # Each re-enqueue deletes the candidate's vetting state and
             # re-screens them against every tearsheet job, so a row that
             # never back-fills must stop eventually.
-            audit_age_hours = (now - audit.created_at).total_seconds() / 3600
             if audit_age_hours > max_attempt_hours:
                 self._terminate_pending_audit(audit, (
                     f"Re-vet still un-scored {audit_age_hours:.1f}h after the "
