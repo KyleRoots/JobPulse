@@ -1947,14 +1947,14 @@ function cleanupStaleVetting() {
     const originalHtml = btn.innerHTML;
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
-    const callApi = (apply) => fetch('/api/trigger/cleanup-stale-vetting', {
+    const callApi = (apply, ids) => fetch('/api/trigger/cleanup-stale-vetting', {
         method: 'POST',
         credentials: 'same-origin',
         headers: {
             'Content-Type': 'application/json',
             'X-CSRFToken': csrfToken
         },
-        body: JSON.stringify({hours: 24, apply: apply})
+        body: JSON.stringify(apply ? {hours: 24, apply: true, ids: ids} : {hours: 24, apply: false})
     }).then(r => r.json());
 
     const restoreBtn = (delay = 3000) => setTimeout(() => {
@@ -1994,10 +1994,14 @@ function cleanupStaleVetting() {
                 `  • ${r.candidate_name || '(no name)'} — Bullhorn ID ${r.bullhorn_candidate_id || '?'}, stuck ${r.age_hours}h`
             ).join('\n');
             const more = preview.count > 5 ? `\n  …and ${preview.count - 5} more` : '';
+            const ids = preview.rows.slice(0, 50).map(r => r.id);
             const confirmMsg =
                 `Found ${preview.count} candidate(s) stuck in 'processing' for more than 24 hours:\n\n` +
                 `${sample}${more}\n\n` +
-                `Mark them as 'failed'? This is safe — it just frees the dashboard's in-flight count and lets these candidates be re-screened.`;
+                `Recover these ${ids.length} row(s)? Each is rechecked under the candidate lock first. ` +
+                `Rows without job matches are removed and their email re-queued; rows with partial matches ` +
+                `are marked 'failed' with the matches kept. If a worker was in fact still running, its ` +
+                `result is discarded and any paid calls it already made are not undone.`;
 
             if (!confirm(confirmMsg)) {
                 btn.innerHTML = originalHtml;
@@ -2007,20 +2011,19 @@ function cleanupStaleVetting() {
 
             btn.innerHTML = '<i class="fas fa-broom fa-spin me-1"></i>Cleaning...';
 
-            return callApi(true).then(applied => {
+            return callApi(true, ids).then(applied => {
                 if (!applied || !applied.success) {
                     showError((applied && applied.error) || 'Cleanup did not apply');
                     return;
                 }
                 if (applied.applied && applied.count > 0) {
-                    btn.innerHTML = `<i class="fas fa-check me-1"></i>Cleaned ${applied.count}`;
+                    btn.innerHTML = `<i class="fas fa-check me-1"></i>Recovered ${applied.count}`;
                     btn.classList.remove('btn-outline-info');
                     btn.classList.add('btn-success');
-                    alert(`Marked ${applied.count} stuck candidate(s) as failed. Refresh the page to see the updated counts.`);
+                    alert(`${applied.message} Refresh the page to see the updated counts.`);
                 } else {
-                    btn.innerHTML = '<i class="fas fa-check me-1"></i>Already Clean';
-                    btn.classList.remove('btn-outline-info');
-                    btn.classList.add('btn-success');
+                    btn.innerHTML = '<i class="fas fa-info-circle me-1"></i>No Change';
+                    alert(applied.message);
                 }
                 restoreBtn(5000);
             });
