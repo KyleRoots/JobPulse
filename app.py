@@ -614,13 +614,14 @@ def lazy_start_scheduler():
     """Start scheduler only when needed to avoid startup delays"""
     try:
         if not scheduler.running:
-            scheduler.start()
+            if not _start_scheduler_with_restored_pauses():
+                return False
             app.logger.info("Background scheduler started lazily")
             return True
     except Exception as e:
         app.logger.error(f"Failed to start scheduler: {str(e)}")
         return False
-    return scheduler.running
+    return scheduler.running and not _scheduler_pause_restore_failed
 
 
 # Track if background services have been initialized
@@ -676,29 +677,79 @@ def _register_scheduler_listeners():
         app.logger.warning(f"Failed to register scheduler listeners: {e}")
 
 
-def _restore_paused_jobs():
-    """Re-apply paused state from GlobalSettings after scheduler (re)start.
+_scheduler_pause_restore_failed = False
+
+
+def _read_paused_job_ids():
+    """Persisted paused job ids; raises when the state cannot be read or decoded.
 
     Wrapped in app.app_context() because the GlobalSettings query touches the
-    SQLAlchemy session, which requires a Flask application context. Without
-    this wrapper, restart-time invocation logs:
-      "Working outside of application context"
-    and silently fails to restore any paused jobs.
+    SQLAlchemy session, which requires a Flask application context.
     """
+    import json as _json
+    from models import GlobalSettings
+    with app.app_context():
+        paused_raw = GlobalSettings.get_value('scheduler_paused_jobs', '[]')
+    paused_ids = _json.loads(paused_raw)
+    if not isinstance(paused_ids, list) or not all(isinstance(j, str) for j in paused_ids):
+        raise ValueError(f"scheduler_paused_jobs is not a list of job ids: {paused_raw!r}")
+    return paused_ids
+
+
+def _restore_paused_jobs():
+    """Re-apply paused state from GlobalSettings. Returns False on any failure.
+
+    A job id this worker never registered (non-primary worker) has nothing to
+    pause; every other error means the pause state is unknown.
+    """
+    from apscheduler.jobstores.base import JobLookupError
     try:
-        import json as _json
-        from models import GlobalSettings
-        with app.app_context():
-            paused_raw = GlobalSettings.get_value('scheduler_paused_jobs', '[]')
-            paused_ids = _json.loads(paused_raw)
-            for job_id in paused_ids:
-                try:
-                    scheduler.pause_job(job_id)
-                    app.logger.info(f"⏸ Restored paused state for scheduler job: {job_id}")
-                except Exception:
-                    pass
+        for job_id in _read_paused_job_ids():
+            try:
+                scheduler.pause_job(job_id)
+                app.logger.info(f"⏸ Restored paused state for scheduler job: {job_id}")
+            except JobLookupError:
+                pass
     except Exception as e:
-        app.logger.warning(f"Failed to restore paused scheduler jobs: {e}")
+        app.logger.critical(f"Failed to restore paused scheduler jobs: {e}")
+        return False
+    return True
+
+
+def _start_scheduler_with_restored_pauses():
+    """Start the scheduler with persisted pauses applied before any job can run.
+
+    The scheduler starts in paused mode, so no job (including ones due
+    immediately) is dispatched until the restore succeeds. On failure it stays
+    paused until the process restarts with a readable pause state.
+    """
+    global _scheduler_pause_restore_failed
+    scheduler.start(paused=True)
+    _register_scheduler_listeners()
+    if not _restore_paused_jobs():
+        _scheduler_pause_restore_failed = True
+        app.logger.critical(
+            "Scheduler left paused: persisted job pauses could not be restored; "
+            "no scheduled job will run in this process"
+        )
+        return False
+    _scheduler_pause_restore_failed = False
+    scheduler.resume()
+    return True
+
+
+def scheduled_job_paused(job_id):
+    """True when job_id is paused, or its pause state is unknown, in this process."""
+    if _scheduler_pause_restore_failed:
+        return True
+    job = scheduler.get_job(job_id)
+    if job is not None:
+        return job.next_run_time is None
+    try:
+        return job_id in _read_paused_job_ids()
+    except Exception as e:
+        app.logger.error(f"Pause state unreadable for {job_id}: {e}")
+        return True
 
 
 def ensure_background_services():
@@ -707,12 +758,11 @@ def ensure_background_services():
     _configure_scheduler_jobs_once()
     if not scheduler.running:
         try:
-            scheduler.start()
+            if not _start_scheduler_with_restored_pauses():
+                _background_services_started = False
+                return False
             app.logger.info("Background scheduler started/restarted successfully")
             _background_services_started = True
-
-            _register_scheduler_listeners()
-            _restore_paused_jobs()
 
             try:
                 with app.app_context():
@@ -728,6 +778,9 @@ def ensure_background_services():
             app.logger.error(f"Failed to start scheduler: {str(e)}")
             _background_services_started = False
             return False
+
+    if _scheduler_pause_restore_failed:
+        return False
 
     if not _background_services_started:
         _background_services_started = True
@@ -747,6 +800,10 @@ def process_bullhorn_monitors():
         freeze_mgr = FreezeManager()
         if freeze_mgr.is_frozen():
             logger.info("🔒 XML FEED FROZEN: Skipping manual monitoring cycle")
+            return
+
+        if scheduled_job_paused('process_bullhorn_monitors'):
+            logger.info("⏸ Tearsheet monitor paused: skipping manual monitoring cycle")
             return
 
         from incremental_monitoring_service import IncrementalMonitoringService
