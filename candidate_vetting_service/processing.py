@@ -170,20 +170,56 @@ class CandidateProcessingMixin:
         return False
 
     @staticmethod
-    def _renew_run_lease(candidate: Dict, vetting_log) -> bool:
-        from vetting_audit_service.run_claim import CLAIM_OUTCOME_KEY, renew_lease
+    def _renew_run_lease(candidate: Dict, vetting_log, lease) -> bool:
+        """Checkpoint: commit pending run state only while the lease holds.
 
-        candidate_id, vetting_log_id = vetting_log.bullhorn_candidate_id, vetting_log.id
-        if renew_lease(candidate_id, vetting_log_id):
+        False when this or any heartbeat renewal came back lost or unknown;
+        the session is rolled back and the caller must return
+        ``_stop_run(...)``.
+        """
+        from vetting_audit_service.run_claim import LEASE_HELD, renew_lease
+
+        if lease.held:
+            lease.record(renew_lease(lease.candidate_id, lease.vetting_log_id))
+        if lease.state == LEASE_HELD:
             return True
-        candidate[CLAIM_OUTCOME_KEY] = 'lease_lost'
-        logger.warning(
-            f"🛑 Vetting log {vetting_log_id} lost its lease mid-run; "
-            f"stopping without writing results"
-        )
+        db.session.rollback()
         return False
 
+    @staticmethod
+    def _stop_run(candidate: Dict, lease) -> None:
+        """Stop a run whose renewal was lost or unknown, before any result is
+        committed. In-flight model calls have finished or been cancelled by
+        now and their results are dropped. An unknown lease is released so
+        its queue entry can be claimed again; if that fails it expires."""
+        from vetting_audit_service.run_claim import (
+            CLAIM_OUTCOME_KEY, LEASE_LOST, release_lease,
+        )
+
+        db.session.rollback()
+        if lease.state == LEASE_LOST:
+            candidate[CLAIM_OUTCOME_KEY] = 'lease_lost'
+        else:
+            candidate[CLAIM_OUTCOME_KEY] = 'lease_unknown'
+            release_lease(lease.vetting_log_id, 'worker stopped: lease renewal state unknown')
+        logger.warning(
+            f"🛑 Vetting log {lease.vetting_log_id} lease {lease.state} mid-run "
+            f"({lease.refused_calls} paid call(s) refused); stopped without "
+            f"writing results"
+        )
+        return None
+
     def process_candidate(self, candidate: Dict, cached_jobs: Optional[List[Dict]] = None) -> Optional[CandidateVettingLog]:
+        lease_holder: Dict = {}
+        try:
+            return self._process_candidate(candidate, cached_jobs, lease_holder)
+        finally:
+            lease = lease_holder.get('lease')
+            if lease is not None:
+                lease.stop()
+
+    def _process_candidate(self, candidate: Dict, cached_jobs: Optional[List[Dict]],
+                           lease_holder: Dict) -> Optional[CandidateVettingLog]:
         """
         Process a single candidate through the scoring pipeline (resume + matches).
 
@@ -218,7 +254,7 @@ class CandidateProcessingMixin:
         applied_job_id = candidate.get('_applied_job_id')
 
         from vetting_audit_service.run_claim import (
-            CLAIM_OUTCOME_KEY, CandidateLockUnavailable, claim_run,
+            CLAIM_OUTCOME_KEY, CandidateLockUnavailable, RunLease, claim_run,
         )
 
         try:
@@ -241,39 +277,27 @@ class CandidateProcessingMixin:
         except Exception as e:
             db.session.rollback()
             if 'UniqueViolation' in str(e) or 'unique constraint' in str(e).lower():
-                existing_log = CandidateVettingLog.query.filter_by(
-                    bullhorn_candidate_id=candidate_id
-                ).first()
-                if existing_log:
-                    if (
-                        existing_log.status == 'incomplete'
-                        or (existing_log.highest_match_score == 0 and existing_log.status == 'completed')
-                    ):
-                        logger.info(
-                            f"🔄 Re-analyzing candidate {candidate_id} ({candidate_name}) — "
-                            f"previous vetting status={existing_log.status} "
-                            f"score={existing_log.highest_match_score}%"
-                        )
-                        CandidateJobMatch.query.filter_by(vetting_log_id=existing_log.id).delete()
-                        existing_log.status = 'processing'
-                        existing_log.highest_match_score = 0.0
-                        existing_log.total_jobs_matched = 0
-                        existing_log.is_qualified = False
-                        existing_log.note_created = False
-                        existing_log.bullhorn_note_id = None
-                        existing_log.analyzed_at = None
-                        existing_log.error_message = None
-                        db.session.commit()
-                        vetting_log = existing_log
-                    else:
-                        logger.info(f"⏭️ Candidate {candidate_id} already vetted with score {existing_log.highest_match_score}%")
-                        return existing_log
-                else:
-                    logger.error(f"Failed to create vetting log for candidate {candidate_id}: {str(e)}")
-                    return None
-            else:
-                logger.error(f"Failed to create vetting log for candidate {candidate_id}: {str(e)}")
+                # Only a surviving legacy one-log-per-candidate unique (dropped
+                # by the boot migration) rejects a second run. Re-opening the
+                # old row would reuse its id as a fencing token without a
+                # claim, so leave the queue entry for a later cycle instead.
+                candidate[CLAIM_OUTCOME_KEY] = 'deferred'
+                logger.error(
+                    f"⏸️ Candidate {candidate_id} not started: run insert hit a "
+                    f"unique constraint ({type(e).__name__}); check the "
+                    f"candidate_vetting_log unique-drop migration"
+                )
                 return None
+            # No run started, so the queue entry stays open (for example a
+            # failed boot migration leaves revet_vetting_log_id missing).
+            candidate[CLAIM_OUTCOME_KEY] = 'deferred'
+            logger.error(f"Failed to create vetting log for candidate {candidate_id}: {str(e)}")
+            return None
+
+        from flask import current_app
+        lease = RunLease(current_app._get_current_object(), candidate_id, vetting_log.id)
+        lease_holder['lease'] = lease
+        lease.start()
 
         try:
             with type(self)._bullhorn_lock:
@@ -282,6 +306,10 @@ class CandidateProcessingMixin:
                 job_order = submission.get('jobOrder', {})
                 vetting_log.applied_job_id = job_order.get('id')
                 vetting_log.applied_job_title = sanitize_text(job_order.get('title'))
+            # Commit lease-row writes before the next external call, so the
+            # heartbeat never queues behind this session's own row lock.
+            if not self._renew_run_lease(candidate, vetting_log, lease):
+                return self._stop_run(candidate, lease)
 
             resume_text = None
             pdf_metadata = {}
@@ -363,6 +391,8 @@ class CandidateProcessingMixin:
             self._run_fraud_assessment(
                 candidate, vetting_log, pdf_metadata=pdf_metadata or None,
             )
+            if not self._renew_run_lease(candidate, vetting_log, lease):
+                return self._stop_run(candidate, lease)
 
             if cached_jobs is not None:
                 jobs = list(cached_jobs)
@@ -571,8 +601,8 @@ class CandidateProcessingMixin:
                         return None
                     return vetting_log
 
-            if not self._renew_run_lease(candidate, vetting_log):
-                return None
+            if not self._renew_run_lease(candidate, vetting_log, lease):
+                return self._stop_run(candidate, lease)
 
             logger.info(f"🚀 Parallel analysis of {len(jobs_to_analyze)} jobs (skipping {len(existing_job_ids)} already analyzed)")
             logger.info(f"📄 Resume: {len(cached_resume_text)} chars, First 200: {cached_resume_text[:200]}")
@@ -665,6 +695,9 @@ class CandidateProcessingMixin:
                 job = job_with_req['job']
                 prefetched_req = job_with_req['requirements']
                 job_id = job.get('id')
+                if not lease.allow_paid_call():
+                    return {'job': job, 'job_id': job_id, 'analysis': None,
+                            'error': 'lease not held', 'refused': True}
                 # Related (non-applied) tearsheet matches use short prose to
                 # cut output tokens; applied role keeps full near-miss detail.
                 _applied_id = prefetched_applied_job_id
@@ -707,6 +740,9 @@ class CandidateProcessingMixin:
                         escalation_range, self.model, qualify_floor
                     )
 
+                    if do_escalate and not lease.allow_paid_call():
+                        return {'job': job, 'job_id': job_id, 'analysis': None,
+                                'error': 'lease not held', 'refused': True}
                     if do_escalate:
                         job_title = job.get('title', 'Unknown')
                         logger.info(
@@ -814,17 +850,17 @@ class CandidateProcessingMixin:
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 futures = {executor.submit(analyze_single_job, jwr): jwr for jwr in jobs_with_requirements}
 
-                lease_lost = False
                 for future in as_completed(futures):
                     result = future.result()
                     analysis_results.append(result)
-                    if not self._renew_run_lease(candidate, vetting_log):
-                        lease_lost = True
+                    if not self._renew_run_lease(candidate, vetting_log, lease):
                         for pending in futures:
                             pending.cancel()
                         break
-            if lease_lost:
-                return None
+            # Leaving the pool waits for calls already in flight; a run that
+            # lost its lease, or refused or cancelled any call, never commits.
+            if not lease.held or len(analysis_results) != len(futures):
+                return self._stop_run(candidate, lease)
 
             logger.info(f"✅ Parallel analysis complete: {len(analysis_results)} jobs processed")
 
@@ -1040,6 +1076,8 @@ class CandidateProcessingMixin:
 
                     if reverify_jobs:
                         for match_record, job in reverify_jobs:
+                            if not lease.allow_paid_call():
+                                return self._stop_run(candidate, lease)
                             try:
                                 reverify_result = self._reverify_zero_score(
                                     cached_resume_text, job, candidate_location,

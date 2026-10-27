@@ -126,9 +126,10 @@ class RecoveryMixin:
         
         This method detects and resets those orphaned records:
         - Only 'processing' logs whose lease heartbeat (``updated_at``) is
-          more than ``LEASE_TIMEOUT_MINUTES`` old; live workers renew it
-          after every job analysis
-        - Only resets logs with 0 job matches (never started analysis)
+          more than ``LEASE_TIMEOUT_MINUTES`` old; live workers renew it from
+          a heartbeat thread, including during model calls
+        - Logs with 0 job matches are deleted; logs with persisted partial
+          matches are marked 'failed' with the matches kept
         - Each recovery runs under the candidate run lock; a worker that is
           in fact still alive cannot commit afterwards (see ``run_claim``)
         - Re-queues the log's own ParsedEmail, not every email

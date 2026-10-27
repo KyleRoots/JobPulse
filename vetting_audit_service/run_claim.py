@@ -4,20 +4,33 @@ Protocol, per Bullhorn candidate ``c``:
 
 * ``L(c)``: a transaction-scoped PostgreSQL advisory lock. Revet resets, the
   pending-revet detector's per-candidate decision, worker claim, lease
-  renewal, lease recovery and fenced result commits each run as one short
-  transaction that takes ``L(c)`` before re-reading its guards. No
-  transaction stays open across Bullhorn or model calls.
+  recovery or release, audit back-fill and fenced result commits each run as
+  one short transaction that takes ``L(c)`` before re-reading its guards. No
+  transaction stays open across Bullhorn or model calls. Every wait is
+  bounded by ``lock_timeout``: a timeout is unknown state, never success.
+* Lock order: ``L(c)`` before any row lock, with one exception — a worker may
+  already hold its own lease row (an autoflushed update) when it takes
+  ``L(c)`` for its fenced commit. Recovery therefore waits on that row for
+  less than PostgreSQL's ``deadlock_timeout`` and gives up, so the owner wins.
+  Heartbeats take no advisory lock at all.
 * Lease: a ``CandidateVettingLog`` row with status ``processing``. Only
   ``claim_run`` creates one. Its id is the fencing token: a worker commits
   results only while that row is still ``processing`` (``commit_if_lease_held``),
   so a worker whose lease was recovered or failed cannot commit after
-  replacement. Lease age is measured from the last heartbeat (``updated_at``),
-  and only ``recover_expired_lease`` may end a lease nobody released.
+  replacement. While the worker runs, ``RunLease`` heartbeats ``updated_at``
+  from its own thread, including during blocking Bullhorn and model calls, so
+  a lease only expires once its process has stopped heartbeating for
+  ``LEASE_TIMEOUT_MINUTES``. Only ``recover_expired_lease`` may end a lease
+  nobody released; ``release_lease`` ends the worker's own.
+* Renewal result is ``held``, ``lost`` or ``unknown``. Lost or unknown stops
+  the run: no new paid call starts, calls already in flight finish but their
+  results are discarded, nothing is committed, and an ``unknown`` worker
+  releases its lease (or leaves it to expire when even that fails).
 * Audit binding: ``VettingAuditLog.revet_vetting_log_id``. ``claim_run`` binds
   every audit row still waiting on a score to the run it creates, inside the
   same transaction. A run therefore covers only audit requests that were
-  committed before it started, and back-fill reads scores only from the bound
-  run. An audit created while a run is in flight stays unbound and pending.
+  committed before it started. An audit created while a run is in flight
+  stays unbound and pending.
 
 Invariants:
 
@@ -29,13 +42,22 @@ Invariants:
    and an email item's ParsedEmail has no vetting log yet.
 4. A re-vet item does not start while another lease for the candidate is live.
 5. Unknown guard state (lock or lookup failure) never leads to a delete,
-   re-queue or claim.
+   re-queue, claim or score write.
+6. An open audit's binding and ``revet_new_score`` change only under ``L(c)``,
+   and a score is written only by ``write_bound_score``: a conditional update
+   on the expected binding and a still-null score, from a run that is
+   ``completed`` when re-read under the same lock.
+7. Recovery never deletes job matches: an expired run with persisted matches
+   is marked ``failed`` with them kept (its ParsedEmail id moved into the
+   error message so the email can be claimed again), and its audits are
+   released.
 
 Off PostgreSQL (the SQLite test database) the lock is a no-op: SQLite allows
 one writer at a time, and nothing here claims concurrency safety from it.
 """
 
 import logging
+import threading
 from datetime import datetime
 from typing import Dict, Iterable, Optional
 
@@ -45,24 +67,52 @@ logger = logging.getLogger(__name__)
 CANDIDATE_RUN_LOCK_NAMESPACE = 0x52564554
 
 LEASE_TIMEOUT_MINUTES = 10
+HEARTBEAT_INTERVAL_SECONDS = 60
+
+LOCK_TIMEOUT_MS = 5000
+# Below PostgreSQL's default deadlock_timeout (1s): recovery yields to a
+# worker that holds its own lease row and is waiting for L(c).
+RECOVERY_LOCK_TIMEOUT_MS = 500
+RENEW_LOCK_TIMEOUT_MS = 5000
 
 OPEN_AUDIT_ACTIONS = ('revet_triggered', 'revet_skipped_stable')
 LIVE_RUN_STATUSES = ('processing', 'completed')
 
 CLAIM_OUTCOME_KEY = '_run_claim_outcome'
 
+LEASE_HELD = 'held'
+LEASE_LOST = 'lost'
+LEASE_UNKNOWN = 'unknown'
+
 
 class CandidateLockUnavailable(RuntimeError):
     """The candidate lock could not be taken, so guard state is unknown."""
 
 
-def acquire_candidate_lock(candidate_id: int) -> None:
+def _is_postgres() -> bool:
+    from app import db
+
+    return db.session.get_bind().dialect.name == 'postgresql'
+
+
+def _set_lock_timeout(timeout_ms: int) -> None:
     from sqlalchemy import text
     from app import db
 
-    if db.session.get_bind().dialect.name != 'postgresql':
+    if _is_postgres():
+        db.session.execute(text(f"SET LOCAL lock_timeout = '{int(timeout_ms)}ms'"))
+
+
+def acquire_candidate_lock(candidate_id: int, timeout_ms: Optional[int] = None) -> None:
+    """Take ``L(c)``. The timeout (default ``LOCK_TIMEOUT_MS``) also bounds
+    every later lock wait in the same transaction."""
+    from sqlalchemy import text
+    from app import db
+
+    if not _is_postgres():
         return
     try:
+        _set_lock_timeout(LOCK_TIMEOUT_MS if timeout_ms is None else timeout_ms)
         db.session.execute(
             text('SELECT pg_advisory_xact_lock(:ns, :cid)'),
             {'ns': CANDIDATE_RUN_LOCK_NAMESPACE, 'cid': int(candidate_id)},
@@ -102,6 +152,19 @@ def run_statuses(run_ids: Iterable[int]) -> Dict[int, Optional[str]]:
         .filter(CandidateVettingLog.id.in_(ids))
         .all()
     )
+
+
+def write_bound_score(audit_id: int, run_id: int, score: float) -> bool:
+    """Set an open audit's score iff it is still bound to ``run_id`` and
+    unscored. The caller holds ``L(c)`` and has re-read ``run_id`` as
+    ``completed`` under it."""
+    from models import VettingAuditLog
+
+    return VettingAuditLog.query.filter(
+        VettingAuditLog.id == audit_id,
+        VettingAuditLog.revet_vetting_log_id == run_id,
+        VettingAuditLog.revet_new_score.is_(None),
+    ).update({'revet_new_score': score}, synchronize_session=False) == 1
 
 
 def _bind_open_audits(candidate_id: int, run_id: int) -> int:
@@ -242,7 +305,7 @@ def commit_if_lease_held(candidate_id: int, vetting_log_id: int) -> bool:
     """Commit the session's pending run results only while the lease holds.
 
     Rolls back and returns False when the lease was recovered, failed or
-    deleted, or when the lock is unavailable.
+    deleted, or when the lock or the lease read is unavailable.
     """
     from app import db
 
@@ -250,7 +313,11 @@ def commit_if_lease_held(candidate_id: int, vetting_log_id: int) -> bool:
         with db.session.no_autoflush:
             acquire_candidate_lock(candidate_id)
             held = _lease_held(vetting_log_id)
-    except CandidateLockUnavailable as e:
+    except Exception as e:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
         logger.warning(f"⚠️ Result commit for vetting log {vetting_log_id} withheld: {e}")
         return False
     if not held:
@@ -264,39 +331,121 @@ def commit_if_lease_held(candidate_id: int, vetting_log_id: int) -> bool:
     return True
 
 
-def renew_lease(candidate_id: int, vetting_log_id: int) -> bool:
-    """Heartbeat: push the lease's ``updated_at`` forward. False if it is lost."""
+def renew_lease(candidate_id: int, vetting_log_id: int) -> str:
+    """Heartbeat: push the lease's ``updated_at`` forward.
+
+    Returns ``LEASE_HELD``, ``LEASE_LOST`` (the row is no longer
+    ``processing``) or ``LEASE_UNKNOWN`` (lock wait timed out or the database
+    failed; nothing was renewed). Commits the session's pending state in the
+    same transaction as a successful conditional update, rolls back otherwise.
+    """
     from app import db
     from models import CandidateVettingLog
 
     try:
         with db.session.no_autoflush:
-            acquire_candidate_lock(candidate_id)
+            _set_lock_timeout(RENEW_LOCK_TIMEOUT_MS)
             renewed = CandidateVettingLog.query.filter(
                 CandidateVettingLog.id == vetting_log_id,
                 CandidateVettingLog.status == 'processing',
             ).update({'updated_at': datetime.utcnow()}, synchronize_session=False)
-    except CandidateLockUnavailable as e:
-        logger.warning(f"⚠️ Lease renewal for vetting log {vetting_log_id} skipped: {e}")
-        return True
-    if renewed != 1:
-        db.session.rollback()
-        return False
-    db.session.commit()
-    return True
+        if renewed == 1:
+            db.session.commit()
+            return LEASE_HELD
+    except Exception as e:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        logger.warning(
+            f"⚠️ Lease renewal for vetting log {vetting_log_id} (candidate "
+            f"{candidate_id}) unknown: {type(e).__name__}: {e}"
+        )
+        return LEASE_UNKNOWN
+    db.session.rollback()
+    return LEASE_LOST
 
 
-def recover_expired_lease(vetting_log_id: int, expired_before: datetime) -> Optional[Dict]:
-    """End a lease whose holder stopped heartbeating before ``expired_before``.
+class RunLease:
+    """A worker's view of its lease, with a heartbeat thread.
 
-    The row is deleted (so its ParsedEmail can be claimed again) only if it is
-    still ``processing``, has no job matches, and its last heartbeat — or its
-    creation time when it never heartbeated — is older than the cutoff. Rows
-    with neither timestamp are left for manual cleanup. Audits bound to it are
-    released, and at most one ParsedEmail is re-queued. Its worker, if still
-    alive, is fenced out by ``commit_if_lease_held``. Commits; returns None
-    when nothing was recovered.
+    ``beat`` renews from a fresh app context (its own session and connection),
+    so it never touches the worker's transaction. The state only moves away
+    from ``held``: once lost or unknown, ``allow_paid_call`` refuses for the
+    rest of the run.
     """
+
+    def __init__(self, app, candidate_id: int, vetting_log_id: int,
+                 interval_seconds: float = HEARTBEAT_INTERVAL_SECONDS):
+        self.app = app
+        self.candidate_id = candidate_id
+        self.vetting_log_id = vetting_log_id
+        self.interval_seconds = interval_seconds
+        self.state = LEASE_HELD
+        self.refused_calls = 0
+        self._lock = threading.Lock()
+        self._stop = threading.Event()
+        self._thread = None
+
+    def record(self, status: str) -> str:
+        with self._lock:
+            if status == LEASE_LOST or (status == LEASE_UNKNOWN and self.state == LEASE_HELD):
+                self.state = status
+            return self.state
+
+    @property
+    def held(self) -> bool:
+        return self.state == LEASE_HELD
+
+    def allow_paid_call(self) -> bool:
+        with self._lock:
+            if self.state == LEASE_HELD:
+                return True
+            self.refused_calls += 1
+            return False
+
+    def beat(self) -> str:
+        from app import db
+
+        try:
+            with self.app.app_context():
+                try:
+                    status = renew_lease(self.candidate_id, self.vetting_log_id)
+                finally:
+                    db.session.remove()
+        except Exception as e:
+            logger.warning(f"⚠️ Heartbeat for vetting log {self.vetting_log_id} failed: {e}")
+            status = LEASE_UNKNOWN
+        return self.record(status)
+
+    def _wait(self) -> bool:
+        """True when stopped."""
+        return self._stop.wait(self.interval_seconds)
+
+    def _run(self) -> None:
+        while not self._wait():
+            if self.beat() != LEASE_HELD:
+                logger.warning(
+                    f"🛑 Heartbeat for vetting log {self.vetting_log_id} is "
+                    f"{self.state}; no new paid calls for this run"
+                )
+                return
+
+    def start(self) -> 'RunLease':
+        self._thread = threading.Thread(
+            target=self._run, name=f'lease-heartbeat-{self.vetting_log_id}', daemon=True,
+        )
+        self._thread.start()
+        return self
+
+    def stop(self) -> None:
+        self._stop.set()
+        if self._thread is not None and self._thread is not threading.current_thread():
+            self._thread.join()
+
+
+def _end_processing_run(vetting_log_id: int, expired_before: Optional[datetime],
+                        reason: str) -> Optional[Dict]:
     from sqlalchemy import and_, func, or_
     from app import db
     from models import (
@@ -313,24 +462,25 @@ def recover_expired_lease(vetting_log_id: int, expired_before: datetime) -> Opti
     if candidate_id is None:
         db.session.rollback()
         return None
-    acquire_candidate_lock(candidate_id)
+    acquire_candidate_lock(candidate_id, timeout_ms=RECOVERY_LOCK_TIMEOUT_MS)
 
-    expired = (
+    predicate = [
         CandidateVettingLog.id == vetting_log_id,
         CandidateVettingLog.status == 'processing',
-        or_(
+    ]
+    if expired_before is not None:
+        predicate.append(or_(
             CandidateVettingLog.updated_at < expired_before,
             and_(
                 CandidateVettingLog.updated_at.is_(None),
                 CandidateVettingLog.created_at < expired_before,
             ),
-        ),
-    )
+        ))
     row = (
         db.session.query(
             CandidateVettingLog.parsed_email_id, CandidateVettingLog.applied_job_id,
         )
-        .filter(*expired)
+        .filter(*predicate)
         .first()
     )
     if row is None:
@@ -341,17 +491,27 @@ def recover_expired_lease(vetting_log_id: int, expired_before: datetime) -> Opti
         .filter(CandidateJobMatch.vetting_log_id == vetting_log_id)
         .scalar()
     )
-    if match_count:
-        db.session.rollback()
-        return None
 
     released = VettingAuditLog.query.filter(
         VettingAuditLog.revet_vetting_log_id == vetting_log_id,
         VettingAuditLog.revet_new_score.is_(None),
     ).update({'revet_vetting_log_id': None}, synchronize_session=False)
-    EmbeddingFilterLog.query.filter_by(vetting_log_id=vetting_log_id).delete(synchronize_session=False)
-    EscalationLog.query.filter_by(vetting_log_id=vetting_log_id).delete(synchronize_session=False)
-    if CandidateVettingLog.query.filter(*expired).delete(synchronize_session=False) != 1:
+    if match_count:
+        # Unlinked from its email: an email linked to any failed log is
+        # treated as already vetted, so the re-queue below would be dropped.
+        ended = CandidateVettingLog.query.filter(*predicate).update({
+            'status': 'failed',
+            'parsed_email_id': None,
+            'error_message': (
+                f"{reason}; {match_count} partial job match(es) kept for review; "
+                f"was ParsedEmail {row.parsed_email_id}"
+            )[:500],
+        }, synchronize_session=False)
+    else:
+        EmbeddingFilterLog.query.filter_by(vetting_log_id=vetting_log_id).delete(synchronize_session=False)
+        EscalationLog.query.filter_by(vetting_log_id=vetting_log_id).delete(synchronize_session=False)
+        ended = CandidateVettingLog.query.filter(*predicate).delete(synchronize_session=False)
+    if ended != 1:
         db.session.rollback()
         return None
 
@@ -373,4 +533,40 @@ def recover_expired_lease(vetting_log_id: int, expired_before: datetime) -> Opti
         'candidate_id': candidate_id,
         'audits_released': released,
         'parsed_email_id': requeued,
+        'partial_matches_kept': match_count,
     }
+
+
+def recover_expired_lease(vetting_log_id: int, expired_before: datetime) -> Optional[Dict]:
+    """End a lease whose holder stopped heartbeating before ``expired_before``.
+
+    Applies only while the row is still ``processing`` and its last heartbeat
+    — or its creation time when it never heartbeated — is older than the
+    cutoff; rows with neither timestamp are left for manual cleanup. A row
+    without job matches is deleted so its ParsedEmail can be claimed again; a
+    row with persisted partial matches is marked ``failed`` and its matches
+    are kept. Either way audits bound to it are released and at most one
+    ParsedEmail is re-queued. Its worker, if somehow still alive, is fenced
+    out by ``commit_if_lease_held``. Commits; returns None when nothing was
+    recovered. Raises ``CandidateLockUnavailable``.
+    """
+    return _end_processing_run(
+        vetting_log_id, expired_before,
+        f"lease expired (no heartbeat since before {expired_before.isoformat()})",
+    )
+
+
+def release_lease(vetting_log_id: int, reason: str) -> Optional[Dict]:
+    """End this worker's own lease after it stopped on an unknown renewal,
+    with the same row handling as recovery. None when the lease is already
+    gone or the lock is unavailable (the lease then expires normally)."""
+    try:
+        return _end_processing_run(vetting_log_id, None, reason)
+    except Exception as e:
+        from app import db
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        logger.warning(f"⚠️ Release of vetting log {vetting_log_id} failed; left to expire: {e}")
+        return None
