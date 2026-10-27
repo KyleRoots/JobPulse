@@ -1,39 +1,33 @@
-"""Mark orphaned 'processing' CandidateVettingLog rows as 'failed'.
+"""Preview stale 'processing' CandidateVettingLog rows; recover only explicitly
+selected ones.
 
 Background
 ----------
 A CandidateVettingLog row is set to status='processing' when the screening
 worker begins analysis and to status='completed' (or 'failed') when it finishes.
-If the worker crashes mid-flight (NUL-byte flush failures, OOM, gunicorn
-restart, etc.) the row can be left stuck on 'processing' forever, which
-makes recruiter dashboards inaccurate (in-flight counts never decrement)
-and prevents the candidate from being re-screened by retry logic.
-
-This script finds rows that have been stuck on 'processing' for longer
-than the configured threshold and marks them 'failed' with a clear
-diagnostic message, restoring dashboard accuracy and re-enabling retry.
+If the worker crashes mid-flight the row can be left stuck on 'processing',
+which makes recruiter dashboards inaccurate and blocks re-screening. Age
+alone cannot tell a dead worker from a live one behind a stalled connection,
+so nothing here changes rows by age: the preview lists candidates, and only
+row ids an operator explicitly selects are recovered, one at a time, through
+the shared explicit-recovery primitive ``recover_expired_lease`` (candidate
+run lock, still-'processing' and no-heartbeat recheck, partial matches kept,
+at most one ParsedEmail re-queued, audits released).
 
 Usage (CLI)
 -----------
-    # Dry-run (default) — prints what would be changed, makes no writes.
-    python scripts/cleanup_stale_processing_rows.py
+    # Dry-run only — prints the stale rows, makes no writes.
+    python scripts/cleanup_stale_processing_rows.py [--hours 6]
 
-    # Apply the cleanup for real.
-    python scripts/cleanup_stale_processing_rows.py --apply
-
-    # Override the staleness threshold (default: 24 hours).
-    python scripts/cleanup_stale_processing_rows.py --hours 6 --apply
-
-The script reads DATABASE_URL from the environment, so it operates on
-whichever database that variable points to (dev locally, prod when run
-in the deployment console).
+The CLI never writes; ``--apply`` is refused. Recovery runs only through the
+admin-guarded route ``POST /api/trigger/cleanup-stale-vetting`` with
+``apply: true`` and an explicit ``ids`` list.
 
 Programmatic use
 ----------------
-The same logic is exposed as ``cleanup_stale_processing(hours, apply_changes)``
-so the super-admin trigger route in ``routes/triggers.py`` can reuse it
-without shelling out. The function returns a structured dict suitable
-for ``jsonify()`` and never raises on the "nothing to do" path.
+``cleanup_stale_processing(hours, apply_changes, log_ids=None)`` returns a
+structured dict suitable for ``jsonify()``. With ``apply_changes`` it refuses
+(no DB work) unless ``log_ids`` is a valid explicit id list.
 """
 import argparse
 import logging
@@ -50,19 +44,39 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-CLEANUP_MARKER_TEMPLATE = (
-    "Stale processing row auto-recovered: worker did not complete "
-    "within {hours}h (likely crash, restart, or pre-sanitization "
-    "NUL-byte flush failure). Marked 'failed' so dashboards reflect "
-    "true in-flight count. NOTE: this script intentionally does NOT "
-    "reset ParsedEmail.vetted_at — re-screening these candidates "
-    "still requires the standard retry path or a manual re-trigger."
+MAX_EXPLICIT_IDS = 50
+
+RECOVERY_TRADEOFF = (
+    "Recovered rows without job matches were removed and their email "
+    "re-queued; rows with partial matches were marked 'failed' with the "
+    "matches kept. If a recovered row's worker was in fact still running it "
+    "can no longer commit, and any paid calls it already made are not undone."
 )
 
 
-def cleanup_stale_processing(hours: int, apply_changes: bool) -> dict:
-    """Find (and optionally mark as failed) CandidateVettingLog rows
-    that have been stuck on status='processing' for longer than ``hours``.
+def parse_explicit_log_ids(raw):
+    """Returns ``(ids, None)`` for a non-empty list of positive integer ids
+    (duplicates dropped, order kept, at most ``MAX_EXPLICIT_IDS``), else
+    ``(None, error)``."""
+    if not isinstance(raw, list) or not raw:
+        return None, (
+            "Field 'ids' must be a non-empty JSON list of vetting log ids to "
+            "recover; nothing is recovered without explicit ids."
+        )
+    ids = []
+    for value in raw:
+        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+            return None, f"Field 'ids' must contain only positive integers, not {value!r}."
+        if value not in ids:
+            ids.append(value)
+    if len(ids) > MAX_EXPLICIT_IDS:
+        return None, f"At most {MAX_EXPLICIT_IDS} ids per request (got {len(ids)})."
+    return ids, None
+
+
+def cleanup_stale_processing(hours: int, apply_changes: bool, log_ids=None) -> dict:
+    """Preview CandidateVettingLog rows stuck on status='processing' for
+    longer than ``hours``; with ``apply_changes``, recover only ``log_ids``.
 
     Must be called inside an active Flask app_context (the trigger route
     already runs inside one; the CLI wrapper sets one up explicitly).
@@ -85,8 +99,16 @@ def cleanup_stale_processing(hours: int, apply_changes: bool) -> dict:
             'message': str,            # human-readable summary
         }
 
-    On invalid input (``hours <= 0``) returns ``{'success': False,
-    'error': '...'}`` and performs no DB work.
+    With ``apply_changes`` the dict instead carries ``requested_ids`` and
+    ``recovered`` / ``deferred`` / ``no_change`` lists; ``count`` is the
+    number recovered. Each id is recovered only if it is a 'processing'
+    row older than ``hours`` and, rechecked under the candidate run lock by
+    ``recover_expired_lease``, still 'processing' with no heartbeat since
+    the stricter of the ``hours`` cutoff and the lease timeout.
+
+    On invalid input (``hours <= 0``, or ``apply_changes`` without valid
+    ``log_ids``) returns ``{'success': False, 'error': '...'}`` and performs
+    no DB work.
     """
     if hours <= 0:
         return {
@@ -95,7 +117,14 @@ def cleanup_stale_processing(hours: int, apply_changes: bool) -> dict:
                 f"hours must be a positive integer (got {hours!r}). Refusing "
                 "to operate on rows from 'the future' or rows newer than 'now'."
             ),
+            'applied': False,
         }
+
+    if apply_changes:
+        ids, error = parse_explicit_log_ids(log_ids)
+        if error:
+            return {'success': False, 'error': error, 'applied': False, 'dry_run': False}
+        return _recover_explicit(hours, ids)
 
     from app import db
     from models import CandidateVettingLog
@@ -137,48 +166,105 @@ def cleanup_stale_processing(hours: int, apply_changes: bool) -> dict:
             'count': 0,
             'rows': [],
             'applied': False,
-            'dry_run': not apply_changes,
-            'message': (
-                f"No rows stuck on 'processing' for more than {hours}h. "
-                "Nothing to clean up."
-            ),
-        }
-
-    if not apply_changes:
-        return {
-            'success': True,
-            'hours': hours,
-            'cutoff_utc': cutoff_iso,
-            'count': count,
-            'rows': rows_payload,
-            'applied': False,
             'dry_run': True,
             'message': (
-                f"Found {count} row(s) stuck on 'processing' for more than "
-                f"{hours}h. Re-run with apply=true to mark them 'failed'."
+                f"Dry run, no changes made: no rows stuck on 'processing' for "
+                f"more than {hours}h."
             ),
         }
 
-    marker = CLEANUP_MARKER_TEMPLATE.format(hours=hours)
-    for row in stale:
-        row.status = 'failed'
-        row.error_message = marker
-
-    db.session.commit()
-
+    db.session.rollback()
     return {
         'success': True,
         'hours': hours,
         'cutoff_utc': cutoff_iso,
         'count': count,
         'rows': rows_payload,
-        'applied': True,
+        'applied': False,
+        'dry_run': True,
+        'message': (
+            f"Dry run, no changes made: found {count} row(s) stuck on "
+            f"'processing' for more than {hours}h. Their workers may still be "
+            "alive; to recover selected rows re-submit with apply=true and "
+            f"their ids (at most {MAX_EXPLICIT_IDS})."
+        ),
+    }
+
+
+def _recover_explicit(hours: int, ids: list) -> dict:
+    from app import db
+    from models import CandidateVettingLog
+    from vetting_audit_service.run_claim import (
+        LEASE_TIMEOUT_MINUTES, CandidateLockUnavailable, recover_expired_lease,
+    )
+
+    now = datetime.utcnow()
+    cutoff = now - timedelta(hours=hours)
+    expired_before = min(cutoff, now - timedelta(minutes=LEASE_TIMEOUT_MINUTES))
+    eligible = {
+        row_id for (row_id,) in db.session.query(CandidateVettingLog.id).filter(
+            CandidateVettingLog.id.in_(ids),
+            CandidateVettingLog.status == 'processing',
+            CandidateVettingLog.analyzed_at.is_(None),
+            CandidateVettingLog.created_at < cutoff,
+        )
+    }
+    db.session.rollback()
+
+    recovered, deferred, no_change = [], [], []
+    for log_id in ids:
+        if log_id not in eligible:
+            no_change.append({'id': log_id, 'reason': (
+                f"not a 'processing' row older than {hours}h")})
+            continue
+        try:
+            outcome = recover_expired_lease(log_id, expired_before)
+        except CandidateLockUnavailable:
+            db.session.rollback()
+            deferred.append({'id': log_id, 'reason': 'candidate run lock unavailable; retry later'})
+            continue
+        except Exception as e:
+            db.session.rollback()
+            logger.exception("Explicit recovery of vetting log %s failed", log_id)
+            deferred.append({'id': log_id, 'reason': f'recovery error ({type(e).__name__}); nothing changed'})
+            continue
+        if outcome is None:
+            no_change.append({'id': log_id, 'reason': (
+                "rechecked under the candidate run lock: no longer 'processing' "
+                "or heartbeat newer than the cutoff")})
+        else:
+            recovered.append(dict(outcome, id=log_id))
+
+    return {
+        'success': True,
+        'hours': hours,
+        'cutoff_utc': cutoff.isoformat(timespec='seconds'),
+        'expired_before_utc': expired_before.isoformat(timespec='seconds'),
+        'requested_ids': ids,
+        'recovered': recovered,
+        'deferred': deferred,
+        'no_change': no_change,
+        'count': len(recovered),
+        'rows': [],
+        'applied': bool(recovered),
         'dry_run': False,
-        'message': f"Marked {count} row(s) as 'failed'. Cleanup complete.",
+        'message': (
+            f"Recovered {len(recovered)}, deferred {len(deferred)}, unchanged "
+            f"{len(no_change)} of {len(ids)} requested row(s). "
+            + (RECOVERY_TRADEOFF if recovered else "No rows were changed.")
+        ),
     }
 
 
 def _run_cli(hours: int, apply_changes: bool) -> int:
+    if apply_changes:
+        logger.error(
+            "--apply is not supported: this CLI is dry-run only. Recover "
+            "explicitly selected rows through the admin route "
+            "POST /api/trigger/cleanup-stale-vetting (apply=true, ids=[...])."
+        )
+        return 2
+
     from app import app
 
     with app.app_context():
@@ -202,15 +288,7 @@ def _run_cli(hours: int, apply_changes: bool) -> int:
             row['age_hours'],
         )
 
-    if result['count'] == 0:
-        logger.info("Nothing to clean up.")
-        return 0
-
-    if not result['applied']:
-        logger.info("Dry-run complete. Re-run with --apply to mark these rows 'failed'.")
-        return 0
-
-    logger.info("Marked %d row(s) as 'failed'. Cleanup complete.", result['count'])
+    logger.info("Dry-run complete; no changes were made.")
     return 0
 
 
@@ -222,11 +300,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         '--hours', type=int, default=24,
-        help='Mark rows older than this many hours as failed (default: 24).',
+        help="List rows stuck on 'processing' longer than this (default: 24).",
     )
     parser.add_argument(
         '--apply', action='store_true',
-        help='Actually apply the changes. Without this flag, runs in dry-run mode.',
+        help='Refused: this CLI never writes; use the admin route with explicit ids.',
     )
     args = parser.parse_args()
     sys.exit(_run_cli(args.hours, args.apply))
