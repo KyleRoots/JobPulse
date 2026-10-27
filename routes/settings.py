@@ -8,7 +8,7 @@ and user management (create/edit users, toggle module subscriptions).
 import json
 from datetime import datetime
 from flask import Blueprint, render_template, redirect, url_for, request, flash, jsonify, current_app, session
-from flask_login import login_required, login_user, current_user
+from flask_login import login_required, login_user, logout_user, current_user
 from routes import register_admin_guard
 from auth_policy import validate_password_strength
 
@@ -480,15 +480,27 @@ def update_user(user_id):
             user.company = company
         user.set_modules(selected_modules)
         
+        revoked_self = False
         if new_password:
             ok, msg = validate_password_strength(new_password)
             if not ok:
+                db.session.rollback()
                 flash(msg, 'error')
                 return redirect(url_for('settings.settings') + '#user-management')
             user.set_password(new_password)
-        
+            user.invalidate_other_sessions()
+            revoked_self = user.id == current_user.id
+
         db.session.commit()
-        
+
+        if revoked_self:
+            session.pop('impersonating_admin_id', None)
+            session.pop('impersonating_admin_username', None)
+            session.pop('impersonating_admin_revision', None)
+            logout_user()
+            flash('Your password was updated. Sign in again.', 'success')
+            return redirect(url_for('auth.login'))
+
         flash(f'User "{user.username}" updated successfully.', 'success')
         return redirect(url_for('settings.settings') + '#user-management')
         
@@ -559,6 +571,7 @@ def impersonate_user(user_id):
 
     session['impersonating_admin_id'] = current_user.id
     session['impersonating_admin_username'] = current_user.username
+    session['impersonating_admin_revision'] = int(current_user.auth_revision or 0)
     login_user(target_user, remember=False)
 
     current_app.logger.info(f"{current_user.effective_role} started viewing as: {target_user.username} (id={target_user.id})")

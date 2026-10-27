@@ -14,7 +14,9 @@ Environment Variables:
     Admin User:
     - ADMIN_USERNAME: Admin user username (default: admin)
     - ADMIN_EMAIL: Admin user email (default: kroots@myticas.com)
-    - ADMIN_PASSWORD: Admin user password (REQUIRED for production)
+    - ADMIN_PASSWORD: Applied only when creating the first admin user.
+      An existing user's password is left unchanged. Still required in
+      production because startup reads this config.
 
     SFTP Configuration (FIRST-RUN BOOTSTRAP ONLY):
     - SFTP_HOSTNAME: SFTP server hostname
@@ -34,6 +36,9 @@ Environment Variables:
     the operator has set credentials via the UI), the seed will NEVER overwrite
     them regardless of env var values. To update credentials after initial
     bootstrap, use the Inbound Config settings page in the admin UI.
+    ADMIN_PASSWORD is applied only when no admin user and no user with the
+    configured username or email exists. Changing the variable later does not
+    replace a saved password. Change that password in Settings or by reset.
 
     System:
     - REPLIT_DEPLOYMENT: Detected automatically (production indicator)
@@ -47,6 +52,7 @@ What Gets Seeded:
     ✅ Environment monitoring (production only)
 
 Preservation guarantees (no deploy can overwrite these):
+    🔒 Existing user rows (password, username, email, company, admin flag)
     🔒 SFTP and Bullhorn credential rows (if they exist in the database)
     🔒 Automation toggles (sftp_enabled, automated_uploads_enabled, etc.)
     🔒 All vetting/screening configuration

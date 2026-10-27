@@ -14,6 +14,9 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
+    # 0 keeps the historical plain user id in session and remember cookies.
+    # Password change and reset increment this so those cookies stop matching.
+    auth_revision = db.Column(db.Integer, nullable=False, default=0, server_default='0')
     is_admin = db.Column(db.Boolean, default=False)
     is_company_admin = db.Column(db.Boolean, default=False)
     role = db.Column(db.String(20), default='user')
@@ -46,6 +49,40 @@ class User(UserMixin, db.Model):
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+    def invalidate_other_sessions(self):
+        """Stop existing session and remember cookies for this user.
+
+        Call this only after a successful password change or reset.
+        Seed and new-user creation must not call it: revision 0 stays
+        compatible with cookies that store the plain user id.
+
+        The increment is one SQL statement. Two overlapping password
+        changes must not both read N and both store N+1, or a session
+        minted after the first commit would survive the second change.
+        The attribute is expired so a later flush of this object cannot
+        write a stale in-memory value back over that statement.
+        """
+        from sqlalchemy import update
+        from sqlalchemy.orm import object_session
+
+        sess = object_session(self)
+        if sess is None:
+            raise RuntimeError('Cannot revoke sessions for a detached user')
+        sess.expire(self, ['auth_revision'])
+        sess.execute(
+            update(User)
+            .where(User.id == self.id)
+            .values(auth_revision=User.auth_revision + 1)
+            .execution_options(synchronize_session=False)
+        )
+        sess.expire(self, ['auth_revision'])
+
+    def get_id(self):
+        revision = int(self.auth_revision or 0)
+        if revision <= 0:
+            return str(self.id)
+        return f'{self.id}:{revision}'
 
     @property
     def is_any_admin(self):
