@@ -17,6 +17,62 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 
+# Marker backfill approved for exactly these job_vetting_requirements rows
+# (id, created_at) in the production Railway service only. Railway injects the
+# identity variables; anywhere else they are absent or differ and nothing runs.
+# Every boot starts this backfill while ingestion can still create new specs,
+# so it must never fall back to the bulk predicate: that would silently mark
+# fresh specs as notified.
+_SPEC_NOTIFY_BACKFILL_TARGET = (
+    ('RAILWAY_PROJECT_ID', '1932fe81-eb34-4c38-b0bf-0a8a64089a5f'),
+    ('RAILWAY_ENVIRONMENT_ID', '8710a448-09b0-4a45-98f4-de75c91b1203'),
+    ('RAILWAY_SERVICE_ID', '26983a3e-5660-444e-86c2-d4d316d19843'),
+)
+_SPEC_NOTIFY_BACKFILL_ROWS = (
+    (54953, '2026-10-26 17:18:15.842860'),
+    (54955, '2026-10-26 23:53:22.343897'),
+    (54956, '2026-10-26 23:54:47.428073'),
+)
+
+
+def backfill_approved_spec_create_notified_at(db):
+    """Stamp spec_create_notified_at on the approved rows only. Idempotent."""
+    from sqlalchemy import text
+
+    if not all(os.environ.get(key) == value for key, value in _SPEC_NOTIFY_BACKFILL_TARGET):
+        logger.info("spec_create_notified_at backfill skipped: not the approved Railway target")
+        return 0
+
+    updated = 0
+    try:
+        for row_id, created_at in _SPEC_NOTIFY_BACKFILL_ROWS:
+            result = db.session.execute(text("""
+                UPDATE job_vetting_requirements
+                SET spec_create_notified_at = COALESCE(
+                    created_at,
+                    last_ai_interpretation,
+                    CURRENT_TIMESTAMP
+                )
+                WHERE id = :row_id
+                  AND created_at = :created_at
+                  AND ai_interpreted_requirements IS NOT NULL
+                  AND spec_create_notified_at IS NULL
+            """), {'row_id': row_id, 'created_at': created_at})
+            if result.rowcount and result.rowcount > 0:
+                updated += result.rowcount
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        logger.warning(f"⚠️ spec_create_notified_at backfill skipped: {str(e)}")
+        return 0
+
+    logger.info(
+        f"spec_create_notified_at backfill: {updated} of "
+        f"{len(_SPEC_NOTIFY_BACKFILL_ROWS)} approved row(s) stamped"
+    )
+    return updated
+
+
 def run_schema_migrations(db):
     """
     Run any necessary schema migrations that db.create_all() won't handle.
@@ -170,29 +226,7 @@ def run_schema_migrations(db):
         db.session.rollback()
         logger.warning(f"⚠️ zip_apply ingest_status index skipped: {str(e)}")
 
-    # Backfill spec_create_notified_at for pre-existing AI requirement specs so
-    # the deferred Scout Screening notify flush does not re-email historical rows
-    # (including ones already emailed under the pre-gate path). Idempotent.
-    try:
-        result = db.session.execute(text("""
-            UPDATE job_vetting_requirements
-            SET spec_create_notified_at = COALESCE(
-                created_at,
-                last_ai_interpretation,
-                CURRENT_TIMESTAMP
-            )
-            WHERE ai_interpreted_requirements IS NOT NULL
-              AND spec_create_notified_at IS NULL
-        """))
-        db.session.commit()
-        updated = result.rowcount if result.rowcount is not None and result.rowcount >= 0 else 0
-        if updated:
-            logger.info(
-                f"✅ Backfilled spec_create_notified_at on {updated} job_vetting_requirements row(s)"
-            )
-    except Exception as e:
-        db.session.rollback()
-        logger.warning(f"⚠️ spec_create_notified_at backfill skipped: {str(e)}")
+    backfill_approved_spec_create_notified_at(db)
 
     # Index the normalized phone column for the fraud identity-reuse lookup
     # (added May 2026). Mirrors the name SQLAlchemy would auto-generate so
