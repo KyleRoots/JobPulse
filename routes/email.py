@@ -56,6 +56,21 @@ def scout_vetting_dashboard():
                            active_page='vetting')
 
 
+def _drop_private_scout_fields(payload):
+    """Ignore posted fields reserved for the Zip ingest path.
+
+    ``_scout_bullhorn_job_id`` is set in memory by Qualified Zip ingest.
+    A form field with that name on this public endpoint must not choose
+    the job. Real email fields are left as posted.
+    """
+    if not isinstance(payload, dict):
+        return payload
+    for key in list(payload):
+        if str(key).startswith("_scout_"):
+            payload.pop(key, None)
+    return payload
+
+
 def _process_email_in_background(app_ref, payload, is_scout_vetting=False):
     """Process an inbound email in a background thread to keep workers free."""
     with app_ref.app_context():
@@ -654,7 +669,8 @@ def email_inbound_webhook():
         
         subject = payload.get('subject', 'unknown')
         logger.info(f"📧 Queuing email for background processing: {subject[:80]}")
-        
+
+        _drop_private_scout_fields(payload)
         app_ref = current_app._get_current_object()
 
         if is_scout_support:

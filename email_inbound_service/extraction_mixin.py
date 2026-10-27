@@ -14,6 +14,32 @@ _PAREN_JOB_ID = re.compile(r'\((\d{4,6})\)')
 _CANDIDATE_SEPARATOR = re.compile(r'\s+[-–—]\s+')
 
 
+def webhook_bullhorn_job_id(payload) -> Optional[int]:
+    """Job id the Zip webhook already resolved. Absent on a real email.
+
+    Email subjects still go through ``parenthetical_job_id``, which only
+    accepts 4 to 6 digits. This key is set by Qualified Zip ingest and is
+    not read from inbound mail headers.
+    """
+    if not isinstance(payload, dict):
+        return None
+    text = str(payload.get("_scout_bullhorn_job_id") or "").strip()
+    if not text.isdigit():
+        return None
+    job_id = int(text)
+    if job_id <= 0 or job_id > 999999:
+        return None
+    return job_id
+
+
+def resolved_inbound_job_id(payload, subject: str, body: str, extractor) -> Optional[int]:
+    """Prefer the webhook's resolved id. Otherwise parse the subject."""
+    direct = webhook_bullhorn_job_id(payload)
+    if direct is not None:
+        return direct
+    return extractor(subject, body)
+
+
 def parenthetical_job_id(subject: str) -> Optional[int]:
     """Job id written as (1234) to (123456) in the job title, not the name.
 

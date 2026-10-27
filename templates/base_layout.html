@@ -1505,7 +1505,7 @@
 
         <div class="sidebar-header">
             <a href="{{ url_for('dashboard.dashboard_redirect') }}" class="sidebar-logo">
-                {% if active_page in ['ats', 'scheduler', 'email_parsing', 'ats_monitoring', 'scout_inbound', 'inbound_config'] %}
+                {% if active_page in ['ats', 'scheduler', 'email_parsing', 'ats_monitoring', 'scout_inbound', 'inbound_config', 'zip_unmatched'] %}
                 <img src="{{ url_for('static', filename='images/scout-inbound-logo.png') }}" alt="Scout Inbound"
                     class="sidebar-logo-full">
                 {% elif active_page in ['screening', 'screening_config'] %}
@@ -1524,7 +1524,7 @@
                 <img src="{{ url_for('static', filename='images/scout-genius-logo.png') }}" alt="Scout Genius"
                     class="sidebar-logo-full">
                 {% endif %}
-                {% if active_page in ['ats', 'scheduler', 'email_parsing', 'ats_monitoring', 'scout_inbound', 'inbound_config'] %}
+                {% if active_page in ['ats', 'scheduler', 'email_parsing', 'ats_monitoring', 'scout_inbound', 'inbound_config', 'zip_unmatched'] %}
                 <img src="{{ url_for('static', filename='images/scout-inbound-icon.png') }}" alt="Scout Inbound"
                     class="sidebar-logo-compact">
                 {% elif active_page in ['screening', 'screening_config'] %}
@@ -1576,6 +1576,11 @@
                     class="nav-item {% if active_page == 'inbound_config' %}active{% endif %}">
                     <i class="fas fa-cog"></i>
                     <span>Inbound Config</span>
+                </a>
+                <a href="{{ url_for('scout_inbound.zip_unmatched_review') }}"
+                    class="nav-item {% if active_page == 'zip_unmatched' %}active{% endif %}">
+                    <i class="fas fa-user-clock"></i>
+                    <span>Unmatched Zip applicants</span>
                 </a>
                 {% endif %}
             </div>
@@ -1750,7 +1755,7 @@
                     Welcome back to Scout Support
                     {% elif active_page in ['screening', 'screening_config'] %}
                     Welcome back to Scout Screening
-                    {% elif active_page in ['ats', 'scheduler', 'email_parsing', 'ats_monitoring', 'scout_inbound', 'inbound_config'] %}
+                    {% elif active_page in ['ats', 'scheduler', 'email_parsing', 'ats_monitoring', 'scout_inbound', 'inbound_config', 'zip_unmatched'] %}
                     Welcome back to Scout Inbound
                     {% elif active_page in ['vetting'] %}
                     Welcome back to Scout Vetting

@@ -267,6 +267,10 @@ def ingest_zip_apply(payload: Dict[str, Any]) -> Dict[str, Any]:
     summary = summarize_payload(payload)
     bullhorn_job_id = resolve_bullhorn_job_id(summary.get("job_id"))
     mailbox = build_mailbox_payload(payload, bullhorn_job_id)
+    # The subject only carries 4–6 digit ids. Hand the resolved id to the
+    # mailbox path directly so jobs 42, 47, and 54 still get a submission.
+    if bullhorn_job_id and str(bullhorn_job_id).isdigit():
+        mailbox["_scout_bullhorn_job_id"] = str(bullhorn_job_id)
     message_id = message_id_for(payload)
     result = EmailInboundService().process_email(mailbox)
     if result.get("duplicate") and not result.get("candidate_id"):
