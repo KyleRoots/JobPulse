@@ -255,7 +255,10 @@ class ProcessingMixin:
                 result["ignored"] = True
                 return result
 
-            job_id = self.extract_bullhorn_job_id(subject, body)
+            from email_inbound_service.extraction_mixin import resolved_inbound_job_id
+            job_id = resolved_inbound_job_id(
+                sendgrid_payload, subject, body, self.extract_bullhorn_job_id
+            )
             parsed_email.bullhorn_job_id = job_id
 
             email_candidate = self.extract_candidate_from_email(subject, body, source)

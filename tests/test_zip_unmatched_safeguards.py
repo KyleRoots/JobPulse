@@ -2,85 +2,85 @@
 import json
 from datetime import datetime, timedelta
 
+from email_inbound_service.extraction_mixin import (
+    parenthetical_job_id,
+    resolved_inbound_job_id,
+    webhook_bullhorn_job_id,
+)
 from models.ats import ParsedEmail
-from models.scheduling import JobReferenceNumber
 from models.user import User
 from models.zip_apply_webhook import ZipApplyDelivery
-from zip_apply.ingest import ingest_zip_apply, resolve_bullhorn_job_id
-from zip_apply.title_match import match_open_job_by_title, normalize_job_title
+from zip_apply.ingest import ingest_zip_apply
 from zip_apply.volume_alert import maybe_alert_zip_volume
-
-
-OPEN_JOBS = [
-    {"id": 35135, "title": "Picker", "isOpen": True},
-    {"id": 35136, "title": "Welder", "isOpen": False},
-    {"id": 36001, "title": "Packer", "isOpen": True},
-    {"id": 36002, "title": "Packer", "isOpen": True},
-]
 
 
 def _payload(**extra):
     body = {
-        "job_id": "UNKNOWNREF1",
-        "response_id": "resp-title",
+        "job_id": "HYQC33CAXL",
+        "response_id": "resp-short",
         "name": "Jamie Applicant",
         "email": "jamie@example.com",
-        "job_title": "Picker",
     }
     body.update(extra)
     return body
 
 
-def test_unique_open_title_maps_and_duplicates_stay_unmatched():
-    assert match_open_job_by_title("Picker", OPEN_JOBS) == "35135"
-    assert match_open_job_by_title("  picker (35135) ", OPEN_JOBS) == "35135"
-    assert match_open_job_by_title("Welder", OPEN_JOBS) is None
-    assert match_open_job_by_title("Packer", OPEN_JOBS) is None
-    assert match_open_job_by_title("", OPEN_JOBS) is None
-    assert normalize_job_title("Service Administrator (47)") == "service administrator"
+def test_email_subject_still_ignores_two_and_three_digit_ids():
+    assert parenthetical_job_id("ZipRecruiter Apply (42) - Pat Example") is None
+    assert parenthetical_job_id("ZipRecruiter Apply (547) - Pat Example") is None
+    assert parenthetical_job_id("ZipRecruiter Apply (35135) - Pat Example") == 35135
+    assert webhook_bullhorn_job_id({}) is None
+    assert webhook_bullhorn_job_id({"subject": "ZipRecruiter Apply (42) - Pat"}) is None
 
 
-def test_known_reference_wins_over_a_different_title(app, monkeypatch):
-    monkeypatch.setattr(
-        "zip_apply.title_match.load_open_qualified_jobs",
-        lambda: OPEN_JOBS,
-    )
-    with app.app_context():
-        from extensions import db
+def test_webhook_hands_two_and_three_digit_ids_straight_through():
+    def _extractor(subject, body):
+        return parenthetical_job_id(subject)
 
-        db.session.add(JobReferenceNumber(
-            bullhorn_job_id="79472",
-            reference_number="KNOWNREF01",
-            job_title="Recruiter",
-        ))
-        db.session.commit()
-        assert resolve_bullhorn_job_id("KNOWNREF01", _payload(job_title="Picker")) == "79472"
-        assert resolve_bullhorn_job_id("MISSINGREF", _payload(job_title="Picker")) == "35135"
-        assert resolve_bullhorn_job_id("MISSINGREF", _payload(job_title="Packer")) is None
-        assert resolve_bullhorn_job_id("MISSINGREF", _payload(job_title="")) is None
+    assert resolved_inbound_job_id(
+        {"_scout_bullhorn_job_id": "42"},
+        "ZipRecruiter Apply (42) - Pat Example",
+        "",
+        _extractor,
+    ) == 42
+    assert resolved_inbound_job_id(
+        {"_scout_bullhorn_job_id": "547"},
+        "ZipRecruiter Apply (547) - Pat Example",
+        "",
+        _extractor,
+    ) == 547
+    assert resolved_inbound_job_id(
+        {},
+        "ZipRecruiter Apply (42) - Pat Example",
+        "",
+        _extractor,
+    ) is None
+    assert resolved_inbound_job_id(
+        {},
+        "Role (35135) - Pat Example",
+        "",
+        _extractor,
+    ) == 35135
 
 
-def test_ingest_uses_the_unique_title_match(monkeypatch):
+def test_ingest_puts_the_resolved_id_on_the_mailbox(monkeypatch):
     seen = {}
-
-    def _resolve(reference, payload=None):
-        seen["reference"] = reference
-        seen["title"] = (payload or {}).get("job_title")
-        return "35135"
 
     class _Service:
         def process_email(self, mailbox):
-            seen["subject"] = mailbox["subject"]
+            seen["mailbox"] = mailbox
             return {"success": True, "candidate_id": 9, "submission_id": 8}
 
-    monkeypatch.setattr("zip_apply.ingest.resolve_bullhorn_job_id", _resolve)
+    monkeypatch.setattr(
+        "zip_apply.ingest.resolve_bullhorn_job_id",
+        lambda reference: "42",
+    )
     monkeypatch.setattr("email_inbound_service.EmailInboundService", _Service)
     result = ingest_zip_apply(_payload())
-    assert seen["reference"] == "UNKNOWNREF1"
-    assert seen["title"] == "Picker"
-    assert "(35135)" in seen["subject"]
+    assert seen["mailbox"]["_scout_bullhorn_job_id"] == "42"
+    assert "(42)" in seen["mailbox"]["subject"]
     assert result["unmatched_job"] is False
-    assert result["bullhorn_job_id"] == "35135"
+    assert result["bullhorn_job_id"] == "42"
 
 
 def _delivery(job_id, response_id, status, candidate_id, when):
