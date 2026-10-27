@@ -954,6 +954,77 @@ class TestJobPublishClient:
         for call in session.post.call_args_list + session.get.call_args_list:
             assert 'cls45' not in str(call)
 
+    def test_login_follows_check_for_redirect_host(self):
+        default_login = 'https://universal-east.bullhornstaffing.com/universal-login'
+        redirect_host = 'https://universal.bullhornstaffing.com/universal-login'
+        session = MagicMock()
+        session.post.side_effect = [
+            _fake_resp(200, {'redirect': redirect_host + '/'}),
+            _fake_resp(200, _LOGIN_OK),
+        ]
+        from indeed_publish.ui_client import BullhornUIClient
+
+        client = BullhornUIClient(
+            username='fake-user',
+            password='fake-password',
+            universal_login_url=default_login,
+            session=session,
+        )
+        client.login()
+        assert session.post.call_args_list[0].args[0] == (
+            f'{default_login}/session/checkForRedirect'
+        )
+        login_url = session.post.call_args_list[1].args[0]
+        assert login_url.startswith(f'{redirect_host}/session/login')
+        assert not login_url.startswith(default_login)
+        assert client.rest_url == 'https://rest45.bullhornstaffing.com/rest-services/clp2rd/'
+        assert client.rest_token == 'tok-1'
+        assert client.current_user_id == '2204241'
+
+    def test_login_stays_on_client_url_when_check_for_redirect_is_empty(self):
+        client_login = 'https://client.example.test/universal-login'
+        session = MagicMock()
+        session.post.side_effect = [
+            _fake_resp(200, {}),
+            _fake_resp(200, _LOGIN_OK),
+        ]
+        from indeed_publish.ui_client import BullhornUIClient
+
+        client = BullhornUIClient(
+            username='fake-user',
+            password='fake-password',
+            universal_login_url=client_login,
+            session=session,
+        )
+        client.login()
+        assert session.post.call_args_list[0].args[0] == (
+            f'{client_login}/session/checkForRedirect'
+        )
+        login_url = session.post.call_args_list[1].args[0]
+        assert login_url.startswith(f'{client_login}/session/login')
+
+    def test_login_stays_on_client_url_when_check_for_redirect_is_not_json(self):
+        client_login = 'https://client.example.test/universal-login'
+        session = MagicMock()
+        session.post.side_effect = [
+            _fake_resp(200, text='not-json'),
+            _fake_resp(200, _LOGIN_OK),
+        ]
+        from indeed_publish.ui_client import BullhornUIClient
+
+        client = BullhornUIClient(
+            username='fake-user',
+            password='fake-password',
+            universal_login_url=client_login,
+            session=session,
+        )
+        client.login()
+        assert session.post.call_args_list[0].args[0] == (
+            f'{client_login}/session/checkForRedirect'
+        )
+        login_url = session.post.call_args_list[1].args[0]
+        assert login_url.startswith(f'{client_login}/session/login')
+
     def test_login_without_rest_session_fails(self):
         from indeed_publish.ui_client import BullhornUIClientError
 
