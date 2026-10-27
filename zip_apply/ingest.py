@@ -34,15 +34,30 @@ def message_id_for(payload: Dict[str, Any]) -> str:
     return f"<zip-apply-{token}@ziprecruiter.com>"
 
 
-def resolve_bullhorn_job_id(reference: Optional[str]) -> Optional[str]:
+def resolve_bullhorn_job_id(
+    reference: Optional[str],
+    payload: Optional[Dict[str, Any]] = None,
+) -> Optional[str]:
     """Map Zip's job id to the numeric Bullhorn job id.
 
     Matches the current feed number, then a retired number kept after a
-    reference refresh or after the job left the feed.
+    reference refresh or after the job left the feed. When both miss, the
+    Zip job title is used only if exactly one open job has that title.
     """
     from reference_history import bullhorn_job_id_for_reference
+    from zip_apply.title_match import (
+        load_open_qualified_jobs,
+        match_open_job_by_title,
+        zip_job_title,
+    )
 
-    return bullhorn_job_id_for_reference(reference)
+    mapped = bullhorn_job_id_for_reference(reference)
+    if mapped:
+        return mapped
+    title = zip_job_title(payload)
+    if not title:
+        return None
+    return match_open_job_by_title(title, load_open_qualified_jobs())
 
 
 def _text(value: Any) -> str:
@@ -265,7 +280,7 @@ def ingest_zip_apply(payload: Dict[str, Any]) -> Dict[str, Any]:
     from email_inbound_service import EmailInboundService
 
     summary = summarize_payload(payload)
-    bullhorn_job_id = resolve_bullhorn_job_id(summary.get("job_id"))
+    bullhorn_job_id = resolve_bullhorn_job_id(summary.get("job_id"), payload)
     mailbox = build_mailbox_payload(payload, bullhorn_job_id)
     message_id = message_id_for(payload)
     result = EmailInboundService().process_email(mailbox)

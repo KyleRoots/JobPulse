@@ -10,7 +10,7 @@ import json
 import logging
 from datetime import datetime
 
-from flask import Blueprint, render_template, jsonify, request
+from flask import Blueprint, abort, render_template, jsonify, request
 from flask_login import login_required, current_user
 from routes import register_module_guard
 
@@ -181,3 +181,45 @@ def scout_inbound_candidates_api():
 @login_required
 def guide():
     return render_template('scout_inbound_guide.html', active_page='scout_inbound')
+
+
+@scout_inbound_bp.route('/scout-inbound/zip-unmatched')
+@login_required
+def zip_unmatched_review():
+    """Admin list of Zip applies whose reference did not map to a job."""
+    if not current_user.is_admin:
+        abort(403)
+    from models.ats import ParsedEmail
+    from models.zip_apply_webhook import ZipApplyDelivery
+    from utils.bullhorn_helpers import bullhorn_record_url
+
+    total = ZipApplyDelivery.query.filter_by(ingest_status='unmatched_job').count()
+    rows = (
+        ZipApplyDelivery.query.filter_by(ingest_status='unmatched_job')
+        .order_by(ZipApplyDelivery.created_at.desc(), ZipApplyDelivery.id.desc())
+        .limit(300)
+        .all()
+    )
+    candidate_ids = [row.bullhorn_candidate_id for row in rows if row.bullhorn_candidate_id]
+    names = {}
+    if candidate_ids:
+        people = (
+            ParsedEmail.query.filter(ParsedEmail.bullhorn_candidate_id.in_(candidate_ids))
+            .order_by(ParsedEmail.id.desc())
+            .all()
+        )
+        for person in people:
+            if person.candidate_name and person.bullhorn_candidate_id not in names:
+                names[person.bullhorn_candidate_id] = person.candidate_name
+    links = {
+        candidate_id: bullhorn_record_url('Candidate', candidate_id)
+        for candidate_id in candidate_ids
+    }
+    return render_template(
+        'zip_unmatched_review.html',
+        rows=rows,
+        names=names,
+        links=links,
+        total=total,
+        active_page='zip_unmatched',
+    )

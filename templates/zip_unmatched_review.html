@@ -1,0 +1,47 @@
+{% extends "base_layout.html" %}
+{% block body_attrs %}data-module="inbound"{% endblock %}
+{% block title %}Unmatched Zip applicants{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <h1 class="h3 mb-2">Unmatched Zip applicants</h1>
+    <p class="text-muted mb-4">
+        These Qualified ZipRecruiter applies were saved as people, and the Zip job
+        reference did not map to a Bullhorn job. Nothing on this page submits them.
+        {{ total }} unmatched
+        {% if total > rows|length %}(showing the latest {{ rows|length }}){% endif %}.
+    </p>
+    {% if not rows %}
+    <p>No unmatched Zip applicants are waiting.</p>
+    {% else %}
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr>
+                    <th>Received (UTC)</th>
+                    <th>Applicant</th>
+                    <th>Zip job id</th>
+                    <th>Bullhorn candidate</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr>
+                    <td>{{ row.created_at.strftime('%Y-%m-%d %H:%M') if row.created_at else '' }}</td>
+                    <td>{{ names.get(row.bullhorn_candidate_id) or '—' }}</td>
+                    <td><code>{{ row.job_id or '—' }}</code></td>
+                    <td>
+                        {% if links.get(row.bullhorn_candidate_id) %}
+                        <a href="{{ links.get(row.bullhorn_candidate_id) }}" target="_blank" rel="noopener">{{ row.bullhorn_candidate_id }}</a>
+                        {% else %}
+                        —
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

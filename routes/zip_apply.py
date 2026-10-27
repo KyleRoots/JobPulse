@@ -101,6 +101,13 @@ def zip_apply_webhook():
     db.session.add(row)
     db.session.commit()
 
+    if creates:
+        try:
+            from zip_apply.volume_alert import maybe_alert_zip_volume
+            maybe_alert_zip_volume()
+        except Exception:
+            logger.exception("zip_apply volume alert failed")
+
     logger.info(
         "zip_apply id=%s job_id=%s bytes=%s duplicate=%s ingest=%s candidate=%s",
         row.id,
