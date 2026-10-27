@@ -1446,6 +1446,142 @@ class TestHeartbeat:
         assert lease.refused_calls == 1
 
 
+class TestLeaseLifecycle:
+    """v4: an unknown renewal keeps the lease live while in-flight work
+    drains, sticky loss blocks every final write, and heartbeat shutdown is
+    bounded."""
+
+    def test_unknown_then_db_recovers_keeps_blocked_call_from_recovery(self, app, harness):
+        from sqlalchemy.exc import OperationalError
+        from app import db
+        from models import CandidateVettingLog
+        import vetting_audit_service.run_claim as run_claim
+        lease_clock = _TickLease()
+        failing = threading.Event()
+        real_timeout = run_claim._set_lock_timeout
+
+        def lock_timeout(timeout_ms):
+            if failing.is_set():
+                raise OperationalError('SET LOCAL lock_timeout', {}, Exception('server closed the connection'))
+            real_timeout(timeout_ms)
+
+        with app.app_context():
+            email = _seed_email(received_at=_now(), vetted=False)
+            audit_id = _seed_audit(age_hours=1.0)
+            during = {}
+
+            def call_blocks_past_expiry_across_db_outage():
+                lease_id = next(iter(_logs()))
+                # Last confirmed renewal is already past the lease window.
+                CandidateVettingLog.query.filter_by(id=lease_id).update(
+                    {'updated_at': _now() - timedelta(minutes=20)}, synchronize_session=False,
+                )
+                db.session.commit()
+                failing.set()
+                lease_clock.tick()
+                during['state_after_outage'] = lease_clock.instances[0].state
+                failing.clear()
+                lease_clock.tick()
+                harness.svc._reset_stuck_processing()
+                during['logs'] = _logs()
+                during['lease'] = lease_id
+
+            harness.hook = call_blocks_past_expiry_across_db_outage
+            with lease_clock.patch(), patch.object(run_claim, '_set_lock_timeout', lock_timeout):
+                harness.run_cycle()
+
+            [lease] = lease_clock.instances
+            assert during['state_after_outage'] == 'unknown'
+            assert during['logs'] == {during['lease']: 'processing'}
+            assert lease.state == 'unknown'
+            assert harness.model_calls == [AUDITED_JOB]
+            assert lease.refused_calls >= 1
+            assert harness.attempts == [(f'email:{email}', 'lease_unknown')]
+            assert _logs() == {}
+            assert _unvetted_ids() == [email]
+            assert harness.notes == []
+            row = _audit(audit_id)
+            assert row.revet_new_score is None and row.revet_vetting_log_id is None
+            assert not lease._thread.is_alive()
+
+    @pytest.mark.parametrize('status', ['unknown', 'lost'])
+    def test_sticky_state_before_final_write_blocks_commit(self, app, harness, status):
+        with app.app_context():
+            email = _seed_email(received_at=_now(), vetted=False)
+            audit_id = _seed_audit(age_hours=1.0)
+            leases = []
+            real_cls = __import__('vetting_audit_service.run_claim', fromlist=['RunLease']).RunLease
+
+            class Recording(real_cls):
+                def __init__(self, *a, **k):
+                    super().__init__(*a, **k)
+                    leases.append(self)
+
+            harness.final_hook = lambda _log_id: leases[0].record(status)
+            with patch('vetting_audit_service.run_claim.RunLease', Recording):
+                harness.run_cycle()
+
+            assert len(harness.model_calls) == len(TEARSHEET_JOB_IDS)
+            assert harness.attempts == [(f'email:{email}', f'lease_{status}')]
+            assert harness.notes == []
+            row = _audit(audit_id)
+            assert row.revet_new_score is None
+            if status == 'unknown':
+                assert _logs() == {}
+                assert _unvetted_ids() == [email]
+                assert row.revet_vetting_log_id is None
+            else:
+                assert list(_logs().values()) == ['processing']
+
+    def test_commit_checks_local_state_under_the_lock(self, app):
+        import vetting_audit_service.run_claim as run_claim
+        with app.app_context():
+            lease_id = _seed_vlog(created_at=_now(), status='processing')
+            assert run_claim.commit_if_lease_held(CANDIDATE, lease_id, still_owned=lambda: False) is False
+            assert run_claim.commit_if_lease_held(CANDIDATE, lease_id, still_owned=lambda: True) is True
+
+    def test_stalled_heartbeat_turns_unknown_without_wall_clock_wait(self, app):
+        import vetting_audit_service.run_claim as run_claim
+        now = [1000.0]
+        with patch.object(run_claim.RunLease, 'clock', staticmethod(lambda: now[0])):
+            lease = run_claim.RunLease(app, CANDIDATE, 1)
+            now[0] += run_claim.STALE_HELD_SECONDS - 1
+            assert lease.allow_paid_call()
+            lease.record('held')
+            now[0] += run_claim.STALE_HELD_SECONDS + 1
+            assert not lease.held
+            assert lease.state == 'unknown'
+            assert not lease.allow_paid_call()
+            lease.record('held')
+            assert lease.state == 'unknown'
+
+    def test_stop_is_bounded_while_a_renewal_hangs(self, app):
+        import time as _time
+        import vetting_audit_service.run_claim as run_claim
+        entered, release = threading.Event(), threading.Event()
+
+        class Hanging(run_claim.RunLease):
+            def _wait(self):
+                return self._stop.is_set()
+
+            def beat(self):
+                entered.set()
+                release.wait(10)
+                return self.record('held')
+
+        lease = Hanging(app, CANDIDATE, 1).start()
+        try:
+            assert entered.wait(5)
+            started = _time.monotonic()
+            assert lease.stop(timeout=0.05) is False
+            assert _time.monotonic() - started < 2
+        finally:
+            release.set()
+        lease._thread.join(5)
+        assert not lease._thread.is_alive()
+        assert lease.stop(timeout=0.05) is True
+
+
 class TestLegacyUniqueConflict:
     """v3 finding 4: a surviving legacy unique constraint defers the item;
     the old row is never re-opened as a lease."""

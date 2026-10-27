@@ -152,20 +152,29 @@ class CandidateProcessingMixin:
                 exc_info=True,
             )
 
-    @staticmethod
-    def _commit_run_result(candidate: Dict, vetting_log) -> bool:
-        """Commit this run's results only while it still holds its lease.
+    @classmethod
+    def _commit_run_result(cls, candidate: Dict, vetting_log, lease) -> bool:
+        """Commit this run's results only while it still holds its lease and
+        no renewal came back lost or unknown.
 
         On False the session is rolled back and the caller must return None:
-        the lease was recovered or failed, so another run owns the candidate.
+        the lease was recovered or failed, so another run owns the candidate,
+        or its state is unknown and the run was stopped (``_stop_run``).
         """
         from vetting_audit_service.run_claim import CLAIM_OUTCOME_KEY, commit_if_lease_held
 
+        if not lease.held:
+            cls._stop_run(candidate, lease)
+            return False
         # Read before the check: a lost lease rolls back, expiring vetting_log
         # whose row may be gone.
         candidate_id, vetting_log_id = vetting_log.bullhorn_candidate_id, vetting_log.id
-        if commit_if_lease_held(candidate_id, vetting_log_id):
+        if commit_if_lease_held(candidate_id, vetting_log_id,
+                                still_owned=lambda: lease.held):
             return True
+        if not lease.held:
+            cls._stop_run(candidate, lease)
+            return False
         candidate[CLAIM_OUTCOME_KEY] = 'lease_lost'
         return False
 
@@ -442,7 +451,7 @@ class CandidateProcessingMixin:
                                         f"closed/ineligible and previously screened "
                                         f"(log {prior_same_job.id})"
                                     )[:500]
-                                    if not self._commit_run_result(candidate, vetting_log):
+                                    if not self._commit_run_result(candidate, vetting_log, lease):
                                         return None
                                     return vetting_log
 
@@ -466,14 +475,14 @@ class CandidateProcessingMixin:
             if not jobs:
                 vetting_log.status = 'completed'
                 vetting_log.error_message = 'No active jobs found in tearsheets'
-                if not self._commit_run_result(candidate, vetting_log):
+                if not self._commit_run_result(candidate, vetting_log, lease):
                     return None
                 return vetting_log
 
             if not vetting_log.resume_text:
                 vetting_log.status = 'completed'
                 vetting_log.error_message = 'No resume text available for analysis'
-                if not self._commit_run_result(candidate, vetting_log):
+                if not self._commit_run_result(candidate, vetting_log, lease):
                     return None
                 return vetting_log
 
@@ -501,7 +510,7 @@ class CandidateProcessingMixin:
                 logger.error(f"   Resume text length: {len(cached_resume_text) if cached_resume_text else 0}")
                 vetting_log.status = 'completed'
                 vetting_log.error_message = 'Resume text too short for analysis'
-                if not self._commit_run_result(candidate, vetting_log):
+                if not self._commit_run_result(candidate, vetting_log, lease):
                     return None
                 return vetting_log
 
@@ -516,7 +525,7 @@ class CandidateProcessingMixin:
                 logger.info(f"All {len(jobs)} jobs already analyzed for this candidate")
                 vetting_log.status = 'completed'
                 vetting_log.analyzed_at = datetime.utcnow()
-                if not self._commit_run_result(candidate, vetting_log):
+                if not self._commit_run_result(candidate, vetting_log, lease):
                     return None
                 return vetting_log
 
@@ -597,7 +606,7 @@ class CandidateProcessingMixin:
                     logger.info(f"All jobs filtered by embedding pre-filter for candidate {candidate_id} — no GPT calls needed")
                     vetting_log.status = 'completed'
                     vetting_log.analyzed_at = datetime.utcnow()
-                    if not self._commit_run_result(candidate, vetting_log):
+                    if not self._commit_run_result(candidate, vetting_log, lease):
                         return None
                     return vetting_log
 
@@ -857,8 +866,9 @@ class CandidateProcessingMixin:
                         for pending in futures:
                             pending.cancel()
                         break
-            # Leaving the pool waits for calls already in flight; a run that
-            # lost its lease, or refused or cancelled any call, never commits.
+            # Leaving the pool waits for calls already in flight while the
+            # heartbeat keeps the lease live; a run that lost its lease, or
+            # refused or cancelled any call, never commits.
             if not lease.held or len(analysis_results) != len(futures):
                 return self._stop_run(candidate, lease)
 
@@ -880,7 +890,7 @@ class CandidateProcessingMixin:
                 vetting_log.error_message = sanitize_text(
                     f"OpenAI infra failure (auth/permissions) — will retry. {sample}"
                 )[:500]
-                if not self._commit_run_result(candidate, vetting_log):
+                if not self._commit_run_result(candidate, vetting_log, lease):
                     return None
                 return vetting_log
 
@@ -1141,7 +1151,7 @@ class CandidateProcessingMixin:
             if all_match_results:
                 vetting_log.highest_match_score = max(m.match_score for m in all_match_results)
 
-            if not self._commit_run_result(candidate, vetting_log):
+            if not self._commit_run_result(candidate, vetting_log, lease):
                 return None
 
             # Paid contact checks only after we know the candidate qualified —
@@ -1164,7 +1174,7 @@ class CandidateProcessingMixin:
                 vetting_log.status = 'failed'
                 vetting_log.error_message = sanitize_text(str(e)[:500])
                 vetting_log.retry_count += 1
-                if not self._commit_run_result(candidate, vetting_log):
+                if not self._commit_run_result(candidate, vetting_log, lease):
                     return None
             except Exception as merge_err:
                 db.session.rollback()
