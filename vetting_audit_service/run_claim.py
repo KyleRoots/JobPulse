@@ -25,7 +25,12 @@ Protocol, per Bullhorn candidate ``c``:
 * Renewal result is ``held``, ``lost`` or ``unknown``. Lost or unknown stops
   the run: no new paid call starts, calls already in flight finish but their
   results are discarded, nothing is committed, and an ``unknown`` worker
-  releases its lease (or leaves it to expire when even that fails).
+  releases its lease (or leaves it to expire when even that fails). After an
+  unknown renewal the heartbeat keeps renewing until the run stops or the
+  lease is lost, so a transient database failure does not let recovery take
+  the candidate while in-flight calls drain. A heartbeat that has not
+  confirmed the lease for ``STALE_HELD_SECONDS`` (a stalled connection) is
+  treated as unknown.
 * Audit binding: ``VettingAuditLog.revet_vetting_log_id``. ``claim_run`` binds
   every audit row still waiting on a score to the run it creates, inside the
   same transaction. A run therefore covers only audit requests that were
@@ -58,6 +63,7 @@ one writer at a time, and nothing here claims concurrency safety from it.
 
 import logging
 import threading
+import time
 from datetime import datetime
 from typing import Dict, Iterable, Optional
 
@@ -74,6 +80,12 @@ LOCK_TIMEOUT_MS = 5000
 # worker that holds its own lease row and is waiting for L(c).
 RECOVERY_LOCK_TIMEOUT_MS = 500
 RENEW_LOCK_TIMEOUT_MS = 5000
+# Server-side bound on a renewal that is not waiting on a lock.
+RENEW_STATEMENT_TIMEOUT_MS = 10000
+# Neither timeout bounds a stalled network: a run whose last confirmed
+# renewal is older than this refuses new paid calls, well inside the lease.
+STALE_HELD_SECONDS = LEASE_TIMEOUT_MINUTES * 60 // 2
+HEARTBEAT_STOP_TIMEOUT_SECONDS = 15.0
 
 OPEN_AUDIT_ACTIONS = ('revet_triggered', 'revet_skipped_stable')
 LIVE_RUN_STATUSES = ('processing', 'completed')
@@ -301,11 +313,14 @@ def _lease_held(vetting_log_id: int) -> bool:
     return status == 'processing'
 
 
-def commit_if_lease_held(candidate_id: int, vetting_log_id: int) -> bool:
+def commit_if_lease_held(candidate_id: int, vetting_log_id: int,
+                         still_owned=None) -> bool:
     """Commit the session's pending run results only while the lease holds.
 
     Rolls back and returns False when the lease was recovered, failed or
-    deleted, or when the lock or the lease read is unavailable.
+    deleted, when the lock or the lease read is unavailable, or when
+    ``still_owned`` (the worker's sticky local lease state) returns False
+    under the lock.
     """
     from app import db
 
@@ -319,6 +334,13 @@ def commit_if_lease_held(candidate_id: int, vetting_log_id: int) -> bool:
         except Exception:
             pass
         logger.warning(f"⚠️ Result commit for vetting log {vetting_log_id} withheld: {e}")
+        return False
+    if held and still_owned is not None and not still_owned():
+        db.session.rollback()
+        logger.warning(
+            f"🛑 Vetting log {vetting_log_id} (candidate {candidate_id}) lease "
+            f"renewal was lost or unknown during the run; discarding results"
+        )
         return False
     if not held:
         db.session.rollback()
@@ -345,6 +367,10 @@ def renew_lease(candidate_id: int, vetting_log_id: int) -> str:
     try:
         with db.session.no_autoflush:
             _set_lock_timeout(RENEW_LOCK_TIMEOUT_MS)
+            if _is_postgres():
+                from sqlalchemy import text
+                db.session.execute(text(
+                    f"SET LOCAL statement_timeout = '{int(RENEW_STATEMENT_TIMEOUT_MS)}ms'"))
             renewed = CandidateVettingLog.query.filter(
                 CandidateVettingLog.id == vetting_log_id,
                 CandidateVettingLog.status == 'processing',
@@ -372,8 +398,12 @@ class RunLease:
     ``beat`` renews from a fresh app context (its own session and connection),
     so it never touches the worker's transaction. The state only moves away
     from ``held``: once lost or unknown, ``allow_paid_call`` refuses for the
-    rest of the run.
+    rest of the run. Only ``lost`` ends the heartbeat early: after
+    ``unknown`` it keeps renewing so the lease stays live while calls already
+    in flight drain.
     """
+
+    clock = staticmethod(time.monotonic)
 
     def __init__(self, app, candidate_id: int, vetting_log_id: int,
                  interval_seconds: float = HEARTBEAT_INTERVAL_SECONDS):
@@ -386,19 +416,34 @@ class RunLease:
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._thread = None
+        self._confirmed_at = self.clock()
 
     def record(self, status: str) -> str:
         with self._lock:
+            if status == LEASE_HELD:
+                self._confirmed_at = self.clock()
             if status == LEASE_LOST or (status == LEASE_UNKNOWN and self.state == LEASE_HELD):
                 self.state = status
             return self.state
 
+    def _check_stale(self) -> None:
+        """Caller holds ``_lock``."""
+        if self.state == LEASE_HELD and self.clock() - self._confirmed_at > STALE_HELD_SECONDS:
+            self.state = LEASE_UNKNOWN
+            logger.warning(
+                f"⚠️ Vetting log {self.vetting_log_id}: no confirmed renewal for "
+                f"over {STALE_HELD_SECONDS}s; lease state unknown"
+            )
+
     @property
     def held(self) -> bool:
-        return self.state == LEASE_HELD
+        with self._lock:
+            self._check_stale()
+            return self.state == LEASE_HELD
 
     def allow_paid_call(self) -> bool:
         with self._lock:
+            self._check_stale()
             if self.state == LEASE_HELD:
                 return True
             self.refused_calls += 1
@@ -423,12 +468,16 @@ class RunLease:
         return self._stop.wait(self.interval_seconds)
 
     def _run(self) -> None:
+        warned = False
         while not self._wait():
-            if self.beat() != LEASE_HELD:
+            state = self.beat()
+            if state != LEASE_HELD and not warned:
+                warned = True
                 logger.warning(
                     f"🛑 Heartbeat for vetting log {self.vetting_log_id} is "
-                    f"{self.state}; no new paid calls for this run"
+                    f"{state}; no new paid calls for this run"
                 )
+            if state == LEASE_LOST:
                 return
 
     def start(self) -> 'RunLease':
@@ -438,10 +487,23 @@ class RunLease:
         self._thread.start()
         return self
 
-    def stop(self) -> None:
+    def stop(self, timeout: float = HEARTBEAT_STOP_TIMEOUT_SECONDS) -> bool:
+        """Stop the heartbeat, waiting at most ``timeout`` seconds for a
+        renewal in progress. True when the thread has exited; a thread still
+        stuck in the database is a daemon and its late result changes nothing
+        the worker acts on."""
         self._stop.set()
-        if self._thread is not None and self._thread is not threading.current_thread():
-            self._thread.join()
+        thread = self._thread
+        if thread is None or thread is threading.current_thread():
+            return True
+        thread.join(timeout)
+        if thread.is_alive():
+            logger.warning(
+                f"⚠️ Heartbeat for vetting log {self.vetting_log_id} did not stop "
+                f"within {timeout}s; abandoning its thread"
+            )
+            return False
+        return True
 
 
 def _end_processing_run(vetting_log_id: int, expired_before: Optional[datetime],
