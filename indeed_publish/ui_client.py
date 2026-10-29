@@ -78,6 +78,14 @@ def normalize_board(board: str) -> str:
     return _BOARD_ALIASES[key]
 
 
+def _account_named(accounts: list, *names: str) -> Optional[Dict[str, Any]]:
+    wanted = {name.lower() for name in names}
+    for account in accounts:
+        if (account.get('name') or '').lower() in wanted:
+            return account
+    return None
+
+
 def normalize_operation(operation: str) -> str:
     key = (operation or '').strip().upper()
     if key not in _OPERATION_ALIASES:
@@ -87,9 +95,13 @@ def normalize_operation(operation: str) -> str:
 
 class BullhornUIClient:
     """
-    Authenticates via Bullhorn Universal Login, then POSTs the same
-    ``services/JobPublish/{careerPortal,indeed}`` REST calls the Bullhorn UI
-    makes from Publish Job.
+    Authenticates via Bullhorn Universal Login, then calls the same
+    JobPublish REST endpoints the Bullhorn UI uses from Publish Job.
+
+    Publish and unpublish POST ``services/JobPublish/{careerPortal,indeed}``.
+    Publication status is a separate read-only GET,
+    ``services/JobPublish/boards?jobPostingID=``. The Indeed account's
+    ``isPublished`` flag is what Publish Job shows as Indeed Publication Status.
     """
 
     def __init__(
@@ -235,6 +247,21 @@ class BullhornUIClient:
         if user_id is not None:
             self.current_user_id = str(user_id)
 
+    def get_publication_status(self, job_id: int) -> Dict[str, Any]:
+        """Read Publish Job board status. Does not publish or unpublish.
+
+        Bullhorn's Publish Job page loads this with
+        ``GET services/JobPublish/boards?jobPostingID=``. ``jobBoardList`` and
+        ``isJobcastPublished`` are not that status: a job can have
+        ``isJobcastPublished`` set while the Indeed account is not published.
+        """
+        self.ensure_login()
+        resp = self._get_publish_boards(int(job_id))
+        if resp.status_code == 401:
+            self._logged_in = False
+            resp = self._get_publish_boards(int(job_id))
+        return self._parse_publish_boards(int(job_id), resp)
+
     def publish_boards(
         self,
         *,
@@ -333,6 +360,68 @@ class BullhornUIClient:
             'message': payload.get('message') or '',
             'board': board,
             'operation': operation,
+        }
+
+    def _get_publish_boards(self, job_id: int) -> requests.Response:
+        self.ensure_login()
+        try:
+            return self.session.get(
+                f'{self.rest_url}services/JobPublish/boards',
+                params={'jobPostingID': int(job_id)},
+                headers={
+                    'BhRestToken': self.rest_token,
+                    'Accept': 'application/json, text/plain, */*',
+                    'Origin': _APP_ORIGIN,
+                    'Referer': f'{_APP_ORIGIN}/',
+                },
+                timeout=60,
+            )
+        except requests.RequestException as exc:
+            raise BullhornPublishUnavailable(
+                f'JobPublish boards unreachable ({type(exc).__name__})'
+            ) from None
+
+    @staticmethod
+    def _parse_publish_boards(job_id: int, resp: requests.Response) -> Dict[str, Any]:
+        text = resp.text or ''
+        if resp.status_code >= 500:
+            raise BullhornPublishUnavailable(
+                f'JobPublish boards HTTP {resp.status_code}: {text[:300]}'
+            )
+        if resp.status_code >= 400:
+            raise BullhornUIClientError(
+                f'JobPublish boards HTTP {resp.status_code}: {text[:300]}'
+            )
+        try:
+            payload = resp.json()
+        except Exception:
+            payload = None
+        if not isinstance(payload, dict) or 'accounts' not in payload:
+            raise BullhornUIClientError(
+                f'JobPublish boards unexpected response: {text[:300]}'
+            )
+        accounts = []
+        for raw in payload.get('accounts') or []:
+            if not isinstance(raw, dict):
+                continue
+            accounts.append({
+                'name': raw.get('name') or '',
+                'isPublished': bool(raw.get('isPublished')),
+                'dateLastPublished': raw.get('dateLastPublished'),
+            })
+        indeed = _account_named(accounts, 'indeed')
+        career = _account_named(accounts, 'corporate', 'careerportal')
+        return {
+            'job_id': int(job_id),
+            'indeed_published': bool(indeed and indeed['isPublished']),
+            'indeed_date_last_published': (
+                indeed.get('dateLastPublished') if indeed else None
+            ),
+            'career_portal_published': bool(career and career['isPublished']),
+            'career_portal_date_last_published': (
+                career.get('dateLastPublished') if career else None
+            ),
+            'accounts': accounts,
         }
 
     def _send(self, board: str, body: str) -> requests.Response:

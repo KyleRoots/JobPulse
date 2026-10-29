@@ -158,7 +158,11 @@ Qualified `BH_UI_*` (tearsheet **2**, private label `51284`). Publish payloads u
 `https://jobs.q-staffing.com/jobs/{job_id}` (ID-only path; portal redirects to the
 SEO slug). Publishing goes through Universal Login and Bullhorn's
 `services/JobPublish/careerPortal` and `/indeed` REST calls (the old `cls45`
-JobBoard CFC is retired). When on, the Indeed XML upload is empty so native
+JobBoard CFC is retired). Publish Job's Indeed Publication Status is a separate
+read-only `GET services/JobPublish/boards?jobPostingID={id}`
+(`BullhornUIClient.get_publication_status()`). The Indeed account's
+`isPublished` flag is the live status. `jobBoardList` and `isJobcastPublished`
+are not a substitute. When on, the Indeed XML upload is empty so native
 publish and Scout XML do not dual-list. Campaign tags map from `correlatedCustomText1` (see go-live step 7).
 Qualified published categories follow the job title (Warehouse, Manufacturing,
 Customer Service, Logistics, Food Services, and similar). Unmatched Qualified
