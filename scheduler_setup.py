@@ -589,7 +589,6 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
     # ── Ownership Reassignment — Daily 90-day Deep Sweep ───────────────────
     if is_primary_worker:
         from tasks import run_owner_reassignment_daily
-        from apscheduler.triggers.cron import CronTrigger
         scheduler.add_job(
             func=run_owner_reassignment_daily,
             trigger=CronTrigger(hour=2, minute=0),
