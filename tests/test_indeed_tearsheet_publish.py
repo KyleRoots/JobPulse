@@ -1094,6 +1094,110 @@ class TestJobPublishClient:
         assert 'tok-1' not in str(pub_err.value)
         assert 'secret' not in str(pub_err.value)
 
+    def test_get_publication_status_is_the_publish_job_boards_get(self):
+        session = MagicMock()
+        session.post.side_effect = [
+            _fake_resp(200, {}),
+            _fake_resp(200, _LOGIN_OK),
+        ]
+        session.get.return_value = _fake_resp(200, {
+            'publishedDescription': '<p>do not keep</p>',
+            'publishedCategoryID': 7,
+            'accounts': [
+                {
+                    'name': 'Indeed',
+                    'isPublished': True,
+                    'dateLastPublished': 1791481016783,
+                    'credentials': [{'externalAccountID': -1, 'displayName': 'secret-account'}],
+                    'lastPublishedValues': {'description': 'secret-body'},
+                },
+                {
+                    'name': 'Corporate',
+                    'isPublished': True,
+                    'dateLastPublished': 1791481016927,
+                    'credentials': [],
+                },
+                {
+                    'name': 'SimplyHired',
+                    'isPublished': False,
+                    'dateLastPublished': None,
+                },
+            ],
+        })
+        client = self._client(session)
+        out = client.get_publication_status(34869)
+
+        assert session.post.call_count == 2
+        get_call = session.get.call_args
+        assert get_call.args[0] == (
+            'https://rest45.bullhornstaffing.com/rest-services/clp2rd/'
+            'services/JobPublish/boards'
+        )
+        assert get_call.kwargs['params'] == {'jobPostingID': 34869}
+        assert get_call.kwargs['headers']['BhRestToken'] == 'tok-1'
+        assert 'BhRestToken' not in get_call.kwargs['params']
+        assert out == {
+            'job_id': 34869,
+            'indeed_published': True,
+            'indeed_date_last_published': 1791481016783,
+            'career_portal_published': True,
+            'career_portal_date_last_published': 1791481016927,
+            'accounts': [
+                {'name': 'Indeed', 'isPublished': True, 'dateLastPublished': 1791481016783},
+                {'name': 'Corporate', 'isPublished': True, 'dateLastPublished': 1791481016927},
+                {'name': 'SimplyHired', 'isPublished': False, 'dateLastPublished': None},
+            ],
+        }
+        rendered = str(out)
+        assert 'do not keep' not in rendered
+        assert 'secret-account' not in rendered
+        assert 'secret-body' not in rendered
+
+    def test_get_publication_status_without_indeed_account(self):
+        session = MagicMock()
+        session.post.side_effect = [
+            _fake_resp(200, {}),
+            _fake_resp(200, _LOGIN_OK),
+        ]
+        session.get.return_value = _fake_resp(200, {
+            'accounts': [
+                {'name': 'Corporate', 'isPublished': False, 'dateLastPublished': None},
+            ],
+        })
+        out = self._client(session).get_publication_status(23267)
+        assert out['indeed_published'] is False
+        assert out['indeed_date_last_published'] is None
+        assert out['career_portal_published'] is False
+
+    def test_get_publication_status_http_error(self):
+        from indeed_publish.ui_client import BullhornUIClientError
+
+        session = MagicMock()
+        session.post.side_effect = [
+            _fake_resp(200, {}),
+            _fake_resp(200, _LOGIN_OK),
+        ]
+        session.get.return_value = _fake_resp(404, {'errorMessage': 'Resource not found.', 'errorCode': 404})
+        with pytest.raises(BullhornUIClientError, match='404'):
+            self._client(session).get_publication_status(34869)
+
+    def test_unpublish_indeed_does_not_post_career_portal(self):
+        import json as _json
+
+        session = MagicMock()
+        session.post.side_effect = [
+            _fake_resp(200, {}),
+            _fake_resp(200, _LOGIN_OK),
+            _fake_resp(200, {'success': True, 'message': 'This job will be removed from Indeed.'}),
+        ]
+        client = self._client(session)
+        client.unpublish_indeed(job_id=79425, published_category_id=3, response_user_id=258)
+        board_calls = session.post.call_args_list[2:]
+        assert len(board_calls) == 1
+        assert board_calls[0].args[0].endswith('/services/JobPublish/indeed')
+        assert _json.loads(board_calls[0].kwargs['data'])['operation'] == 'DELETE'
+        assert 'careerPortal' not in board_calls[0].args[0]
+
     def test_unpublish_deletes_from_career_portal_and_indeed(self):
         import json as _json
 

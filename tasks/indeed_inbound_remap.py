@@ -473,3 +473,8 @@ def run_indeed_inbound_remap():
             refresh_scout_application_notes()
         except Exception as exc:
             logger.error('application note refresh: unexpected error — %s', exc)
+        try:
+            from indeed_publish.leak_runtime import check_recent_indeed_applicants
+            check_recent_indeed_applicants()
+        except Exception as exc:
+            logger.error('indeed leak fast path: unexpected error — %s', exc)

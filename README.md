@@ -236,6 +236,14 @@ BH_UI_PASSWORD=...
 BH_CAREER_PORTAL_JOB_URL_TEMPLATE=https://myticas.com/jobs/{job_id}
 INDEED_TEARSHEET_PUBLISH_NOTIFY_EMAIL=kroots@myticas.com
 
+# Qualified Indeed leaks. Default report: detect and digest, do not remove.
+# off = do nothing. enforce = 24h notice, then Indeed-only DELETE.
+# INDEED_LEAK_ENFORCEMENT_MODE=report
+# INDEED_LEAK_GRACE_HOURS=24
+# INDEED_LEAK_EXEMPT_JOB_IDS=
+# INDEED_LEAK_EXEMPT_DEPARTMENTS=
+# INDEED_LEAK_NOTIFY_EMAIL=kroots@myticas.com
+
 # Scout new AI requirement-spec create notify (sanity-check email; default ON)
 # REQUIREMENTS_SPEC_NOTIFY_ENABLED=true
 # REQUIREMENTS_SPEC_NOTIFY_EMAIL=kroots@myticas.com
@@ -435,6 +443,8 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
+- **Qualified Indeed leak check (Oct 29)**: Qualified has no free Indeed posting. Every job live on Indeed has to be on Sponsored - Indeed (tearsheet 2). `INDEED_LEAK_ENFORCEMENT_MODE` is `off`, `report`, or `enforce` (default `report`). An hourly sweep checks open jobs and jobs closed or modified in the last 7 days. The 5-minute Indeed inbound cycle checks immediately when an Indeed Job Board applicant lands on a job that is not on tearsheet 2. Indeed `isPublished` from `get_publication_status()` is the leak. Report mode records them for the Monday 8:00 AM ET digest (first one November 2, 2026) and does not remove anything. Enforce mode removes closed, Hold, Filled, and Canceled jobs from Indeed immediately, and emails the assigned recruiters on an open job that it will come off Indeed in 24 hours unless it is added to the tearsheet. Removal is an Indeed-only DELETE. The career portal stays up. A run takes no action, and emails kroots@myticas.com, when tearsheet 2 cannot be read, comes back empty, drops by more than half, or more than 20% of the status calls fail. Myticas/STSI is unchanged. In enforce mode, leaving tearsheet 2 also strips the campaign tag from the description Scout publishes.
+- **Indeed publication status read (Oct 29)**: Publish Job loads Indeed Publication Status with `GET services/JobPublish/boards?jobPostingID=`. `BullhornUIClient.get_publication_status()` makes that same read and returns whether Indeed and the career portal are published, plus each board's last-published time. It does not publish or unpublish. `isJobcastPublished` and `jobBoardList` are not that status: a job can have `isJobcastPublished` set while Indeed is not live.
 - **Qualified Zip unmatched applies (Oct 27)**: Admins can review Zip applies whose reference did not map at Scout Inbound → Unmatched Zip applicants (`/scout-inbound/zip-unmatched`). Kyle is emailed when more than 10 unmatched, or more than 100 Zip deliveries, arrive in one hour. One email per hour. The webhook passes the resolved Bullhorn job id straight into the submission, including 2- and 3-digit ids such as 42 and 547. A posted `_scout_` field on `/api/email/inbound` is dropped, so only the Zip ingest path can set that id. Mailbox subjects for Myticas/STSI still read only a 4- to 6-digit id. Myticas/STSI stay receive-only on the webhook.
 - **Indeed failure emails per subject (Oct 26)**: The native Indeed publish email cooldown remembered only the last subject, so two jobs failing each cycle (for example, empty descriptions on 23267 and 38327) alternated and sent 2 emails every 5 minutes. Each subject now has its own cooldown: one day for a single job's problem (it needs someone to fix the job in Bullhorn), 30 minutes for login or Bullhorn-outage alerts. The skipped job still retries every cycle.
 - **Indeed native publish moved off cls45 (Oct 26)**: Bullhorn retired the `cls45` ColdFusion server, so every JobBoard CFC call returned 503. Native Indeed publish now does Universal Login only and POSTs the same JSON the Bullhorn UI sends to `rest-services/{corp}/services/JobPublish/careerPortal` and `/indeed` (`ADDCHANGE` to publish or republish, `DELETE` to remove). Unpublish sends `DELETE` to both, because the UI's Unpublish button only clears the career portal and leaves Indeed live. If Bullhorn returns 5xx or is unreachable, the cycle stops after the first failure and sends one email. It no longer sends one email per job. Queued removals and unpublished adds retry next cycle. Verified end to end on Qualified test job 79614. The `indeed_tearsheet_publish` job stays paused on Automations until it is resumed after deploy.
@@ -707,5 +717,5 @@ Access health endpoints for status checks:
 
 ---
 
-**Last Updated**: October 27, 2026
-**Version**: 2.10 (Indeed native publish on Bullhorn JobPublish REST; Qualified Zip job id passed straight through)
+**Last Updated**: October 29, 2026
+**Version**: 2.11 (Qualified Indeed leak check, default report; Indeed publication status read)

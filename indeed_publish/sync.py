@@ -779,6 +779,11 @@ class IndeedTearsheetPublishService:
         if isinstance(resp_user, dict) and resp_user.get('id'):
             uid = int(resp_user['id'])
 
+        try:
+            from indeed_publish.leak_runtime import strip_campaign_tag_on_tearsheet_leave
+            strip_campaign_tag_on_tearsheet_leave(bh, job, self.tearsheet_id)
+        except Exception as exc:
+            logger.warning('Indeed leak: campaign tag strip skipped for job %s: %s', jid, exc)
         ui.unpublish_boards(
             job_id=jid,
             published_category_id=cat_id,
@@ -822,6 +827,26 @@ def unpublish_job_after_tearsheet_remove(job_id: int, tearsheet_id: int) -> bool
     cfg = config_from_env()
     if int(tearsheet_id) != int(cfg.get('tearsheet_id') or TEARSHEET_ID):
         return False
+
+    try:
+        from feeds.feed_config import QUALIFIED_TEARSHEET_INDEED, is_qualified_tenant
+        from indeed_publish.leak import MODE_ENFORCE, leak_mode
+        if (
+            leak_mode() == MODE_ENFORCE
+            and is_qualified_tenant()
+            and int(tearsheet_id) == int(QUALIFIED_TEARSHEET_INDEED)
+        ):
+            from indeed_publish.leak_runtime import strip_campaign_tag_on_tearsheet_leave
+            from utils.bullhorn_helpers import get_bullhorn_service
+            bh = get_bullhorn_service()
+            if bh and bh.authenticate():
+                svc = IndeedTearsheetPublishService(config=cfg)
+                job = svc._fetch_job_detail(bh, int(job_id)) or {'id': int(job_id)}
+                strip_campaign_tag_on_tearsheet_leave(bh, job, int(tearsheet_id))
+    except Exception as exc:
+        logger.warning(
+            'Indeed leak: campaign tag strip skipped for job %s: %s', job_id, exc
+        )
 
     if not cfg.get('enabled'):
         logger.info(
