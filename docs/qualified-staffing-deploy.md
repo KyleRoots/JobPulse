@@ -162,7 +162,21 @@ JobBoard CFC is retired). Publish Job's Indeed Publication Status is a separate
 read-only `GET services/JobPublish/boards?jobPostingID={id}`
 (`BullhornUIClient.get_publication_status()`). The Indeed account's
 `isPublished` flag is the live status. `jobBoardList` and `isJobcastPublished`
-are not a substitute. When on, the Indeed XML upload is empty so native
+are not a substitute.
+
+Qualified has no free Indeed posting. `INDEED_LEAK_ENFORCEMENT_MODE` defaults
+to `report`. The hourly leak sweep and the Monday 8:00 AM ET digest
+(`indeed_leak_sweep`, `indeed_leak_digest`, first digest November 2, 2026)
+use that status call. `enforce` emails the assigned recruiters and, after
+`INDEED_LEAK_GRACE_HOURS` (default 24), DELETEs Indeed only. Closed, Hold,
+Filled, and Canceled jobs are removed immediately. Exempt ids and departments
+are `INDEED_LEAK_EXEMPT_JOB_IDS` and `INDEED_LEAK_EXEMPT_DEPARTMENTS`. A broken
+tearsheet read, an empty tearsheet, a membership drop of more than half, or
+status-call failures above 20% stop the run and email
+`INDEED_LEAK_NOTIFY_EMAIL` (default `kroots@myticas.com`). Detections persist
+in `indeed_leak_state`.
+
+When native Indeed publish is on, the Indeed XML upload is empty so native
 publish and Scout XML do not dual-list. Campaign tags map from `correlatedCustomText1` (see go-live step 7).
 Qualified published categories follow the job title (Warehouse, Manufacturing,
 Customer Service, Logistics, Food Services, and similar). Unmatched Qualified

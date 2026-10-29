@@ -316,6 +316,23 @@ class BullhornUIClient:
             )
         return results
 
+    def unpublish_indeed(
+        self,
+        *,
+        job_id: int,
+        published_category_id: int = 0,
+        response_user_id: int = 0,
+        description_html: str = '',
+    ) -> Dict[str, Any]:
+        """DELETE the Indeed board only. The career portal posting is left up."""
+        return self.unpublish_boards(
+            job_id=job_id,
+            published_category_id=published_category_id,
+            response_user_id=response_user_id,
+            description_html=description_html,
+            boards=(BOARD_INDEED,),
+        )
+
     def _post_job_publish(
         self,
         *,

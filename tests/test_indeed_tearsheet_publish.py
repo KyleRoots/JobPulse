@@ -1181,6 +1181,23 @@ class TestJobPublishClient:
         with pytest.raises(BullhornUIClientError, match='404'):
             self._client(session).get_publication_status(34869)
 
+    def test_unpublish_indeed_does_not_post_career_portal(self):
+        import json as _json
+
+        session = MagicMock()
+        session.post.side_effect = [
+            _fake_resp(200, {}),
+            _fake_resp(200, _LOGIN_OK),
+            _fake_resp(200, {'success': True, 'message': 'This job will be removed from Indeed.'}),
+        ]
+        client = self._client(session)
+        client.unpublish_indeed(job_id=79425, published_category_id=3, response_user_id=258)
+        board_calls = session.post.call_args_list[2:]
+        assert len(board_calls) == 1
+        assert board_calls[0].args[0].endswith('/services/JobPublish/indeed')
+        assert _json.loads(board_calls[0].kwargs['data'])['operation'] == 'DELETE'
+        assert 'careerPortal' not in board_calls[0].args[0]
+
     def test_unpublish_deletes_from_career_portal_and_indeed(self):
         import json as _json
 
