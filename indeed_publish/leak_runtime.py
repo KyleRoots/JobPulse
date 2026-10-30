@@ -27,10 +27,12 @@ from .leak import (
     exempt_job_ids,
     grace_hours,
     jobs_from_applicant_submissions,
+    deep_sweep_where,
     leak_mode,
     notify_email,
     render_digest,
     sanitize_leak_error,
+    select_deep_sweep_jobs,
     select_sweep_jobs,
     stripped_description_update,
 )
@@ -348,6 +350,41 @@ def run_sweep() -> Dict[str, Any]:
         _save_state(run.state)
         return run.result
     return _finish(run, tearsheet_ids, jobs)
+
+
+def run_deep_sweep() -> Dict[str, Any]:
+    """Daily pass over closed jobs the hourly 7-day window never sees.
+
+    Same mode switch, tearsheet guardrails, and status-failure guardrail as
+    the hourly sweep. Closed jobs are ineligible, so enforce removes them
+    immediately. Report mode only records them.
+    """
+    if not is_qualified_tenant():
+        return {'skipped': 'not qualified'}
+    if leak_mode() == 'off':
+        return {'skipped': 'mode off'}
+    bh = _bh()
+    ui = _ui_client()
+    try:
+        tearsheet_ids = _tearsheet_ids(bh)
+        read_error = ''
+    except Exception as exc:
+        tearsheet_ids = set()
+        read_error = sanitize_leak_error(exc)
+    if read_error:
+        closed_jobs: List[Dict[str, Any]] = []
+    else:
+        closed_jobs = _query_jobs(bh, deep_sweep_where(datetime.now(timezone.utc)))
+    jobs = select_deep_sweep_jobs(closed_jobs, tearsheet_ids)
+    _hydrate_emails(bh, jobs)
+    run = _make_run(bh, ui, tearsheet_ids)
+    if read_error:
+        run.abort_for_guardrail('tearsheet_read_failed', read_error)
+        _save_state(run.state)
+        return run.result
+    result = _finish(run, tearsheet_ids, jobs)
+    result['sweep'] = 'deep'
+    return result
 
 
 def check_jobs(job_ids: Iterable[int]) -> Dict[str, Any]:

@@ -35,6 +35,7 @@ DIGEST_NOT_BEFORE = datetime(2026, 11, 2, 8, 0, tzinfo=EASTERN)
 
 MEMBERSHIP_DROP_FRACTION = 0.50
 STATUS_FAILURE_FRACTION = 0.20
+DEEP_SWEEP_LOOKBACK_DAYS = 180
 GUARDRAIL_EMAIL_COOLDOWN = timedelta(hours=24)
 UNASSIGNED_USER_ID = 1
 
@@ -640,6 +641,44 @@ def select_sweep_jobs(
         except (TypeError, ValueError):
             continue
         if not jid or jid in tearsheet_ids:
+            continue
+        chosen[jid] = job
+    return [chosen[jid] for jid in sorted(chosen)]
+
+
+def deep_sweep_where(now: datetime) -> str:
+    """Closed, not deleted, closed or last modified within 180 days.
+
+    ``dateClosed`` is often empty on Qualified. The last-modified half of the
+    OR still covers a job that was filled or held and then left untouched.
+    """
+    cutoff_ms = int(
+        (_utc(now) - timedelta(days=DEEP_SWEEP_LOOKBACK_DAYS)).timestamp() * 1000
+    )
+    return (
+        'isDeleted=false AND isOpen=false AND '
+        f'(dateLastModified>={cutoff_ms} OR dateClosed>={cutoff_ms})'
+    )
+
+
+def _is_closed_job(job: Dict[str, Any]) -> bool:
+    if job.get('isDeleted') in (True, 1):
+        return False
+    return job.get('isOpen') in (False, 0)
+
+
+def select_deep_sweep_jobs(
+    closed_jobs: Sequence[Dict[str, Any]],
+    tearsheet_ids: Set[int],
+) -> List[Dict[str, Any]]:
+    """Closed jobs from the 180-day query, excluding Sponsored - Indeed members."""
+    chosen: Dict[int, Dict[str, Any]] = {}
+    for job in closed_jobs:
+        try:
+            jid = int(job.get('id') or 0)
+        except (TypeError, ValueError):
+            continue
+        if not jid or jid in tearsheet_ids or not _is_closed_job(job):
             continue
         chosen[jid] = job
     return [chosen[jid] for jid in sorted(chosen)]

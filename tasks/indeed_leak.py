@@ -19,6 +19,21 @@ def run_indeed_leak_sweep():
             logger.error('indeed leak sweep: unexpected error — %s', sanitize_leak_error(exc))
 
 
+def run_indeed_leak_deep_sweep():
+    from app import app
+
+    with app.app_context():
+        try:
+            from indeed_publish.leak_runtime import run_deep_sweep
+            run_deep_sweep()
+        except Exception as exc:
+            from indeed_publish.leak import sanitize_leak_error
+            logger.error(
+                'indeed leak deep sweep: unexpected error — %s',
+                sanitize_leak_error(exc),
+            )
+
+
 def run_indeed_leak_digest():
     from app import app
 

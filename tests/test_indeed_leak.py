@@ -815,3 +815,101 @@ def test_tearsheet_and_job_reads_send_rest_token_as_header(monkeypatch):
         assert 'BhRestToken' not in params
         assert 'SECRET' not in url
         assert 'SECRET' not in str(params)
+
+
+def test_deep_sweep_keeps_closed_jobs_the_hourly_window_misses():
+    from indeed_publish.leak import deep_sweep_where, select_deep_sweep_jobs
+
+    now = datetime(2026, 10, 30, 12, 0, tzinfo=timezone.utc)
+    where = deep_sweep_where(now)
+    cutoff = int((now - timedelta(days=180)).timestamp() * 1000)
+    assert 'isDeleted=false AND isOpen=false' in where
+    assert f'dateLastModified>={cutoff}' in where
+    assert f'dateClosed>={cutoff}' in where
+
+    closed = _job(jid=79378, status='Filled', isOpen=False, title='Office Assistant')
+    other = _job(jid=68837, status='Filled', isOpen=False, title='General Labor')
+    on_sheet = _job(jid=100, status='Filled', isOpen=False)
+    still_open = _job(jid=3, isOpen=True)
+    deleted = _job(jid=4, status='Filled', isOpen=False, isDeleted=True)
+    chosen = select_deep_sweep_jobs(
+        [closed, other, on_sheet, still_open, deleted],
+        {100},
+    )
+    assert [job['id'] for job in chosen] == [68837, 79378]
+    hourly = select_sweep_jobs([_job()], [], set())
+    assert [job['id'] for job in hourly] == [34869]
+    assert 79378 not in {job['id'] for job in hourly}
+
+
+def test_fast_path_and_deep_sweep_jobs_are_in_the_monday_digest():
+    closed = _job(jid=68837, status='Filled', isOpen=False, title='General Labor')
+    fast = _job(jid=79378, status='Filled', isOpen=False, title='Office Assistant')
+    run = LeakRun(
+        mode=MODE_REPORT,
+        now=NOW,
+        state={},
+        notify_email=OPS,
+        publication_status=lambda _job_id: {'indeed_published': True},
+    )
+    assert run.guard_tearsheet([100]) is False
+    run.consider([closed, fast])
+    buckets = digest_buckets(run.state, datetime(2026, 11, 2, 13, 0, tzinfo=timezone.utc))
+    assert {row['job_id'] for row in buckets['leaks']} == {68837, 79378}
+    text = render_digest(
+        now=datetime(2026, 11, 2, 13, 0, tzinfo=timezone.utc),
+        mode=MODE_REPORT,
+        live_tearsheet=[],
+        leaks=buckets['leaks'],
+        removed=buckets['removed'],
+        in_grace=buckets['in_grace'],
+        failed=buckets['failed'],
+        cannot_publish=[],
+    )
+    assert '68837' in text
+    assert '79378' in text
+
+
+def test_deep_sweep_removes_a_closed_leak_immediately_in_enforce():
+    run, emails, removed = _drive(
+        [_job(jid=79378, status='Filled', isOpen=False)],
+        mode=MODE_ENFORCE,
+    )
+    assert removed == [79378]
+    assert emails == []
+    assert run.state['jobs']['79378']['last_action'] == 'removed'
+
+
+def test_deep_sweep_uses_the_same_tearsheet_guardrail(monkeypatch):
+    import json
+    from unittest.mock import patch
+
+    saved = {}
+    emails = []
+
+    def send_email(_to, _subject, body):
+        emails.append(body)
+        return True
+
+    def save_state(state):
+        saved['json'] = json.dumps(state)
+
+    def fail_query(*_args, **_kwargs):
+        raise AssertionError('job query must not run after a tearsheet failure')
+
+    with patch('indeed_publish.leak_runtime.is_qualified_tenant', return_value=True), \
+         patch('indeed_publish.leak_runtime.leak_mode', return_value='report'), \
+         patch('indeed_publish.leak_runtime._bh', return_value=object()), \
+         patch('indeed_publish.leak_runtime._ui_client', return_value=object()), \
+         patch('indeed_publish.leak_runtime._tearsheet_ids', side_effect=_rest_token_error()), \
+         patch('indeed_publish.leak_runtime._query_jobs', fail_query), \
+         patch('indeed_publish.leak_runtime._save_state', save_state), \
+         patch('indeed_publish.leak_runtime._send_email', send_email):
+        from indeed_publish.leak_runtime import run_deep_sweep
+        result = run_deep_sweep()
+
+    blob = json.dumps(result) + saved.get('json', '') + '\n'.join(emails)
+    assert result['guardrail'] == 'tearsheet_read_failed'
+    assert result['guardrail_detail'] == 'ConnectionError'
+    assert 'SECRET' not in blob
+    assert result.get('removed', []) == []

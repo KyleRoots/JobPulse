@@ -165,9 +165,12 @@ read-only `GET services/JobPublish/boards?jobPostingID={id}`
 are not a substitute.
 
 Qualified has no free Indeed posting. `INDEED_LEAK_ENFORCEMENT_MODE` defaults
-to `report`. The hourly leak sweep and the Monday 8:00 AM ET digest
-(`indeed_leak_sweep`, `indeed_leak_digest`, first digest November 2, 2026)
-use that status call. `enforce` emails the assigned recruiters and, after
+to `report`. The hourly leak sweep, the daily 3:00 AM ET closed-job sweep
+(`indeed_leak_deep_sweep`: non-deleted `isOpen=false` jobs closed or last
+modified within 180 days, not on tearsheet 2), and the Monday 8:00 AM ET
+digest (`indeed_leak_sweep`, `indeed_leak_digest`, first digest November 2,
+2026) use that status call. JobPublish has no list of every Indeed-published
+job, so the closed-job query is the sweep's source. `enforce` emails the assigned recruiters and, after
 `INDEED_LEAK_GRACE_HOURS` (default 24), DELETEs Indeed only. Closed, Hold,
 Filled, and Canceled jobs are removed immediately. Exempt ids and departments
 are `INDEED_LEAK_EXEMPT_JOB_IDS` and `INDEED_LEAK_EXEMPT_DEPARTMENTS`. A broken
