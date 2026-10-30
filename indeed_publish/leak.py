@@ -64,20 +64,48 @@ def sanitize_leak_text(text: str) -> str:
     return _SECRET_ASSIGN.sub(r'\1\2[REDACTED]', cleaned)
 
 
-def sanitize_leak_error(exc: Union[BaseException, str]) -> str:
-    """Exception type plus HTTP status. The raw message is not kept.
+_UNSAFE_REASON = re.compile(
+    r'(?i)(https?://|\bBhRestToken\b|\baccess_token\b|\brefresh_token\b|'
+    r'\bpassword\b|\bcode\b|\[REDACTED\])'
+)
 
-    A requests connection error includes the full URL. Reporting only the
-    type (and status, when there is one) keeps BhRestToken out of that text.
+
+def _http_status_from_exc(exc: BaseException):
+    status = None
+    response = getattr(exc, 'response', None)
+    if response is not None:
+        status = getattr(response, 'status_code', None)
+    if status is None:
+        match = _HTTP_STATUS.search(str(exc))
+        status = match.group(1) if match else None
+    return status
+
+
+def _safe_reason(exc: BaseException) -> str:
+    """A short exception message that cannot carry a URL or a token."""
+    raw = sanitize_leak_text(str(exc) or '').strip()
+    if not raw or len(raw) > 240:
+        return ''
+    if _UNSAFE_REASON.search(raw) or _URL_WITH_QUERY.search(raw):
+        return ''
+    if _SECRET_ASSIGN.search(raw):
+        return ''
+    return raw
+
+
+def sanitize_leak_error(exc: Union[BaseException, str]) -> str:
+    """Type and HTTP status, plus a short reason when it has no token.
+
+    A requests connection error includes the full URL, so that message is
+    dropped. A job-level reason such as an empty description is kept.
     """
     if isinstance(exc, BaseException):
-        status = None
-        response = getattr(exc, 'response', None)
-        if response is not None:
-            status = getattr(response, 'status_code', None)
-        if status is None:
-            match = _HTTP_STATUS.search(str(exc))
-            status = match.group(1) if match else None
+        status = _http_status_from_exc(exc)
+        reason = _safe_reason(exc)
+        if reason:
+            if status and not _HTTP_STATUS.search(reason):
+                return f'{reason} HTTP {status}'
+            return reason
         text = f'{type(exc).__name__} HTTP {status}' if status else type(exc).__name__
         return sanitize_leak_text(text)
     return sanitize_leak_text(str(exc or ''))
