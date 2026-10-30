@@ -15,7 +15,8 @@ def run_indeed_leak_sweep():
             from indeed_publish.leak_runtime import run_sweep
             run_sweep()
         except Exception as exc:
-            logger.error('indeed leak sweep: unexpected error — %s', exc)
+            from indeed_publish.leak import sanitize_leak_error
+            logger.error('indeed leak sweep: unexpected error — %s', sanitize_leak_error(exc))
 
 
 def run_indeed_leak_digest():
@@ -26,4 +27,5 @@ def run_indeed_leak_digest():
             from indeed_publish.leak_runtime import run_weekly_digest
             run_weekly_digest()
         except Exception as exc:
-            logger.error('indeed leak digest: unexpected error — %s', exc)
+            from indeed_publish.leak import sanitize_leak_error
+            logger.error('indeed leak digest: unexpected error — %s', sanitize_leak_error(exc))
