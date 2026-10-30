@@ -205,7 +205,9 @@ republishes still run. Once a day, tearsheet 2 jobs whose Publish Job status
 shows Indeed not published, and that have a description and a response user,
 are sent `ADDCHANGE` again. One resend per job per day. Jobs still not
 published two days later are reported to ops; those are for Bullhorn support
-(the Bullhorn-to-Indeed connection), not another Scout delete.
+(the Bullhorn-to-Indeed connection), not another Scout delete. Publish errors
+keep a short job reason, such as an empty description. A message that contains
+a URL or a token is still reduced to the exception type and HTTP status.
 
 An Indeed Job Board application on a job that is not on tearsheet 2, more than
 48 hours after Bullhorn last showed Indeed as published (or when Bullhorn has

@@ -789,6 +789,29 @@ def test_connection_error_does_not_carry_the_rest_token(app, caplog):
         assert bit not in outside_url
 
 
+def test_publish_error_keeps_the_empty_description_reason():
+    from indeed_publish.leak import sanitize_leak_error
+    from indeed_publish.ui_client import BullhornUIClientError
+
+    reason = sanitize_leak_error(
+        BullhornUIClientError('job has empty description/publicDescription')
+    )
+    assert reason == 'job has empty description/publicDescription'
+    assert 'empty description/publicDescription' in f'republish 23267: {reason}'
+    assert 'empty description/publicDescription' in f'self-heal 38327: {reason}'
+
+    leaked = sanitize_leak_error(BullhornUIClientError(
+        'indeed ADDCHANGE failed https://rest.example/services/JobPublish/indeed'
+        '?BhRestToken=SECRET'
+    ))
+    assert leaked == 'BullhornUIClientError'
+    assert 'SECRET' not in leaked
+    assert 'BhRestToken=' not in leaked
+
+    status_only = sanitize_leak_error(RuntimeError('HTTP 500'))
+    assert status_only == 'RuntimeError HTTP 500'
+
+
 def test_tearsheet_and_job_reads_send_rest_token_as_header(monkeypatch):
     import indeed_publish.leak_runtime as runtime
 
