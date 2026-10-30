@@ -41,30 +41,45 @@ class TestParsedResumeCacheModel:
         db.session.delete(cached)
         db.session.commit()
 
-    def test_cache_store_failure_rolls_back_the_session(self, monkeypatch):
+    def test_cache_store_failure_keeps_the_callers_pending_work(self, app, monkeypatch):
+        """A cache-store error rolls back only the savepoint."""
+        from models import ParsedResumeCache
+        from models.ats import ParsedEmail
+        from app import db
         from resume_parser import ResumeParser
 
-        rolled = []
+        pending = ParsedEmail(
+            sender_email='board@example.com',
+            recipient_email='apply@example.com',
+            subject='cache savepoint',
+            status='processing',
+        )
+        db.session.add(pending)
+        db.session.flush()
+        pending_id = pending.id
 
-        class _Cache:
-            @staticmethod
-            def store(*_args, **_kwargs):
-                raise RuntimeError('nul')
+        def boom(*_args, **_kwargs):
+            db.session.add(ParsedResumeCache(
+                content_hash='savepoint-' + hashlib.sha256(b'boom').hexdigest(),
+                parsed_data_json='{}',
+                raw_text='staged',
+                formatted_html='<p>staged</p>',
+            ))
+            db.session.flush()
+            raise RuntimeError('cache down')
 
-        class _Session:
-            @staticmethod
-            def rollback():
-                rolled.append(True)
-
-        class _DB:
-            session = _Session()
-
-        monkeypatch.setattr('models.ParsedResumeCache', _Cache)
-        monkeypatch.setattr('extensions.db', _DB)
+        monkeypatch.setattr(ParsedResumeCache, 'store', boom)
         parser = ResumeParser.__new__(ResumeParser)
         parser._cache_enabled = True
         parser._store_cache('hash', {}, 'text', '<p>text</p>')
-        assert rolled == [True]
+
+        db.session.commit()
+        saved = db.session.get(ParsedEmail, pending_id)
+        assert saved is not None
+        assert saved.status == 'processing'
+        assert ParsedResumeCache.query.filter_by(raw_text='staged').count() == 0
+        db.session.delete(saved)
+        db.session.commit()
 
     def test_cache_store_creates_entry(self, app):
         """Verify store() creates a new cache entry"""

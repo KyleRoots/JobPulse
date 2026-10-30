@@ -65,7 +65,10 @@ class ParsedResumeCache(db.Model):
             formatted_html=formatted_html
         )
         db.session.add(cached)
-        db.session.commit()
+        # Flush only. The inbound parser wraps this in a savepoint and the
+        # caller commits. A commit here would persist or abort the caller's
+        # pending parsed-email row along with the cache write.
+        db.session.flush()
         return cached
 
 
