@@ -70,6 +70,25 @@ _UNSAFE_REASON = re.compile(
     r'\bpassword\b|\bcode\b|\[REDACTED\])'
 )
 
+# Scout raises these with its own wording. A Bullhorn response body is never
+# one of them. Anything else stays type and HTTP status.
+_ALLOWED_REASON_EXACT = frozenset({
+    'job has empty description/publicDescription',
+    'cannot resolve published contact',
+    'REST auth failed',
+    'missing correlatedCustomText1 (department)',
+    'no assigned recruiter or usable job owner',
+    'assigned recruiter missing id',
+    'job owner missing id',
+})
+_ALLOWED_REASON_PREFIXES = (
+    'unmapped department:',
+    'manual-department:',
+)
+_ALLOWED_CONTACT_EMAIL = re.compile(
+    r'\A(?:assigned recruiter|job owner) \d+ missing email\Z'
+)
+
 
 def _http_status_from_exc(exc: BaseException):
     status = None
@@ -82,10 +101,24 @@ def _http_status_from_exc(exc: BaseException):
     return status
 
 
+def _allowed_scout_reason(text: str) -> bool:
+    """True when the text is a fixed Scout message, not a response body."""
+    if text in _ALLOWED_REASON_EXACT:
+        return True
+    if text.startswith(_ALLOWED_REASON_PREFIXES):
+        return True
+    return bool(_ALLOWED_CONTACT_EMAIL.fullmatch(text))
+
+
 def _safe_reason(exc: BaseException) -> str:
-    """A short exception message that cannot carry a URL or a token."""
+    """A Scout-written reason, dropped when redaction still sees a secret.
+
+    The allowlist runs first. URL and token redaction is the second layer:
+    an allowed sentence that still contains a URL, a token, or a redacted
+    value is not kept.
+    """
     raw = sanitize_leak_text(str(exc) or '').strip()
-    if not raw or len(raw) > 240:
+    if not raw or len(raw) > 240 or not _allowed_scout_reason(raw):
         return ''
     if _UNSAFE_REASON.search(raw) or _URL_WITH_QUERY.search(raw):
         return ''
@@ -95,10 +128,11 @@ def _safe_reason(exc: BaseException) -> str:
 
 
 def sanitize_leak_error(exc: Union[BaseException, str]) -> str:
-    """Type and HTTP status, plus a short reason when it has no token.
+    """Type and HTTP status, plus a Scout-written reason when it is safe.
 
-    A requests connection error includes the full URL, so that message is
-    dropped. A job-level reason such as an empty description is kept.
+    A Bullhorn response body, a connection URL, or any other message reports
+    only the exception type and HTTP status. An empty description and the
+    other fixed publish reasons are kept.
     """
     if isinstance(exc, BaseException):
         status = _http_status_from_exc(exc)
