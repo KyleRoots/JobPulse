@@ -206,8 +206,10 @@ shows Indeed not published, and that have a description and a response user,
 are sent `ADDCHANGE` again. One resend per job per day. Jobs still not
 published two days later are reported to ops; those are for Bullhorn support
 (the Bullhorn-to-Indeed connection), not another Scout delete. Publish errors
-keep a short job reason, such as an empty description. A message that contains
-a URL or a token is still reduced to the exception type and HTTP status.
+keep a reason only when Scout wrote it, such as an empty description, a missing
+published contact, a campaign-tag reason, or a REST auth failure. A Bullhorn
+response body, or any other message, is reduced to the exception type and HTTP
+status. URL and token redaction still applies to a kept reason.
 
 An Indeed Job Board application on a job that is not on tearsheet 2, more than
 48 hours after Bullhorn last showed Indeed as published (or when Bullhorn has

@@ -811,6 +811,46 @@ def test_publish_error_keeps_the_empty_description_reason():
     status_only = sanitize_leak_error(RuntimeError('HTTP 500'))
     assert status_only == 'RuntimeError HTTP 500'
 
+    assert sanitize_leak_error(BullhornUIClientError('REST auth failed')) == 'REST auth failed'
+    assert sanitize_leak_error(
+        BullhornUIClientError('cannot resolve published contact')
+    ) == 'cannot resolve published contact'
+    assert sanitize_leak_error(
+        BullhornUIClientError('unmapped department:Wake Forest')
+    ) == 'unmapped department:Wake Forest'
+    assert sanitize_leak_error(
+        BullhornUIClientError('assigned recruiter 279 missing email')
+    ) == 'assigned recruiter 279 missing email'
+
+    tainted = BullhornUIClientError('unmapped department: password=SECRET')
+    assert sanitize_leak_error(tainted) == 'BullhornUIClientError'
+    assert 'SECRET' not in sanitize_leak_error(tainted)
+
+    class _Status:
+        status_code = 400
+
+    blocked = (
+        'Authorization: Bearer supersecretvalue',
+        'camelCase accessToken=supersecretvalue',
+        'camelCase refreshToken=supersecretvalue',
+        'token=supersecretvalue',
+        'api_key=supersecretvalue',
+        'Set-Cookie: session=supersecretvalue',
+        'postgresql://user:pass@host/dbname',
+        'indeed ADDCHANGE HTTP 400: {"error":"short bullhorn body"}',
+    )
+    for message in blocked:
+        exc = BullhornUIClientError(message)
+        exc.response = _Status()
+        rendered = sanitize_leak_error(exc)
+        assert rendered == 'BullhornUIClientError HTTP 400', rendered
+        for bit in (
+            'Bearer', 'supersecretvalue', 'accessToken', 'refreshToken',
+            'token=', 'api_key=', 'Set-Cookie', 'postgresql://', 'pass@',
+            'short bullhorn body',
+        ):
+            assert bit not in rendered
+
 
 def test_tearsheet_and_job_reads_send_rest_token_as_header(monkeypatch):
     import indeed_publish.leak_runtime as runtime
