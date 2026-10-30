@@ -13,8 +13,9 @@ only. The career portal is never unpublished here.
 from __future__ import annotations
 
 import os
+import re
 from datetime import datetime, timedelta, timezone
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Set
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Set, Union
 from zoneinfo import ZoneInfo
 
 from utils.job_status import is_job_eligible
@@ -36,6 +37,46 @@ MEMBERSHIP_DROP_FRACTION = 0.50
 STATUS_FAILURE_FRACTION = 0.20
 GUARDRAIL_EMAIL_COOLDOWN = timedelta(hours=24)
 UNASSIGNED_USER_ID = 1
+
+# Query keys whose values must never reach email, saved state, or logs.
+_SECRET_QUERY_KEYS = r'BhRestToken|access_token|refresh_token|password|code'
+_SECRET_ASSIGN = re.compile(
+    rf'(?i)\b({_SECRET_QUERY_KEYS})\b(\s*[=:]\s*)(?:"[^"]*"|\'[^\']*\'|\S+)'
+)
+_URL_WITH_QUERY = re.compile(r'https?://[^\s\'"<>]+', re.I)
+_HTTP_STATUS = re.compile(r'\bHTTP\s+(\d{3})\b', re.I)
+
+
+def sanitize_leak_text(text: str) -> str:
+    """Drop URL query strings and redact token, code, and password values."""
+    if not text:
+        return ''
+
+    def _strip_query(match: re.Match) -> str:
+        url = match.group(0).rstrip('.,);]')
+        return url.split('?', 1)[0].split('#', 1)[0]
+
+    cleaned = _URL_WITH_QUERY.sub(_strip_query, str(text))
+    return _SECRET_ASSIGN.sub(r'\1\2[REDACTED]', cleaned)
+
+
+def sanitize_leak_error(exc: Union[BaseException, str]) -> str:
+    """Exception type plus HTTP status. The raw message is not kept.
+
+    A requests connection error includes the full URL. Reporting only the
+    type (and status, when there is one) keeps BhRestToken out of that text.
+    """
+    if isinstance(exc, BaseException):
+        status = None
+        response = getattr(exc, 'response', None)
+        if response is not None:
+            status = getattr(response, 'status_code', None)
+        if status is None:
+            match = _HTTP_STATUS.search(str(exc))
+            status = match.group(1) if match else None
+        text = f'{type(exc).__name__} HTTP {status}' if status else type(exc).__name__
+        return sanitize_leak_text(text)
+    return sanitize_leak_text(str(exc or ''))
 
 
 def leak_mode() -> str:
@@ -244,8 +285,8 @@ def _append_event(record: Dict[str, Any], now: datetime, action: str, result: st
     events.append({
         'at': _iso(now),
         'action': action,
-        'result': result,
-        'detail': detail[:500],
+        'result': sanitize_leak_text(result),
+        'detail': sanitize_leak_text(detail)[:500],
     })
     if len(events) > 30:
         del events[:-30]
@@ -348,6 +389,7 @@ class LeakRun:
 
     def abort_for_guardrail(self, kind: str, detail: str) -> Dict[str, Any]:
         """No removals and no grace mail. Email ops at most once per kind per day."""
+        detail = sanitize_leak_text(detail)
         self.result['aborted'] = True
         self.result['guardrail'] = kind
         self.result['guardrail_detail'] = detail
@@ -366,7 +408,7 @@ class LeakRun:
                     ),
                 ))
             except Exception as exc:
-                self.result['guardrail_email_error'] = str(exc)
+                self.result['guardrail_email_error'] = sanitize_leak_error(exc)
             if sent and isinstance(notified, dict):
                 notified[kind] = _iso(self.now)
         return self.result
@@ -444,7 +486,10 @@ class LeakRun:
                 status = self.publication_status(jid) or {}
             except Exception as exc:
                 failures += 1
-                self.result['failed'].append({'job_id': jid, 'result': f'status: {exc}'})
+                self.result['failed'].append({
+                    'job_id': jid,
+                    'result': f'status: {sanitize_leak_error(exc)}',
+                })
                 continue
             published = bool(status.get('indeed_published'))
             if not published:
@@ -536,7 +581,7 @@ class LeakRun:
                 ok = bool(self.send_email(email, subject, body))
             except Exception as exc:
                 ok = False
-                errors.append(str(exc))
+                errors.append(sanitize_leak_error(exc))
             if not ok:
                 errors.append(email)
             else:
@@ -560,8 +605,9 @@ class LeakRun:
                 return
             status = self.publication_status(jid) or {}
         except Exception as exc:
-            _append_event(record, self.now, 'failed', f'recheck: {exc}')
-            self.result['failed'].append({'job_id': jid, 'result': f'recheck: {exc}'})
+            safe = sanitize_leak_error(exc)
+            _append_event(record, self.now, 'failed', f'recheck: {safe}')
+            self.result['failed'].append({'job_id': jid, 'result': f'recheck: {safe}'})
             return
         if not status.get('indeed_published'):
             _resolve(record, self.now, 'Indeed not published before removal')
@@ -570,8 +616,9 @@ class LeakRun:
         try:
             self.remove_indeed(job)
         except Exception as exc:
-            _append_event(record, self.now, 'failed', f'remove: {exc}')
-            self.result['failed'].append({'job_id': jid, 'result': f'remove: {exc}'})
+            safe = sanitize_leak_error(exc)
+            _append_event(record, self.now, 'failed', f'remove: {safe}')
+            self.result['failed'].append({'job_id': jid, 'result': f'remove: {safe}'})
             return
         record['open'] = False
         record['removed_at'] = _iso(self.now)

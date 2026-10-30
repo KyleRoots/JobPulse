@@ -30,6 +30,7 @@ from .leak import (
     leak_mode,
     notify_email,
     render_digest,
+    sanitize_leak_error,
     select_sweep_jobs,
     stripped_description_update,
 )
@@ -75,7 +76,11 @@ def strip_campaign_tag_on_tearsheet_leave(bh, job: Dict[str, Any], tearsheet_id:
     try:
         ok = bool(bh.update_job_order(int(job['id']), update))
     except Exception as exc:
-        logger.warning('Indeed leak: campaign tag strip failed for job %s: %s', job.get('id'), exc)
+        logger.warning(
+            'Indeed leak: campaign tag strip failed for job %s: %s',
+            job.get('id'),
+            sanitize_leak_error(exc),
+        )
         return False
     if ok:
         job[field] = update[field]
@@ -147,22 +152,36 @@ def _bh():
     return bh
 
 
+def _rest_get(bh, path: str, params: Dict[str, Any], timeout: int):
+    """GET a Bullhorn REST path. BhRestToken is a header, never a query param."""
+    headers = {'Accept': 'application/json'}
+    token = getattr(bh, 'rest_token', None)
+    if token:
+        headers['BhRestToken'] = token
+    return requests.get(
+        f'{bh.base_url}{path.lstrip("/")}',
+        params=params,
+        headers=headers,
+        timeout=timeout,
+    )
+
+
 def _query_jobs(bh, where: str) -> List[Dict[str, Any]]:
     rows: List[Dict[str, Any]] = []
     start = 0
     while True:
-        response = requests.get(
-            f'{bh.base_url}query/JobOrder',
-            params={
+        response = _rest_get(
+            bh,
+            'query/JobOrder',
+            {
                 'where': where,
                 'fields': JOB_FIELDS,
                 'count': 200,
                 'start': start,
                 'orderBy': 'id',
                 'showTotalMatched': 'true',
-                'BhRestToken': bh.rest_token,
             },
-            timeout=90,
+            90,
         )
         if response.status_code != 200:
             raise RuntimeError(f'JobOrder query HTTP {response.status_code}')
@@ -180,15 +199,15 @@ def _tearsheet_ids(bh) -> Set[int]:
     ids: Set[int] = set()
     start = 0
     while True:
-        response = requests.get(
-            f'{bh.base_url}entity/Tearsheet/{QUALIFIED_TEARSHEET_INDEED}/jobOrders',
-            params={
+        response = _rest_get(
+            bh,
+            f'entity/Tearsheet/{QUALIFIED_TEARSHEET_INDEED}/jobOrders',
+            {
                 'fields': 'id',
                 'count': 200,
                 'start': start,
-                'BhRestToken': bh.rest_token,
             },
-            timeout=60,
+            60,
         )
         if response.status_code != 200:
             raise RuntimeError(f'tearsheet 2 read HTTP {response.status_code}')
@@ -231,7 +250,7 @@ def _hydrate_emails(bh, jobs: Iterable[Dict[str, Any]]) -> None:
     try:
         found = bh.get_user_emails(list(set(needed))) or {}
     except Exception as exc:
-        logger.warning('Indeed leak: recruiter email lookup failed: %s', exc)
+        logger.warning('Indeed leak: recruiter email lookup failed: %s', sanitize_leak_error(exc))
         return
     for user in pending:
         info = found.get(int(user['id'])) or found.get(str(user['id'])) or {}
@@ -240,10 +259,11 @@ def _hydrate_emails(bh, jobs: Iterable[Dict[str, Any]]) -> None:
 
 
 def _fetch_job(bh, job_id: int) -> Optional[Dict[str, Any]]:
-    response = requests.get(
-        f'{bh.base_url}entity/JobOrder/{int(job_id)}',
-        params={'fields': JOB_FIELDS, 'BhRestToken': bh.rest_token},
-        timeout=45,
+    response = _rest_get(
+        bh,
+        f'entity/JobOrder/{int(job_id)}',
+        {'fields': JOB_FIELDS},
+        45,
     )
     if response.status_code != 200:
         return None
@@ -310,7 +330,7 @@ def run_sweep() -> Dict[str, Any]:
         read_error = ''
     except Exception as exc:
         tearsheet_ids = set()
-        read_error = str(exc)
+        read_error = sanitize_leak_error(exc)
     now = datetime.now(timezone.utc)
     cutoff_ms = int((now - timedelta(days=7)).timestamp() * 1000)
     if read_error:
@@ -347,7 +367,7 @@ def check_jobs(job_ids: Iterable[int]) -> Dict[str, Any]:
         read_error = ''
     except Exception as exc:
         tearsheet_ids = set()
-        read_error = str(exc)
+        read_error = sanitize_leak_error(exc)
     jobs = []
     if not read_error:
         for job_id in ids:
@@ -378,16 +398,16 @@ def check_recent_indeed_applicants() -> Dict[str, Any]:
         'source:"Indeed Job Board" AND isDeleted:false '
         f'AND dateLastModified:[{since_ms} TO *]'
     )
-    response = requests.get(
-        f'{bh.base_url}search/Candidate',
-        params={
+    response = _rest_get(
+        bh,
+        'search/Candidate',
+        {
             'query': query,
             'fields': 'id',
             'count': 50,
             'sort': '-dateLastModified',
-            'BhRestToken': bh.rest_token,
         },
-        timeout=45,
+        45,
     )
     if response.status_code != 200:
         logger.warning('Indeed leak fast path: candidate search HTTP %s', response.status_code)
@@ -401,7 +421,11 @@ def check_recent_indeed_applicants() -> Dict[str, Any]:
         try:
             submissions[int(cid)] = bh.get_candidate_submissions(int(cid), count=5) or []
         except Exception as exc:
-            logger.warning('Indeed leak fast path: submissions for %s failed: %s', cid, exc)
+            logger.warning(
+                'Indeed leak fast path: submissions for %s failed: %s',
+                cid,
+                sanitize_leak_error(exc),
+            )
     job_ids = jobs_from_applicant_submissions(submissions)
     if not job_ids:
         return {'skipped': True, 'applicants': len(candidates)}
@@ -433,7 +457,11 @@ def _tearsheet_digest_rows(bh, ui: BullhornUIClient) -> Dict[str, List[Dict[str,
         try:
             status = ui.get_publication_status(job_id)
         except Exception as exc:
-            logger.warning('Indeed leak digest: status failed for tearsheet job %s: %s', job_id, exc)
+            logger.warning(
+                'Indeed leak digest: status failed for tearsheet job %s: %s',
+                job_id,
+                sanitize_leak_error(exc),
+            )
             continue
         if status.get('indeed_published'):
             live.append(dict(row))

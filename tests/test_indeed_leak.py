@@ -697,3 +697,121 @@ def test_leak_mode_defaults_to_report(monkeypatch):
     assert leak_mode() == MODE_REPORT
     monkeypatch.setenv('INDEED_LEAK_GRACE_HOURS', '6')
     assert grace_hours() == 6
+
+
+def _rest_token_error():
+    import requests
+    return requests.ConnectionError(
+        'Max retries exceeded with url: '
+        'https://rest.example/entity/Tearsheet/2/jobOrders'
+        '?BhRestToken=SECRET&access_token=AAA&refresh_token=BBB'
+        '&code=CCC&password=DDD'
+    )
+
+
+def test_connection_error_does_not_carry_the_rest_token(app, caplog):
+    """A URL in a connection error must not reach email, state, results, or logs."""
+    import json
+    import logging
+    from unittest.mock import patch
+
+    from indeed_publish.leak import sanitize_leak_text
+
+    secret_bits = ('SECRET', 'AAA', 'BBB', 'CCC', 'DDD')
+    saved = {}
+    emails = []
+
+    def send_email(_to, _subject, body):
+        emails.append(body)
+        return True
+
+    def save_state(state):
+        saved['json'] = json.dumps(state)
+
+    with caplog.at_level(logging.DEBUG):
+        with patch('indeed_publish.leak_runtime.is_qualified_tenant', return_value=True), \
+             patch('indeed_publish.leak_runtime.leak_mode', return_value='report'), \
+             patch('indeed_publish.leak_runtime._bh', return_value=object()), \
+             patch('indeed_publish.leak_runtime._ui_client', return_value=object()), \
+             patch('indeed_publish.leak_runtime._tearsheet_ids', side_effect=_rest_token_error()), \
+             patch('indeed_publish.leak_runtime._save_state', save_state), \
+             patch('indeed_publish.leak_runtime._send_email', send_email):
+            from indeed_publish.leak_runtime import run_sweep
+            result = run_sweep()
+
+        with patch('indeed_publish.leak_runtime.run_sweep', side_effect=_rest_token_error()):
+            from tasks.indeed_leak import run_indeed_leak_sweep
+            run_indeed_leak_sweep()
+
+    closed = _job(status='Closed', isOpen=False)
+
+    def on_sheet(_job_id):
+        raise _rest_token_error()
+
+    remove_run = LeakRun(
+        mode=MODE_ENFORCE,
+        now=NOW,
+        state={},
+        notify_email=OPS,
+        publication_status=lambda _job_id: {'indeed_published': True},
+        job_on_tearsheet=on_sheet,
+    )
+    assert remove_run.guard_tearsheet([100]) is False
+    remove_run.consider([closed])
+
+    blob = '\n'.join([
+        json.dumps(result),
+        saved.get('json', ''),
+        '\n'.join(emails),
+        caplog.text,
+        json.dumps(remove_run.state),
+        json.dumps(remove_run.result),
+    ])
+    for bit in secret_bits:
+        assert bit not in blob
+    assert 'BhRestToken=' not in blob
+    assert '?' not in result['guardrail_detail']
+    assert result['guardrail_detail'] == 'ConnectionError'
+    assert 'ConnectionError' in emails[0]
+    event = remove_run.state['jobs']['34869']['events'][-1]
+    assert event['action'] == 'failed'
+    assert 'ConnectionError' in event['result']
+    assert 'SECRET' not in event['detail']
+    assert remove_run.result['failed'][0]['result'] == 'recheck: ConnectionError'
+
+    outside_url = sanitize_leak_text(
+        'BhRestToken=SECRET access_token=AAA refresh_token=BBB code=CCC password=DDD'
+    )
+    for bit in secret_bits:
+        assert bit not in outside_url
+
+
+def test_tearsheet_and_job_reads_send_rest_token_as_header(monkeypatch):
+    import indeed_publish.leak_runtime as runtime
+
+    calls = []
+
+    class _Resp:
+        status_code = 200
+
+        def json(self):
+            return {'data': [], 'total': 0}
+
+    def fake_get(url, params=None, headers=None, timeout=None):
+        calls.append((url, dict(params or {}), dict(headers or {})))
+        return _Resp()
+
+    monkeypatch.setattr(runtime.requests, 'get', fake_get)
+    bh = type('BH', (), {
+        'base_url': 'https://rest.example/',
+        'rest_token': 'SECRET',
+    })()
+    assert runtime._tearsheet_ids(bh) == set()
+    assert runtime._query_jobs(bh, 'isOpen=true AND isDeleted=false') == []
+    assert runtime._fetch_job(bh, 68837) is None
+    assert len(calls) == 3
+    for url, params, headers in calls:
+        assert headers.get('BhRestToken') == 'SECRET'
+        assert 'BhRestToken' not in params
+        assert 'SECRET' not in url
+        assert 'SECRET' not in str(params)

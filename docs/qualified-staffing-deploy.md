@@ -174,7 +174,9 @@ are `INDEED_LEAK_EXEMPT_JOB_IDS` and `INDEED_LEAK_EXEMPT_DEPARTMENTS`. A broken
 tearsheet read, an empty tearsheet, a membership drop of more than half, or
 status-call failures above 20% stop the run and email
 `INDEED_LEAK_NOTIFY_EMAIL` (default `kroots@myticas.com`). Detections persist
-in `indeed_leak_state`.
+in `indeed_leak_state`. Leak-checker REST calls send `BhRestToken` as a
+header. Exception text saved, emailed, or logged from that check is the
+exception type and HTTP status, with token and password values redacted.
 
 When native Indeed publish is on, the Indeed XML upload is empty so native
 publish and Scout XML do not dual-list. Campaign tags map from `correlatedCustomText1` (see go-live step 7).
