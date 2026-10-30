@@ -49,6 +49,7 @@ _SECRET_ASSIGN = re.compile(
 )
 _URL_WITH_QUERY = re.compile(r'https?://[^\s\'"<>]+', re.I)
 _HTTP_STATUS = re.compile(r'\bHTTP\s+(\d{3})\b', re.I)
+_STATUS_ONLY = re.compile(r'(?i)\AHTTP\s+\d{3}\Z')
 
 
 def sanitize_leak_text(text: str) -> str:
@@ -102,6 +103,8 @@ def sanitize_leak_error(exc: Union[BaseException, str]) -> str:
     if isinstance(exc, BaseException):
         status = _http_status_from_exc(exc)
         reason = _safe_reason(exc)
+        if reason and _STATUS_ONLY.fullmatch(reason):
+            reason = ''
         if reason:
             if status and not _HTTP_STATUS.search(reason):
                 return f'{reason} HTTP {status}'

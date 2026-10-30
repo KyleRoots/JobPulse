@@ -808,6 +808,9 @@ def test_publish_error_keeps_the_empty_description_reason():
     assert 'SECRET' not in leaked
     assert 'BhRestToken=' not in leaked
 
+    status_only = sanitize_leak_error(RuntimeError('HTTP 500'))
+    assert status_only == 'RuntimeError HTTP 500'
+
 
 def test_tearsheet_and_job_reads_send_rest_token_as_header(monkeypatch):
     import indeed_publish.leak_runtime as runtime
