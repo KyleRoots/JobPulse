@@ -1576,15 +1576,106 @@ def test_digest_load_and_save_stay_inside_the_lock(monkeypatch, tmp_path):
     monkeypatch.setattr(runtime, '_send_email', lambda *_args, **_kwargs: True)
     held = runtime._acquire_file_lock(blocking=False, timeout=0)
     try:
-        skipped = runtime.run_weekly_digest()
+        skipped = runtime.run_weekly_digest(
+            clock=lambda: datetime(2026, 11, 2, 13, 0, tzinfo=EASTERN),
+        )
     finally:
         runtime._release_leak_lock(held)
-    assert skipped == {'skipped': 'lock held'}
+    assert skipped['skipped'] == 'lock held'
+    assert skipped['attempts'] == 1
+    assert skipped['emailed'] is False
     assert events == []
 
     result = runtime.run_weekly_digest()
     assert result['sent']
+    assert result['attempts'] == 1
     assert events == ['load', 'save']
+
+
+def test_digest_retries_until_noon_then_emails_once(monkeypatch, tmp_path):
+    import indeed_publish.leak_runtime as runtime
+
+    monkeypatch.setenv('INDEED_LEAK_LOCK_FILE', str(tmp_path / 'leak.lock'))
+    monkeypatch.setattr(runtime, '_postgres_engine', lambda: None)
+    monkeypatch.setattr(runtime, 'is_qualified_tenant', lambda: True)
+    monkeypatch.setattr(runtime, 'leak_mode', lambda: 'report')
+    monkeypatch.setattr(runtime, 'SWEEP_LOCK_WAIT_SECONDS', 0)
+    monkeypatch.setattr(
+        runtime,
+        '_run_weekly_digest_locked',
+        lambda: (_ for _ in ()).throw(AssertionError('digest ran')),
+    )
+    emails = []
+    monkeypatch.setattr(runtime, '_notify_digest_missed', lambda moment: emails.append(moment) or True)
+    times = [datetime(2026, 11, 2, 8, 0, tzinfo=EASTERN)]
+
+    def sleep(seconds):
+        assert seconds == runtime.DIGEST_RETRY_SECONDS
+        times[0] = times[0] + timedelta(seconds=seconds)
+
+    held = runtime._acquire_file_lock(blocking=False, timeout=0)
+    assert held is not None
+    try:
+        result = runtime.run_weekly_digest(clock=lambda: times[0], sleep=sleep)
+    finally:
+        runtime._release_leak_lock(held)
+    assert result['skipped'] == 'lock held'
+    assert result['emailed'] is True
+    assert result['attempts'] == 25
+    assert times[0] == datetime(2026, 11, 2, 12, 0, tzinfo=EASTERN)
+    assert len(emails) == 1
+
+
+def test_digest_runs_when_the_lock_frees_before_noon(monkeypatch, tmp_path):
+    import indeed_publish.leak_runtime as runtime
+
+    monkeypatch.setenv('INDEED_LEAK_LOCK_FILE', str(tmp_path / 'leak.lock'))
+    monkeypatch.setattr(runtime, '_postgres_engine', lambda: None)
+    monkeypatch.setattr(runtime, 'is_qualified_tenant', lambda: True)
+    monkeypatch.setattr(runtime, 'leak_mode', lambda: 'report')
+    monkeypatch.setattr(runtime, 'SWEEP_LOCK_WAIT_SECONDS', 0)
+    monkeypatch.setattr(runtime, '_run_weekly_digest_locked', lambda: {'sent': ['ops@example.com']})
+    monkeypatch.setattr(
+        runtime,
+        '_notify_digest_missed',
+        lambda moment: (_ for _ in ()).throw(AssertionError('emailed')),
+    )
+    times = [datetime(2026, 11, 2, 8, 0, tzinfo=EASTERN)]
+    held = runtime._acquire_file_lock(blocking=False, timeout=0)
+
+    def sleep(seconds):
+        times[0] = times[0] + timedelta(seconds=seconds)
+        runtime._release_leak_lock(held)
+
+    assert held is not None
+    result = runtime.run_weekly_digest(clock=lambda: times[0], sleep=sleep)
+    assert result == {'sent': ['ops@example.com'], 'attempts': 2}
+    assert times[0] == datetime(2026, 11, 2, 8, 10, tzinfo=EASTERN)
+
+
+def test_digest_miss_email_is_once_per_day(monkeypatch):
+    import indeed_publish.leak_runtime as runtime
+
+    store = {}
+
+    class _Settings:
+        @staticmethod
+        def get_value(key, default=''):
+            return store.get(key, default)
+
+        @staticmethod
+        def set_value(key, value, **_kwargs):
+            store[key] = value
+
+    emails = []
+    monkeypatch.setattr('models.scheduling.GlobalSettings', _Settings)
+    monkeypatch.setattr(runtime, '_send_email', lambda *args, **_kwargs: emails.append(args) or True)
+    morning = datetime(2026, 11, 2, 12, 0, tzinfo=EASTERN)
+    assert runtime._notify_digest_missed(morning) is True
+    assert runtime._notify_digest_missed(morning) is False
+    assert runtime._notify_digest_missed(datetime(2026, 11, 9, 12, 0, tzinfo=EASTERN)) is True
+    assert len(emails) == 2
+    assert emails[0][1] == 'Indeed leak digest did not go out'
 
 
 def test_tearsheet_digest_keeps_jobs_whose_status_is_not_indeed_live(monkeypatch):

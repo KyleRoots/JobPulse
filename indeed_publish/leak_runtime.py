@@ -72,6 +72,11 @@ SWEEP_LOCK_WAIT_SECONDS = 120
 DEEP_SWEEP_RETRY_SECONDS = 10 * 60
 DEEP_SWEEP_GIVE_UP_HOUR = 6
 DEEP_SWEEP_SKIPPED_KEY = 'indeed_leak_deep_sweep_skipped_on'
+# The Monday 8:00 AM digest uses the same 10-minute retry. The hourly sweep's
+# start time follows the deploy, so 8:00 AM can overlap it.
+DIGEST_RETRY_SECONDS = DEEP_SWEEP_RETRY_SECONDS
+DIGEST_GIVE_UP_HOUR = 12
+DIGEST_SKIPPED_KEY = 'indeed_leak_digest_skipped_on'
 # Stable Postgres advisory-lock key for indeed_leak_state. Not a secret.
 _ADVISORY_LOCK_KEY = 441702021701
 _LOCK_LOCAL = threading.local()
@@ -571,15 +576,18 @@ def _run_sweep_locked() -> Dict[str, Any]:
     return _finish(run, tearsheet_ids, jobs)
 
 
-def _deep_sweep_deadline(started: datetime) -> datetime:
-    """6:00 AM ET for an overnight run. A later start does not retry."""
-    local = started.astimezone(EASTERN)
-    deadline = local.replace(
-        hour=DEEP_SWEEP_GIVE_UP_HOUR, minute=0, second=0, microsecond=0
-    )
+def _same_day_deadline(started: datetime, hour: int) -> datetime:
+    """hour:00 ET on the start day. A start at or after that hour does not retry."""
+    local = _as_eastern(started)
+    deadline = local.replace(hour=hour, minute=0, second=0, microsecond=0)
     if local >= deadline:
         return local
     return deadline
+
+
+def _deep_sweep_deadline(started: datetime) -> datetime:
+    """6:00 AM ET for an overnight run. A later start does not retry."""
+    return _same_day_deadline(started, DEEP_SWEEP_GIVE_UP_HOUR)
 
 
 def _as_eastern(moment: datetime) -> datetime:
@@ -876,16 +884,79 @@ def _tearsheet_digest_rows(bh, ui: BullhornUIClient) -> Dict[str, List[Dict[str,
     return {'live': live, 'cannot_publish': blocked, 'not_live': not_live}
 
 
-def run_weekly_digest() -> Dict[str, Any]:
+def _notify_digest_missed(moment: datetime) -> bool:
+    """Email ops once per ET day when the Monday digest never got the lock."""
+    from models.scheduling import GlobalSettings
+
+    day = _as_eastern(moment).date().isoformat()
+    if (GlobalSettings.get_value(DIGEST_SKIPPED_KEY, '') or '') == day:
+        return False
+    ops = notify_email() or DEFAULT_NOTIFY_EMAIL
+    sent = bool(_send_email(
+        ops,
+        'Indeed leak digest did not go out',
+        (
+            'The Monday 8:00 AM ET Indeed leak digest did not go out. '
+            'Another leak run held the lock through 12:00 PM ET. '
+            'Nothing was emailed and nothing was removed.'
+        ),
+    ))
+    if not sent:
+        return False
+    GlobalSettings.set_value(
+        DIGEST_SKIPPED_KEY,
+        day,
+        description='ET date the Indeed leak digest missed its morning window',
+        category='indeed_publish',
+    )
+    return True
+
+
+def run_weekly_digest(clock=None, sleep=None) -> Dict[str, Any]:
+    """Monday digest. Retries every 10 minutes until 12:00 PM ET.
+
+    The hourly sweep can still be holding the lock at 8:00 AM, because its
+    start time follows the deploy. A start at or after noon does not retry
+    and does not send the miss email.
+    """
     if not is_qualified_tenant():
         return {'skipped': 'not qualified'}
     if leak_mode() == 'off':
         return {'skipped': 'mode off'}
-    with leak_state_lock(blocking=True) as acquired:
-        if not acquired:
-            logger.warning('Indeed leak digest skipped: another leak run holds the lock')
-            return {'skipped': 'lock held'}
-        return _run_weekly_digest_locked()
+
+    def current() -> datetime:
+        moment = clock() if clock is not None else datetime.now(EASTERN)
+        return _as_eastern(moment)
+
+    def pause(seconds: float) -> None:
+        if sleep is not None:
+            sleep(seconds)
+        else:
+            time.sleep(seconds)
+
+    started = current()
+    deadline = _same_day_deadline(started, DIGEST_GIVE_UP_HOUR)
+    attempts = 0
+    while True:
+        attempts += 1
+        with leak_state_lock(blocking=True) as acquired:
+            if acquired:
+                result = _run_weekly_digest_locked()
+                result['attempts'] = attempts
+                return result
+        moment = current()
+        if moment >= deadline:
+            emailed = _notify_digest_missed(moment) if started < deadline else False
+            logger.warning(
+                'Indeed leak digest skipped after %s attempts: lock held',
+                attempts,
+            )
+            return {'skipped': 'lock held', 'attempts': attempts, 'emailed': emailed}
+        logger.warning(
+            'Indeed leak digest will retry in 10 minutes: lock held (attempt %s)',
+            attempts,
+        )
+        pause(DIGEST_RETRY_SECONDS)
 
 
 def _run_weekly_digest_locked() -> Dict[str, Any]:

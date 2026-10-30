@@ -185,7 +185,8 @@ checked 2,209 jobs in 322 seconds. A sweep waits up to two minutes, then skips
 without saving, including when an old and a new container overlap during a
 deploy (Postgres advisory lock). The 3:00 AM closed-job sweep retries every
 10 minutes until 6:00 AM ET if the lock is still held, then emails ops once
-that it did not run that day. Leak-checker REST
+that it did not run that day. The Monday 8:00 AM digest retries every 10
+minutes until 12:00 PM ET, then emails ops once that the digest did not go out. Leak-checker REST
 calls send `BhRestToken` as a
 header. Exception text saved, emailed, or logged from that check is the
 exception type and HTTP status, with token and password values redacted.
