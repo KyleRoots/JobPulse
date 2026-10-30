@@ -576,7 +576,9 @@ class TestSyncService:
                  'job_ids': [79398],
                  'fingerprints': {'79398': 'old'},
                  'pending_unpublish': [],
+                 'absent_once': [79398],
              }), \
+             patch.object(IndeedTearsheetPublishService, '_confirm_absent', return_value=True), \
              patch('indeed_publish.sync._save_state'), \
              patch('indeed_publish.sync._save_last_result'), \
              patch('utils.bullhorn_helpers.get_bullhorn_service', return_value=bh):
@@ -661,7 +663,9 @@ class TestSyncService:
                  'job_ids': [35409],
                  'fingerprints': {'35409': 'abc'},
                  'pending_unpublish': [],
+                 'absent_once': [35409],
              }), \
+             patch.object(IndeedTearsheetPublishService, '_confirm_absent', return_value=True), \
              patch('indeed_publish.sync._save_state') as save_state, \
              patch('indeed_publish.sync._save_last_result'), \
              patch('indeed_publish.sync._notify_failure'), \
@@ -693,6 +697,7 @@ class TestSyncService:
                  'fingerprints': {'35410': 'old'},
                  'pending_unpublish': [35410],
              }), \
+             patch.object(IndeedTearsheetPublishService, '_confirm_absent', return_value=True), \
              patch('indeed_publish.sync._save_state') as save_state, \
              patch('indeed_publish.sync._save_last_result'), \
              patch('utils.bullhorn_helpers.get_bullhorn_service', return_value=bh):
@@ -738,7 +743,9 @@ class TestSyncService:
                  'job_ids': [34829, 35409],
                  'fingerprints': {'34829': 'same', '35409': 'gone'},
                  'pending_unpublish': [],
+                 'absent_once': [35409],
              }), \
+             patch.object(IndeedTearsheetPublishService, '_confirm_absent', return_value=True), \
              patch('indeed_publish.sync._save_state') as save_state, \
              patch('indeed_publish.sync._save_last_result'), \
              patch('indeed_publish.sync._notify_failure'), \
@@ -786,7 +793,9 @@ class TestSyncService:
                  'job_ids': [35409, 35410],
                  'fingerprints': {'35409': 'a', '35410': 'b'},
                  'pending_unpublish': [],
+                 'absent_once': [35409, 35410],
              }), \
+             patch.object(IndeedTearsheetPublishService, '_confirm_absent', return_value=True), \
              patch('indeed_publish.sync._save_state') as save_state, \
              patch('indeed_publish.sync._save_last_result'), \
              patch('indeed_publish.sync._notify_failure') as notify, \
@@ -802,6 +811,401 @@ class TestSyncService:
         assert saved['pending_unpublish'] == [35409, 35410]
         assert saved['job_ids'] == [34829]
         assert '34829' not in saved['fingerprints']
+
+
+class TestShortReadAndSelfHeal:
+    """A partial Bullhorn membership must not DELETE tearsheet jobs."""
+
+    def _member(self, job_id, department='', desc='<p>hi</p>'):
+        return {
+            'id': job_id,
+            'title': 'Python Test Developer',
+            'description': desc,
+            'publicDescription': desc,
+            'correlatedCustomText1': department,
+            'categories': {'data': [{'name': 'IT/Software Development'}]},
+            'assignedUsers': {
+                'data': [{'id': 65, 'email': 'elena@example.com', 'firstName': 'Elena'}]
+            },
+        }
+
+    def _cfg(self, tearsheet_id=1640):
+        return {
+            'enabled': True,
+            'username': 'u',
+            'password': 'p',
+            'base_url': 'https://rest.example',
+            'private_label_id': '51284',
+            'encryption_key': 'novo',
+            'job_url_template': 'https://jobs.q-staffing.com/jobs/{job_id}',
+            'notify_email': 'kroots@myticas.com',
+            'current_user_id': '25',
+            'tearsheet_id': tearsheet_id,
+        }
+
+    def _run(self, svc, ui, bh, jobs, state):
+        with patch.object(
+                IndeedTearsheetPublishService, '_fetch_tearsheet_jobs', return_value=jobs
+             ), \
+             patch('indeed_publish.sync._load_state', return_value=state), \
+             patch('indeed_publish.sync._save_state') as save_state, \
+             patch('indeed_publish.sync._save_last_result'), \
+             patch('indeed_publish.sync._notify_failure') as notify, \
+             patch('indeed_publish.sync._fingerprint', return_value='fp'), \
+             patch('utils.bullhorn_helpers.get_bullhorn_service', return_value=bh):
+            result = svc.run_sync()
+        saved = save_state.call_args[0][0] if save_state.called else None
+        return result, saved, notify
+
+    def test_oct30_short_read_then_full_read_does_not_delete_or_readd(self):
+        """18-of-a-larger-set shape: short read, then the same jobs return."""
+        ui = MagicMock()
+        ui.current_user_id = '25'
+        bh = MagicMock()
+        bh.authenticate.return_value = True
+        full_ids = list(range(79344, 79344 + 100))
+        short_ids = full_ids[:82]  # 18 missing: more than 10% and at least 5
+        state = {
+            'job_ids': full_ids,
+            'fingerprints': {str(jid): 'fp' for jid in full_ids},
+            'pending_unpublish': [],
+            'absent_once': [],
+        }
+        svc = IndeedTearsheetPublishService(config=self._cfg(), ui_client=ui)
+        short_jobs = [self._member(jid) for jid in short_ids]
+        result, saved, notify = self._run(svc, ui, bh, short_jobs, state)
+        assert result['unpublished'] == []
+        ui.unpublish_boards.assert_not_called()
+        assert result['guardrail'] == 'membership_drop'
+        assert saved['absent_once'] == []
+        assert saved['job_ids'] == full_ids
+        assert result['published'] == []
+        notify.assert_called_once()
+
+        state = saved
+        full_jobs = [self._member(jid) for jid in full_ids]
+        result, saved, notify = self._run(svc, ui, bh, full_jobs, state)
+        assert result['unpublished'] == []
+        assert result['published'] == []
+        assert result.get('guardrail') is None
+        ui.unpublish_boards.assert_not_called()
+        ui.publish_boards.assert_not_called()
+        assert saved['job_ids'] == full_ids
+
+    def test_genuine_removal_deletes_on_the_second_absence(self):
+        ui = MagicMock()
+        ui.current_user_id = '25'
+        bh = MagicMock()
+        bh.authenticate.return_value = True
+        stay = self._member(34829)
+        gone = self._member(35409)
+        svc = IndeedTearsheetPublishService(config=self._cfg(), ui_client=ui)
+        state = {
+            'job_ids': [34829, 35409],
+            'fingerprints': {'34829': 'fp', '35409': 'fp'},
+            'pending_unpublish': [],
+            'absent_once': [],
+        }
+        with patch.object(IndeedTearsheetPublishService, '_confirm_absent') as confirm:
+            confirm.return_value = True
+            result, saved, _notify = self._run(svc, ui, bh, [stay], state)
+        assert result['unpublished'] == []
+        ui.unpublish_boards.assert_not_called()
+        confirm.assert_not_called()
+        assert saved['job_ids'] == [34829, 35409]
+        assert saved['absent_once'] == [35409]
+
+        state = saved
+        with patch.object(
+            IndeedTearsheetPublishService, '_confirm_absent', return_value=True
+        ) as confirm:
+            result, saved, _notify = self._run(svc, ui, bh, [stay], state)
+        confirm.assert_called()
+        assert 35409 in result['unpublished']
+        ui.unpublish_boards.assert_called_once()
+        assert saved['job_ids'] == [34829]
+        assert saved['pending_unpublish'] == []
+        assert saved['absent_once'] == []
+
+    def test_reconfirm_still_present_skips_delete(self):
+        ui = MagicMock()
+        ui.current_user_id = '25'
+        bh = MagicMock()
+        bh.authenticate.return_value = True
+        stay = self._member(34829)
+        svc = IndeedTearsheetPublishService(config=self._cfg(), ui_client=ui)
+        state = {
+            'job_ids': [34829, 35409],
+            'fingerprints': {'34829': 'fp', '35409': 'fp'},
+            'pending_unpublish': [],
+            'absent_once': [35409],
+        }
+        with patch.object(
+            IndeedTearsheetPublishService, '_confirm_absent', return_value=False
+        ):
+            result, saved, _notify = self._run(svc, ui, bh, [stay], state)
+        assert result['unpublished'] == []
+        ui.unpublish_boards.assert_not_called()
+        assert 35409 in saved['job_ids']
+        assert saved['absent_once'] == []
+
+    def test_guardrail_still_publishes_additions_and_emails_once_a_day(self):
+        ui = MagicMock()
+        ui.current_user_id = '25'
+        bh = MagicMock()
+        bh.authenticate.return_value = True
+        bh.update_job_order.return_value = True
+        prev = list(range(1, 51))
+        missing = prev[:6]
+        present = prev[6:]
+        new_job = self._member(999)
+        jobs = [self._member(jid) for jid in present] + [new_job]
+        state = {
+            'job_ids': prev,
+            'fingerprints': {str(jid): 'fp' for jid in prev},
+            'pending_unpublish': [],
+            'absent_once': [],
+        }
+        svc = IndeedTearsheetPublishService(config=self._cfg(), ui_client=ui)
+        result, saved, notify = self._run(svc, ui, bh, jobs, state)
+        assert result['guardrail'] == 'membership_drop'
+        assert result['unpublished'] == []
+        ui.unpublish_boards.assert_not_called()
+        assert 999 in result['published']
+        assert ui.publish_boards.call_args.kwargs['operation'] == 'REPUBLISH'
+        assert saved['absent_once'] == []
+        for jid in missing:
+            assert jid in saved['job_ids']
+        assert notify.call_count == 1
+        assert 'large membership drop' in notify.call_args[0][0]
+
+        state = saved
+        ui.publish_boards.reset_mock()
+        result, saved, notify = self._run(svc, ui, bh, jobs, state)
+        assert result['unpublished'] == []
+        assert notify.call_count == 0
+
+    def test_detail_fetch_failure_is_not_a_removal(self):
+        ui = MagicMock()
+        ui.current_user_id = '25'
+        bh = MagicMock()
+        bh.authenticate.return_value = True
+        member = self._member(34829)
+        svc = IndeedTearsheetPublishService(config=self._cfg(), ui_client=ui)
+
+        def fetch(self, _bh):
+            self._membership_ids = {34829, 35409}
+            self._detail_failed = {35409}
+            return [member]
+
+        state = {
+            'job_ids': [34829, 35409],
+            'fingerprints': {'34829': 'fp', '35409': 'fp'},
+            'pending_unpublish': [],
+            'absent_once': [],
+        }
+        with patch.object(IndeedTearsheetPublishService, '_fetch_tearsheet_jobs', fetch), \
+             patch('indeed_publish.sync._load_state', return_value=state), \
+             patch('indeed_publish.sync._save_state') as save_state, \
+             patch('indeed_publish.sync._save_last_result'), \
+             patch('indeed_publish.sync._fingerprint', return_value='fp'), \
+             patch('utils.bullhorn_helpers.get_bullhorn_service', return_value=bh):
+            result = svc.run_sync()
+        saved = save_state.call_args[0][0]
+        assert result['unpublished'] == []
+        ui.unpublish_boards.assert_not_called()
+        assert saved['job_ids'] == [34829, 35409]
+        assert result['detail_failed'] == [35409]
+        assert result['published'] == []
+
+    def test_failed_membership_read_does_not_change_state(self):
+        from indeed_publish.sync import TearsheetMembershipError
+
+        ui = MagicMock()
+        ui.current_user_id = '25'
+        bh = MagicMock()
+        bh.authenticate.return_value = True
+        svc = IndeedTearsheetPublishService(config=self._cfg(), ui_client=ui)
+        with patch.object(
+                IndeedTearsheetPublishService,
+                '_fetch_tearsheet_jobs',
+                side_effect=TearsheetMembershipError('tearsheet read count 80 != total 137'),
+             ), \
+             patch('indeed_publish.sync._save_state') as save_state, \
+             patch('indeed_publish.sync._save_last_result'), \
+             patch('utils.bullhorn_helpers.get_bullhorn_service', return_value=bh):
+            result = svc.run_sync()
+        assert result['membership_read'] == 'failed'
+        assert result['unpublished'] == []
+        save_state.assert_not_called()
+        ui.unpublish_boards.assert_not_called()
+        ui.login_with_retry.assert_not_called()
+
+    def test_membership_read_paginates_and_rejects_a_short_page(self):
+        svc = IndeedTearsheetPublishService(config=self._cfg(tearsheet_id=2), ui_client=MagicMock())
+        bh = MagicMock()
+        pages = [
+            _response(200, {'total': 3, 'data': [{'id': 1}, {'id': 2}]}),
+            _response(200, {'total': 3, 'data': [{'id': 3}]}),
+        ]
+
+        def rest_get(_bh, path, params, timeout):
+            assert 'BhRestToken' not in params
+            assert params['count'] == 2
+            assert path.endswith('/jobOrders')
+            return pages.pop(0)
+
+        with patch('indeed_publish.sync.MEMBERSHIP_PAGE_SIZE', 2), \
+             patch('indeed_publish.sync._rest_get', side_effect=rest_get):
+            assert svc._read_member_ids(bh) == {1, 2, 3}
+
+        short = _response(200, {'total': 137, 'data': [{'id': 1}]})
+        with patch('indeed_publish.sync._rest_get', return_value=short):
+            with pytest.raises(Exception, match='short page'):
+                svc._read_member_ids(bh)
+
+        missing_total = _response(200, {'data': [{'id': 1}]})
+        with patch('indeed_publish.sync._rest_get', return_value=missing_total):
+            with pytest.raises(Exception, match='missing total'):
+                svc._read_member_ids(bh)
+
+        http_error = _response(500, {})
+        with patch('indeed_publish.sync._rest_get', return_value=http_error):
+            with pytest.raises(Exception, match='HTTP 500'):
+                svc._read_member_ids(bh)
+
+        # Duplicates must not satisfy total.
+        dupes = [
+            _response(200, {'total': 2, 'data': [{'id': 7}, {'id': 7}]}),
+        ]
+        with patch('indeed_publish.sync.MEMBERSHIP_PAGE_SIZE', 2), \
+             patch('indeed_publish.sync._rest_get', side_effect=dupes):
+            with pytest.raises(Exception, match='count 1 != total 2'):
+                svc._read_member_ids(bh)
+
+    def test_job_detail_sends_the_token_as_a_header(self):
+        svc = IndeedTearsheetPublishService(config=self._cfg(), ui_client=MagicMock())
+        bh = MagicMock()
+        bh.base_url = 'https://rest.example/'
+        bh.rest_token = 'secret-token'
+        resp = _response(200, {'data': {'id': 5, 'title': 'T'}})
+        with patch('indeed_publish.sync._rest_get', return_value=resp) as rest:
+            job = svc._fetch_job_detail(bh, 5)
+        assert job['id'] == 5
+        assert 'BhRestToken' not in rest.call_args[0][2]
+        assert 'secret-token' not in str(rest.call_args[0][2])
+
+    def test_self_heal_sends_addchange_once_a_day_and_reports_after_two_days(self, monkeypatch):
+        from datetime import datetime, timedelta, timezone
+
+        monkeypatch.setattr('indeed_publish.sync.is_qualified_tenant', lambda: True)
+        ui = MagicMock()
+        ui.current_user_id = '25'
+        ui.get_publication_status.return_value = {
+            'indeed_published': False,
+            'job_id': 79605,
+        }
+        bh = MagicMock()
+        bh.authenticate.return_value = True
+        bh.update_job_order.return_value = True
+        job = self._member(79605, department='Richmond', desc='<p>body</p>   #INDRic')
+        job['title'] = 'Warehouse Associate'
+        job['categories'] = {'data': [{'name': 'Warehouse'}]}
+        svc = IndeedTearsheetPublishService(config=self._cfg(tearsheet_id=2), ui_client=ui)
+        store = {
+            'job_ids': [79605],
+            'fingerprints': {'79605': 'fp'},
+            'pending_unpublish': [],
+            'absent_once': [],
+            'self_heal': {},
+        }
+        clock = {'at': datetime(2026, 10, 28, 15, 0, tzinfo=timezone.utc)}
+
+        def utc_now():
+            return clock['at'].strftime('%Y-%m-%dT%H:%M:%SZ')
+
+        def eastern_now():
+            from zoneinfo import ZoneInfo
+            return clock['at'].astimezone(ZoneInfo('America/New_York'))
+
+        def load_state(_cfg=None):
+            return {
+                'job_ids': list(store['job_ids']),
+                'fingerprints': dict(store['fingerprints']),
+                'pending_unpublish': list(store['pending_unpublish']),
+                'absent_once': list(store['absent_once']),
+                'self_heal': {
+                    'last_run_at': (store.get('self_heal') or {}).get('last_run_at'),
+                    'jobs': dict((store.get('self_heal') or {}).get('jobs') or {}),
+                },
+            }
+
+        def save_state(state, _cfg=None):
+            store.clear()
+            store.update(state)
+
+        def run():
+            with patch.object(
+                    IndeedTearsheetPublishService, '_fetch_tearsheet_jobs', return_value=[job]
+                 ), \
+                 patch('indeed_publish.sync._load_state', side_effect=load_state), \
+                 patch('indeed_publish.sync._save_state', side_effect=save_state), \
+                 patch('indeed_publish.sync._save_last_result'), \
+                 patch('indeed_publish.sync._notify_failure') as notify, \
+                 patch('indeed_publish.sync._fingerprint', return_value='fp'), \
+                 patch('indeed_publish.sync._utc_now', side_effect=utc_now), \
+                 patch('indeed_publish.sync._eastern_now', side_effect=eastern_now), \
+                 patch('utils.bullhorn_helpers.get_bullhorn_service', return_value=bh):
+                result = svc.run_sync()
+            return result, notify
+
+        result, notify = run()
+        assert result['self_heal_sent'] == [79605]
+        assert result['self_heal_reported'] == []
+        assert ui.publish_boards.call_count == 1
+        assert ui.publish_boards.call_args.kwargs['operation'] == 'ADDCHANGE'
+        notify.assert_not_called()
+
+        ui.publish_boards.reset_mock()
+        result, notify = run()
+        assert result.get('self_heal_sent') is None
+        ui.publish_boards.assert_not_called()
+        notify.assert_not_called()
+
+        clock['at'] = clock['at'] + timedelta(days=1)
+        result, notify = run()
+        assert result['self_heal_sent'] == [79605]
+        assert result['self_heal_reported'] == []
+        notify.assert_not_called()
+
+        clock['at'] = datetime(2026, 10, 28, 15, 0, tzinfo=timezone.utc) + timedelta(days=2)
+        ui.publish_boards.reset_mock()
+        result, notify = run()
+        assert result['self_heal_sent'] == [79605]
+        assert result['self_heal_reported'] == [79605]
+        assert ui.publish_boards.call_count == 1
+        assert ui.publish_boards.call_args.kwargs['operation'] == 'ADDCHANGE'
+        notify.assert_called_once()
+        assert '79605' in notify.call_args[0][1]
+        assert 'Bullhorn-to-Indeed' in notify.call_args[0][1]
+
+        ui.get_publication_status.return_value = {
+            'indeed_published': True,
+            'job_id': 79605,
+        }
+        clock['at'] = clock['at'] + timedelta(days=1)
+        ui.publish_boards.reset_mock()
+        result, notify = run()
+        assert result.get('self_heal_sent') == []
+        ui.publish_boards.assert_not_called()
+        assert '79605' not in (store.get('self_heal') or {}).get('jobs', {})
+
+
+def _response(status, payload):
+    response = MagicMock()
+    response.status_code = status
+    response.json.return_value = payload
+    return response
 
 
 class TestAutoRemoveHook:

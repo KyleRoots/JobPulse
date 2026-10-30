@@ -7,8 +7,9 @@ import json
 import logging
 import re
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
+from zoneinfo import ZoneInfo
 
 from .campaign_tags import (
     MYTICAS_CAMPAIGN_TAG,
@@ -24,10 +25,24 @@ from .config import (
     TEARSHEET_ID,
     config_from_env,
 )
+from .leak import sanitize_leak_error
+from .leak_runtime import _rest_get
 from .ui_client import BullhornPublishUnavailable, BullhornUIClient, BullhornUIClientError
 from feeds.feed_config import is_qualified_tenant
 
 logger = logging.getLogger(__name__)
+
+EASTERN = ZoneInfo('America/New_York')
+MEMBERSHIP_PAGE_SIZE = 200
+# A real tearsheet does not lose this many jobs in one 5-minute cycle.
+MASS_DROP_MIN_JOBS = 5
+MASS_DROP_FRACTION = 0.10
+GUARDRAIL_EMAIL_AFTER = timedelta(hours=24)
+SELF_HEAL_REPORT_AFTER = timedelta(days=2)
+
+
+class TearsheetMembershipError(RuntimeError):
+    """The tearsheet read is not a complete membership. Do not unpublish from it."""
 
 # Back-compat for tests / older imports
 INDSHOW_TAG = MYTICAS_CAMPAIGN_TAG
@@ -51,6 +66,10 @@ def _cfg_last_result_key(cfg: Optional[dict] = None) -> str:
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+
+def _eastern_now() -> datetime:
+    return datetime.now(EASTERN)
 
 
 def _job_description_html(job: Dict[str, Any]) -> str:
@@ -128,10 +147,18 @@ def _load_state(cfg: Optional[dict] = None) -> Dict[str, Any]:
             data.setdefault('job_ids', [])
             data.setdefault('fingerprints', {})
             data.setdefault('pending_unpublish', [])
+            data.setdefault('absent_once', [])
+            data.setdefault('self_heal', {})
             return data
     except Exception:
         pass
-    return {'job_ids': [], 'fingerprints': {}, 'pending_unpublish': []}
+    return {
+        'job_ids': [],
+        'fingerprints': {},
+        'pending_unpublish': [],
+        'absent_once': [],
+        'self_heal': {},
+    }
 
 
 def _save_state(state: Dict[str, Any], cfg: Optional[dict] = None) -> None:
@@ -140,6 +167,8 @@ def _save_state(state: Dict[str, Any], cfg: Optional[dict] = None) -> None:
     state.setdefault('job_ids', [])
     state.setdefault('fingerprints', {})
     state.setdefault('pending_unpublish', [])
+    state.setdefault('absent_once', [])
+    state.setdefault('self_heal', {})
     state['updated_at'] = _utc_now()
     key = _cfg_state_key(cfg)
     GlobalSettings.set_value(
@@ -152,6 +181,17 @@ def _save_state(state: Dict[str, Any], cfg: Optional[dict] = None) -> None:
 
 def _pending_unpublish_ids(state: Dict[str, Any]) -> Set[int]:
     return {int(x) for x in (state.get('pending_unpublish') or [])}
+
+
+def _absent_once_ids(state: Dict[str, Any]) -> Set[int]:
+    return {int(x) for x in (state.get('absent_once') or [])}
+
+
+def _guardrail_email_due(state: Dict[str, Any]) -> bool:
+    then = _parse_utc(state.get('guardrail_email_at') or '')
+    if not then:
+        return True
+    return datetime.now(timezone.utc) - then >= GUARDRAIL_EMAIL_AFTER
 
 
 def _save_last_result(result: Dict[str, Any], cfg: Optional[dict] = None) -> None:
@@ -287,23 +327,92 @@ class IndeedTearsheetPublishService:
             return ''
         return tmpl.format(job_id=job_id)
 
-    def _fetch_tearsheet_jobs(self, bh) -> List[Dict[str, Any]]:
-        members = bh.get_tearsheet_members(self.tearsheet_id) or []
-        ids: List[int] = []
-        for m in members:
-            if isinstance(m, dict) and m.get('id'):
-                ids.append(int(m['id']))
-            elif isinstance(m, int):
-                ids.append(m)
-        if not ids:
-            # Fallback: full tearsheet jobs (works for empty / small sheets)
-            return bh.get_tearsheet_jobs(self.tearsheet_id) or []
+    def _read_member_ids(self, bh) -> Set[int]:
+        """Paginate tearsheet jobOrders and require the row count to match total.
 
-        jobs: List[Dict[str, Any]] = []
+        A short page, a missing total, or an HTTP error raises
+        ``TearsheetMembershipError``. Callers must not unpublish from that read.
+        """
+        ids: List[int] = []
+        start = 0
+        expected: Optional[int] = None
+        pages = 0
+        while True:
+            pages += 1
+            if pages > 50:
+                raise TearsheetMembershipError('tearsheet read exceeded page limit')
+            try:
+                response = _rest_get(
+                    bh,
+                    f'entity/Tearsheet/{int(self.tearsheet_id)}/jobOrders',
+                    {
+                        'fields': 'id',
+                        'count': MEMBERSHIP_PAGE_SIZE,
+                        'start': start,
+                        'showTotalMatched': 'true',
+                    },
+                    60,
+                )
+            except Exception as exc:
+                raise TearsheetMembershipError(sanitize_leak_error(exc)) from None
+            if response.status_code != 200:
+                raise TearsheetMembershipError(
+                    f'tearsheet read HTTP {response.status_code}'
+                )
+            try:
+                payload = response.json()
+            except Exception as exc:
+                raise TearsheetMembershipError(sanitize_leak_error(exc)) from None
+            if not isinstance(payload, dict) or payload.get('total') is None:
+                raise TearsheetMembershipError('tearsheet read missing total')
+            try:
+                total = int(payload.get('total'))
+            except (TypeError, ValueError):
+                raise TearsheetMembershipError('tearsheet read missing total') from None
+            if expected is None:
+                expected = total
+            elif total != expected:
+                raise TearsheetMembershipError('tearsheet total changed during read')
+            batch = payload.get('data') or []
+            if not isinstance(batch, list):
+                raise TearsheetMembershipError('tearsheet read malformed')
+            if not batch:
+                if start >= total:
+                    break
+                raise TearsheetMembershipError('tearsheet read ended before total')
+            if len(batch) < MEMBERSHIP_PAGE_SIZE and start + len(batch) < total:
+                raise TearsheetMembershipError('tearsheet read short page')
+            for row in batch:
+                if isinstance(row, dict) and row.get('id'):
+                    ids.append(int(row['id']))
+            start += len(batch)
+            if start >= total:
+                break
+        unique: List[int] = []
+        seen: Set[int] = set()
         for jid in ids:
+            if jid not in seen:
+                seen.add(jid)
+                unique.append(jid)
+        if len(unique) != expected:
+            raise TearsheetMembershipError(
+                f'tearsheet read count {len(unique)} != total {expected}'
+            )
+        return set(unique)
+
+    def _fetch_tearsheet_jobs(self, bh) -> List[Dict[str, Any]]:
+        """Return job payloads. Membership ids stay authoritative when a detail fetch fails."""
+        member_ids = self._read_member_ids(bh)
+        self._membership_ids = set(member_ids)
+        failed: Set[int] = set()
+        jobs: List[Dict[str, Any]] = []
+        for jid in sorted(member_ids):
             job = self._fetch_job_detail(bh, jid)
             if job:
                 jobs.append(job)
+            else:
+                failed.add(jid)
+        self._detail_failed = failed
         return jobs
 
     def _fetch_job_detail(self, bh, job_id: int) -> Optional[Dict[str, Any]]:
@@ -319,12 +428,11 @@ class IndeedTearsheetPublishService:
             'correlatedCustomText1'
         )
         try:
-            import requests as _requests
-            url = f'{bh.base_url}entity/JobOrder/{job_id}'
-            resp = _requests.get(
-                url,
-                params={'fields': fields, 'BhRestToken': bh.rest_token},
-                timeout=45,
+            resp = _rest_get(
+                bh,
+                f'entity/JobOrder/{int(job_id)}',
+                {'fields': fields},
+                45,
             )
             if resp.status_code != 200:
                 logger.warning('Indeed publish: job %s fetch HTTP %s', job_id, resp.status_code)
@@ -332,8 +440,215 @@ class IndeedTearsheetPublishService:
             data = resp.json().get('data') or {}
             return data if data.get('id') else None
         except Exception as exc:
-            logger.warning('Indeed publish: job %s fetch error: %s', job_id, exc)
+            logger.warning(
+                'Indeed publish: job %s fetch error: %s',
+                job_id,
+                sanitize_leak_error(exc),
+            )
             return None
+
+    def _confirm_absent(self, bh, job_id: int) -> Optional[bool]:
+        """True when the job is not on this tearsheet.
+
+        False when it is. None when the check failed — the caller must not DELETE.
+        """
+        try:
+            response = _rest_get(
+                bh,
+                f'entity/JobOrder/{int(job_id)}/tearsheets/{int(self.tearsheet_id)}',
+                {'fields': 'id'},
+                30,
+            )
+        except Exception as exc:
+            logger.warning(
+                'Indeed publish: membership reconfirm failed for job %s: %s',
+                job_id,
+                sanitize_leak_error(exc),
+            )
+            return None
+        if response.status_code == 404:
+            return True
+        if response.status_code != 200:
+            logger.warning(
+                'Indeed publish: membership reconfirm HTTP %s for job %s',
+                response.status_code,
+                job_id,
+            )
+            return None
+        try:
+            payload = response.json()
+        except Exception as exc:
+            logger.warning(
+                'Indeed publish: membership reconfirm unreadable for job %s: %s',
+                job_id,
+                sanitize_leak_error(exc),
+            )
+            return None
+        data = payload.get('data') if isinstance(payload, dict) else None
+        if isinstance(data, dict) and int(data.get('id') or 0) == int(self.tearsheet_id):
+            return False
+        if isinstance(data, list):
+            present = any(
+                isinstance(row, dict) and int(row.get('id') or 0) == int(self.tearsheet_id)
+                for row in data
+            )
+            return not present
+        return None
+
+    def _save_membership_state(
+        self,
+        state: Dict[str, Any],
+        saved_ids: Set[int],
+        fingerprints: Dict[str, str],
+        pending_unpublish: Set[int],
+        absent_once: Set[int],
+    ) -> None:
+        payload = dict(state)
+        payload.update({
+            'job_ids': sorted(saved_ids),
+            'fingerprints': {
+                k: v for k, v in fingerprints.items()
+                if int(k) in saved_ids
+            },
+            'pending_unpublish': sorted(pending_unpublish),
+            'absent_once': sorted(absent_once),
+        })
+        _save_state(payload, self.config)
+
+    def _self_heal_enabled(self) -> bool:
+        from feeds.feed_config import QUALIFIED_TEARSHEET_INDEED
+        return (
+            is_qualified_tenant()
+            and int(self.tearsheet_id) == int(QUALIFIED_TEARSHEET_INDEED)
+        )
+
+    def _self_heal_due(self, state: Dict[str, Any]) -> bool:
+        heal = state.get('self_heal') if isinstance(state.get('self_heal'), dict) else {}
+        then = _parse_utc((heal or {}).get('last_run_at') or '')
+        if not then:
+            return True
+        return then.astimezone(EASTERN).date() != _eastern_now().date()
+
+    def _maybe_email_guardrail(
+        self, state: Dict[str, Any], missing: Set[int], prev_count: int
+    ) -> None:
+        if not _guardrail_email_due(state):
+            return
+        ids = ', '.join(str(jid) for jid in sorted(missing))
+        _notify_failure(
+            'Indeed tearsheet publish: skipped a large membership drop',
+            (
+                f'Tearsheet {self.tearsheet_id}: {len(missing)} of {prev_count} previously '
+                'tracked jobs were missing on one read (more than 10% and at least 5). '
+                'No jobs were unpublished this cycle. Additions and republishes still ran.\n\n'
+                f'Missing job ids: {ids}'
+            ),
+            self.config.get('notify_email') or '',
+        )
+        state['guardrail_email_at'] = _utc_now()
+
+    def _self_heal(
+        self,
+        ui: BullhornUIClient,
+        bh,
+        jobs_by_id: Dict[int, Dict[str, Any]],
+        state: Dict[str, Any],
+        fingerprints: Dict[str, str],
+        result: Dict[str, Any],
+    ) -> None:
+        """Once a day, ADDCHANGE tearsheet 2 jobs Bullhorn says are not on Indeed."""
+        if not self._self_heal_enabled() or not self._self_heal_due(state):
+            return
+        heal = state.get('self_heal')
+        if not isinstance(heal, dict):
+            heal = {}
+        jobs_state = heal.get('jobs')
+        if not isinstance(jobs_state, dict):
+            jobs_state = {}
+        heal['jobs'] = jobs_state
+        state['self_heal'] = heal
+        sent: List[int] = []
+        reported: List[int] = []
+        now = _utc_now()
+        now_dt = _parse_utc(now)
+        today = _eastern_now().date()
+        for jid in sorted(jobs_by_id):
+            if jid in result['published'] or jid in result['republished']:
+                continue
+            try:
+                status = ui.get_publication_status(jid)
+            except Exception as exc:
+                logger.warning(
+                    'Indeed publish: self-heal status failed for job %s: %s',
+                    jid,
+                    sanitize_leak_error(exc),
+                )
+                continue
+            if not isinstance(status, dict) or 'indeed_published' not in status:
+                continue
+            key = str(jid)
+            if status.get('indeed_published'):
+                jobs_state.pop(key, None)
+                continue
+            record = jobs_state.get(key)
+            if not isinstance(record, dict):
+                record = {}
+            if not record.get('first_not_published_at'):
+                record['first_not_published_at'] = now
+            last_send = _parse_utc(record.get('last_addchange_at') or '')
+            already_today = bool(
+                last_send and last_send.astimezone(EASTERN).date() == today
+            )
+            if not already_today:
+                try:
+                    fp = self._publish_one(
+                        ui, bh, jobs_by_id[jid], result, operation='ADDCHANGE'
+                    )
+                except BullhornPublishUnavailable:
+                    jobs_state[key] = record
+                    raise
+                except Exception as exc:
+                    record['last_error'] = sanitize_leak_error(exc)
+                    jobs_state[key] = record
+                    result['errors'].append(
+                        f'self-heal {jid}: {sanitize_leak_error(exc)}'
+                    )
+                    continue
+                if fp:
+                    fingerprints[str(jid)] = fp
+                record['last_addchange_at'] = now
+                record.pop('last_error', None)
+                sent.append(jid)
+            first = _parse_utc(record.get('first_not_published_at') or '')
+            if (
+                record.get('last_addchange_at')
+                and first
+                and now_dt
+                and now_dt - first >= SELF_HEAL_REPORT_AFTER
+            ):
+                reported.append(jid)
+            jobs_state[key] = record
+        heal['last_run_at'] = now
+        result['self_heal_sent'] = sent
+        result['self_heal_reported'] = reported
+        if not reported:
+            return
+        lines = []
+        for jid in reported:
+            rec = jobs_state.get(str(jid)) or {}
+            lines.append(
+                f"Job {jid}: not published since {rec.get('first_not_published_at')}, "
+                f"last ADDCHANGE {rec.get('last_addchange_at')}."
+            )
+        _notify_failure(
+            'Indeed tearsheet: jobs still not published',
+            (
+                'These Sponsored - Indeed jobs are still not published on Indeed after '
+                '2 days. Scout re-sent ADDCHANGE. This points at the Bullhorn-to-Indeed '
+                'connection.\n\n' + '\n'.join(lines)
+            ),
+            self.config.get('notify_email') or '',
+        )
 
     def _resolve_user_email(self, bh, user: Dict[str, Any]) -> str:
         email = (user.get('email') or '').strip()
@@ -435,21 +750,30 @@ class IndeedTearsheetPublishService:
             _save_last_result(result, self.config)
             return result
 
+        self._membership_ids = None
+        self._detail_failed = set()
         try:
             jobs = self._fetch_tearsheet_jobs(bh)
         except Exception as exc:
-            result['errors'].append(f'tearsheet fetch failed: {exc}')
+            result['errors'].append(
+                f'tearsheet fetch failed: {sanitize_leak_error(exc)}'
+            )
+            result['membership_read'] = 'failed'
             _save_last_result(result, self.config)
+            logger.warning(
+                'indeed_tearsheet_publish: membership read failed: %s',
+                sanitize_leak_error(exc),
+            )
             return result
 
-        current_ids: Set[int] = set()
         jobs_by_id: Dict[int, Dict[str, Any]] = {}
+        fetched_ids: Set[int] = set()
         for job in jobs:
             jid = job.get('id')
             if not jid:
                 continue
             jid = int(jid)
-            current_ids.add(jid)
+            fetched_ids.add(jid)
             jobs_by_id[jid] = job
 
         state = _load_state(self.config)
@@ -458,15 +782,62 @@ class IndeedTearsheetPublishService:
             str(k): v for k, v in (state.get('fingerprints') or {}).items()
         }
         pending_unpublish = _pending_unpublish_ids(state)
-        # Re-added to tearsheet → no longer need unpublish retry
-        pending_unpublish -= current_ids
+        absent_once = _absent_once_ids(state)
+        if self._membership_ids is None:
+            # Tests and callers that supply the job list directly.
+            member_ids = set(fetched_ids)
+            detail_failed: Set[int] = set()
+        else:
+            member_ids = set(self._membership_ids)
+            detail_failed = set(self._detail_failed or set())
+        # A failed per-job fetch stays a member. It is not a removal.
+        visible = (member_ids - detail_failed) | (detail_failed & prev_ids)
+        result['membership_read'] = 'ok'
+        result['detail_failed'] = sorted(detail_failed)
 
-        to_add = current_ids - prev_ids
-        to_remove = prev_ids - current_ids
-        to_check = current_ids & prev_ids
-        # Retry failed unpublishes every cycle until success (do not forget them
-        # just because they are no longer in job_ids / tearsheet membership).
-        unpublish_targets = (to_remove | pending_unpublish) - current_ids
+        # Back on the tearsheet: drop the absence mark and any queued DELETE.
+        absent_once -= visible
+        pending_unpublish -= visible
+
+        missing = prev_ids - visible
+        guardrail = (
+            len(missing) >= MASS_DROP_MIN_JOBS
+            and len(missing) > MASS_DROP_FRACTION * len(prev_ids)
+        )
+        to_add = (member_ids - detail_failed) - prev_ids
+        to_check = (visible & prev_ids) - detail_failed
+        unpublish_targets: Set[int] = set()
+        if guardrail:
+            # Do not record the drop as a first absence. The next cycle must
+            # not DELETE just because this read was short.
+            result['guardrail'] = 'membership_drop'
+            result['guardrail_missing'] = sorted(missing)
+            self._maybe_email_guardrail(state, missing, len(prev_ids))
+            saved_ids = set(prev_ids) | visible
+        else:
+            first_absence = missing - absent_once
+            confirmed = missing & absent_once
+            absent_once |= first_absence
+            kept: Set[int] = set()
+            for jid in sorted(confirmed | set(pending_unpublish)):
+                verdict = self._confirm_absent(bh, jid)
+                if verdict is None:
+                    result['skipped'].append({
+                        'job_id': jid,
+                        'reason': 'membership reconfirm failed',
+                    })
+                    if jid not in pending_unpublish:
+                        kept.add(jid)
+                    continue
+                if verdict is False:
+                    absent_once.discard(jid)
+                    pending_unpublish.discard(jid)
+                    kept.add(jid)
+                    continue
+                absent_once.discard(jid)
+                unpublish_targets.add(jid)
+            saved_ids = set(visible) | first_absence | kept
+            saved_ids -= pending_unpublish
 
         ui = self._build_ui_client()
         try:
@@ -479,11 +850,16 @@ class IndeedTearsheetPublishService:
                 if resolved:
                     ui.set_current_user_id(resolved)
         except BullhornUIClientError as exc:
-            result['errors'].append(f'UI login failed: {exc}')
+            # The membership read succeeded. Keep the absence mark so the next
+            # cycle can confirm a real removal; do not unpublish without a login.
+            result['errors'].append(f'UI login failed: {sanitize_leak_error(exc)}')
+            self._save_membership_state(
+                state, saved_ids, fingerprints, pending_unpublish, absent_once
+            )
             _save_last_result(result, self.config)
             _notify_failure(
                 'Indeed tearsheet publish: Bullhorn UI login failed',
-                str(exc),
+                sanitize_leak_error(exc),
                 self.config.get('notify_email') or '',
             )
             return result
@@ -505,7 +881,7 @@ class IndeedTearsheetPublishService:
                 pending_unpublish.add(jid)
             except Exception as exc:
                 pending_unpublish.add(jid)
-                msg = f'unpublish {jid}: {exc}'
+                msg = f'unpublish {jid}: {sanitize_leak_error(exc)}'
                 result['errors'].append(msg)
                 _notify_failure(
                     f'Indeed unpublish failed for job {jid}',
@@ -534,9 +910,12 @@ class IndeedTearsheetPublishService:
             except BullhornPublishUnavailable as exc:
                 outage = exc
             except Exception as exc:
-                msg = f'publish {jid}: {exc}'
+                msg = f'publish {jid}: {sanitize_leak_error(exc)}'
                 result['errors'].append(msg)
-                result['skipped'].append({'job_id': jid, 'reason': str(exc)})
+                result['skipped'].append({
+                    'job_id': jid,
+                    'reason': sanitize_leak_error(exc),
+                })
                 _notify_failure(
                     f'Indeed publish failed for job {jid}',
                     msg,
@@ -575,7 +954,7 @@ class IndeedTearsheetPublishService:
             except BullhornPublishUnavailable as exc:
                 outage = exc
             except Exception as exc:
-                msg = f'republish {jid}: {exc}'
+                msg = f'republish {jid}: {sanitize_leak_error(exc)}'
                 result['errors'].append(msg)
                 _notify_failure(
                     f'Indeed republish failed for job {jid}',
@@ -583,29 +962,44 @@ class IndeedTearsheetPublishService:
                     self.config.get('notify_email') or '',
                 )
 
+        if outage is None and not guardrail:
+            heal_jobs = {
+                jid: job for jid, job in jobs_by_id.items()
+                if jid in saved_ids and jid not in unpublish_targets
+            }
+            try:
+                self._self_heal(ui, bh, heal_jobs, state, fingerprints, result)
+            except BullhornPublishUnavailable as exc:
+                outage = exc
+
         if outage:
             # Unprocessed adds have no fingerprint yet, so the next cycle
             # republishes them; unprocessed removals sit in pending_unpublish.
-            result['errors'].append(f'Bullhorn publishing unavailable — cycle stopped: {outage}')
+            result['errors'].append(
+                'Bullhorn publishing unavailable — cycle stopped: '
+                + sanitize_leak_error(outage)
+            )
             result['outage'] = True
             _notify_failure(
                 'Indeed tearsheet publish: Bullhorn publishing unavailable',
-                f'Stopped this cycle after the first failure; will retry next cycle.\n\n{outage}',
+                'Stopped this cycle after the first failure; will retry next cycle.\n\n'
+                + sanitize_leak_error(outage),
                 self.config.get('notify_email') or '',
             )
 
-        # job_ids tracks current tearsheet membership for publish/republish.
-        # pending_unpublish retains failed removals so the next sync retries
-        # instead of forgetting them forever.
-        _save_state({
-            'job_ids': sorted(current_ids),
-            'fingerprints': {
-                k: v for k, v in fingerprints.items()
-                if int(k) in current_ids
-            },
-            'pending_unpublish': sorted(pending_unpublish),
-        }, self.config)
+        # Failed DELETEs leave the job out of job_ids and in pending_unpublish.
+        # A first absence stays in job_ids so the next full read is not a re-ADD.
+        saved_ids -= {
+            jid for jid in unpublish_targets
+            if jid not in pending_unpublish or jid in result['unpublished']
+        }
+        saved_ids -= set(result['unpublished'])
+        saved_ids -= pending_unpublish
+        self._save_membership_state(
+            state, saved_ids, fingerprints, pending_unpublish, absent_once
+        )
         result['pending_unpublish'] = sorted(pending_unpublish)
+        result['absent_once'] = sorted(absent_once)
         result['tearsheet_id'] = self.tearsheet_id
         _save_last_result(result, self.config)
         logger.info(
@@ -624,18 +1018,16 @@ class IndeedTearsheetPublishService:
         if not username or not bh.base_url or not bh.rest_token:
             return None
         try:
-            import requests as _requests
-            # CorporateUser username often matches UI login
-            url = f'{bh.base_url}query/CorporateUser'
-            resp = _requests.get(
-                url,
-                params={
-                    'where': f"username='{username.replace(chr(39), '')}'",
+            safe_username = username.replace(chr(39), '')
+            resp = _rest_get(
+                bh,
+                'query/CorporateUser',
+                {
+                    'where': f"username='{safe_username}'",
                     'fields': 'id,username,email',
                     'count': 5,
-                    'BhRestToken': bh.rest_token,
                 },
-                timeout=30,
+                30,
             )
             if resp.status_code != 200:
                 return None
@@ -643,7 +1035,10 @@ class IndeedTearsheetPublishService:
             if rows and rows[0].get('id'):
                 return int(rows[0]['id'])
         except Exception as exc:
-            logger.warning('Could not resolve BH_UI current user id: %s', exc)
+            logger.warning(
+                'Could not resolve BH_UI current user id: %s',
+                sanitize_leak_error(exc),
+            )
         return None
 
     def _persist_campaign_description(
@@ -810,11 +1205,13 @@ def _update_state_after_unpublish(
         pending.discard(jid)
     else:
         pending.add(jid)
-    _save_state({
-        'job_ids': ids,
-        'fingerprints': fps,
-        'pending_unpublish': sorted(pending),
-    }, cfg)
+    absent = _absent_once_ids(state)
+    absent.discard(jid)
+    state['job_ids'] = ids
+    state['fingerprints'] = fps
+    state['pending_unpublish'] = sorted(pending)
+    state['absent_once'] = sorted(absent)
+    _save_state(state, cfg)
 
 
 def unpublish_job_after_tearsheet_remove(job_id: int, tearsheet_id: int) -> bool:
