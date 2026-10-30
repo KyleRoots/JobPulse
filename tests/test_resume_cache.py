@@ -23,6 +23,49 @@ class TestParsedResumeCacheModel:
         assert hasattr(ParsedResumeCache, 'access_count')
         assert hasattr(ParsedResumeCache, 'CACHE_TTL_DAYS')
     
+    def test_cache_store_strips_nul_before_the_write(self, app):
+        from models import ParsedResumeCache
+        from app import db
+
+        test_hash = hashlib.sha256(b'nul resume').hexdigest()
+        cached = ParsedResumeCache.store(
+            content_hash=test_hash,
+            parsed_data={'skills': ['a\x00b']},
+            raw_text='hello\x00world',
+            formatted_html='<p>hello\x00</p>',
+        )
+        assert '\x00' not in cached.raw_text
+        assert '\x00' not in cached.formatted_html
+        assert '\x00' not in cached.parsed_data_json
+        assert cached.raw_text == 'helloworld'
+        db.session.delete(cached)
+        db.session.commit()
+
+    def test_cache_store_failure_rolls_back_the_session(self, monkeypatch):
+        from resume_parser import ResumeParser
+
+        rolled = []
+
+        class _Cache:
+            @staticmethod
+            def store(*_args, **_kwargs):
+                raise RuntimeError('nul')
+
+        class _Session:
+            @staticmethod
+            def rollback():
+                rolled.append(True)
+
+        class _DB:
+            session = _Session()
+
+        monkeypatch.setattr('models.ParsedResumeCache', _Cache)
+        monkeypatch.setattr('extensions.db', _DB)
+        parser = ResumeParser.__new__(ResumeParser)
+        parser._cache_enabled = True
+        parser._store_cache('hash', {}, 'text', '<p>text</p>')
+        assert rolled == [True]
+
     def test_cache_store_creates_entry(self, app):
         """Verify store() creates a new cache entry"""
         from models import ParsedResumeCache

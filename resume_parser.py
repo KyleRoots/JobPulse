@@ -120,6 +120,13 @@ class ResumeParser:
             logger.info(f"Resume cached with hash {content_hash[:16]}...")
         except Exception as e:
             logger.warning(f"Cache store failed: {e}")
+            # A failed flush leaves the session aborted. Roll it back so the
+            # caller's next commit is not a PendingRollbackError.
+            try:
+                from extensions import db
+                db.session.rollback()
+            except Exception:
+                logger.warning('Resume cache rollback failed')
     
     def _init_openai(self):
         """Initialize OpenAI client for AI-assisted formatting"""
