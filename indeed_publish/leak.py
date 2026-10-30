@@ -37,6 +37,9 @@ MEMBERSHIP_DROP_FRACTION = 0.50
 STATUS_FAILURE_FRACTION = 0.20
 DEEP_SWEEP_LOOKBACK_DAYS = 180
 GUARDRAIL_EMAIL_COOLDOWN = timedelta(hours=24)
+MISMATCH_AFTER = timedelta(hours=48)
+MISMATCH_DELETE_AFTER = timedelta(hours=24)
+INDEED_JOB_BOARD_SOURCE = 'Indeed Job Board'
 UNASSIGNED_USER_ID = 1
 
 # Query keys whose values must never reach email, saved state, or logs.
@@ -106,6 +109,27 @@ def notify_email() -> str:
     )
 
 
+def leak_bcc_email() -> str:
+    """BCC on leak mail to recruiters. Unset defaults to ops. Empty disables it."""
+    if 'INDEED_LEAK_BCC_EMAIL' not in os.environ:
+        return DEFAULT_NOTIFY_EMAIL
+    return (os.environ.get('INDEED_LEAK_BCC_EMAIL') or '').strip()
+
+
+def leak_bcc_recipients(to_emails: Iterable[str]) -> List[str]:
+    """One BCC address, omitted when it is already a To recipient or disabled."""
+    bcc = leak_bcc_email()
+    if not bcc:
+        return []
+    seen = set()
+    for item in to_emails or []:
+        if isinstance(item, str) and '@' in item:
+            seen.add(item.strip().lower())
+    if bcc.lower() in seen:
+        return []
+    return [bcc]
+
+
 def exempt_job_ids() -> Set[int]:
     raw = os.environ.get('INDEED_LEAK_EXEMPT_JOB_IDS') or ''
     ids: Set[int] = set()
@@ -145,6 +169,58 @@ def _parse(value: Optional[str]) -> Optional[datetime]:
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed
+
+
+def _epoch_to_dt(value: Any) -> Optional[datetime]:
+    """Bullhorn epoch milliseconds (or seconds) to UTC. Zero and blank are absent."""
+    try:
+        raw = int(value)
+    except (TypeError, ValueError):
+        return None
+    if raw <= 0:
+        return None
+    if raw < 10_000_000_000:
+        raw *= 1000
+    return datetime.fromtimestamp(raw / 1000, tz=timezone.utc)
+
+
+def _format_et(value: Optional[str]) -> str:
+    parsed = _parse(value)
+    if not parsed:
+        return value or ''
+    return parsed.astimezone(EASTERN).strftime('%b %-d, %Y %-I:%M %p ET')
+
+
+def publication_stopped_at(status: Dict[str, Any]) -> Optional[datetime]:
+    """When Bullhorn last showed Indeed as published, if it is not published now."""
+    if not isinstance(status, dict) or status.get('indeed_published'):
+        return None
+    return _epoch_to_dt(status.get('indeed_date_last_published'))
+
+
+def qualifying_mismatch_dates(
+    status: Dict[str, Any],
+    application_times: Sequence[datetime],
+) -> List[datetime]:
+    """Indeed Job Board applications that show Indeed is still live.
+
+    A job Bullhorn has never shown as Indeed-published qualifies on any
+    application. A job Bullhorn has unpublished qualifies only when an
+    application arrived more than 48 hours after that last published time.
+    """
+    if not isinstance(status, dict) or status.get('indeed_published'):
+        return []
+    moments = [moment for moment in application_times if isinstance(moment, datetime)]
+    if not moments:
+        return []
+    stopped = publication_stopped_at(status)
+    if stopped is None:
+        return sorted(_utc(moment) for moment in moments)
+    late = [
+        _utc(moment) for moment in moments
+        if _utc(moment) - stopped > MISMATCH_AFTER
+    ]
+    return sorted(late)
 
 
 def indeed_delete_description(job: Dict[str, Any]) -> str:
@@ -373,6 +449,8 @@ class LeakRun:
         self.publication_status = publication_status or (lambda _jid: {'indeed_published': False})
         self.job_on_tearsheet = job_on_tearsheet or (lambda _jid: False)
         self.acted: Set[int] = set()
+        # Fast path only: Indeed Job Board application times per job id.
+        self.mismatch_applications: Dict[int, List[datetime]] = {}
         self.result: Dict[str, Any] = {
             'mode': self.mode,
             'aborted': False,
@@ -380,6 +458,8 @@ class LeakRun:
             'checked': 0,
             'status_failures': 0,
             'leaks': [],
+            'mismatches': [],
+            'mismatch_deletes': [],
             'noticed': [],
             'removed': [],
             'resolved': [],
@@ -494,6 +574,10 @@ class LeakRun:
                 continue
             published = bool(status.get('indeed_published'))
             if not published:
+                applications = self.mismatch_applications.get(jid) or []
+                if qualifying_mismatch_dates(status, applications):
+                    self._act_mismatch(job, status, applications)
+                    continue
                 self._resolve_if_open(jid, 'Indeed not published')
                 continue
             leaks.append(job)
@@ -528,6 +612,7 @@ class LeakRun:
             'mode': self.mode,
             'checked': attempts,
             'leaks': [int(job['id']) for job in leaks],
+            'mismatches': list(self.result['mismatches']),
             'removed': list(self.result['removed']),
             'noticed': list(self.result['noticed']),
         }
@@ -535,9 +620,14 @@ class LeakRun:
 
     def _resolve_if_open(self, job_id: int, reason: str) -> None:
         record = _state_jobs(self.state).get(str(job_id))
-        if record and record.get('open'):
-            _resolve(record, self.now, reason)
-            self.result['resolved'].append(job_id)
+        if not record or not record.get('open'):
+            return
+        # Bullhorn already says these are off Indeed. A later sweep must not
+        # clear them, or the Monday ticket list disappears.
+        if record.get('last_action') == 'mismatch' and reason == 'Indeed not published':
+            return
+        _resolve(record, self.now, reason)
+        self.result['resolved'].append(job_id)
 
     def _act(self, job: Dict[str, Any]) -> None:
         jid = int(job['id'])
@@ -575,18 +665,12 @@ class LeakRun:
             return
         subject = f'Indeed posting outside Sponsored - Indeed: job {jid}'
         body = notice_message(job, self.grace_hours)
-        sent_any = False
         errors = []
-        for email in recipients:
-            try:
-                ok = bool(self.send_email(email, subject, body))
-            except Exception as exc:
-                ok = False
-                errors.append(sanitize_leak_error(exc))
-            if not ok:
-                errors.append(email)
-            else:
-                sent_any = True
+        try:
+            sent_any = bool(self.send_email(recipients, subject, body))
+        except Exception as exc:
+            sent_any = False
+            errors.append(sanitize_leak_error(exc))
         if not sent_any:
             _append_event(record, self.now, 'failed', 'notice email failed', ', '.join(errors))
             self.result['failed'].append({'job_id': jid, 'result': 'notice email failed'})
@@ -596,6 +680,68 @@ class LeakRun:
         record['recipients'] = recipients
         _append_event(record, self.now, 'notice', 'grace started', ', '.join(recipients))
         self.result['noticed'].append(jid)
+
+    def _act_mismatch(
+        self,
+        job: Dict[str, Any],
+        status: Dict[str, Any],
+        application_times: Sequence[datetime],
+    ) -> None:
+        """Bullhorn says Indeed is off, but an Indeed Job Board application arrived.
+
+        Report mode records it. Enforce mode re-sends the Indeed DELETE at most
+        once per day. The record stays open for the Monday ops digest.
+        """
+        jid = int(job['id'])
+        record = _touch_record(self.state, job, self.now)
+        late = qualifying_mismatch_dates(status, application_times)
+        stopped = publication_stopped_at(status)
+        record['never_published'] = stopped is None
+        record['unpublished_at'] = _iso(stopped) if stopped else None
+        merged = [str(item) for item in (record.get('application_dates') or []) if item]
+        seen = set(merged)
+        for moment in late:
+            stamp = _iso(moment)
+            if stamp not in seen:
+                seen.add(stamp)
+                merged.append(stamp)
+        record['application_dates'] = merged
+        record['open'] = True
+        self.result['mismatches'].append(jid)
+        if self.mode != MODE_ENFORCE:
+            if record.get('last_action') != 'mismatch':
+                _append_event(record, self.now, 'mismatch', 'recorded')
+            else:
+                record['last_action'] = 'mismatch'
+            return
+        last_delete = _parse(record.get('mismatch_delete_at'))
+        if last_delete and self.now - last_delete < MISMATCH_DELETE_AFTER:
+            record['last_action'] = 'mismatch'
+            return
+        try:
+            if self.job_on_tearsheet(jid):
+                _resolve(record, self.now, 'on tearsheet before mismatch delete')
+                self.result['resolved'].append(jid)
+                return
+            again = self.publication_status(jid) or {}
+        except Exception as exc:
+            safe = sanitize_leak_error(exc)
+            _append_event(record, self.now, 'mismatch', f'recheck: {safe}')
+            self.result['failed'].append({'job_id': jid, 'result': f'recheck: {safe}'})
+            return
+        if again.get('indeed_published'):
+            self._act(job)
+            return
+        record['mismatch_delete_at'] = _iso(self.now)
+        try:
+            self.remove_indeed(job)
+        except Exception as exc:
+            safe = sanitize_leak_error(exc)
+            _append_event(record, self.now, 'mismatch', f'delete failed: {safe}')
+            self.result['failed'].append({'job_id': jid, 'result': f'mismatch delete: {safe}'})
+            return
+        _append_event(record, self.now, 'mismatch', 'indeed delete resent')
+        self.result['mismatch_deletes'].append(jid)
 
     def _remove(self, job: Dict[str, Any], record: Dict[str, Any], *, reason: str) -> None:
         jid = int(job['id'])
@@ -748,6 +894,61 @@ def _section_lines(title: str, rows: Sequence[str]) -> List[str]:
     return [f'{title}: {len(rows)}', *[f'- {row}' for row in rows]]
 
 
+def mismatch_digest_detail(record: Dict[str, Any]) -> str:
+    """Unpublish time and Indeed Job Board application times for a support ticket."""
+    if record.get('never_published') or not record.get('unpublished_at'):
+        when = 'never'
+    else:
+        when = _format_et(record.get('unpublished_at')) or 'unknown'
+    apps = [_format_et(str(item)) for item in (record.get('application_dates') or [])]
+    app_text = ', '.join(item for item in apps if item) or 'none recorded'
+    return f'unpublished {when}; applications {app_text}'
+
+
+def indeed_board_applications(
+    submissions: Sequence[Dict[str, Any]],
+) -> Dict[int, List[datetime]]:
+    """Job id to Indeed Job Board application times. Other sources are ignored."""
+    found: Dict[int, List[datetime]] = {}
+    for row in submissions or []:
+        if not isinstance(row, dict):
+            continue
+        if (row.get('source') or '') != INDEED_JOB_BOARD_SOURCE:
+            continue
+        job = row.get('jobOrder')
+        if not isinstance(job, dict) or not job.get('id'):
+            continue
+        moment = _epoch_to_dt(row.get('dateAdded'))
+        if moment is None:
+            continue
+        try:
+            jid = int(job['id'])
+        except (TypeError, ValueError):
+            continue
+        found.setdefault(jid, []).append(moment)
+    return found
+
+
+def jobs_with_recent_indeed_applications(
+    applications: Dict[int, Sequence[datetime]],
+    now: datetime,
+    *,
+    lookback_minutes: float,
+) -> Dict[int, List[datetime]]:
+    """Keep jobs that received an Indeed Job Board application inside the lookback.
+
+    Older applications on that same job stay in the list so the digest can
+    show them. A candidate edit with no new application does not qualify.
+    """
+    cutoff = _utc(now) - timedelta(minutes=lookback_minutes)
+    kept: Dict[int, List[datetime]] = {}
+    for job_id, moments in (applications or {}).items():
+        parsed = [_utc(moment) for moment in moments if isinstance(moment, datetime)]
+        if any(moment >= cutoff for moment in parsed):
+            kept[int(job_id)] = parsed
+    return kept
+
+
 def render_digest(
     *,
     now: datetime,
@@ -759,6 +960,8 @@ def render_digest(
     failed: Sequence[Dict[str, Any]],
     cannot_publish: Sequence[Dict[str, Any]],
     exempt: Sequence[Dict[str, Any]] = (),
+    not_live: Sequence[Dict[str, Any]] = (),
+    mismatches: Sequence[Dict[str, Any]] = (),
     audience: Optional[str] = None,
 ) -> Optional[str]:
     """Plain-text digest. ``audience`` keeps only rows for that recipient.
@@ -787,10 +990,18 @@ def render_digest(
         ('In grace', [line(row) for row in in_grace if keep(row)]),
         ('Failed actions', [line(row) for row in failed if keep(row)]),
         ('Tearsheet jobs that cannot publish', [line(row) for row in cannot_publish if keep(row)]),
+        (
+            'On Sponsored - Indeed but not live on Indeed',
+            [line(row) for row in not_live if keep(row)],
+        ),
     ]
     if audience and not any(rows for _title, rows in groups):
         return None
     if not audience:
+        groups.append((
+            'Live on Indeed but Bullhorn says unpublished',
+            [line(row) for row in mismatches],
+        ))
         groups.append(('Exempt', [line(row) for row in exempt]))
     when = _utc(now).astimezone(EASTERN).strftime('%b %-d, %Y %-I:%M %p ET')
     who = audience or notify_email()
@@ -811,10 +1022,14 @@ def digest_buckets(state: Dict[str, Any], now: datetime) -> Dict[str, List[Dict[
     """Split persisted records into digest sections since the previous digest."""
     current = _utc(now)
     last = _parse(state.get('last_digest_at'))
-    leaks, removed, in_grace, failed, exempt = [], [], [], [], []
+    leaks, removed, in_grace, failed, exempt, mismatches = [], [], [], [], [], []
     for record in _state_jobs(state).values():
         row = dict(record)
         row['recipients'] = _record_recipients(row, '')
+        if record.get('open') and record.get('last_action') == 'mismatch':
+            row['detail'] = mismatch_digest_detail(record)
+            mismatches.append(row)
+            continue
         if record.get('last_action') == 'exempt' and record.get('open'):
             exempt.append(row)
         if record.get('open') and record.get('last_action') != 'exempt':
@@ -850,4 +1065,5 @@ def digest_buckets(state: Dict[str, Any], now: datetime) -> Dict[str, List[Dict[
         'in_grace': in_grace,
         'failed': failed,
         'exempt': exempt,
+        'mismatches': mismatches,
     }
