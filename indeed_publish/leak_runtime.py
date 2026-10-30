@@ -36,6 +36,7 @@ from .leak import (
     exempt_job_ids,
     grace_hours,
     jobs_with_recent_indeed_applications,
+    EASTERN,
     deep_sweep_where,
     leak_bcc_recipients,
     leak_mode,
@@ -57,9 +58,20 @@ JOB_FIELDS = (
     'assignedUsers(id,firstName,lastName),'
     'dateClosed'
 )
-FAST_PATH_LOOKBACK_MINUTES = 15
+# The applicant check runs every 5 minutes and skips while a sweep holds the lock.
+FAST_PATH_INTERVAL_MINUTES = 5
+# Ceiling over the Qualified 180-day dry run (2,209 jobs in 322s, about 5.4
+# minutes) and the hourly sweep (about 6 minutes). The next fast-path cycle
+# looks back across that hold plus the cycle that was skipped.
+DEEP_SWEEP_HOLD_MINUTES = 15
+FAST_PATH_LOOKBACK_MINUTES = DEEP_SWEEP_HOLD_MINUTES + FAST_PATH_INTERVAL_MINUTES
 # Sweeps wait this long for another leak run, then skip without saving.
 SWEEP_LOCK_WAIT_SECONDS = 120
+# The 3:00 AM closed-job sweep retries until 6:00 AM ET. The hourly sweep can
+# hold the lock for about 6 minutes, and its start time follows the deploy.
+DEEP_SWEEP_RETRY_SECONDS = 10 * 60
+DEEP_SWEEP_GIVE_UP_HOUR = 6
+DEEP_SWEEP_SKIPPED_KEY = 'indeed_leak_deep_sweep_skipped_on'
 # Stable Postgres advisory-lock key for indeed_leak_state. Not a secret.
 _ADVISORY_LOCK_KEY = 441702021701
 _LOCK_LOCAL = threading.local()
@@ -269,6 +281,19 @@ def _release_leak_lock(held: _HeldLock) -> None:
             _commit_quietly(held.conn)
         except Exception as exc:
             logger.warning('Indeed leak lock release failed: %s', sanitize_leak_error(exc))
+            # close() would put this connection back in the pool still holding
+            # the advisory lock. Invalidate it so the pool drops it.
+            invalidate = getattr(held.conn, 'invalidate', None)
+            if invalidate is not None:
+                try:
+                    invalidate()
+                except Exception as inv_exc:
+                    logger.warning(
+                        'Indeed leak lock invalidate failed: %s',
+                        sanitize_leak_error(inv_exc),
+                    )
+            held.conn = None
+            return
         try:
             held.conn.close()
         except Exception:
@@ -546,22 +571,99 @@ def _run_sweep_locked() -> Dict[str, Any]:
     return _finish(run, tearsheet_ids, jobs)
 
 
-def run_deep_sweep() -> Dict[str, Any]:
+def _deep_sweep_deadline(started: datetime) -> datetime:
+    """6:00 AM ET for an overnight run. A later start does not retry."""
+    local = started.astimezone(EASTERN)
+    deadline = local.replace(
+        hour=DEEP_SWEEP_GIVE_UP_HOUR, minute=0, second=0, microsecond=0
+    )
+    if local >= deadline:
+        return local
+    return deadline
+
+
+def _as_eastern(moment: datetime) -> datetime:
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=EASTERN)
+    return moment.astimezone(EASTERN)
+
+
+def _notify_deep_sweep_missed(moment: datetime) -> bool:
+    """Email ops once per ET day when the overnight sweep never got the lock."""
+    from models.scheduling import GlobalSettings
+
+    day = _as_eastern(moment).date().isoformat()
+    if (GlobalSettings.get_value(DEEP_SWEEP_SKIPPED_KEY, '') or '') == day:
+        return False
+    ops = notify_email() or DEFAULT_NOTIFY_EMAIL
+    sent = bool(_send_email(
+        ops,
+        'Indeed leak deep sweep did not run',
+        (
+            'The 3:00 AM ET closed-job Indeed leak sweep did not run. '
+            'Another leak run held the lock through 6:00 AM ET. '
+            'No closed jobs were checked and nothing was removed.'
+        ),
+    ))
+    if not sent:
+        return False
+    GlobalSettings.set_value(
+        DEEP_SWEEP_SKIPPED_KEY,
+        day,
+        description='ET date the Indeed leak deep sweep missed its overnight window',
+        category='indeed_publish',
+    )
+    return True
+
+
+def run_deep_sweep(clock=None, sleep=None) -> Dict[str, Any]:
     """Daily pass over closed jobs the hourly 7-day window never sees.
 
     Same mode switch, tearsheet guardrails, and status-failure guardrail as
     the hourly sweep. Closed jobs are ineligible, so enforce removes them
     immediately. Report mode only records them.
+
+    If the hourly sweep holds the lock, retry every 10 minutes until 6:00 AM
+    ET, then email ops once that this day's sweep did not run.
     """
     if not is_qualified_tenant():
         return {'skipped': 'not qualified'}
     if leak_mode() == 'off':
         return {'skipped': 'mode off'}
-    with leak_state_lock(blocking=True) as acquired:
-        if not acquired:
-            logger.warning('Indeed leak deep sweep skipped: another leak run holds the lock')
-            return {'skipped': 'lock held'}
-        return _run_deep_sweep_locked()
+
+    def current() -> datetime:
+        moment = clock() if clock is not None else datetime.now(EASTERN)
+        return _as_eastern(moment)
+
+    def pause(seconds: float) -> None:
+        if sleep is not None:
+            sleep(seconds)
+        else:
+            time.sleep(seconds)
+
+    started = current()
+    deadline = _deep_sweep_deadline(started)
+    attempts = 0
+    while True:
+        attempts += 1
+        with leak_state_lock(blocking=True) as acquired:
+            if acquired:
+                result = _run_deep_sweep_locked()
+                result['attempts'] = attempts
+                return result
+        moment = current()
+        if moment >= deadline:
+            emailed = _notify_deep_sweep_missed(moment) if started < deadline else False
+            logger.warning(
+                'Indeed leak deep sweep skipped after %s attempts: lock held',
+                attempts,
+            )
+            return {'skipped': 'lock held', 'attempts': attempts, 'emailed': emailed}
+        logger.warning(
+            'Indeed leak deep sweep will retry in 10 minutes: lock held (attempt %s)',
+            attempts,
+        )
+        pause(DEEP_SWEEP_RETRY_SECONDS)
 
 
 def _run_deep_sweep_locked() -> Dict[str, Any]:

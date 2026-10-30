@@ -177,10 +177,15 @@ are `INDEED_LEAK_EXEMPT_JOB_IDS` and `INDEED_LEAK_EXEMPT_DEPARTMENTS`. A broken
 tearsheet read, an empty tearsheet, a membership drop of more than half, or
 status-call failures above 20% stop the run and email
 `INDEED_LEAK_NOTIFY_EMAIL` (default `kroots@myticas.com`). Detections persist
-in `indeed_leak_state`. The sweep and the fast path take that state document
-one at a time. The fast path skips while a sweep holds the lock. A sweep waits
-up to two minutes, then skips without saving, including when an old and a new
-container overlap during a deploy (Postgres advisory lock). Leak-checker REST
+in `indeed_leak_state`. The sweep, the deep sweep, the Monday digest, and the
+fast path take that state document one at a time. The fast path skips while a
+sweep holds the lock. Its lookback is 20 minutes, which covers a sweep of
+about 6 minutes plus the 5-minute cycle that was skipped. The 180-day dry run
+checked 2,209 jobs in 322 seconds. A sweep waits up to two minutes, then skips
+without saving, including when an old and a new container overlap during a
+deploy (Postgres advisory lock). The 3:00 AM closed-job sweep retries every
+10 minutes until 6:00 AM ET if the lock is still held, then emails ops once
+that it did not run that day. Leak-checker REST
 calls send `BhRestToken` as a
 header. Exception text saved, emailed, or logged from that check is the
 exception type and HTTP status, with token and password values redacted.

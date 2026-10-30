@@ -1271,11 +1271,15 @@ def test_sweep_gives_up_when_the_lock_wait_expires(monkeypatch, tmp_path):
     assert held is not None
     try:
         sweep = runtime.run_sweep()
-        deep = runtime.run_deep_sweep()
+        deep = runtime.run_deep_sweep(
+            clock=lambda: datetime(2026, 11, 2, 10, 0, tzinfo=EASTERN),
+        )
     finally:
         runtime._release_leak_lock(held)
     assert sweep == {'skipped': 'lock held'}
-    assert deep == {'skipped': 'lock held'}
+    assert deep['skipped'] == 'lock held'
+    assert deep['attempts'] == 1
+    assert deep['emailed'] is False
     assert saved == []
 
 
@@ -1425,6 +1429,162 @@ def test_submission_search_sends_the_rest_token_as_a_header(monkeypatch):
     assert headers.get('BhRestToken') == 'SECRET'
     assert 'BhRestToken' not in params
     assert 'SECRET' not in url
+
+
+def test_fast_path_lookback_covers_a_deep_sweep_and_a_skipped_cycle():
+    import indeed_publish.leak_runtime as runtime
+
+    assert runtime.DEEP_SWEEP_HOLD_MINUTES * 60 >= 322
+    assert runtime.FAST_PATH_LOOKBACK_MINUTES >= (
+        runtime.DEEP_SWEEP_HOLD_MINUTES + runtime.FAST_PATH_INTERVAL_MINUTES
+    )
+    assert runtime.FAST_PATH_LOOKBACK_MINUTES == 20
+
+
+def test_deep_sweep_retries_until_6am_then_emails_once(monkeypatch, tmp_path):
+    import indeed_publish.leak_runtime as runtime
+
+    monkeypatch.setenv('INDEED_LEAK_LOCK_FILE', str(tmp_path / 'leak.lock'))
+    monkeypatch.setattr(runtime, '_postgres_engine', lambda: None)
+    monkeypatch.setattr(runtime, 'is_qualified_tenant', lambda: True)
+    monkeypatch.setattr(runtime, 'leak_mode', lambda: 'report')
+    monkeypatch.setattr(runtime, 'SWEEP_LOCK_WAIT_SECONDS', 0)
+    monkeypatch.setattr(
+        runtime,
+        '_run_deep_sweep_locked',
+        lambda: (_ for _ in ()).throw(AssertionError('sweep ran')),
+    )
+    emails = []
+    monkeypatch.setattr(runtime, '_notify_deep_sweep_missed', lambda moment: emails.append(moment) or True)
+    times = [datetime(2026, 11, 2, 3, 0, tzinfo=EASTERN)]
+
+    def sleep(seconds):
+        assert seconds == runtime.DEEP_SWEEP_RETRY_SECONDS
+        times[0] = times[0] + timedelta(seconds=seconds)
+
+    held = runtime._acquire_file_lock(blocking=False, timeout=0)
+    assert held is not None
+    try:
+        result = runtime.run_deep_sweep(clock=lambda: times[0], sleep=sleep)
+    finally:
+        runtime._release_leak_lock(held)
+    assert result['skipped'] == 'lock held'
+    assert result['emailed'] is True
+    assert result['attempts'] == 19
+    assert times[0] == datetime(2026, 11, 2, 6, 0, tzinfo=EASTERN)
+    assert len(emails) == 1
+
+
+def test_deep_sweep_runs_when_the_lock_frees_before_6am(monkeypatch, tmp_path):
+    import indeed_publish.leak_runtime as runtime
+
+    monkeypatch.setenv('INDEED_LEAK_LOCK_FILE', str(tmp_path / 'leak.lock'))
+    monkeypatch.setattr(runtime, '_postgres_engine', lambda: None)
+    monkeypatch.setattr(runtime, 'is_qualified_tenant', lambda: True)
+    monkeypatch.setattr(runtime, 'leak_mode', lambda: 'report')
+    monkeypatch.setattr(runtime, 'SWEEP_LOCK_WAIT_SECONDS', 0)
+    monkeypatch.setattr(runtime, '_run_deep_sweep_locked', lambda: {'ran': True})
+    monkeypatch.setattr(
+        runtime,
+        '_notify_deep_sweep_missed',
+        lambda moment: (_ for _ in ()).throw(AssertionError('emailed')),
+    )
+    times = [datetime(2026, 11, 2, 3, 0, tzinfo=EASTERN)]
+    held = runtime._acquire_file_lock(blocking=False, timeout=0)
+
+    def sleep(seconds):
+        times[0] = times[0] + timedelta(seconds=seconds)
+        runtime._release_leak_lock(held)
+
+    assert held is not None
+    result = runtime.run_deep_sweep(clock=lambda: times[0], sleep=sleep)
+    assert result == {'ran': True, 'attempts': 2}
+    assert times[0] == datetime(2026, 11, 2, 3, 10, tzinfo=EASTERN)
+
+
+def test_deep_sweep_miss_email_is_once_per_day(monkeypatch):
+    import indeed_publish.leak_runtime as runtime
+
+    store = {}
+
+    class _Settings:
+        @staticmethod
+        def get_value(key, default=''):
+            return store.get(key, default)
+
+        @staticmethod
+        def set_value(key, value, **_kwargs):
+            store[key] = value
+
+    emails = []
+    monkeypatch.setattr('models.scheduling.GlobalSettings', _Settings)
+    monkeypatch.setattr(runtime, '_send_email', lambda *args, **_kwargs: emails.append(args) or True)
+    morning = datetime(2026, 11, 2, 6, 0, tzinfo=EASTERN)
+    assert runtime._notify_deep_sweep_missed(morning) is True
+    assert runtime._notify_deep_sweep_missed(morning) is False
+    assert runtime._notify_deep_sweep_missed(datetime(2026, 11, 3, 6, 0, tzinfo=EASTERN)) is True
+    assert len(emails) == 2
+    assert emails[0][1] == 'Indeed leak deep sweep did not run'
+
+
+def test_failed_advisory_unlock_invalidates_the_connection():
+    import indeed_publish.leak_runtime as runtime
+
+    class _Conn:
+        def __init__(self):
+            self.invalidated = False
+            self.closed = False
+
+        def execute(self, _stmt, _params=None):
+            raise RuntimeError('unlock failed')
+
+        def invalidate(self):
+            self.invalidated = True
+
+        def close(self):
+            self.closed = True
+
+    conn = _Conn()
+    held = runtime._HeldLock()
+    held.kind = 'postgres'
+    held.conn = conn
+    runtime._release_leak_lock(held)
+    assert conn.invalidated is True
+    assert conn.closed is False
+    assert held.conn is None
+
+
+def test_digest_load_and_save_stay_inside_the_lock(monkeypatch, tmp_path):
+    import indeed_publish.leak_runtime as runtime
+
+    monkeypatch.setenv('INDEED_LEAK_LOCK_FILE', str(tmp_path / 'leak.lock'))
+    monkeypatch.setattr(runtime, '_postgres_engine', lambda: None)
+    monkeypatch.setattr(runtime, 'is_qualified_tenant', lambda: True)
+    monkeypatch.setattr(runtime, 'leak_mode', lambda: 'report')
+    monkeypatch.setattr(runtime, 'SWEEP_LOCK_WAIT_SECONDS', 0)
+    events = []
+    monkeypatch.setattr(runtime, '_load_state', lambda: events.append('load') or {'jobs': {}})
+    monkeypatch.setattr(runtime, '_save_state', lambda state: events.append('save'))
+    monkeypatch.setattr(runtime, 'digest_is_due', lambda now, state: True)
+    monkeypatch.setattr(runtime, '_bh', lambda: object())
+    monkeypatch.setattr(runtime, '_ui_client', lambda: object())
+    monkeypatch.setattr(
+        runtime,
+        '_tearsheet_digest_rows',
+        lambda _bh, _ui: {'live': [], 'cannot_publish': [], 'not_live': []},
+    )
+    monkeypatch.setattr(runtime, '_send_email', lambda *_args, **_kwargs: True)
+    held = runtime._acquire_file_lock(blocking=False, timeout=0)
+    try:
+        skipped = runtime.run_weekly_digest()
+    finally:
+        runtime._release_leak_lock(held)
+    assert skipped == {'skipped': 'lock held'}
+    assert events == []
+
+    result = runtime.run_weekly_digest()
+    assert result['sent']
+    assert events == ['load', 'save']
 
 
 def test_tearsheet_digest_keeps_jobs_whose_status_is_not_indeed_live(monkeypatch):
