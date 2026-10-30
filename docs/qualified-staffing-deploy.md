@@ -181,8 +181,11 @@ exception type and HTTP status, with token and password values redacted.
 Tearsheet publish reads membership in pages of 200 and treats the read as
 failed when the row count does not match `total` or the call errors. A failed
 read does not unpublish and does not replace the saved membership. A job is
-removed only after two consecutive successful reads miss it, and a direct
-`JobOrder/{id}/tearsheets/{tearsheet}` check still says it is absent. One read
+removed only after two consecutive successful reads miss it, and the job's
+`JobOrder/{id}/tearsheets` association still does not include this tearsheet.
+Bullhorn rejects `JobOrder/{id}/tearsheets/{tearsheet}` as a bad command
+(HTTP 400) for members and non-members, so a 404 counts as absent only when
+the body shows the association is empty. Any other 404 skips the DELETE. One read
 that drops more than 10% of the previous membership (at least 5 jobs) skips
 every removal that cycle and emails ops at most once a day. Additions and
 republishes still run. Once a day, tearsheet 2 jobs whose Publish Job status

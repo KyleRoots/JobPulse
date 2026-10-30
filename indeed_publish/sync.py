@@ -34,6 +34,32 @@ logger = logging.getLogger(__name__)
 
 EASTERN = ZoneInfo('America/New_York')
 MEMBERSHIP_PAGE_SIZE = 200
+
+
+def _association_404_is_empty(response) -> bool:
+    """True only when a 404 body says this tearsheet association is empty.
+
+    An invalid path, HTML, or any other 404 body is not absence. Live Qualified
+    returned HTTP 400 ``errors.badCommand`` for ``.../tearsheets/{id}``, so that
+    body must not DELETE.
+    """
+    try:
+        payload = response.json()
+    except Exception:
+        return False
+    if not isinstance(payload, dict):
+        return False
+    key = str(payload.get('errorMessageKey') or '').strip().lower()
+    message = str(payload.get('errorMessage') or '').strip().lower()
+    if key == 'errors.badcommand' or 'badly structured' in message:
+        return False
+    if payload.get('data') == []:
+        return True
+    if key == 'errors.associationnotfound':
+        return True
+    if 'association' in message and ('empty' in message or 'not found' in message):
+        return True
+    return False
 # A real tearsheet does not lose this many jobs in one 5-minute cycle.
 MASS_DROP_MIN_JOBS = 5
 MASS_DROP_FRACTION = 0.10
@@ -450,49 +476,73 @@ class IndeedTearsheetPublishService:
     def _confirm_absent(self, bh, job_id: int) -> Optional[bool]:
         """True when the job is not on this tearsheet.
 
-        False when it is. None when the check failed — the caller must not DELETE.
+        False when it is. None when the check failed. The caller must not DELETE.
+
+        Bullhorn rejects ``entity/JobOrder/{id}/tearsheets/{tearsheetId}`` as a
+        bad command for members and non-members (live Qualified check, Oct 30:
+        HTTP 400 ``errors.badCommand`` on 79512, 79367, and 49606). The job's
+        tearsheets association can tell them apart: 79512 included tearsheet 2,
+        49606 did not.
         """
-        try:
-            response = _rest_get(
-                bh,
-                f'entity/JobOrder/{int(job_id)}/tearsheets/{int(self.tearsheet_id)}',
-                {'fields': 'id'},
-                30,
-            )
-        except Exception as exc:
-            logger.warning(
-                'Indeed publish: membership reconfirm failed for job %s: %s',
-                job_id,
-                sanitize_leak_error(exc),
-            )
-            return None
-        if response.status_code == 404:
-            return True
-        if response.status_code != 200:
-            logger.warning(
-                'Indeed publish: membership reconfirm HTTP %s for job %s',
-                response.status_code,
-                job_id,
-            )
-            return None
-        try:
-            payload = response.json()
-        except Exception as exc:
-            logger.warning(
-                'Indeed publish: membership reconfirm unreadable for job %s: %s',
-                job_id,
-                sanitize_leak_error(exc),
-            )
-            return None
-        data = payload.get('data') if isinstance(payload, dict) else None
-        if isinstance(data, dict) and int(data.get('id') or 0) == int(self.tearsheet_id):
-            return False
-        if isinstance(data, list):
-            present = any(
-                isinstance(row, dict) and int(row.get('id') or 0) == int(self.tearsheet_id)
-                for row in data
-            )
-            return not present
+        start = 0
+        page_size = 100
+        seen: Set[int] = set()
+        while start <= 500:
+            try:
+                response = _rest_get(
+                    bh,
+                    f'entity/JobOrder/{int(job_id)}/tearsheets',
+                    {'fields': 'id', 'count': page_size, 'start': start},
+                    30,
+                )
+            except Exception as exc:
+                logger.warning(
+                    'Indeed publish: membership reconfirm failed for job %s: %s',
+                    job_id,
+                    sanitize_leak_error(exc),
+                )
+                return None
+            if response.status_code == 404:
+                if start == 0 and _association_404_is_empty(response):
+                    return True
+                logger.warning(
+                    'Indeed publish: membership reconfirm HTTP 404 for job %s',
+                    job_id,
+                )
+                return None
+            if response.status_code != 200:
+                logger.warning(
+                    'Indeed publish: membership reconfirm HTTP %s for job %s',
+                    response.status_code,
+                    job_id,
+                )
+                return None
+            try:
+                payload = response.json()
+            except Exception as exc:
+                logger.warning(
+                    'Indeed publish: membership reconfirm unreadable for job %s: %s',
+                    job_id,
+                    sanitize_leak_error(exc),
+                )
+                return None
+            data = payload.get('data') if isinstance(payload, dict) else None
+            if not isinstance(data, list):
+                return None
+            for row in data:
+                if not isinstance(row, dict) or row.get('id') in (None, ''):
+                    continue
+                try:
+                    seen.add(int(row['id']))
+                except (TypeError, ValueError):
+                    return None
+            if len(data) < page_size:
+                return int(self.tearsheet_id) not in seen
+            start += len(data)
+        logger.warning(
+            'Indeed publish: membership reconfirm for job %s did not finish',
+            job_id,
+        )
         return None
 
     def _save_membership_state(

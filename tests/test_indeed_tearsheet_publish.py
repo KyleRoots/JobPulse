@@ -927,6 +927,69 @@ class TestShortReadAndSelfHeal:
         assert saved['pending_unpublish'] == []
         assert saved['absent_once'] == []
 
+    def test_unexpected_404_body_does_not_delete(self):
+        ui = MagicMock()
+        ui.current_user_id = '25'
+        bh = MagicMock()
+        bh.authenticate.return_value = True
+        stay = self._member(34829)
+        svc = IndeedTearsheetPublishService(config=self._cfg(tearsheet_id=2), ui_client=ui)
+        state = {
+            'job_ids': [34829, 35409],
+            'fingerprints': {'34829': 'fp', '35409': 'fp'},
+            'pending_unpublish': [],
+            'absent_once': [35409],
+        }
+        bad = _response(404, {
+            'errorMessage': 'Unknown or badly structured command: /entity/JobOrder/35409/tearsheets/2.',
+            'errorMessageKey': 'errors.badCommand',
+        })
+        with patch('indeed_publish.sync._rest_get', return_value=bad):
+            assert svc._confirm_absent(bh, 35409) is None
+            result, saved, _notify = self._run(svc, ui, bh, [stay], state)
+        assert result['unpublished'] == []
+        ui.unpublish_boards.assert_not_called()
+        assert 35409 in saved['job_ids']
+        assert any(
+            row.get('reason') == 'membership reconfirm failed'
+            for row in result['skipped']
+        )
+
+    def test_job_tearsheets_association_tells_members_from_non_members(self):
+        ui = MagicMock()
+        bh = MagicMock()
+        svc = IndeedTearsheetPublishService(config=self._cfg(tearsheet_id=2), ui_client=ui)
+        member = _response(200, {
+            'start': 0,
+            'count': 2,
+            'data': [
+                {'id': 3, 'name': 'Sponsored - ZipRecruiter'},
+                {'id': 2, 'name': 'Sponsored - Indeed'},
+            ],
+        })
+        other = _response(200, {
+            'start': 0,
+            'count': 1,
+            'data': [{'id': 3, 'name': 'Sponsored - ZipRecruiter'}],
+        })
+        empty = _response(404, {
+            'errorMessage': 'Tearsheet association is empty.',
+            'errorMessageKey': 'errors.associationNotFound',
+            'data': [],
+        })
+        surprise = _response(404, {'errorMessage': 'nope'})
+        empty_page = _response(200, {'start': 0, 'count': 0, 'data': []})
+        with patch('indeed_publish.sync._rest_get', return_value=member):
+            assert svc._confirm_absent(bh, 79512) is False
+        with patch('indeed_publish.sync._rest_get', return_value=other):
+            assert svc._confirm_absent(bh, 49606) is True
+        with patch('indeed_publish.sync._rest_get', return_value=empty_page):
+            assert svc._confirm_absent(bh, 49606) is True
+        with patch('indeed_publish.sync._rest_get', return_value=empty):
+            assert svc._confirm_absent(bh, 49606) is True
+        with patch('indeed_publish.sync._rest_get', return_value=surprise):
+            assert svc._confirm_absent(bh, 49606) is None
+
     def test_reconfirm_still_present_skips_delete(self):
         ui = MagicMock()
         ui.current_user_id = '25'
