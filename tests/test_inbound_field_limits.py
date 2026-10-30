@@ -3,6 +3,7 @@ from email_inbound_service.field_limits import (
     clip_str,
     normalize_inbound_recipient,
     sanitize_parsed_email_fields,
+    strip_nul,
 )
 
 
@@ -30,3 +31,12 @@ def test_sanitize_clips_sender_and_subject():
 
 def test_clip_str_short_unchanged():
     assert clip_str('hello', 255) == 'hello'
+
+
+def test_strip_nul_from_text_and_nested_values():
+    assert strip_nul('hello\x00world') == 'helloworld'
+    assert strip_nul({'skills': ['a\x00b'], 'title': 'c\x00'}) == {
+        'skills': ['ab'],
+        'title': 'c',
+    }
+    assert '\x00' not in clip_str('Zip\x00 Apply', 255)

@@ -52,6 +52,11 @@ class ParsedResumeCache(db.Model):
     @classmethod
     def store(cls, content_hash, parsed_data, raw_text, formatted_html, candidate_id=None):
         """Store parsed result in cache."""
+        from email_inbound_service.field_limits import strip_nul
+
+        parsed_data = strip_nul(parsed_data)
+        raw_text = strip_nul(raw_text) if isinstance(raw_text, str) else raw_text
+        formatted_html = strip_nul(formatted_html) if isinstance(formatted_html, str) else formatted_html
         cached = cls(
             content_hash=content_hash,
             candidate_id=candidate_id,
@@ -60,7 +65,10 @@ class ParsedResumeCache(db.Model):
             formatted_html=formatted_html
         )
         db.session.add(cached)
-        db.session.commit()
+        # Flush only. The inbound parser wraps this in a savepoint and the
+        # caller commits. A commit here would persist or abort the caller's
+        # pending parsed-email row along with the cache write.
+        db.session.flush()
         return cached
 
 

@@ -111,12 +111,21 @@ class ResumeParser:
         return None
     
     def _store_cache(self, content_hash: str, parsed_data: Dict, raw_text: str, formatted_html: str, candidate_id: int = None):
-        """Store parsed result in cache."""
+        """Store parsed result in cache.
+
+        The write sits in its own savepoint. A failure rolls back only that
+        savepoint, so a parsed-email row already pending in the caller's
+        session is still there for the caller's commit.
+        """
         if not self._cache_enabled:
             return
+        from extensions import db
         try:
             from models import ParsedResumeCache
-            ParsedResumeCache.store(content_hash, parsed_data, raw_text, formatted_html, candidate_id)
+            with db.session.begin_nested():
+                ParsedResumeCache.store(
+                    content_hash, parsed_data, raw_text, formatted_html, candidate_id
+                )
             logger.info(f"Resume cached with hash {content_hash[:16]}...")
         except Exception as e:
             logger.warning(f"Cache store failed: {e}")

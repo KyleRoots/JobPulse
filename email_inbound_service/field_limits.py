@@ -13,10 +13,28 @@ from typing import Optional
 _EMAIL_RE = re.compile(r'[\w.+-]+@[\w.-]+', re.I)
 
 
+def strip_nul(value):
+    """Drop NUL bytes. Postgres rejects them in a string literal."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value.replace('\x00', '')
+    if isinstance(value, dict):
+        return {
+            strip_nul(key) if isinstance(key, str) else key: strip_nul(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [strip_nul(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(strip_nul(item) for item in value)
+    return value
+
+
 def clip_str(value: Optional[str], max_len: int) -> Optional[str]:
     if value is None:
         return None
-    text = str(value).strip()
+    text = strip_nul(str(value)).strip()
     if not text:
         return text
     if len(text) <= max_len:
