@@ -165,16 +165,29 @@ read-only `GET services/JobPublish/boards?jobPostingID={id}`
 are not a substitute.
 
 Qualified has no free Indeed posting. `INDEED_LEAK_ENFORCEMENT_MODE` defaults
-to `report`. The hourly leak sweep and the Monday 8:00 AM ET digest
-(`indeed_leak_sweep`, `indeed_leak_digest`, first digest November 2, 2026)
-use that status call. `enforce` emails the assigned recruiters and, after
+to `report`. The hourly leak sweep, the daily 3:00 AM ET closed-job sweep
+(`indeed_leak_deep_sweep`: non-deleted `isOpen=false` jobs closed or last
+modified within 180 days, not on tearsheet 2), and the Monday 8:00 AM ET
+digest (`indeed_leak_sweep`, `indeed_leak_digest`, first digest November 2,
+2026) use that status call. JobPublish has no list of every Indeed-published
+job, so the closed-job query is the sweep's source. `enforce` emails the assigned recruiters and, after
 `INDEED_LEAK_GRACE_HOURS` (default 24), DELETEs Indeed only. Closed, Hold,
 Filled, and Canceled jobs are removed immediately. Exempt ids and departments
 are `INDEED_LEAK_EXEMPT_JOB_IDS` and `INDEED_LEAK_EXEMPT_DEPARTMENTS`. A broken
 tearsheet read, an empty tearsheet, a membership drop of more than half, or
 status-call failures above 20% stop the run and email
 `INDEED_LEAK_NOTIFY_EMAIL` (default `kroots@myticas.com`). Detections persist
-in `indeed_leak_state`. Leak-checker REST calls send `BhRestToken` as a
+in `indeed_leak_state`. The sweep, the deep sweep, the Monday digest, and the
+fast path take that state document one at a time. The fast path skips while a
+sweep holds the lock. Its lookback is 20 minutes, which covers a sweep of
+about 6 minutes plus the 5-minute cycle that was skipped. The 180-day dry run
+checked 2,209 jobs in 322 seconds. A sweep waits up to two minutes, then skips
+without saving, including when an old and a new container overlap during a
+deploy (Postgres advisory lock). The 3:00 AM closed-job sweep retries every
+10 minutes until 6:00 AM ET if the lock is still held, then emails ops once
+that it did not run that day. The Monday 8:00 AM digest retries every 10
+minutes until 12:00 PM ET, then emails ops once that the digest did not go out. Leak-checker REST
+calls send `BhRestToken` as a
 header. Exception text saved, emailed, or logged from that check is the
 exception type and HTTP status, with token and password values redacted.
 
@@ -193,6 +206,20 @@ shows Indeed not published, and that have a description and a response user,
 are sent `ADDCHANGE` again. One resend per job per day. Jobs still not
 published two days later are reported to ops; those are for Bullhorn support
 (the Bullhorn-to-Indeed connection), not another Scout delete.
+
+An Indeed Job Board application on a job that is not on tearsheet 2, more than
+48 hours after Bullhorn last showed Indeed as published (or when Bullhorn has
+never shown it published), is a mismatch: Indeed is still delivering
+applicants and Bullhorn says it is not published. Report mode records it.
+Enforce mode re-sends the Indeed-only DELETE at most once a day. The Monday
+digest has two extra sections: "Live on Indeed but Bullhorn says unpublished"
+(unpublish time and application times, for a Bullhorn ticket) and "On
+Sponsored - Indeed but not live on Indeed" (tearsheet members whose status is
+not Indeed-live, with the reason). Grace notices and per-recruiter digests BCC
+`INDEED_LEAK_BCC_EMAIL` (default `kroots@myticas.com`). An empty value disables
+the BCC. One grace notice is addressed to every recipient on that job, and the
+BCC is omitted when that address is already in To. The delivery log stores the
+BCC in `changes_summary`.
 
 When native Indeed publish is on, the Indeed XML upload is empty so native
 publish and Scout XML do not dual-list. Campaign tags map from `correlatedCustomText1` (see go-live step 7).

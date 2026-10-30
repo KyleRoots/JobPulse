@@ -19,6 +19,7 @@ SCHEDULER_PATH = Path(__file__).resolve().parents[1] / "scheduler_setup.py"
 # They are the call sites a shadowed CronTrigger name would blow up.
 CRONTRIGGER_JOB_IDS = (
     "indeed_leak_digest",
+    "indeed_leak_deep_sweep",
     "owner_reassignment_daily",
     "monthly_report_preview",
 )
@@ -99,3 +100,7 @@ def test_configure_scheduler_jobs_registers_every_primary_job(app):
         assert by_id[job_id]["func"] is not None
     for job_id in CRONTRIGGER_JOB_IDS:
         assert isinstance(by_id[job_id]["trigger"], CronTrigger)
+    deep = by_id["indeed_leak_deep_sweep"]["trigger"]
+    assert str(deep.timezone) == "America/New_York"
+    assert deep.fields[5].expressions[0].first == 3
+    assert deep.fields[6].expressions[0].first == 0

@@ -29,7 +29,11 @@ from .bullhorn_maintenance import (
     enforce_tearsheet_jobs_public,
 )
 from .indeed_tearsheet_publish import sync_indeed_tearsheet_publish
-from .indeed_leak import run_indeed_leak_digest, run_indeed_leak_sweep
+from .indeed_leak import (
+    run_indeed_leak_deep_sweep,
+    run_indeed_leak_digest,
+    run_indeed_leak_sweep,
+)
 from .indeed_inbound_remap import run_indeed_inbound_remap
 from .talent_platform_source import run_talent_platform_source_backfill
 from .owner_reassignment import reassign_api_user_candidates, run_owner_reassignment_daily
@@ -62,6 +66,7 @@ __all__ = [
     "enforce_tearsheet_jobs_public",
     "sync_indeed_tearsheet_publish",
     "run_indeed_leak_sweep",
+    "run_indeed_leak_deep_sweep",
     "run_indeed_leak_digest",
     "run_indeed_inbound_remap",
     "run_talent_platform_source_backfill",

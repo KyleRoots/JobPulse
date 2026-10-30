@@ -224,9 +224,20 @@ class _EmailServiceCore:
             else:
                 from_email_obj = Email(from_addr)
 
+            if isinstance(to_email, (list, tuple)):
+                to_list = [str(item).strip() for item in to_email if str(item or '').strip()]
+            else:
+                to_list = [str(to_email).strip()] if str(to_email or '').strip() else []
+            if not to_list:
+                logger.warning("HTML email skipped — no recipient")
+                return {'success': False, 'message_id': None}
+            logged_to = ', '.join(to_list)
+            if len(logged_to) > 255:
+                logged_to = to_list[0][:255]
+
             message = Mail(
                 from_email=from_email_obj,
-                to_emails=To(to_email),
+                to_emails=[To(addr) for addr in to_list],
                 subject=subject,
                 html_content=Content("text/html", html_content)
             )
@@ -244,19 +255,23 @@ class _EmailServiceCore:
                 if refs:
                     message.header = Header('References', refs)
             
-            # Add CC recipients if provided
+            # Skip CC or BCC addresses that are already in To.
+            to_keys = {addr.lower() for addr in to_list}
             if cc_emails:
                 for cc_email in cc_emails:
-                    if cc_email and cc_email != to_email:  # Don't CC the primary recipient
+                    if cc_email and str(cc_email).strip().lower() not in to_keys:
                         message.add_cc(Cc(cc_email))
                 logger.info(f"Adding CC recipients: {cc_emails}")
             
-            # Add BCC recipients if provided
+            # Add BCC recipients if provided.
             if bcc_emails:
+                added_bcc = []
                 for bcc_email in bcc_emails:
-                    if bcc_email and bcc_email != to_email:  # Don't BCC the primary recipient
+                    if bcc_email and str(bcc_email).strip().lower() not in to_keys:
                         message.add_bcc(Bcc(bcc_email))
-                logger.info(f"Adding BCC recipients: {bcc_emails}")
+                        added_bcc.append(bcc_email)
+                if added_bcc:
+                    logger.info(f"Adding BCC recipients: {added_bcc}")
 
             if attachments:
                 for att in attachments:
@@ -282,7 +297,7 @@ class _EmailServiceCore:
             # Log email delivery
             self._log_email_delivery(
                 notification_type=notification_type,
-                recipient_email=to_email,
+                recipient_email=logged_to,
                 delivery_status=delivery_status,
                 error_message=error_msg,
                 subject=subject,
@@ -299,12 +314,19 @@ class _EmailServiceCore:
                 
         except Exception as e:
             # Log failed delivery
+            if isinstance(to_email, str):
+                failed_to = to_email
+            elif isinstance(to_email, (list, tuple)):
+                failed_to = ', '.join(str(item) for item in to_email if item)[:255]
+            else:
+                failed_to = ''
             self._log_email_delivery(
                 notification_type=notification_type,
-                recipient_email=to_email,
+                recipient_email=failed_to,
                 delivery_status='failed',
                 error_message=str(e),
-                subject=subject
+                subject=subject,
+                changes_summary=changes_summary
             )
             logger.error(f"Failed to send HTML email: {str(e)}")
             return {'success': False, 'message_id': None}

@@ -522,7 +522,11 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
     # Qualified Indeed leaks: hourly sweep, Monday 8:00 AM ET digest.
     # Default mode is report (detect only). Enforce removes Indeed postings.
     if is_primary_worker:
-        from tasks.indeed_leak import run_indeed_leak_digest, run_indeed_leak_sweep
+        from tasks.indeed_leak import (
+            run_indeed_leak_deep_sweep,
+            run_indeed_leak_digest,
+            run_indeed_leak_sweep,
+        )
         from zoneinfo import ZoneInfo
 
         scheduler.add_job(
@@ -550,8 +554,23 @@ def configure_scheduler_jobs(app, scheduler, is_primary_worker):
             coalesce=True,
             max_instances=1,
         )
+        scheduler.add_job(
+            func=run_indeed_leak_deep_sweep,
+            trigger=CronTrigger(
+                hour=3,
+                minute=0,
+                timezone=ZoneInfo('America/New_York'),
+            ),
+            id='indeed_leak_deep_sweep',
+            name='Indeed leak deep sweep (daily 3:00 AM ET)',
+            replace_existing=True,
+            misfire_grace_time=6 * 3600,
+            coalesce=True,
+            max_instances=1,
+        )
         app.logger.info(
-            "📣 Indeed leak sweep registered — hourly, plus Monday 8:00 AM ET digest "
+            "📣 Indeed leak sweep registered — hourly, plus daily 3:00 AM ET "
+            "closed-job sweep, plus Monday 8:00 AM ET digest "
             "(INDEED_LEAK_ENFORCEMENT_MODE, default report; Qualified only)"
         )
 
