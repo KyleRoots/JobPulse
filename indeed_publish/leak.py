@@ -6,18 +6,21 @@ not on Sponsored - Indeed (tearsheet 2).
 
 ``INDEED_LEAK_ENFORCEMENT_MODE`` is ``off``, ``report``, or ``enforce``.
 Default is ``report``: detect and digest, do not email recruiters and do not
-remove. ``enforce`` sends a grace notice for open jobs and DELETEs Indeed
-only. The career portal is never unpublished here.
+remove. ``enforce`` sends each recruiter one email listing the open jobs that
+just entered the waiting window, then DELETEs Indeed only after that window.
+The career portal is never unpublished here.
 """
 
 from __future__ import annotations
 
+import html
 import os
 import re
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Set, Union
 from zoneinfo import ZoneInfo
 
+from utils.bullhorn_helpers import bullhorn_record_url
 from utils.job_status import is_job_eligible
 
 from .campaign_tags import department_owns_campaign_tag, strip_campaign_tags
@@ -380,25 +383,98 @@ def is_exempt(job: Dict[str, Any], job_ids: Set[int], departments: Set[str]) -> 
     return _norm_department(job.get('correlatedCustomText1')) in departments
 
 
-def _grace_phrase(hours: float) -> str:
-    if float(hours).is_integer():
-        count = int(hours)
-        unit = 'hour' if count == 1 else 'hours'
-        return f'{count} {unit}'
-    return f'{hours:g} hours'
+_NOTICE_CLOSING = (
+    'Add the job to the Sponsored - Indeed tearsheet before the deadline to keep it on Indeed. '
+    'Otherwise it will be removed from Indeed automatically. '
+    'Your careers site posting is not affected.'
+)
 
 
-def notice_message(job: Dict[str, Any], hours: float) -> str:
-    jid = job.get('id')
-    title = (job.get('title') or '').strip() or '(no title)'
-    department = (job.get('correlatedCustomText1') or '').strip() or '(no department)'
-    window = _grace_phrase(hours)
+def notice_subject(count: int) -> str:
+    """Subject for one recruiter's combined warning. Singular when count is 1."""
+    count = int(count)
+    noun = 'posting' if count == 1 else 'postings'
+    return f'Action needed: {count} Indeed {noun} outside Sponsored - Indeed'
+
+
+def notice_deadline_text(deadline: datetime) -> str:
+    """Removal time in Eastern, for example 'Tue Nov 3, 9:00 AM ET'."""
+    local = _utc(deadline).astimezone(EASTERN)
+    return local.strftime('%a %b %-d, %-I:%M %p ET')
+
+
+def _notice_intro(count: int) -> str:
+    if count == 1:
+        return (
+            'This job is posted on Indeed and is not on the Sponsored - Indeed tearsheet.'
+        )
     return (
-        f'Job {jid} — {title} ({department}) was published to Indeed outside '
-        f'Sponsored - Indeed.\n\n'
-        f'It will be removed from Indeed in {window} unless it is added to the '
-        f'Sponsored - Indeed tearsheet.\n\n'
-        f'The career portal posting is left as it is.'
+        'These jobs are posted on Indeed and are not on the Sponsored - Indeed tearsheet.'
+    )
+
+
+def _notice_rows(jobs: Sequence[Dict[str, Any]]) -> List[Dict[str, str]]:
+    rows = []
+    for job in jobs:
+        title = (job.get('title') or '').strip() or '(no title)'
+        department = (job.get('correlatedCustomText1') or '').strip() or '(no department)'
+        job_id = job.get('id')
+        rows.append({
+            'id': '' if job_id is None else str(job_id),
+            'title': title,
+            'department': department,
+            'url': bullhorn_record_url('JobOrder', job_id),
+        })
+    return rows
+
+
+def _notice_linked(text: str, url: str) -> str:
+    """Job ID or title. A bad id stays plain text. The URL is escaped for an attribute."""
+    safe = html.escape(text)
+    if not url:
+        return safe
+    return f'<a href="{html.escape(url, quote=True)}">{safe}</a>'
+
+
+def notice_plain_text(jobs: Sequence[Dict[str, Any]], deadline: datetime) -> str:
+    rows = _notice_rows(jobs)
+    when = notice_deadline_text(deadline)
+    lines = [_notice_intro(len(rows)), '', 'Job ID | Title | Department | Removal deadline']
+    for row in rows:
+        line = f"{row['id']} | {row['title']} | {row['department']} | {when}"
+        if row['url']:
+            line = f"{line} | {row['url']}"
+        lines.append(line)
+    lines.extend(['', _NOTICE_CLOSING])
+    return '\n'.join(lines)
+
+
+def notice_html(jobs: Sequence[Dict[str, Any]], deadline: datetime) -> str:
+    """HTML body. Every Bullhorn field is escaped."""
+    rows = _notice_rows(jobs)
+    when = html.escape(notice_deadline_text(deadline))
+    body = []
+    for row in rows:
+        body.append(
+            '<tr>'
+            f"<td>{_notice_linked(row['id'], row['url'])}</td>"
+            f"<td>{_notice_linked(row['title'], row['url'])}</td>"
+            f"<td>{html.escape(row['department'])}</td>"
+            f'<td>{when}</td>'
+            '</tr>'
+        )
+    table = (
+        '<table border="1" cellpadding="6" cellspacing="0">'
+        '<thead><tr>'
+        '<th>Job ID</th><th>Title</th><th>Department</th><th>Removal deadline</th>'
+        '</tr></thead><tbody>'
+        + ''.join(body)
+        + '</tbody></table>'
+    )
+    return (
+        f"<p>{html.escape(_notice_intro(len(rows)))}</p>"
+        f'{table}'
+        f'<p>{html.escape(_NOTICE_CLOSING)}</p>'
     )
 
 
@@ -509,8 +585,9 @@ class LeakRun:
         self.exempt_job_ids = exempt_job_ids or set()
         self.exempt_departments = exempt_departments or set()
         self.notify_email = notify_email
-        self.send_email = send_email or (lambda *_a: False)
+        self.send_email = send_email or (lambda *_a, **_k: False)
         self.remove_indeed = remove_indeed or (lambda _job: None)
+        self._pending_notices: List[Dict[str, Any]] = []
         self.publication_status = publication_status or (lambda _jid: {'indeed_published': False})
         self.job_on_tearsheet = job_on_tearsheet or (lambda _jid: False)
         self.acted: Set[int] = set()
@@ -672,6 +749,7 @@ class LeakRun:
 
         for job in leaks:
             self._act(job)
+        self._deliver_notices()
         self.state['last_run'] = {
             'at': _iso(self.now),
             'mode': self.mode,
@@ -722,29 +800,64 @@ class LeakRun:
         self.result['skipped'].append(jid)
 
     def _start_grace(self, job: Dict[str, Any], record: Dict[str, Any]) -> None:
+        """Queue a warning. Delivery is one email per recruiter after the run."""
         jid = int(job['id'])
         recipients = notice_recipients(job, self.notify_email)
         if not recipients:
             _append_event(record, self.now, 'failed', 'no recipient')
             self.result['failed'].append({'job_id': jid, 'result': 'no recipient'})
             return
-        subject = f'Indeed posting outside Sponsored - Indeed: job {jid}'
-        body = notice_message(job, self.grace_hours)
-        errors = []
-        try:
-            sent_any = bool(self.send_email(recipients, subject, body))
-        except Exception as exc:
-            sent_any = False
-            errors.append(sanitize_leak_error(exc))
-        if not sent_any:
-            _append_event(record, self.now, 'failed', 'notice email failed', ', '.join(errors))
-            self.result['failed'].append({'job_id': jid, 'result': 'notice email failed'})
+        self._pending_notices.append({
+            'job': job,
+            'record': record,
+            'recipients': recipients,
+        })
+
+    def _deliver_notices(self) -> None:
+        """Send one email per recipient, then start the window where a send landed."""
+        pending = self._pending_notices
+        self._pending_notices = []
+        if not pending:
             return
-        record['notice_sent_at'] = _iso(self.now)
-        record['grace_deadline'] = _iso(self.now + timedelta(hours=self.grace_hours))
-        record['recipients'] = recipients
-        _append_event(record, self.now, 'notice', 'grace started', ', '.join(recipients))
-        self.result['noticed'].append(jid)
+        deadline = self.now + timedelta(hours=self.grace_hours)
+        groups: Dict[str, Dict[str, Any]] = {}
+        order: List[str] = []
+        for item in pending:
+            for email in item['recipients']:
+                key = email.strip().lower()
+                if key not in groups:
+                    groups[key] = {'email': email.strip(), 'jobs': []}
+                    order.append(key)
+                groups[key]['jobs'].append(item['job'])
+        sent: Dict[str, bool] = {}
+        errors: Dict[str, str] = {}
+        for key in order:
+            group = groups[key]
+            subject = notice_subject(len(group['jobs']))
+            text = notice_plain_text(group['jobs'], deadline)
+            html_body = notice_html(group['jobs'], deadline)
+            try:
+                ok = bool(self.send_email([group['email']], subject, text, html_body))
+            except Exception as exc:
+                ok = False
+                errors[key] = sanitize_leak_error(exc)
+            sent[key] = ok
+        for item in pending:
+            job = item['job']
+            record = item['record']
+            recipients = item['recipients']
+            jid = int(job['id'])
+            keys = [email.strip().lower() for email in recipients]
+            if any(sent.get(key) for key in keys):
+                record['notice_sent_at'] = _iso(self.now)
+                record['grace_deadline'] = _iso(deadline)
+                record['recipients'] = recipients
+                _append_event(record, self.now, 'notice', 'grace started', ', '.join(recipients))
+                self.result['noticed'].append(jid)
+                continue
+            detail = ', '.join(errors[key] for key in keys if errors.get(key))
+            _append_event(record, self.now, 'failed', 'notice email failed', detail)
+            self.result['failed'].append({'job_id': jid, 'result': 'notice email failed'})
 
     def _act_mismatch(
         self,

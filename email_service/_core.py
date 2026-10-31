@@ -212,7 +212,8 @@ class _EmailServiceCore:
                         from_email: str = None,
                         changes_summary: str = None,
                         message_id: str = None,
-                        attachments: list = None):
+                        attachments: list = None,
+                        plain_text_content: str = None):
         try:
             if not self.api_key:
                 logger.warning("SendGrid API key not configured - cannot send email")
@@ -239,6 +240,7 @@ class _EmailServiceCore:
                 from_email=from_email_obj,
                 to_emails=[To(addr) for addr in to_list],
                 subject=subject,
+                plain_text_content=plain_text_content,
                 html_content=Content("text/html", html_content)
             )
             

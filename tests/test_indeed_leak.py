@@ -14,8 +14,11 @@ from indeed_publish.leak import (
     digest_buckets,
     digest_is_due,
     jobs_from_applicant_submissions,
-    notice_message,
+    notice_deadline_text,
+    notice_html,
+    notice_plain_text,
     notice_recipients,
+    notice_subject,
     render_digest,
     select_sweep_jobs,
     stripped_description_update,
@@ -64,8 +67,13 @@ def _drive(
     removed = []
     state = state if state is not None else {}
 
-    def send_email(to, subject, body):
-        emails.append({'to': to, 'subject': subject, 'body': body})
+    def send_email(to, subject, body, html_content=None):
+        emails.append({
+            'to': to,
+            'subject': subject,
+            'body': body,
+            'html': html_content,
+        })
         return True
 
     def remove_indeed(job):
@@ -144,10 +152,12 @@ def test_enforce_open_job_gets_one_grace_notice_and_is_not_removed():
     assert removed == []
     assert len(emails) == 1
     assert emails[0]['to'] == ['susan@example.com']
-    assert '34869' in emails[0]['subject']
+    assert emails[0]['subject'] == 'Action needed: 1 Indeed posting outside Sponsored - Indeed'
+    assert '34869' in emails[0]['body']
     assert 'Sponsored - Indeed' in emails[0]['body']
-    assert '24 hours' in emails[0]['body']
-    assert 'career portal' in emails[0]['body']
+    assert 'Fri Oct 30, 6:00 PM ET' in emails[0]['body']
+    assert 'careers site posting is not affected' in emails[0]['body']
+    assert '34869' in emails[0]['html']
     deadline = run.state['jobs']['34869']['grace_deadline']
     assert deadline == '2026-10-30T22:00:00Z'
     assert run.result['noticed'] == [34869]
@@ -181,7 +191,8 @@ def test_grace_end_removes_when_still_live_and_off_tearsheet():
 
 def test_custom_grace_period():
     run, emails, _removed = _drive([_job()], mode=MODE_ENFORCE, grace_hours=1)
-    assert '1 hour' in emails[0]['body']
+    assert 'Thu Oct 29, 7:00 PM ET' in emails[0]['body']
+    assert run.state['jobs']['34869']['grace_deadline'] == '2026-10-29T23:00:00Z'
     _mid, more, removed = _drive(
         [_job()],
         mode=MODE_ENFORCE,
@@ -265,8 +276,11 @@ def test_notice_goes_to_every_assigned_recruiter_except_unassigned_and_blank():
         _user(270, 'Rachelle', 'Fite', ''),
     ]})
     _run, emails, _removed = _drive([job], mode=MODE_ENFORCE)
-    assert len(emails) == 1
-    assert emails[0]['to'] == ['susan@example.com', 'stacy@example.com']
+    assert [item['to'] for item in emails] == [
+        ['susan@example.com'],
+        ['stacy@example.com'],
+    ]
+    assert all('34869' in item['body'] for item in emails)
 
 
 def test_notice_falls_back_to_owner_then_ops():
@@ -287,7 +301,7 @@ def test_notice_falls_back_to_owner_then_ops():
 
 
 def test_failed_notice_does_not_start_grace():
-    def send_email(_to, _subject, _body):
+    def send_email(_to, _subject, _body, _html=None):
         return False
 
     run = LeakRun(
@@ -305,7 +319,171 @@ def test_failed_notice_does_not_start_grace():
     record = run.state['jobs']['34869']
     assert record['grace_deadline'] is None
     assert record['last_action'] == 'failed'
+    assert record['events'][-1]['result'] == 'notice email failed'
     assert run.result['removed'] == []
+    assert run.result['noticed'] == []
+
+
+def test_two_jobs_for_one_recruiter_produce_one_email():
+    jobs = [
+        _job(jid=29868, title='CNC Operators', correlatedCustomText1='Flint'),
+        _job(jid=79629, title='Powder Coater/Production', correlatedCustomText1='Flint'),
+    ]
+    run, emails, removed = _drive(jobs, mode=MODE_ENFORCE)
+    assert removed == []
+    assert len(emails) == 1
+    assert emails[0]['to'] == ['susan@example.com']
+    assert emails[0]['subject'] == 'Action needed: 2 Indeed postings outside Sponsored - Indeed'
+    assert '29868' in emails[0]['body'] and '79629' in emails[0]['body']
+    assert 'CNC Operators' in emails[0]['html']
+    assert 'Powder Coater/Production' in emails[0]['html']
+    assert run.result['noticed'] == [29868, 79629]
+    assert run.state['jobs']['29868']['grace_deadline'] == '2026-10-30T22:00:00Z'
+    assert run.state['jobs']['79629']['recipients'] == ['susan@example.com']
+
+
+def test_one_job_with_two_recruiters_is_listed_in_both_emails():
+    job = _job(assignedUsers={'data': [
+        _user(258, 'Susan', 'Badour', 'susan@example.com'),
+        _user(251, 'Stacy', 'Peterson', 'stacy@example.com'),
+    ]})
+    _run, emails, _removed = _drive([job], mode=MODE_ENFORCE)
+    assert [item['to'] for item in emails] == [
+        ['susan@example.com'],
+        ['stacy@example.com'],
+    ]
+    assert {item['subject'] for item in emails} == {
+        'Action needed: 1 Indeed posting outside Sponsored - Indeed',
+    }
+    for item in emails:
+        assert '34869' in item['body']
+        assert '34869' in item['html']
+        assert 'CNC Operator' in item['body']
+    assert _run.state['jobs']['34869']['recipients'] == [
+        'susan@example.com',
+        'stacy@example.com',
+    ]
+
+
+def test_one_failed_recipient_does_not_block_grace_when_another_sends():
+    def send_email(to, _subject, _body, _html=None):
+        return to == ['susan@example.com']
+
+    run = LeakRun(
+        mode=MODE_ENFORCE,
+        now=NOW,
+        state={},
+        notify_email=OPS,
+        send_email=send_email,
+        remove_indeed=lambda _job: None,
+        publication_status=lambda _jid: {'indeed_published': True},
+        job_on_tearsheet=lambda _jid: False,
+    )
+    job = _job(assignedUsers={'data': [
+        _user(258, 'Susan', 'Badour', 'susan@example.com'),
+        _user(251, 'Stacy', 'Peterson', 'stacy@example.com'),
+    ]})
+    assert run.guard_tearsheet([100]) is False
+    run.consider([job])
+    record = run.state['jobs']['34869']
+    assert record['grace_deadline'] == '2026-10-30T22:00:00Z'
+    assert record['notice_sent_at'] == '2026-10-29T22:00:00Z'
+    assert record['recipients'] == ['susan@example.com', 'stacy@example.com']
+    assert record['last_action'] == 'notice'
+    assert run.result['noticed'] == [34869]
+    assert run.result['failed'] == []
+
+
+def test_a_job_retries_when_every_one_of_its_emails_failed():
+    """Susan's send lands. Stacy's does not. Only Stacy's other job waits."""
+    def send_email(to, _subject, _body, _html=None):
+        return to == ['susan@example.com']
+
+    run = LeakRun(
+        mode=MODE_ENFORCE,
+        now=NOW,
+        state={},
+        notify_email=OPS,
+        send_email=send_email,
+        remove_indeed=lambda _job: None,
+        publication_status=lambda _jid: {'indeed_published': True},
+        job_on_tearsheet=lambda _jid: False,
+    )
+    shared = _job(
+        jid=29868,
+        title='CNC Operators',
+        assignedUsers={'data': [
+            _user(258, 'Susan', 'Badour', 'susan@example.com'),
+            _user(251, 'Stacy', 'Peterson', 'stacy@example.com'),
+        ]},
+    )
+    stacy_only = _job(
+        jid=42828,
+        title='Downstream Technician',
+        assignedUsers={'data': [
+            _user(251, 'Stacy', 'Peterson', 'stacy@example.com'),
+        ]},
+    )
+    assert run.guard_tearsheet([100]) is False
+    run.consider([shared, stacy_only])
+    assert run.state['jobs']['29868']['grace_deadline'] == '2026-10-30T22:00:00Z'
+    assert run.state['jobs']['42828']['grace_deadline'] is None
+    assert run.state['jobs']['42828']['events'][-1]['result'] == 'notice email failed'
+    assert run.result['noticed'] == [29868]
+    assert run.result['failed'] == [{'job_id': 42828, 'result': 'notice email failed'}]
+
+
+def test_single_job_notice_uses_the_singular_subject():
+    _run, emails, _removed = _drive([_job()], mode=MODE_ENFORCE)
+    assert emails[0]['subject'] == notice_subject(1)
+    assert 'postings' not in emails[0]['subject']
+    for part in (emails[0]['subject'], emails[0]['body'], emails[0]['html']):
+        lowered = part.lower()
+        assert 'leak' not in lowered
+        assert 'grace' not in lowered
+        assert 'enforce' not in lowered
+
+
+def test_notice_html_escapes_bullhorn_fields():
+    job = _job(
+        title='CNC <b>Operator</b> & "Mill"',
+        correlatedCustomText1='Lapeer <script>',
+    )
+    deadline = NOW + timedelta(hours=24)
+    html_body = notice_html([job], deadline)
+    text = notice_plain_text([job], deadline)
+    href = 'https://app.bullhornstaffing.com/openwindow?entity=JobOrder&amp;id=34869'
+    assert f'<a href="{href}">CNC &lt;b&gt;Operator&lt;/b&gt; &amp; &quot;Mill&quot;</a>' in html_body
+    assert 'Lapeer &lt;script&gt;' in html_body
+    assert '<b>' not in html_body
+    assert '<script>' not in html_body
+    assert 'CNC <b>Operator</b> & "Mill"' in text
+    assert 'Lapeer <script>' in text
+
+
+def test_notice_links_a_valid_job_to_bullhorn():
+    deadline = NOW + timedelta(hours=24)
+    html_body = notice_html([_job()], deadline)
+    text = notice_plain_text([_job()], deadline)
+    href = 'https://app.bullhornstaffing.com/openwindow?entity=JobOrder&amp;id=34869'
+    plain = 'https://app.bullhornstaffing.com/openwindow?entity=JobOrder&id=34869'
+    assert html_body.count(f'<a href="{href}">') == 2
+    assert f'<a href="{href}">34869</a>' in html_body
+    assert f'<a href="{href}">CNC Operator</a>' in html_body
+    assert plain in text
+    assert text.splitlines()[3].endswith(plain)
+
+
+def test_notice_has_no_link_for_an_invalid_job_id():
+    deadline = NOW + timedelta(hours=24)
+    for bad_id in ('nope', 0, None, ''):
+        html_body = notice_html([_job(jid=bad_id)], deadline)
+        text = notice_plain_text([_job(jid=bad_id)], deadline)
+        assert '<a ' not in html_body
+        assert 'openwindow' not in html_body
+        assert 'openwindow' not in text
+        assert 'CNC Operator' in html_body
+        assert 'CNC Operator' in text
 
 
 def test_exemptions_by_job_and_department_are_not_removed():
@@ -649,11 +827,14 @@ def test_a_run_with_nothing_to_check_keeps_earlier_status_failures():
 
 
 def test_notice_message_names_the_job():
-    text = notice_message(_job(), 24)
+    deadline = NOW + timedelta(hours=24)
+    text = notice_plain_text([_job()], deadline)
     assert '34869' in text
     assert 'CNC Operator' in text
     assert 'Lapeer' in text
-    assert 'removed from Indeed in 24 hours' in text
+    assert notice_deadline_text(deadline) in text
+    assert 'careers site posting is not affected' in text
+    assert notice_subject(1) == 'Action needed: 1 Indeed posting outside Sponsored - Indeed'
 
 
 def test_auto_unpublish_hook_asks_to_strip_the_tag(monkeypatch):
@@ -1261,8 +1442,21 @@ def test_leak_email_sends_one_message_and_records_the_bcc(monkeypatch):
     assert calls[0]['bcc_emails'] == [OPS]
     assert calls[0]['changes_summary'] == f'bcc:{OPS}'
     assert calls[0]['notification_type'] == 'indeed_leak'
+    assert calls[0]['plain_text_content'] is None
+    assert calls[0]['html_content'] == '<pre>body</pre>'
     assert calls[1]['bcc_emails'] is None
     assert calls[1]['changes_summary'] is None
+
+    assert leak_runtime._send_email(
+        ['susan@example.com'],
+        'Action needed: 1 Indeed posting outside Sponsored - Indeed',
+        'plain body',
+        '<p>html body</p>',
+    )
+    assert calls[2]['to_email'] == ['susan@example.com']
+    assert calls[2]['html_content'] == '<p>html body</p>'
+    assert calls[2]['plain_text_content'] == 'plain body'
+    assert calls[2]['bcc_emails'] == [OPS]
 
 
 def test_html_email_writes_the_bcc_onto_the_delivery_log():
@@ -1283,7 +1477,8 @@ def test_html_email_writes_the_bcc_onto_the_delivery_log():
         result = service.send_html_email(
             to_email=['susan@example.com', 'stacy@example.com'],
             subject='Indeed posting',
-            html_content='<pre>body</pre>',
+            html_content='<p>table</p>',
+            plain_text_content='plain table',
             notification_type='indeed_leak',
             bcc_emails=[OPS],
             changes_summary=f'bcc:{OPS}',
@@ -1294,6 +1489,18 @@ def test_html_email_writes_the_bcc_onto_the_delivery_log():
     assert recorded['notification_type'] == 'indeed_leak'
     sent = mock_client.return_value.client.mail.send.post.call_args.kwargs['request_body']
     assert OPS in str(sent.get('personalizations'))
+    contents = sent.get('content') or []
+    assert [item.get('type') for item in contents] == ['text/plain', 'text/html']
+    assert contents[0].get('value') == 'plain table'
+    assert contents[1].get('value') == '<p>table</p>'
+    service.send_html_email(
+        to_email=OPS,
+        subject='Indeed leak digest',
+        html_content='<pre>ops body</pre>',
+        notification_type='indeed_leak',
+    )
+    digest = mock_client.return_value.client.mail.send.post.call_args.kwargs['request_body']
+    assert [item.get('type') for item in digest.get('content') or []] == ['text/html']
 
 
 def test_fast_path_skips_when_a_sweep_holds_the_lock(monkeypatch, tmp_path):

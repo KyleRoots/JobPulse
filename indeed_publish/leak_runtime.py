@@ -149,8 +149,12 @@ def _save_state(state: Dict[str, Any]) -> None:
     )
 
 
-def _send_email(to_email, subject: str, message: str) -> bool:
-    """One email to every To recipient. Recruiters are BCC'd once, via send_html_email."""
+def _send_email(to_email, subject: str, message: str, html_content: str | None = None) -> bool:
+    """One email to every To recipient. Recruiters are BCC'd once, via send_html_email.
+
+    ``html_content`` is the recruiter warning table. Other mail stays plain text
+    inside a pre block. The plain-text body is always ``message``.
+    """
     from utils.bullhorn_helpers import get_email_service
 
     if isinstance(to_email, (list, tuple)):
@@ -165,11 +169,17 @@ def _send_email(to_email, subject: str, message: str) -> bool:
         return False
     bcc = leak_bcc_recipients(recipients)
     summary = f'bcc:{bcc[0]}' if bcc else None
-    safe_body = html.escape(message or '')
+    if html_content is None:
+        html_body = f'<pre>{html.escape(message or "")}</pre>'
+        plain_text = None
+    else:
+        html_body = html_content
+        plain_text = message or ''
     result = email_svc.send_html_email(
         to_email=recipients,
         subject=subject,
-        html_content=f'<pre>{safe_body}</pre>',
+        html_content=html_body,
+        plain_text_content=plain_text,
         notification_type='indeed_leak',
         bcc_emails=bcc or None,
         changes_summary=summary,
