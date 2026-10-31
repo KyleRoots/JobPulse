@@ -20,6 +20,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Set, Union
 from zoneinfo import ZoneInfo
 
+from utils.bullhorn_helpers import bullhorn_record_url
 from utils.job_status import is_job_eligible
 
 from .campaign_tags import department_owns_campaign_tag, strip_campaign_tags
@@ -417,12 +418,22 @@ def _notice_rows(jobs: Sequence[Dict[str, Any]]) -> List[Dict[str, str]]:
     for job in jobs:
         title = (job.get('title') or '').strip() or '(no title)'
         department = (job.get('correlatedCustomText1') or '').strip() or '(no department)'
+        job_id = job.get('id')
         rows.append({
-            'id': str(job.get('id') if job.get('id') is not None else ''),
+            'id': '' if job_id is None else str(job_id),
             'title': title,
             'department': department,
+            'url': bullhorn_record_url('JobOrder', job_id),
         })
     return rows
+
+
+def _notice_linked(text: str, url: str) -> str:
+    """Job ID or title. A bad id stays plain text. The URL is escaped for an attribute."""
+    safe = html.escape(text)
+    if not url:
+        return safe
+    return f'<a href="{html.escape(url, quote=True)}">{safe}</a>'
 
 
 def notice_plain_text(jobs: Sequence[Dict[str, Any]], deadline: datetime) -> str:
@@ -430,7 +441,10 @@ def notice_plain_text(jobs: Sequence[Dict[str, Any]], deadline: datetime) -> str
     when = notice_deadline_text(deadline)
     lines = [_notice_intro(len(rows)), '', 'Job ID | Title | Department | Removal deadline']
     for row in rows:
-        lines.append(f"{row['id']} | {row['title']} | {row['department']} | {when}")
+        line = f"{row['id']} | {row['title']} | {row['department']} | {when}"
+        if row['url']:
+            line = f"{line} | {row['url']}"
+        lines.append(line)
     lines.extend(['', _NOTICE_CLOSING])
     return '\n'.join(lines)
 
@@ -443,8 +457,8 @@ def notice_html(jobs: Sequence[Dict[str, Any]], deadline: datetime) -> str:
     for row in rows:
         body.append(
             '<tr>'
-            f"<td>{html.escape(row['id'])}</td>"
-            f"<td>{html.escape(row['title'])}</td>"
+            f"<td>{_notice_linked(row['id'], row['url'])}</td>"
+            f"<td>{_notice_linked(row['title'], row['url'])}</td>"
             f"<td>{html.escape(row['department'])}</td>"
             f'<td>{when}</td>'
             '</tr>'

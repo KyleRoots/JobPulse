@@ -452,12 +452,38 @@ def test_notice_html_escapes_bullhorn_fields():
     deadline = NOW + timedelta(hours=24)
     html_body = notice_html([job], deadline)
     text = notice_plain_text([job], deadline)
-    assert 'CNC &lt;b&gt;Operator&lt;/b&gt; &amp; &quot;Mill&quot;' in html_body
+    href = 'https://app.bullhornstaffing.com/openwindow?entity=JobOrder&amp;id=34869'
+    assert f'<a href="{href}">CNC &lt;b&gt;Operator&lt;/b&gt; &amp; &quot;Mill&quot;</a>' in html_body
     assert 'Lapeer &lt;script&gt;' in html_body
     assert '<b>' not in html_body
     assert '<script>' not in html_body
     assert 'CNC <b>Operator</b> & "Mill"' in text
     assert 'Lapeer <script>' in text
+
+
+def test_notice_links_a_valid_job_to_bullhorn():
+    deadline = NOW + timedelta(hours=24)
+    html_body = notice_html([_job()], deadline)
+    text = notice_plain_text([_job()], deadline)
+    href = 'https://app.bullhornstaffing.com/openwindow?entity=JobOrder&amp;id=34869'
+    plain = 'https://app.bullhornstaffing.com/openwindow?entity=JobOrder&id=34869'
+    assert html_body.count(f'<a href="{href}">') == 2
+    assert f'<a href="{href}">34869</a>' in html_body
+    assert f'<a href="{href}">CNC Operator</a>' in html_body
+    assert plain in text
+    assert text.splitlines()[3].endswith(plain)
+
+
+def test_notice_has_no_link_for_an_invalid_job_id():
+    deadline = NOW + timedelta(hours=24)
+    for bad_id in ('nope', 0, None, ''):
+        html_body = notice_html([_job(jid=bad_id)], deadline)
+        text = notice_plain_text([_job(jid=bad_id)], deadline)
+        assert '<a ' not in html_body
+        assert 'openwindow' not in html_body
+        assert 'openwindow' not in text
+        assert 'CNC Operator' in html_body
+        assert 'CNC Operator' in text
 
 
 def test_exemptions_by_job_and_department_are_not_removed():

@@ -220,8 +220,9 @@ digest has two extra sections: "Live on Indeed but Bullhorn says unpublished"
 (unpublish time and application times, for a Bullhorn ticket) and "On
 Sponsored - Indeed but not live on Indeed" (tearsheet members whose status is
 not Indeed-live, with the reason). When enforce mode starts the 24-hour window, each recruiter gets one email
-listing every job that just started that window for them. A job with two
-recruiters is listed in both emails. Those emails and the Monday per-recruiter
+listing every job that just started that window for them. The job ID and the
+title link to the Bullhorn job. A job with two recruiters is listed in both
+emails. Those emails and the Monday per-recruiter
 digests BCC `INDEED_LEAK_BCC_EMAIL` (default `kroots@myticas.com`). An empty
 value disables the BCC. The BCC is omitted when that address is already in To.
 The delivery log stores the BCC in `changes_summary`.
