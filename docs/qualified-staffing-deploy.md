@@ -222,10 +222,13 @@ Sponsored - Indeed but not live on Indeed" (tearsheet members whose status is
 not Indeed-live, with the reason). When enforce mode starts the 24-hour window, each recruiter gets one email
 listing every job that just started that window for them. The job ID and the
 title link to the Bullhorn job. A job with two recruiters is listed in both
-emails. Those emails and the Monday per-recruiter
-digests BCC `INDEED_LEAK_BCC_EMAIL` (default `kroots@myticas.com`). An empty
-value disables the BCC. The BCC is omitted when that address is already in To.
-The delivery log stores the BCC in `changes_summary`.
+emails. A recruiter receives the Monday digest only when they have a row to act on.
+Live Sponsored - Indeed jobs are listed on that email only as context. The ops
+digest still goes out every Monday with every section, including zeros, and a
+line naming the recruiters who were emailed. Those warning emails and Monday
+recruiter digests BCC `INDEED_LEAK_BCC_EMAIL` (default `kroots@myticas.com`).
+An empty value disables the BCC. The BCC is omitted when that address is
+already in To. The delivery log stores the BCC in `changes_summary`.
 
 When native Indeed publish is on, the Indeed XML upload is empty so native
 publish and Scout XML do not dual-list. Campaign tags map from `correlatedCustomText1` (see go-live step 7).

@@ -1072,6 +1072,42 @@ def _section_lines(title: str, rows: Sequence[str]) -> List[str]:
     return [f'{title}: {len(rows)}', *[f'- {row}' for row in rows]]
 
 
+def digest_recruiter_audiences(
+    *,
+    leaks: Sequence[Dict[str, Any]] = (),
+    removed: Sequence[Dict[str, Any]] = (),
+    in_grace: Sequence[Dict[str, Any]] = (),
+    failed: Sequence[Dict[str, Any]] = (),
+    cannot_publish: Sequence[Dict[str, Any]] = (),
+    not_live: Sequence[Dict[str, Any]] = (),
+) -> List[str]:
+    """Recruiter addresses that have a row to act on. Live tearsheet rows do not qualify.
+
+    The ops address is omitted. It already receives the full Monday digest.
+    """
+    ops = (notify_email() or '').strip().lower()
+    seen: Dict[str, str] = {}
+    for group in (leaks, removed, in_grace, failed, cannot_publish, not_live):
+        for row in group or []:
+            if not isinstance(row, dict):
+                continue
+            for email in row.get('recipients') or []:
+                text = str(email).strip()
+                if not text:
+                    continue
+                key = text.lower()
+                if key == ops or key in seen:
+                    continue
+                seen[key] = text
+    return [seen[key] for key in sorted(seen)]
+
+
+def _recruiters_emailed_line(people: Sequence[str]) -> str:
+    if not people:
+        return 'Recruiters emailed: 0'
+    return f"Recruiters emailed: {len(people)} ({', '.join(people)})"
+
+
 def mismatch_digest_detail(record: Dict[str, Any]) -> str:
     """Unpublish time and Indeed Job Board application times for a support ticket."""
     if record.get('never_published') or not record.get('unpublished_at'):
@@ -1144,8 +1180,10 @@ def render_digest(
 ) -> Optional[str]:
     """Plain-text digest. ``audience`` keeps only rows for that recipient.
 
-    Returns None when the audience has nothing to report. The full digest
-    (audience None) is always returned.
+    A recruiter digest is returned only when that person has a row to act on.
+    Empty sections are left out. Live tearsheet jobs are included only as
+    context on a digest that is already going out. The full digest (audience
+    None) is always returned, with every section, including zeros.
     """
     def keep(row: Dict[str, Any]) -> bool:
         if not audience:
@@ -1161,21 +1199,26 @@ def render_digest(
         base = f'{jid} {title} ({department})'.strip()
         return f'{base} — {extra}' if extra else base
 
-    groups = [
-        ('Live via Sponsored - Indeed', [line(row) for row in live_tearsheet if keep(row)]),
-        ('Leaks found', [line(row) for row in leaks if keep(row)]),
-        ('Removed', [line(row) for row in removed if keep(row)]),
-        ('In grace', [line(row) for row in in_grace if keep(row)]),
-        ('Failed actions', [line(row) for row in failed if keep(row)]),
-        ('Tearsheet jobs that cannot publish', [line(row) for row in cannot_publish if keep(row)]),
-        (
-            'On Sponsored - Indeed but not live on Indeed',
-            [line(row) for row in not_live if keep(row)],
-        ),
+    def lines(rows: Sequence[Dict[str, Any]]) -> List[str]:
+        return [line(row) for row in rows if keep(row)]
+
+    live_lines = lines(live_tearsheet)
+    actionable = [
+        ('Leaks found', lines(leaks)),
+        ('Removed', lines(removed)),
+        ('In grace', lines(in_grace)),
+        ('Failed actions', lines(failed)),
+        ('Tearsheet jobs that cannot publish', lines(cannot_publish)),
+        ('On Sponsored - Indeed but not live on Indeed', lines(not_live)),
     ]
-    if audience and not any(rows for _title, rows in groups):
-        return None
-    if not audience:
+    if audience:
+        groups = [(title, rows) for title, rows in actionable if rows]
+        if not groups:
+            return None
+        if live_lines:
+            groups.insert(0, ('Live via Sponsored - Indeed', live_lines))
+    else:
+        groups = [('Live via Sponsored - Indeed', live_lines), *actionable]
         groups.append((
             'Live on Indeed but Bullhorn says unpublished',
             [line(row) for row in mismatches],
@@ -1187,8 +1230,17 @@ def render_digest(
         f'Indeed leak digest — {when}',
         f'Mode: {mode}',
         f'To: {who}',
-        '',
     ]
+    if not audience:
+        header.append(_recruiters_emailed_line(digest_recruiter_audiences(
+            leaks=leaks,
+            removed=removed,
+            in_grace=in_grace,
+            failed=failed,
+            cannot_publish=cannot_publish,
+            not_live=not_live,
+        )))
+    header.append('')
     body: List[str] = []
     for title, rows in groups:
         body.extend(_section_lines(title, rows))
