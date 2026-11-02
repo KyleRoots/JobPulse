@@ -776,6 +776,156 @@ def test_digest_waits_until_monday_november_2_and_skips_empty_recruiters():
         cannot_publish=blocked,
         audience='nobody@example.com',
     ) is None
+    assert 'Recruiters emailed: 2 (susan@example.com, wendi@example.com)' in full
+
+
+def test_live_only_recruiter_gets_no_digest():
+    monday = datetime(2026, 11, 2, 8, 0, tzinfo=EASTERN)
+    live = [{
+        'job_id': 53,
+        'title': 'Welder',
+        'department': 'Flint',
+        'recipients': ['stacy@example.com'],
+    }]
+    assert render_digest(
+        now=monday,
+        mode=MODE_REPORT,
+        live_tearsheet=live,
+        leaks=[],
+        removed=[],
+        in_grace=[],
+        failed=[],
+        cannot_publish=[],
+        audience='stacy@example.com',
+    ) is None
+
+
+def test_recruiter_with_one_leak_gets_only_that_section():
+    monday = datetime(2026, 11, 2, 8, 0, tzinfo=EASTERN)
+    live = [{
+        'job_id': 53,
+        'title': 'Welder',
+        'department': 'Flint',
+        'recipients': ['stacy@example.com'],
+    }, {
+        'job_id': 10,
+        'title': 'Packer',
+        'department': 'Lapeer',
+        'recipients': ['susan@example.com'],
+    }]
+    leaks = [{
+        'job_id': 34869,
+        'title': 'CNC Operator',
+        'department': 'Lapeer',
+        'recipients': ['susan@example.com'],
+    }]
+    kwargs = dict(
+        now=monday,
+        mode=MODE_REPORT,
+        live_tearsheet=live,
+        leaks=leaks,
+        removed=[],
+        in_grace=[],
+        failed=[],
+        cannot_publish=[],
+    )
+    only_leak = render_digest(
+        **{**kwargs, 'live_tearsheet': [live[0]], 'audience': 'susan@example.com'},
+    )
+    assert only_leak == (
+        'Indeed leak digest — Nov 2, 2026 8:00 AM ET\n'
+        'Mode: report\n'
+        'To: susan@example.com\n'
+        '\n'
+        'Leaks found: 1\n'
+        '- 34869 CNC Operator (Lapeer)\n'
+    )
+    with_context = render_digest(**kwargs, audience='susan@example.com')
+    assert 'Live via Sponsored - Indeed: 1' in with_context
+    assert '10 Packer (Lapeer)' in with_context
+    assert 'Welder' not in with_context
+    assert 'Leaks found: 1' in with_context
+    assert '34869 CNC Operator (Lapeer)' in with_context
+    assert 'Removed' not in with_context
+    assert ': 0' not in with_context
+
+
+def test_ops_digest_still_goes_out_when_every_section_is_zero():
+    monday = datetime(2026, 11, 2, 8, 0, tzinfo=EASTERN)
+    text = render_digest(
+        now=monday,
+        mode=MODE_REPORT,
+        live_tearsheet=[],
+        leaks=[],
+        removed=[],
+        in_grace=[],
+        failed=[],
+        cannot_publish=[],
+    )
+    assert 'Recruiters emailed: 0' in text
+    assert 'Live via Sponsored - Indeed: 0' in text
+    assert 'Leaks found: 0' in text
+    assert 'Removed: 0' in text
+    assert 'In grace: 0' in text
+    assert 'Failed actions: 0' in text
+    assert 'Tearsheet jobs that cannot publish: 0' in text
+    assert 'On Sponsored - Indeed but not live on Indeed: 0' in text
+
+
+def test_digest_run_skips_a_live_only_recruiter_and_still_emails_ops(monkeypatch):
+    from indeed_publish import leak_runtime
+
+    emails = []
+
+    def send_email(to, subject, body):
+        emails.append({'to': to, 'subject': subject, 'body': body})
+        return True
+
+    state = {
+        'jobs': {
+            '34869': {
+                'job_id': 34869,
+                'title': 'CNC Operator',
+                'department': 'Lapeer',
+                'open': True,
+                'last_action': 'detected',
+                'recipients': ['susan@example.com'],
+                'events': [],
+            },
+        },
+    }
+    sheets = {
+        'live': [{
+            'job_id': 53,
+            'title': 'Welder',
+            'department': 'Flint',
+            'recipients': ['stacy@example.com'],
+        }],
+        'cannot_publish': [],
+        'not_live': [],
+    }
+    saved = {}
+    monkeypatch.setattr(leak_runtime, '_load_state', lambda: state)
+    monkeypatch.setattr(leak_runtime, '_save_state', lambda value: saved.update(value))
+    monkeypatch.setattr(leak_runtime, '_bh', lambda: object())
+    monkeypatch.setattr(leak_runtime, '_ui_client', lambda: object())
+    monkeypatch.setattr(leak_runtime, '_tearsheet_digest_rows', lambda *_args, **_kwargs: sheets)
+    monkeypatch.setattr(leak_runtime, '_send_email', send_email)
+    monkeypatch.setattr(leak_runtime, 'digest_is_due', lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(leak_runtime, 'leak_mode', lambda: MODE_REPORT)
+
+    result = leak_runtime._run_weekly_digest_locked()
+    assert [item['to'] for item in emails] == [OPS, 'susan@example.com']
+    assert [item['subject'] for item in emails] == [
+        'Indeed leak digest',
+        'Your Indeed leak digest',
+    ]
+    assert 'stacy@example.com' not in result['sent']
+    assert 'Recruiters emailed: 1 (susan@example.com)' in emails[0]['body']
+    assert 'Leaks found: 1' in emails[1]['body']
+    assert 'Removed' not in emails[1]['body']
+    assert 'Welder' not in emails[1]['body']
+    assert saved.get('last_digest_at')
 
 
 def test_digest_buckets_keep_grace_removals_and_failures():

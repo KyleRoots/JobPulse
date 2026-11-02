@@ -32,6 +32,7 @@ from .leak import (
     description_source_field,
     digest_buckets,
     digest_is_due,
+    digest_recruiter_audiences,
     exempt_departments,
     exempt_job_ids,
     grace_hours,
@@ -999,16 +1000,15 @@ def _run_weekly_digest_locked() -> Dict[str, Any]:
         ops_sent = bool(_send_email(ops, 'Indeed leak digest', full))
         if ops_sent:
             sent.append(ops)
-    audiences = set()
-    for group in (
-        sheets['live'], sheets['cannot_publish'], sheets['not_live'],
-        buckets['leaks'], buckets['removed'], buckets['in_grace'], buckets['failed'],
-    ):
-        for row in group:
-            for email in row.get('recipients') or []:
-                if email and email.lower() != ops.lower():
-                    audiences.add(email)
-    for email in sorted(audiences):
+    audiences = digest_recruiter_audiences(
+        leaks=buckets['leaks'],
+        removed=buckets['removed'],
+        in_grace=buckets['in_grace'],
+        failed=buckets['failed'],
+        cannot_publish=sheets['cannot_publish'],
+        not_live=sheets['not_live'],
+    )
+    for email in audiences:
         body = render_digest(
             now=now,
             mode=mode,
