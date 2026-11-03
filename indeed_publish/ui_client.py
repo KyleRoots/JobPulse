@@ -93,6 +93,19 @@ def normalize_operation(operation: str) -> str:
     return _OPERATION_ALIASES[key]
 
 
+def _log_indeed_delete_rejection(job_id: int, status_code: int, text: str) -> None:
+    """Bullhorn's 4xx body for an Indeed DELETE. Emails and saved state stay sanitized."""
+    from indeed_publish.leak import sanitize_leak_text
+
+    message = sanitize_leak_text(text or '').replace('\r', ' ').replace('\n', ' ').strip()
+    logger.warning(
+        'Indeed DELETE HTTP %s job %s: %s',
+        status_code,
+        job_id,
+        message[:200],
+    )
+
+
 class BullhornUIClient:
     """
     Authenticates via Bullhorn Universal Login, then calls the same
@@ -358,6 +371,12 @@ class BullhornUIClient:
             resp = self._send(board, body)
 
         text = resp.text or ''
+        if (
+            operation == 'DELETE'
+            and normalize_board(board) == BOARD_INDEED
+            and 400 <= resp.status_code < 500
+        ):
+            _log_indeed_delete_rejection(job_id, resp.status_code, text)
         if resp.status_code >= 500:
             raise BullhornPublishUnavailable(
                 f'{board} {operation} HTTP {resp.status_code}: {text[:300]}'

@@ -638,6 +638,110 @@ def test_indeed_delete_includes_a_description_parameter():
     ) == ' '
 
 
+def test_leak_remover_sends_the_jobs_category_and_response_user(monkeypatch):
+    from unittest.mock import MagicMock
+
+    from indeed_publish.leak_runtime import JOB_FIELDS, remove_indeed_posting
+
+    assert 'publishedCategory(id)' in JOB_FIELDS
+    assert 'responseUser(id)' in JOB_FIELDS
+    monkeypatch.setattr('indeed_publish.sync.is_qualified_tenant', lambda: True)
+    ui = MagicMock()
+    job = _job(
+        title='Material Handler',
+        publishedCategory={'id': 2000040},
+        responseUser={'id': 65},
+        assignedUsers={'data': [_user(99, 'Other', 'Person', 'other@example.com')]},
+    )
+    remove_indeed_posting(MagicMock(), ui, job)
+    ui.unpublish_indeed.assert_called_once()
+    kwargs = ui.unpublish_indeed.call_args.kwargs
+    assert kwargs['job_id'] == 34869
+    assert kwargs['published_category_id'] == 2000040
+    assert kwargs['response_user_id'] == 65
+    assert kwargs['published_category_id'] != 2000039
+    assert kwargs['response_user_id'] != 99
+    ui.unpublish_boards.assert_not_called()
+
+
+def test_leak_remover_falls_back_when_the_job_has_no_ids(monkeypatch):
+    from unittest.mock import MagicMock
+
+    from indeed_publish.leak_runtime import remove_indeed_posting
+
+    monkeypatch.setattr('indeed_publish.sync.is_qualified_tenant', lambda: True)
+    ui = MagicMock()
+    job = _job(
+        title='Material Handler',
+        categories={'data': []},
+        assignedUsers={'data': [_user(88, 'Adam', 'Cole', 'adam@example.com')]},
+        owner=_user(1, 'Unassigned', 'User', ''),
+    )
+    job.pop('publishedCategory', None)
+    job.pop('responseUser', None)
+    remove_indeed_posting(MagicMock(), ui, job)
+    kwargs = ui.unpublish_indeed.call_args.kwargs
+    assert kwargs['published_category_id'] == 2000039
+    assert kwargs['response_user_id'] == 88
+    ui.unpublish_boards.assert_not_called()
+
+
+def test_leak_remover_delete_never_posts_the_career_portal():
+    import json
+    from unittest.mock import MagicMock
+
+    from indeed_publish.leak_runtime import remove_indeed_posting
+    from indeed_publish.ui_client import BullhornUIClient
+    from tests.test_indeed_tearsheet_publish import _LOGIN_OK, _fake_resp
+
+    session = MagicMock()
+    session.post.side_effect = [
+        _fake_resp(200, {}),
+        _fake_resp(200, _LOGIN_OK),
+        _fake_resp(200, {'success': True, 'message': 'This job will be removed from Indeed.'}),
+    ]
+    client = BullhornUIClient(username='svc', password='secret', session=session)
+    job = _job(publishedCategory={'id': 2000021}, responseUser={'id': 65})
+    remove_indeed_posting(MagicMock(), client, job)
+    board_calls = session.post.call_args_list[2:]
+    assert len(board_calls) == 1
+    assert board_calls[0].args[0].endswith('/services/JobPublish/indeed')
+    body = json.loads(board_calls[0].kwargs['data'])
+    assert body['operation'] == 'DELETE'
+    assert body['publishedCategoryID'] == 2000021
+    assert body['responseUserID'] == 65
+    assert 'careerPortal' not in board_calls[0].args[0]
+
+
+def test_delete_failure_stored_text_stays_sanitized():
+    from indeed_publish.ui_client import BullhornUIClientError
+
+    def remove(_job):
+        raise BullhornUIClientError(
+            'indeed DELETE HTTP 400: publishedCategoryID was rejected'
+        )
+
+    run = LeakRun(
+        mode=MODE_ENFORCE,
+        now=NOW,
+        state={},
+        notify_email=OPS,
+        send_email=lambda *_a: True,
+        remove_indeed=remove,
+        publication_status=lambda _jid: {'indeed_published': True},
+        job_on_tearsheet=lambda _jid: False,
+    )
+    run.guard_tearsheet([100])
+    run.consider([_job(status='Canceled', isOpen=False)])
+    stored = run.state['jobs']['34869']['events'][-1]['result']
+    assert stored == 'remove: BullhornUIClientError HTTP 400'
+    assert 'publishedCategoryID' not in stored
+    assert run.result['failed'] == [{
+        'job_id': 34869,
+        'result': 'remove: BullhornUIClientError HTTP 400',
+    }]
+
+
 def test_campaign_tag_strips_from_the_published_description_field():
     update = stripped_description_update({
         'id': 9,

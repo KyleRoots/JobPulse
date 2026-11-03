@@ -57,6 +57,7 @@ JOB_FIELDS = (
     'description,publicDescription,'
     'owner(id,firstName,lastName),'
     'assignedUsers(id,firstName,lastName),'
+    'publishedCategory(id),responseUser(id),'
     'dateClosed'
 )
 # The applicant check runs every 5 minutes and skips while a sweep holds the lock.
@@ -500,6 +501,25 @@ def _fetch_job(bh, job_id: int) -> Optional[Dict[str, Any]]:
     return data if data.get('id') else None
 
 
+def remove_indeed_posting(bh, ui: BullhornUIClient, job: Dict[str, Any]) -> None:
+    """DELETE the Indeed board only, with the tearsheet unpublish contact ids."""
+    from indeed_publish.sync import (
+        IndeedTearsheetPublishService,
+        resolve_indeed_delete_ids,
+    )
+
+    service = IndeedTearsheetPublishService(config=config_from_env())
+    category_id, user_id = resolve_indeed_delete_ids(
+        job, bh, service._resolve_response_user
+    )
+    ui.unpublish_indeed(
+        job_id=int(job['id']),
+        published_category_id=category_id,
+        response_user_id=user_id,
+        description_html=indeed_delete_description(job),
+    )
+
+
 def _make_run(bh, ui: BullhornUIClient, tearsheet_ids: Set[int]) -> LeakRun:
     def on_tearsheet(job_id: int) -> bool:
         return int(job_id) in _tearsheet_ids(bh)
@@ -508,10 +528,7 @@ def _make_run(bh, ui: BullhornUIClient, tearsheet_ids: Set[int]) -> LeakRun:
         return ui.get_publication_status(int(job_id))
 
     def remove(job: Dict[str, Any]) -> None:
-        ui.unpublish_indeed(
-            job_id=int(job['id']),
-            description_html=indeed_delete_description(job),
-        )
+        remove_indeed_posting(bh, ui, job)
 
     return LeakRun(
         mode=leak_mode(),

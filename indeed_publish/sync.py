@@ -8,7 +8,7 @@ import logging
 import re
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 from zoneinfo import ZoneInfo
 
 from .campaign_tags import (
@@ -299,6 +299,50 @@ def _stamp_notify(subject: str) -> None:
         )
     except Exception as exc:
         logger.warning('Indeed publish notify stamp failed: %s', exc)
+
+
+def _nested_id(value: Any) -> int:
+    """Bullhorn association id, or 0 when the association is missing."""
+    if isinstance(value, dict):
+        value = value.get('id')
+    if not value:
+        return 0
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def resolve_indeed_delete_ids(
+    job: Dict[str, Any],
+    bh,
+    resolve_response_user: Callable,
+) -> Tuple[int, int]:
+    """Category and response user for an Indeed DELETE.
+
+    The job's own publishedCategory and responseUser win. Otherwise use
+    ``map_published_category`` and ``resolve_response_user``, the same
+    fallbacks tearsheet publish uses. A failed fallback leaves that id at 0.
+    """
+    if not isinstance(job, dict):
+        job = {}
+    category_id = _nested_id(job.get('publishedCategory'))
+    if not category_id:
+        try:
+            mapped, _, _ = map_published_category(
+                job, qualified=is_qualified_tenant()
+            )
+            category_id = _nested_id(mapped)
+        except Exception:
+            category_id = 0
+    user_id = _nested_id(job.get('responseUser'))
+    if not user_id:
+        try:
+            resolved, _, _ = resolve_response_user(bh, job)
+            user_id = _nested_id(resolved)
+        except Exception:
+            user_id = 0
+    return category_id, user_id
 
 
 def _notify_failure(subject: str, message: str, notify_email: str) -> None:
@@ -1207,22 +1251,9 @@ class IndeedTearsheetPublishService:
         result: Dict[str, Any],
     ) -> None:
         jid = int(job.get('id'))
-        cat_id = 0
-        uid = 0
-        try:
-            cat_id, _, _ = map_published_category(
-                job, qualified=is_qualified_tenant()
-            )
-            resolved_uid, _, _ = self._resolve_response_user(bh, job)
-            uid = resolved_uid or 0
-        except Exception:
-            pass
-        pub = job.get('publishedCategory') or {}
-        if isinstance(pub, dict) and pub.get('id'):
-            cat_id = int(pub['id'])
-        resp_user = job.get('responseUser') or {}
-        if isinstance(resp_user, dict) and resp_user.get('id'):
-            uid = int(resp_user['id'])
+        cat_id, uid = resolve_indeed_delete_ids(
+            job, bh, self._resolve_response_user
+        )
 
         try:
             from indeed_publish.leak_runtime import strip_campaign_tag_on_tearsheet_leave
