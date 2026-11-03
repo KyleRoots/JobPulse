@@ -171,7 +171,7 @@ modified within 180 days, not on tearsheet 2), and the Monday 8:00 AM ET
 digest (`indeed_leak_sweep`, `indeed_leak_digest`, first digest November 2,
 2026) use that status call. JobPublish has no list of every Indeed-published
 job, so the closed-job query is the sweep's source. `enforce` emails the assigned recruiters and, after
-`INDEED_LEAK_GRACE_HOURS` (default 24), DELETEs Indeed only. Closed, Hold,
+`INDEED_LEAK_GRACE_HOURS` (default 24), DELETEs Indeed only. That DELETE sends the job's `publishedCategory` and `responseUser`. A missing id falls back to the tearsheet category mapper or the response-user resolver. An Indeed DELETE HTTP 4xx writes Bullhorn's error message, truncated to 200 characters, to the server log. Closed, Hold,
 Filled, and Canceled jobs are removed immediately. Exempt ids and departments
 are `INDEED_LEAK_EXEMPT_JOB_IDS` and `INDEED_LEAK_EXEMPT_DEPARTMENTS`. A broken
 tearsheet read, an empty tearsheet, a membership drop of more than half, or
@@ -188,8 +188,10 @@ deploy (Postgres advisory lock). The 3:00 AM closed-job sweep retries every
 that it did not run that day. The Monday 8:00 AM digest retries every 10
 minutes until 12:00 PM ET, then emails ops once that the digest did not go out. Leak-checker REST
 calls send `BhRestToken` as a
-header. Exception text saved, emailed, or logged from that check is the
+header. Exception text saved or emailed from that check is the
 exception type and HTTP status, with token and password values redacted.
+Leak log lines keep that same wording, except an Indeed DELETE HTTP 4xx,
+which also logs Bullhorn's error message truncated to 200 characters.
 
 Tearsheet publish reads membership in pages of 200 and treats the read as
 failed when the row count does not match `total` or the call errors. A failed

@@ -630,9 +630,12 @@ class TestSyncService:
         )
         result = {'unpublished': []}
         svc._unpublish_one(ui, bh, job, result)
-        desc = ui.unpublish_boards.call_args.kwargs['description_html']
+        kwargs = ui.unpublish_boards.call_args.kwargs
+        desc = kwargs['description_html']
         assert INDSHOW_TAG not in desc
         assert desc == '<p>x</p>'
+        assert kwargs['published_category_id'] == 2000021
+        assert kwargs['response_user_id'] == 65
         bh.update_job_order.assert_not_called()
 
     def _sync_cfg(self):
@@ -1647,6 +1650,37 @@ class TestJobPublishClient:
         session.get.return_value = _fake_resp(404, {'errorMessage': 'Resource not found.', 'errorCode': 404})
         with pytest.raises(BullhornUIClientError, match='404'):
             self._client(session).get_publication_status(34869)
+
+    def test_indeed_delete_400_logs_bullhorn_message_truncated(self, caplog):
+        import logging
+
+        from indeed_publish.ui_client import BullhornUIClientError
+
+        body = (
+            'publishedCategoryID was rejected BhRestToken=supersecret '
+            + ('x' * 180)
+            + 'TAIL-SHOULD-BE-CUT'
+        )
+        session = MagicMock()
+        session.post.side_effect = [
+            _fake_resp(200, {}),
+            _fake_resp(200, _LOGIN_OK),
+            _fake_resp(400, text=body),
+        ]
+        with caplog.at_level(logging.WARNING, logger='indeed_publish.ui_client'):
+            with pytest.raises(BullhornUIClientError, match='HTTP 400'):
+                self._client(session).unpublish_indeed(job_id=23692)
+        warning = next(
+            record.message
+            for record in caplog.records
+            if record.levelno == logging.WARNING and record.message.startswith('Indeed DELETE')
+        )
+        assert 'Indeed DELETE HTTP 400 job 23692:' in warning
+        assert 'publishedCategoryID was rejected' in warning
+        assert 'supersecret' not in warning
+        assert 'TAIL-SHOULD-BE-CUT' not in warning
+        detail = warning.split(': ', 1)[1]
+        assert len(detail) == 200
 
     def test_unpublish_indeed_does_not_post_career_portal(self):
         import json as _json
