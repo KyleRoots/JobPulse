@@ -474,12 +474,11 @@ class RecruiterNotificationLedger(db.Model):
     Built May 2026 (Task #95) to stop duplicate "Qualified Candidate"
     emails on auditor re-vet. The Quality Auditor's
     ``clear_candidate_vetting_state`` cascade deletes the
-    ``CandidateJobMatch`` rows that previously carried the
-    ``notification_sent=True`` flag, so the next vetting cycle creates
-    fresh matches with ``notification_sent=False`` and the recruiter
-    notification path has no idempotency signal — it would fire a
-    second email even though the Bullhorn note path correctly skips
-    the duplicate via its own check.
+    ``CandidateJobMatch`` rows that carried ``notification_sent=True``,
+    so the next vetting cycle creates fresh matches with
+    ``notification_sent=False``. The recruiter notification path would
+    fire a second email even though the Bullhorn note path skips the
+    duplicate via its own check.
 
     This ledger lives **outside** the auditor cascade by design: it is
     keyed on ``(bullhorn_candidate_id, bullhorn_job_id, notification_type)``

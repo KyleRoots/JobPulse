@@ -282,7 +282,7 @@ class OrchestrationMixin:
         from app import db
         from models import CandidateJobMatch, VettingAuditLog
 
-        # Snapshot scalars BEFORE any re-vet clears CandidateVettingLog rows.
+        # Snapshot scalars BEFORE any re-vet deletes CandidateVettingLog rows.
         # `_trigger_revet` → clear_candidate_vetting_state deletes the log; later
         # attribute access raised ObjectDeletedError ("… has been deleted").
         log_id = vetting_log.id

@@ -171,6 +171,34 @@ def _fetch_top_sites(since: datetime, limit: int = 6) -> List[Dict]:
     ]
 
 
+def calls_per_run_ratio(
+    scoring_calls: int,
+    tagged_runs: int,
+    log_runs: int,
+) -> Optional[float]:
+    """Scoring calls divided by screening runs.
+
+    ``tagged_runs`` is the number of distinct vetting-log ids stamped on
+    ``screening.scoring`` rows. ``log_runs`` is the number of
+    ``candidate_vetting_log`` rows still in the window. The denominator
+    is the larger of the two, so deleting vetting logs cannot shrink it
+    below the runs that actually called the model.
+    Returns None when there is no screening activity to divide by.
+    """
+    try:
+        calls = int(scoring_calls or 0)
+        tagged = int(tagged_runs or 0)
+        logs = int(log_runs or 0)
+    except (TypeError, ValueError):
+        return None
+    runs = max(tagged, logs)
+    if runs <= 0:
+        return None
+    if calls < 0:
+        calls = 0
+    return calls / runs
+
+
 def _fetch_calls_per_run(since: datetime) -> Optional[float]:
     """Scoring calls divided by screening runs — the loop fingerprint.
 
@@ -184,17 +212,17 @@ def _fetch_calls_per_run(since: datetime) -> Optional[float]:
             "SELECT "
             "(SELECT COUNT(*) FROM openai_call_log "
             " WHERE call_site_id = 'screening.scoring' AND created_at >= :since), "
+            "(SELECT COUNT(DISTINCT entity_id) FROM openai_call_log "
+            " WHERE call_site_id = 'screening.scoring' AND created_at >= :since "
+            "   AND entity_type = 'CandidateVettingLog' "
+            "   AND entity_id IS NOT NULL AND entity_id <> ''), "
             "(SELECT COUNT(*) FROM candidate_vetting_log WHERE created_at >= :since)"
         ),
         {'since': since},
     ).fetchone()
     if not row:
         return None
-    scoring_calls = int(row[0] or 0)
-    runs = int(row[1] or 0)
-    if runs <= 0:
-        return None
-    return scoring_calls / runs
+    return calls_per_run_ratio(row[0], row[1], row[2])
 
 
 # ── Alert composition and delivery ────────────────────────────────────────────

@@ -73,8 +73,29 @@ class CandidateDeduplicationMixin:
         """
         from datetime import timedelta
 
-        # Self-screen cooldown gate (May 2026) — runs FIRST and is candidate-
-        # level (no applied_job_id required). Catches the back-to-back loop
+        # An audit re-vet that came from an application email is screened
+        # by detect_unvetted_applications. Bullhorn search must not start
+        # a second tearsheet screen while that email is still queued.
+        try:
+            from vetting_audit_service.helpers import (
+                candidate_has_eligible_unvetted_parsed_email,
+            )
+            if candidate_has_eligible_unvetted_parsed_email(candidate_id):
+                logger.info(
+                    f"📧 Parsed-email queue owns candidate {candidate_id}; "
+                    f"skipping Bullhorn re-detect"
+                )
+                return True
+        except Exception as email_err:
+            logger.warning(
+                f"⚠️ Parsed-email ownership check failed for candidate "
+                f"{candidate_id} ({type(email_err).__name__}: {email_err}); "
+                f"continuing with the other skip gates"
+            )
+
+        # Self-screen cooldown gate (May 2026) — candidate-level, no
+        # applied_job_id required. Runs after the parsed-email ownership
+        # check. Catches the back-to-back loop
         # where every 5-min cycle re-detects the same applicant and creates
         # a fresh vetting_log against ALL tearsheet jobs (Hemanth bug).
         if self._self_screen_cooldown_active(candidate_id):
@@ -151,10 +172,9 @@ class CandidateDeduplicationMixin:
         Bypass mechanics:
           - Vetting Sandbox runs its own analysis/write flow and never
             enters `_should_skip_candidate`, so this gate is a no-op there.
-          - Quality-Auditor revets call `reset_candidate_for_revet` first,
-            which deletes the candidate's prior CandidateVettingLog and
-            CandidateJobMatch rows. The next detection pass therefore sees
-            no recent log and proceeds.
+          - Quality-Auditor revets delete the candidate's prior
+            CandidateVettingLog and CandidateJobMatch rows. The next
+            detection pass therefore sees no recent log and proceeds.
 
         Returns:
             True → candidate vetted within cooldown window, skip.
