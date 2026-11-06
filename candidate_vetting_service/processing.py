@@ -629,6 +629,7 @@ class CandidateProcessingMixin:
                         prefetched_global_requirements=prefetched_global_reqs,
                         screening_profile=screening_profile,
                         related_job_brief=_related_brief,
+                        vetting_log_id=getattr(vetting_log, 'id', None),
                     )
 
                     mini_score = analysis.get('match_score', 0)
@@ -669,6 +670,7 @@ class CandidateProcessingMixin:
                                 prefetched_global_requirements=prefetched_global_reqs,
                                 screening_profile=screening_profile,
                                 related_job_brief=_related_brief,
+                                vetting_log_id=getattr(vetting_log, 'id', None),
                             )
 
                             gpt4o_score = escalated_analysis.get('match_score', 0)

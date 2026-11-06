@@ -449,6 +449,7 @@ Check dashboard for automation status:
 
 ## 📈 Recent Major Updates
 
+- **Audit re-vet screens once (Nov 5)**: An audit re-vet queues one re-screen. When the audited run came from an application email, only that email is reset and the pending-revet safety net does not also enqueue the candidate. Bullhorn search leaves that candidate to the email queue. A run with no application email still uses the pending-revet path, and that path does not reset other emails. Prior vetting logs are marked superseded and kept, with their job matches and escalations. The calls-per-run alert counts distinct screening runs stamped on `screening.scoring` rows and also counts vetting-log rows, and uses whichever count is larger, so removing a log cannot inflate the ratio.
 - **Indeed leak removal sends the job's publish contact (Nov 3)**: An enforce-mode Indeed removal, including the mismatch delete, DELETEs Indeed only and sends that job's `publishedCategory` and `responseUser`. When either is missing, it uses the same category mapper and response-user resolver as tearsheet unpublish. An Indeed DELETE that returns HTTP 4xx writes Bullhorn's error message, truncated to 200 characters, to the server log. Emails, the Monday digest, and saved leak state still keep the exception type and HTTP status. The career portal is left up.
 - **Monday Indeed digest goes to recruiters only when they have something to do (Nov 2)**: A recruiter email is sent when they have a leak, a removal, a job in the 24-hour window, a failed action, a tearsheet job that cannot publish, or a tearsheet job that is not live on Indeed. Live Sponsored - Indeed jobs alone do not send one. When an email does go out, it lists only the sections that have their rows, and their live jobs can appear as context. The ops digest still goes out every Monday with every section, including zeros, plus a line naming the recruiters who were emailed. Not deployed yet.
 - **Indeed warnings are one email per recruiter (Oct 31)**: In enforce mode, an open job on Indeed that is not on Sponsored - Indeed still gets a 24-hour window before an Indeed-only removal. Each recruiter now gets one email for that run, listing every job that just started the window for them, with the removal deadline in ET. The job ID and the title link to the Bullhorn job. A job with two recruiters is listed in both emails. The careers site posting is left up. Ops stays on BCC.
@@ -732,5 +733,5 @@ Access health endpoints for status checks:
 
 ---
 
-**Last Updated**: November 3, 2026
-**Version**: 2.17 (Indeed leak removal sends the job's category and response user)
+**Last Updated**: November 5, 2026
+**Version**: 2.18 (Audit re-vet screens a candidate once)

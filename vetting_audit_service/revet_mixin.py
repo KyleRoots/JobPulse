@@ -201,26 +201,35 @@ class RevetMixin:
         return None
 
     def _trigger_revet(self, candidate_id: int, original_log_id: int) -> Optional[float]:
-        """Reset the candidate's vetting state so the next cycle re-scores them.
+        """Mark prior runs superseded and queue exactly one re-screen.
 
         Async by design: the actual re-score is performed by the next
         ``CandidateVettingService.run_vetting_cycle`` invocation, so this
         helper returns ``None`` and lets ``backfill_revet_new_score`` populate
         ``revet_new_score`` once the new ``CandidateJobMatch`` rows land.
 
-        Delegates to ``clear_candidate_vetting_state`` (shared with
-        ``detect_pending_revet_candidates``) so the cascade is identical
-        whether the auditor triggered the revet directly or the safety-net
-        detector re-enqueues a stuck audit row later.
+        When the audited run has a ParsedEmail, only that email is reset.
+        ``detect_unvetted_applications`` then screens the candidate once.
+        ``detect_pending_revet_candidates`` does not also enqueue them.
+        A run with no ParsedEmail is left for that safety net, which is
+        the single path for PandoLogic, Matador, and Bullhorn-search intake.
         """
         from app import db
         from .helpers import clear_candidate_vetting_state
 
         try:
-            stats = clear_candidate_vetting_state(candidate_id)
+            from models import CandidateVettingLog
+            original = CandidateVettingLog.query.get(original_log_id)
+            email_ids = []
+            if original is not None and original.parsed_email_id:
+                email_ids = [int(original.parsed_email_id)]
+            stats = clear_candidate_vetting_state(
+                candidate_id,
+                parsed_email_ids=email_ids,
+            )
             logger.info(
                 f"🔄 Audit re-vet: reset candidate {candidate_id} — "
-                f"cleared {stats['vetting_logs_deleted']} vetting logs, "
+                f"superseded {stats['vetting_logs_superseded']} vetting logs, "
                 f"reset {stats['parsed_emails_reset']} ParsedEmails. "
                 f"Will be picked up by next vetting cycle."
             )

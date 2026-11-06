@@ -921,18 +921,17 @@ class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMi
         Background — why this is needed even though the auditor already
         calls ``_trigger_revet``:
 
-        ``RevetMixin._trigger_revet`` deletes the candidate's prior
-        vetting state and expects the next vetting cycle to re-score them.
-        For parsed_email-path candidates that works because
-        ``detect_unvetted_applications`` re-picks them up via
-        ``vetted_at IS NULL``. For non-parsed_email-path candidates
-        (PandoLogic notes / Matador / Bullhorn-search legacy), the upstream
-        detectors only look at the last 5–10 minutes of activity — so a
-        candidate revet that was triggered hours ago is never re-discovered,
-        leaving the audit row stuck as ``revet_triggered`` /
-        ``revet_new_score=NULL`` indefinitely. The May-2026 stuck-row
-        cluster (rows 6242, 6251, 6387 + ~4 unidentified) all fit this
-        pattern.
+        ``RevetMixin._trigger_revet`` marks the candidate's prior vetting
+        logs superseded and expects the next vetting cycle to re-score
+        them once. For parsed_email-path candidates that screen is
+        ``detect_unvetted_applications``, which re-picks the single email
+        the audit reset. This detector must not also enqueue those
+        candidates: doing both screens the tearsheet twice, a minute
+        apart. For non-parsed_email-path candidates (PandoLogic notes /
+        Matador / Bullhorn-search legacy), the upstream detectors only
+        look at the last 5–10 minutes of activity, so this detector is
+        the one re-screen. The May-2026 stuck-row cluster (rows 6242,
+        6251, 6387 + ~4 unidentified) is that second case.
 
         This detector uses the audit log itself as the durable revet
         queue: any audit row still missing ``revet_new_score`` after
@@ -994,6 +993,7 @@ class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMi
         skipped_already_revetted = 0
         skipped_active_session = 0
         skipped_clear_failed = 0
+        skipped_parsed_email_queue = 0
         resolved_unbackfillable = 0
 
         for audit in pending_audits:
@@ -1129,17 +1129,40 @@ class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMi
                 )
                 continue
 
-            # Clear stale vetting state so ``_self_screen_cooldown_active``
-            # doesn't block the next cycle. Note: we deliberately do NOT
-            # call ``_should_skip_candidate`` here — that gate consults
-            # the same stale vlogs we are about to delete, and would
-            # self-block recovery for the very rows this detector exists
-            # to recover. The auditor's revet decision was the human-
-            # signal checkpoint; the post-audit-match guard above is the
-            # loop guard. ``clear_candidate_vetting_state`` raises
-            # ``RuntimeError`` when an active ``ScoutVettingSession``
-            # would be orphaned by the delete — treat that as a separate
-            # skip class so it shows up clearly in telemetry.
+            # An eligible unvetted ParsedEmail is the one re-screen.
+            # Enqueueing here as well scores the tearsheet a second time
+            # one cycle later, because this dict has no
+            # ``_parsed_email_id`` and the email stays unvetted.
+            try:
+                from vetting_audit_service.helpers import (
+                    candidate_has_eligible_unvetted_parsed_email,
+                )
+                owned_by_email = candidate_has_eligible_unvetted_parsed_email(
+                    candidate_id
+                )
+            except Exception as e:
+                logger.warning(
+                    f"⚠️ Pending-revet detector: unvetted-email lookup failed "
+                    f"for candidate {candidate_id} "
+                    f"({type(e).__name__}: {e}); leaving the row for the "
+                    f"parsed-email queue"
+                )
+                owned_by_email = True
+            if owned_by_email:
+                skipped_parsed_email_queue += 1
+                logger.info(
+                    f"🔁 Pending-revet left to parsed-email queue: "
+                    f"candidate {candidate_id} audit row {audit.id}"
+                )
+                continue
+
+            # No application email will pick this up. Supersede prior runs
+            # so the self-screen cooldown does not block the re-screen, and
+            # do not reset any ParsedEmail. We deliberately do not call
+            # ``_should_skip_candidate``: that gate would consult the same
+            # runs and self-block the row this detector exists to recover.
+            # ``clear_candidate_vetting_state`` raises ``RuntimeError`` when
+            # a Scout session still references the logs.
             try:
                 stats = clear_candidate_vetting_state(candidate_id)
             except RuntimeError as e:
@@ -1188,7 +1211,7 @@ class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMi
                 f"🔁 Pending-revet re-enqueue: candidate {candidate_id} "
                 f"({audit.candidate_name or 'unknown'}) audit row {audit.id} "
                 f"finding={audit.finding_type} original_score={audit.original_score} "
-                f"audit_age_hours={audit_age_h:.1f} cleared_vlogs="
+                f"audit_age_hours={audit_age_h:.1f} superseded_vlogs="
                 f"{stats['vetting_logs_deleted']}"
             )
 
@@ -1197,11 +1220,13 @@ class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMi
             or skipped_already_revetted
             or skipped_active_session
             or skipped_clear_failed
+            or skipped_parsed_email_queue
             or resolved_unbackfillable
         ):
             logger.info(
                 f"🔁 Pending revets: {len(candidates_to_enqueue)} re-enqueued, "
                 f"{skipped_already_revetted} already-revetted (back-fill pending), "
+                f"{skipped_parsed_email_queue} left to the parsed-email queue, "
                 f"{skipped_active_session} blocked by active Scout session, "
                 f"{skipped_clear_failed} failed clear, "
                 f"{resolved_unbackfillable} terminated as un-backfillable, "
