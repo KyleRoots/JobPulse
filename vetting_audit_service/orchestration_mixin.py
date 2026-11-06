@@ -282,9 +282,9 @@ class OrchestrationMixin:
         from app import db
         from models import CandidateJobMatch, VettingAuditLog
 
-        # Snapshot scalars before the re-vet marks CandidateVettingLog rows
-        # superseded. Later attribute access on an expired instance used to
-        # raise ObjectDeletedError when those rows were hard-deleted.
+        # Snapshot scalars BEFORE any re-vet deletes CandidateVettingLog rows.
+        # `_trigger_revet` → clear_candidate_vetting_state deletes the log; later
+        # attribute access raised ObjectDeletedError ("… has been deleted").
         log_id = vetting_log.id
         candidate_id = vetting_log.bullhorn_candidate_id
         candidate_name = vetting_log.candidate_name

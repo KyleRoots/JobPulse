@@ -85,36 +85,38 @@ def clear_candidate_vetting_state(
     candidate_id: int,
     parsed_email_ids: Optional[List[int]] = None,
 ) -> Dict[str, int]:
-    """Mark the candidate's prior vetting runs superseded so one re-screen
-    can land.
+    """Delete the candidate's prior vetting runs so the next cycle re-scores
+    them once.
 
     Shared by ``RevetMixin._trigger_revet`` and
-    ``detect_pending_revet_candidates``. Prior runs stay in
-    ``candidate_vetting_log`` with status ``superseded``. Job matches,
-    escalations, and embedding rows stay attached to those runs. The
-    calls-per-run alert counts those rows, so a re-vet cannot shrink the
-    denominator by deleting them.
+    ``detect_pending_revet_candidates``. Drops matches, embedding rows,
+    escalation rows, and the ``CandidateVettingLog`` rows for this
+    Bullhorn candidate. Scout Screening and the other match readers take
+    the best score they find and do not skip old runs, so leaving a
+    pre-audit score in place would keep showing it to recruiters.
+    Deleted runs stay in the calls-per-run denominator because
+    ``screening.scoring`` stamps the vetting log id on
+    ``openai_call_log``.
 
     ``parsed_email_ids`` lists the application emails that should be
     queued again. ``None`` or an empty list resets no emails. The audit
     passes only the email on the run it just audited. The pending-revet
-    safety net passes none, because an email reset is what makes the
-    parsed-email queue screen the candidate a second time.
+    safety net passes none, because resetting every email is what queues
+    a second full screen.
 
-    Status ``superseded`` is ignored by the self-screen cooldown and by
-    the parsed-email "already vetted" check, which only look at
-    completed, processing, and failed. A Scout session that still points
-    at one of these logs blocks the re-vet, same as before, so that
-    conversation stays attached to the run it started from.
+    Filtering by ``bullhorn_candidate_id`` covers intake that stores
+    ``parsed_email_id=NULL``. A Scout session that still points at one
+    of these logs blocks the delete. The session foreign key is NOT NULL
+    and has no ON DELETE CASCADE, so the delete would raise
+    IntegrityError.
 
-    Returns counts for logging. ``vetting_logs_deleted`` is the number of
-    rows newly marked superseded (the key name is kept so existing log
-    lines and tests keep working). Raises on failure. The caller rolls
-    back.
+    Returns ``vetting_logs_deleted`` and ``parsed_emails_reset``.
+    Raises on failure. The caller rolls back.
     """
     from app import db
     from models import (
-        CandidateVettingLog, ParsedEmail, ScoutVettingSession,
+        CandidateVettingLog, CandidateJobMatch, ParsedEmail,
+        EmbeddingFilterLog, EscalationLog, ScoutVettingSession,
     )
 
     vetting_logs_for_check = CandidateVettingLog.query.filter(
@@ -144,9 +146,9 @@ def clear_candidate_vetting_state(
                 f"clear_candidate_vetting_state blocked: candidate "
                 f"{candidate_id} has {blocking_session_count} Scout "
                 f"vetting session(s) referencing its vetting logs "
-                f"({active_count} active, {terminal_count} terminal). "
-                f"Re-vet is skipped so that conversation stays attached "
-                f"to the run it started from."
+                f"({active_count} active, {terminal_count} terminal) — "
+                f"FK to candidate_vetting_log.id is NOT NULL without "
+                f"CASCADE; deleting would raise IntegrityError"
             )
 
     email_ids: List[int] = []
@@ -167,20 +169,29 @@ def clear_candidate_vetting_state(
             pe.vetted_at = None
             pe_count += 1
 
-    superseded = 0
-    now = datetime.utcnow()
-    for vl in vetting_logs_for_check:
-        if (vl.status or '') == 'superseded':
-            continue
-        vl.status = 'superseded'
-        vl.updated_at = now
-        superseded += 1
+    vetting_logs = CandidateVettingLog.query.filter(
+        CandidateVettingLog.bullhorn_candidate_id == candidate_id,
+    ).all()
+    log_ids = [vl.id for vl in vetting_logs]
+
+    if log_ids:
+        EmbeddingFilterLog.query.filter(
+            EmbeddingFilterLog.vetting_log_id.in_(log_ids)
+        ).delete(synchronize_session=False)
+        EscalationLog.query.filter(
+            EscalationLog.vetting_log_id.in_(log_ids)
+        ).delete(synchronize_session=False)
+        CandidateJobMatch.query.filter(
+            CandidateJobMatch.vetting_log_id.in_(log_ids)
+        ).delete(synchronize_session=False)
+        CandidateVettingLog.query.filter(
+            CandidateVettingLog.id.in_(log_ids)
+        ).delete(synchronize_session=False)
 
     db.session.commit()
 
     return {
-        'vetting_logs_deleted': superseded,
-        'vetting_logs_superseded': superseded,
+        'vetting_logs_deleted': len(log_ids),
         'parsed_emails_reset': pe_count,
     }
 
@@ -217,8 +228,8 @@ def backfill_revet_new_score(
 ) -> int:
     """Back-fill ``VettingAuditLog.revet_new_score`` after a re-vet completes.
 
-    ``_trigger_revet`` is asynchronous: it marks the candidate's vetting
-    logs superseded and lets the next vetting cycle re-score them, so it cannot
+    ``_trigger_revet`` is asynchronous: it deletes the candidate's vetting
+    logs and lets the next vetting cycle re-score them, so it cannot
     return the new score synchronously and the audit row is written with
     ``revet_new_score=NULL``. This helper is invoked from the vetting
     service once the new ``CandidateJobMatch`` rows have been committed;

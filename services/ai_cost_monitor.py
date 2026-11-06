@@ -180,9 +180,9 @@ def calls_per_run_ratio(
 
     ``tagged_runs`` is the number of distinct vetting-log ids stamped on
     ``screening.scoring`` rows. ``log_runs`` is the number of
-    ``candidate_vetting_log`` rows in the window, including superseded
-    ones. The denominator is the larger of the two, so deleting vetting
-    logs cannot shrink it below the runs that actually called the model.
+    ``candidate_vetting_log`` rows still in the window. The denominator
+    is the larger of the two, so deleting vetting logs cannot shrink it
+    below the runs that actually called the model.
     Returns None when there is no screening activity to divide by.
     """
     try:

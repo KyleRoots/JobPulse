@@ -172,11 +172,9 @@ class CandidateDeduplicationMixin:
         Bypass mechanics:
           - Vetting Sandbox runs its own analysis/write flow and never
             enters `_should_skip_candidate`, so this gate is a no-op there.
-          - Quality-Auditor revets mark the prior CandidateVettingLog
-            rows superseded. This query only looks at completed and
-            processing, so the next detection pass proceeds. The rows
-            stay in the table so the calls-per-run denominator does not
-            shrink.
+          - Quality-Auditor revets delete the candidate's prior
+            CandidateVettingLog and CandidateJobMatch rows. The next
+            detection pass therefore sees no recent log and proceeds.
 
         Returns:
             True → candidate vetted within cooldown window, skip.

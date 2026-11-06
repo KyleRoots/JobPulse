@@ -44,7 +44,8 @@ def _email(app, *, candidate_id, job_id, vetted, subject):
     return row
 
 
-def _log(app, *, candidate_id, job_id, parsed_email_id, status='completed'):
+def _log(app, *, candidate_id, job_id, parsed_email_id, status='completed',
+         score=18.0):
     from app import db
     from models import CandidateJobMatch, CandidateVettingLog, EscalationLog
 
@@ -54,7 +55,7 @@ def _log(app, *, candidate_id, job_id, parsed_email_id, status='completed'):
         status=status,
         applied_job_id=job_id,
         parsed_email_id=parsed_email_id,
-        highest_match_score=18.0,
+        highest_match_score=score,
         created_at=datetime.utcnow() - timedelta(hours=3),
     )
     db.session.add(log)
@@ -63,8 +64,9 @@ def _log(app, *, candidate_id, job_id, parsed_email_id, status='completed'):
         vetting_log_id=log.id,
         bullhorn_job_id=job_id,
         job_title='Solution Architect',
-        match_score=18.0,
+        match_score=score,
         is_applied_job=True,
+        created_at=datetime.utcnow() - timedelta(hours=3),
     ))
     db.session.add(EscalationLog(
         vetting_log_id=log.id,
@@ -117,15 +119,15 @@ def _cleanup(app, candidate_ids):
             CandidateVettingLog.bullhorn_candidate_id.in_(candidate_ids)
         ).all()
         log_ids = [row.id for row in logs]
+        VettingAuditLog.query.filter(
+            VettingAuditLog.bullhorn_candidate_id.in_(candidate_ids)
+        ).delete(synchronize_session=False)
+        EscalationLog.query.filter(
+            EscalationLog.bullhorn_candidate_id.in_(candidate_ids)
+        ).delete(synchronize_session=False)
         if log_ids:
             CandidateJobMatch.query.filter(
                 CandidateJobMatch.vetting_log_id.in_(log_ids)
-            ).delete(synchronize_session=False)
-            EscalationLog.query.filter(
-                EscalationLog.vetting_log_id.in_(log_ids)
-            ).delete(synchronize_session=False)
-            VettingAuditLog.query.filter(
-                VettingAuditLog.candidate_vetting_log_id.in_(log_ids)
             ).delete(synchronize_session=False)
             CandidateVettingLog.query.filter(
                 CandidateVettingLog.id.in_(log_ids)
@@ -144,7 +146,7 @@ def clean_candidates(app):
 
 
 class TestAuditRevetSingleScreen:
-    def test_trigger_resets_only_the_audited_email_and_keeps_the_run(
+    def test_trigger_resets_only_the_audited_email_and_deletes_prior_runs(
         self, app, clean_candidates
     ):
         from models import CandidateJobMatch, CandidateVettingLog, EscalationLog, ParsedEmail
@@ -184,17 +186,15 @@ class TestAuditRevetSingleScreen:
             other_email = ParsedEmail.query.get(other_id)
             assert audited_email.vetted_at is None
             assert other_email.vetted_at is not None
-            kept = CandidateVettingLog.query.filter(
+            assert CandidateVettingLog.query.filter(
                 CandidateVettingLog.id.in_([audited_log_id, other_log_id])
-            ).all()
-            assert len(kept) == 2
-            assert {row.status for row in kept} == {'superseded'}
-            assert CandidateJobMatch.query.filter_by(
-                vetting_log_id=audited_log_id
-            ).count() == 1
-            assert EscalationLog.query.filter_by(
-                vetting_log_id=audited_log_id
-            ).count() == 1
+            ).count() == 0
+            assert CandidateJobMatch.query.filter(
+                CandidateJobMatch.vetting_log_id.in_([audited_log_id, other_log_id])
+            ).count() == 0
+            assert EscalationLog.query.filter(
+                EscalationLog.vetting_log_id.in_([audited_log_id, other_log_id])
+            ).count() == 0
 
     def test_pending_detector_does_not_enqueue_when_the_email_queue_owns_it(
         self, app, clean_candidates
@@ -267,8 +267,8 @@ class TestAuditRevetSingleScreen:
             assert enqueued[0]['_applied_job_id'] == 36191
             assert '_parsed_email_id' not in enqueued[0]
             assert ParsedEmail.query.get(unrelated.id).vetted_at == unrelated_vetted_at
-            assert CandidateVettingLog.query.get(log_id).status == 'superseded'
-            assert CandidateJobMatch.query.filter_by(vetting_log_id=log_id).count() == 1
+            assert CandidateVettingLog.query.get(log_id) is None
+            assert CandidateJobMatch.query.filter_by(vetting_log_id=log_id).count() == 0
 
     def test_pre_cutoff_email_does_not_block_the_pending_path(
         self, app, clean_candidates
@@ -393,6 +393,82 @@ class TestAuditRevetSingleScreen:
             assert queued[0]['_parsed_email_id'] == audited.id
             assert queued[0]['_applied_job_id'] == 35902
 
+    def test_scout_screening_shows_only_the_new_runs_match(
+        self, app, clean_candidates
+    ):
+        """Scout Screening takes the best score it finds and does not skip
+        old runs. Deleting the pre-audit match is what keeps that score off
+        the list. Same join as routes/scout_screening.py dashboard().
+        """
+        from app import db
+        from models import CandidateJobMatch, CandidateVettingLog
+        from vetting_audit_service.revet_mixin import RevetMixin
+
+        job_id = 35902
+        with app.app_context():
+            audited = _email(
+                app, candidate_id=CANDIDATE, job_id=job_id,
+                vetted=True, subject='audited application',
+            )
+            old = _log(
+                app, candidate_id=CANDIDATE, job_id=job_id,
+                parsed_email_id=audited.id, score=90.0,
+            )
+            db.session.commit()
+            old_log_id = old.id
+            audited_email_id = audited.id
+
+            class _Auditor(RevetMixin):
+                pass
+
+            _Auditor()._trigger_revet(CANDIDATE, old_log_id)
+            # Bulk delete does not drop the old log from the identity map.
+            db.session.expunge_all()
+
+            new = CandidateVettingLog(
+                bullhorn_candidate_id=CANDIDATE,
+                candidate_name='Audit Candidate',
+                status='completed',
+                applied_job_id=job_id,
+                parsed_email_id=audited_email_id,
+                highest_match_score=22.0,
+                is_sandbox=False,
+                created_at=datetime.utcnow(),
+            )
+            db.session.add(new)
+            db.session.flush()
+            db.session.add(CandidateJobMatch(
+                vetting_log_id=new.id,
+                bullhorn_job_id=job_id,
+                job_title='Solution Architect',
+                match_score=22.0,
+                is_applied_job=True,
+                created_at=datetime.utcnow(),
+            ))
+            db.session.commit()
+            new_log_id = new.id
+
+            rows = (
+                CandidateJobMatch.query
+                .join(CandidateVettingLog)
+                .filter(
+                    CandidateJobMatch.bullhorn_job_id == job_id,
+                    CandidateVettingLog.bullhorn_candidate_id == CANDIDATE,
+                    CandidateVettingLog.is_sandbox != True,
+                )
+                .order_by(CandidateJobMatch.created_at.desc())
+                .all()
+            )
+            best_score = max(int(round(row.match_score or 0)) for row in rows)
+
+            assert len(rows) == 1
+            assert rows[0].vetting_log_id == new_log_id
+            assert rows[0].match_score == 22.0
+            assert best_score == 22
+            assert CandidateJobMatch.query.filter_by(
+                vetting_log_id=old_log_id, match_score=90.0
+            ).count() == 0
+
 
 class TestCallsPerRunSurvivesDeletion:
     def test_ratio_uses_the_larger_run_count(self):
@@ -439,8 +515,13 @@ class TestCallsPerRunSurvivesDeletion:
                 db.session.delete(deleted)
                 db.session.commit()
                 ratio = _fetch_calls_per_run(stamp - timedelta(minutes=1))
-                # 20 scoring calls, 2 tagged runs, 1 surviving log.
-                # Dividing by the surviving log alone would report 20.
+                scoring_calls = 20
+                tagged_runs = 2
+                surviving_logs = 1
+                # The true rate is one call-set per run that hit the model.
+                # Dividing by the log that is still in the table reports 20.
+                assert ratio == pytest.approx(scoring_calls / tagged_runs)
+                assert scoring_calls / surviving_logs == pytest.approx(20.0)
                 assert ratio == pytest.approx(10.0)
                 assert CandidateVettingLog.query.get(deleted_id) is None
             finally:

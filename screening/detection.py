@@ -921,8 +921,8 @@ class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMi
         Background — why this is needed even though the auditor already
         calls ``_trigger_revet``:
 
-        ``RevetMixin._trigger_revet`` marks the candidate's prior vetting
-        logs superseded and expects the next vetting cycle to re-score
+        ``RevetMixin._trigger_revet`` deletes the candidate's prior
+        vetting logs and expects the next vetting cycle to re-score
         them once. For parsed_email-path candidates that screen is
         ``detect_unvetted_applications``, which re-picks the single email
         the audit reset. This detector must not also enqueue those
@@ -1156,8 +1156,8 @@ class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMi
                 )
                 continue
 
-            # No application email will pick this up. Supersede prior runs
-            # so the self-screen cooldown does not block the re-screen, and
+            # No application email will pick this up. Delete prior runs so
+            # the self-screen cooldown does not block the re-screen, and
             # do not reset any ParsedEmail. We deliberately do not call
             # ``_should_skip_candidate``: that gate would consult the same
             # runs and self-block the row this detector exists to recover.
@@ -1211,7 +1211,7 @@ class CandidateDetectionMixin(CandidateDeduplicationMixin, CandidateDataAccessMi
                 f"🔁 Pending-revet re-enqueue: candidate {candidate_id} "
                 f"({audit.candidate_name or 'unknown'}) audit row {audit.id} "
                 f"finding={audit.finding_type} original_score={audit.original_score} "
-                f"audit_age_hours={audit_age_h:.1f} superseded_vlogs="
+                f"audit_age_hours={audit_age_h:.1f} cleared_vlogs="
                 f"{stats['vetting_logs_deleted']}"
             )
 

@@ -201,7 +201,7 @@ class RevetMixin:
         return None
 
     def _trigger_revet(self, candidate_id: int, original_log_id: int) -> Optional[float]:
-        """Mark prior runs superseded and queue exactly one re-screen.
+        """Delete prior runs and queue exactly one re-screen.
 
         Async by design: the actual re-score is performed by the next
         ``CandidateVettingService.run_vetting_cycle`` invocation, so this
@@ -229,7 +229,7 @@ class RevetMixin:
             )
             logger.info(
                 f"🔄 Audit re-vet: reset candidate {candidate_id} — "
-                f"superseded {stats['vetting_logs_superseded']} vetting logs, "
+                f"cleared {stats['vetting_logs_deleted']} vetting logs, "
                 f"reset {stats['parsed_emails_reset']} ParsedEmails. "
                 f"Will be picked up by next vetting cycle."
             )

@@ -29,7 +29,7 @@ class CandidateVettingLog(db.Model):
     resume_file_id = db.Column(db.Integer, nullable=True)  # Bullhorn file ID
 
     # Analysis status
-    status = db.Column(db.String(50), default='pending')  # pending, processing, completed, failed, superseded
+    status = db.Column(db.String(50), default='pending')  # pending, processing, completed, failed
     is_qualified = db.Column(db.Boolean, default=False)  # True if matched 80%+ on any job
     highest_match_score = db.Column(db.Float, default=0.0)  # Best match score across all jobs
     total_jobs_matched = db.Column(db.Integer, default=0)  # Count of jobs with 80%+ match
@@ -472,13 +472,13 @@ class RecruiterNotificationLedger(db.Model):
     (candidate, job, notification_type) tuple.
 
     Built May 2026 (Task #95) to stop duplicate "Qualified Candidate"
-    emails on auditor re-vet. Re-vet used to delete the
-    ``CandidateJobMatch`` rows that carried ``notification_sent=True``.
-    Those rows are now kept on the superseded run. The new run still
-    starts with unsent matches. This ledger remains the dedupe, because
-    the recruiter notification path has no other idempotency signal and
-    would fire a second email even though the Bullhorn note path skips
-    the duplicate via its own check.
+    emails on auditor re-vet. The Quality Auditor's
+    ``clear_candidate_vetting_state`` cascade deletes the
+    ``CandidateJobMatch`` rows that carried ``notification_sent=True``,
+    so the next vetting cycle creates fresh matches with
+    ``notification_sent=False``. The recruiter notification path would
+    fire a second email even though the Bullhorn note path skips the
+    duplicate via its own check.
 
     This ledger lives **outside** the auditor cascade by design: it is
     keyed on ``(bullhorn_candidate_id, bullhorn_job_id, notification_type)``
