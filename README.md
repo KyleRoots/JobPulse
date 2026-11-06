@@ -340,7 +340,11 @@ Deploy to Railway production:
 railway up --service JobPulse --environment production
 ```
 
-Health check: `/health` (configured in `railway.toml`).
+Start command, health check and restart policy are set in each Railway service's Deploy settings (JobPulse and JobPulse-Qualified), not in a config file:
+
+- Start: `gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 300 --preload --config gunicorn.conf.py main:app` (`gunicorn.conf.py` starts the background scheduler in each worker)
+- Health check: `/ping`, timeout 300 s
+- Restart: on failure, 5 retries
 
 #### Step 5: Verify Automation Status
 Check dashboard for automation status:
